@@ -283,18 +283,18 @@ namespace mtc
       {  return Ensure() ? p->Insert( size(), r ) : ENOMEM;  }
     int   Append( array<T, M>& r )
       {  return Ensure() ? p->Insert( size(), r ) : ENOMEM;  }
-    int   Insert( int p, const T& t )
-      {  return Ensure() ? p->Insert( p, t ) : ENOMEM;  }
-    int   Insert( int p, T& t )
-      {  return Ensure() ? p->Insert( p, t ) : ENOMEM;  }
-    int   Insert( int p, int c, const T* t )
-      {  return Ensure() ? p->Insert( p, c, t ) : ENOMEM;  }
-    int   Insert( int p, int c, T* t )
-      {  return Ensure() ? p->Insert( p, c, t ) : ENOMEM;  }
-    int   Insert( int p, const array<T, M>& t )
-       {  return Ensure() ? p->Insert( p, t ) : ENOMEM;  }
-    int   Insert( int p, array<T, M>& t )
-       {  return Ensure() ? p->Insert( p, t ) : ENOMEM;  }
+    int   Insert( int i, const T& t )
+      {  return Ensure() ? p->Insert( i, t ) : ENOMEM;  }
+    int   Insert( int i, T& t )
+      {  return Ensure() ? p->Insert( i, t ) : ENOMEM;  }
+    int   Insert( int i, int c, const T* t )
+      {  return Ensure() ? p->Insert( i, c, t ) : ENOMEM;  }
+    int   Insert( int i, int c, T* t )
+      {  return Ensure() ? p->Insert( i, c, t ) : ENOMEM;  }
+    int   Insert( int i, const array<T, M>& t )
+       {  return Ensure() ? p->Insert( i, t ) : ENOMEM;  }
+    int   Insert( int i, array<T, M>& t )
+       {  return Ensure() ? p->Insert( i, t ) : ENOMEM;  }
     int   Delete( int n )
       {  return p == nullptr ? 0 : p->Delete( n );  }
     int   GetLen() const
@@ -356,9 +356,9 @@ namespace mtc
     operator const  T* () const
       {  return p != nullptr ? (const T*)*p : (T*)nullptr;  }
     T&    operator [] ( int n )
-      {  assert( p != nulltpr );  return (*p)[n];  }
+      {  assert( p != nullptr );  return (*p)[n];  }
     const T&  operator [] ( int n ) const
-      {  assert( p != nulltpr );  return (*p)[n];  }
+      {  assert( p != nullptr );  return (*p)[n];  }
 
   public:     // customizing
     int   GetLimit() const

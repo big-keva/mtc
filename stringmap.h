@@ -403,7 +403,7 @@ namespace mtc
   }
 
   template <class Chr, class Val, class M>
-  inline  const Chr* _base_stringmap_<Chr, Val, M>::GetKey( const void*  pvn ) const
+  inline  const Chr* _base_stringmap_<Chr, Val, M>::GetKey( const void*  pvn )
   {
     assert( pvn != NULL );
 
