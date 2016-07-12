@@ -63,8 +63,8 @@ namespace mtc
     return s - o - 1;
   }
 
-  inline  auto w_strlen( const widechar* s )  {  return __impl_strlen( s );  }
-  inline  auto w_strlen( const char* s )      {  return __impl_strlen( s );  }
+  inline  auto w_strlen( const widechar* s )  {  return (size_t)__impl_strlen( s );  }
+  inline  auto w_strlen( const char* s )      {  return (size_t)__impl_strlen( s );  }
 
   //
   // strdup() family
