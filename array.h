@@ -228,7 +228,7 @@ namespace mtc
 
   };
 
-  template <class T, class M = mtc::def_alloc<>>
+  template <class T, class M = def_alloc<>>
   class shared_array
   {
     struct array_data: public array<T, M>
@@ -245,7 +245,7 @@ namespace mtc
   protected:  // helper
     bool  Ensure()
       {
-        if ( p == nullptr && (p = M().allocate<array_data>( d )) != nullptr )
+        if ( p == nullptr && (p = M().template allocate<array_data>( d )) != nullptr )
           ++p->refcount;
         return p != nullptr;
       }
@@ -323,7 +323,7 @@ namespace mtc
         {
           array_data* palloc;
 
-          if ( (palloc = M().allocate<array_data>( p->GetDelta() )) == nullptr )
+          if ( (palloc = M().template allocate<array_data>( p->GetDelta() )) == nullptr )
             return ENOMEM;
           if ( palloc->Append( *p ) != 0 )
           {
