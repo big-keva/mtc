@@ -392,40 +392,34 @@ namespace mtc
         {
           const patarray& patarr = getarray();
           const V*        pvalue = getvalue();
-          word16_t        arsize = (patarr.size() << 1) | (pvalue != nullptr ? 0x01 : 0x00);
-          unsigned        length = ::GetBufLen( getStrLen() ) + ::GetBufLen( arsize ) + getStrLen();
+          word16_t        arsize = patarr.size() << 1;
+          unsigned        ccharr = patarr.GetBufLen();
 
-        // serialize value
           if ( pvalue != nullptr )
-            length += ::GetBufLen( *pvalue );
+            {  ccharr += ::GetBufLen( *pvalue );  arsize |= 1;  }
 
         // serialize byte count of nested branches
-          if ( patarr.size() > 0 )
-          {
-            unsigned  arsize = patarr.GetBufLen();
-            length += arsize + ::GetBufLen( arsize );
-          }
-          return length;
+          return ::GetBufLen( getStrLen() ) + getStrLen() + ccharr + ::GetBufLen( ccharr ) + ::GetBufLen( arsize );
         }
       template <class O>  O*  Serialize( O* o ) const
         {
           const patarray& patarr = getarray();
           const V*        pvalue = getvalue();
           word16_t        arsize = (patarr.size() << 1) | (pvalue != nullptr ? 0x01 : 0x00);
+          unsigned        nodlen;
 
-        // store key size, array size and key value
+        // store key size, array size and key
           o = ::Serialize( ::Serialize( ::Serialize( o, getStrLen() ), arsize ),
             getString(), getStrLen() );
 
+        // write the array and value size in bytes
+          nodlen = patarr.GetBufLen() + (pvalue != nullptr ? ::GetBufLen( *pvalue ) : 0);
+
+          if ( (o = patarr.Serialize( ::Serialize( o, nodlen ) )) == nullptr )
+            return nullptr;
+
         // serialize value
-          if ( pvalue != nullptr )
-            o = ::Serialize( o, *pvalue );
-
-        // for non-ampty arrays, write the array size
-          if ( patarr.size() > 0 )
-            o = patarr.Serialize( ::Serialize( o, patarr.GetBufLen() ) );
-
-          return o;
+          return o != nullptr && pvalue != nullptr ? ::Serialize( o, *pvalue ) : o;
         }
       template <class S>  S*  FetchFrom( S* s, int arsize, bool bvalue )
         {
