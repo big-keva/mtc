@@ -35,7 +35,6 @@ SOFTWARE.
 # include <cassert>
 # include "platform.h"
 # include <new>
-# include <atomic>
 
 # if defined( _MSC_VER )
 #   pragma warning( push )
@@ -157,11 +156,19 @@ namespace mtc
   template <class T, class M = def_alloc<>>
   class array
   {
-  public:
+    M     malloc;
+
+  public:     // construction
           array( int adelta = 0x10 );
           array( const array<T, M>& );
-    array<T, M>& operator =( const array<T, M>& );
          ~array();
+    array<T, M>& operator =( const array<T, M>& );
+
+  public:     // set allocator
+    M&    GetAllocator()              {  return malloc;     }
+    M&    SetAllocator( const M& m )  {  return malloc = m; }
+
+  public:     // members
     int   Append( const T& t )                    {  return Insert( size(), t );      }
     int   Append( T& t )                          {  return Insert( size(), t );      }
     int   Append( int c, const T* p )             {  return Insert( size(), c, p );   }
@@ -233,44 +240,53 @@ namespace mtc
   {
     struct array_data: public array<T, M>
     {
-      std::atomic_int refcount;
+      long  refcount;
 
     public:
     
       array_data( int d ): array<T, M>( d ) {  refcount = 0;  }
     };
-    array_data* p;
-    int         d;
+
+    M           malloc;
+    array_data* parray;
+    int         ndelta;
 
   protected:  // helper
     bool  Ensure()
       {
-        if ( p == nullptr && (p = M().template allocate<array_data>( d )) != nullptr )
-          ++p->refcount;
-        return p != nullptr;
+        if ( parray == nullptr && (parray = malloc.template allocate<array_data>( ndelta )) != nullptr )
+          {  ++parray->refcount;  parray->SetAllocator( malloc );  }
+        return parray != nullptr;
       }
   public:     // construction
-    shared_array( int ndelta = 0x10 ): p( nullptr ), d( ndelta )
+    shared_array( int adelta = 0x10 ): parray( nullptr ), ndelta( adelta )
       {
       }
-    shared_array( const shared_array& a ): d( a.GetDelta() )
+    shared_array( const shared_array& a ):
+                          malloc( a.malloc ),
+                          ndelta( a.ndelta )
       {
-        if ( (p = a.p) != nullptr )
-          ++p->refcount;
+        if ( (parray = a.parray) != nullptr )
+          ++parray->refcount;
       }
    ~shared_array()
       {
-        if ( p != nullptr && --p->refcount == 0 )
-          M().deallocate( p );
+        if ( parray != nullptr && --parray->refcount == 0 )
+          malloc.deallocate( parray );
       }
     shared_array& operator = ( const shared_array& a )
       {
-        if ( p != nullptr && --p->refcount == 0 )
-          M().deallocate( p );
-        if ( (p = a.p) != nullptr )
-          p->refcount++;
+        if ( parray != nullptr && --parray->refcount == 0 )
+          malloc.deallocate( parray );
+        malloc = a.malloc;
+        if ( (parray = a.parray) != nullptr )
+          ++parray->refcount;
         return *this;
       }
+
+  public:     // set allocator
+    M&    GetAllocator()              {  return malloc;     }
+    M&    SetAllocator( const M& m )  {  return malloc = m; }
 
   public:     // API
     int   Append( const T& t )
@@ -303,92 +319,93 @@ namespace mtc
       {
         if ( l == 0 )
         {
-          if ( p != nullptr && --p->refcount == 0 )
-            M().deallocate( p );
-          p = nullptr;
+          if ( parray != nullptr && --parray->refcount == 0 )
+            malloc.deallocate( parray );
+          parray = nullptr;
             return 0;
         }
           else
-        return Ensure() ? p->SetLen( l ) : ENOMEM;
+        return Ensure() ? parray->SetLen( l ) : ENOMEM;
       }
     void  DelAll()
       {
-        if ( p != nullptr && --p->refcount == 0 )
-          M().deallocate( p );
-        p = nullptr;
+        if ( parray != nullptr && --parray->refcount == 0 )
+          malloc.deallocate( parray );
+        parray = nullptr;
       }
     int   Privatize()
       {
-        if ( p != nullptr && p->refcount != 1 )
+        if ( parray != nullptr && parray->refcount != 1 )
         {
           array_data* palloc;
 
-          if ( (palloc = M().template allocate<array_data>( p->GetDelta() )) == nullptr )
-            return ENOMEM;
-          if ( palloc->Append( *p ) != 0 )
+          if ( (palloc = malloc.template allocate<array_data>( parray->GetDelta() )) == nullptr )
+            return ENOMEM;  else parray->SetAllocator( malloc );
+
+          if ( palloc->Append( *parray ) != 0 )
           {
-            M().deallocate( palloc );
+            malloc.deallocate( palloc );
             return ENOMEM;
           }
-          if ( --p->refcount == 0 )
-            M().deallocate( p );
+          if ( --parray->refcount == 0 )
+            parray->GetAllocator().deallocate( p );
 
-          ++(p = palloc)->refcount;
+          ++(parray = palloc)->refcount;
         }
         return 0;
       }
 
   public:     // searchers
     int   Lookup( const T& t ) const
-      {  return p != nullptr ? p->Lookup( t ) : -1;  }
+      {  return parray != nullptr ? parray->Lookup( t ) : -1;  }
     template <class _pred_>
     int   Lookup( _pred_ test ) const
-      {  return p != nullptr ? p->Lookup( test ) : -1;  }
+      {  return parray != nullptr ? parray->Lookup( test ) : -1;  }
     bool  Search( const T& t, int& s ) const
-      {  return p != nullptr ? p->Search( t, s ) : (s = 0) != 0;  }
+      {  return parray != nullptr ? parray->Search( t, s ) : (s = 0) != 0;  }
     template <class _key_, class _cmp_>
     bool  Search( const _key_& k, int& s, _cmp_ cmp ) const
-      {  return p != nullptr ? p->Search( k, s, cmp ) : (s = 0) != 0;  }
+      {  return parray != nullptr ? parray->Search( k, s, cmp ) : (s = 0) != 0;  }
 
   public:     // operators
     operator        T* ()
-      {  return p != nullptr ? (T*)*p : (T*)nullptr;  }
+      {  return parray != nullptr ? (T*)*parray : (T*)nullptr;  }
     operator const  T* () const
-      {  return p != nullptr ? (const T*)*p : (T*)nullptr;  }
+      {  return parray != nullptr ? (const T*)*parray : (T*)nullptr;  }
     T&    operator [] ( int n )
-      {  assert( p != nullptr );  return (*p)[n];  }
+      {  assert( parray != nullptr );  return (*parray)[n];  }
     const T&  operator [] ( int n ) const
-      {  assert( p != nullptr );  return (*p)[n];  }
+      {  assert( parray != nullptr );  return (*parray)[n];  }
 
   public:     // customizing
     int   GetLimit() const
-      {  return p != nullptr ? p->GetLimit() : 0;  }
+      {  return parray != nullptr ? parray->GetLimit() : 0;  }
     int   GetDelta() const
-      {  return p != nullptr ? p->GetDelta() : d;  }
+      {  return parray != nullptr ? parray->GetDelta() : ndelta;  }
     int   SetLimit( int l )
-      {  return Ensure() ? p->SetLimit( l ) : ENOMEM;  }
+      {  return Ensure() ? parray->SetLimit( l ) : ENOMEM;  }
     void  SetDelta( int n )
-      {  d = n;  if ( p != nullptr )  p->SetDelta( d );  }
+      {  ndelta = n;  if ( parray != nullptr )  parray->SetDelta( ndelta );  }
 
   public:     // iterators
     template <class _func_>
     int       for_each( _func_ func ) const
-      {  return p != nullptr ? p->for_each( func ) : 0;  }
+      {  return parray != nullptr ? parray->for_each( func ) : 0;  }
     template <class _func_>
     int       for_each( _func_ func )
-      {  return p != nullptr ? p->for_each( func ) : 0;  }
+      {  return parray != nullptr ? parray->for_each( func ) : 0;  }
     template <class _func_>
     int       DeleteIf( _func_ func )
-      {  return p != nullptr ? p->DeleteIf( func ) : 0;  }
+      {  return parray != nullptr ? parray->DeleteIf( func ) : 0;  }
     int       DeleteIf( const T& t )
-      {  return p != nullptr ? p->DeleteIf( t ) : 0;  }
+      {  return parray != nullptr ? parray->DeleteIf( t ) : 0;  }
 
   public:     // stl compatibility
     T*        begin()       {  return *this;  }
     T*        end()         {  return size() + *this;  }
     const T*  begin() const {  return *this;  }
     const T*  end() const   {  return size() + *this;  }
-    int       size() const  {  return p != nullptr ? p->size() : 0;  }
+    int       size() const  {  return parray != nullptr ? parray->size() : 0;  }
   };
 
 // array inline implementation
@@ -404,12 +421,13 @@ namespace mtc
 
   template <class T, class M>
   inline array<T, M>::array( const array<T, M>& r ):
+                      malloc( r.malloc ),
                       pitems( r.pitems ),
                       ncount( r.ncount ), 
                       nlimit( r.nlimit ),
                       ndelta( r.ndelta )
   {
-    ((array<T, M>&)r).pitems = NULL;
+    ((array<T, M>&)r).pitems = nullptr;
     ((array<T, M>&)r).ncount = 0;
   }
 
@@ -417,11 +435,12 @@ namespace mtc
   inline array<T, M>& array<T, M>::operator = ( const array<T, M>& r )
   {
     this->~array<T, M>();
+      malloc = r.malloc;
       pitems = r.pitems;
       ncount = r.ncount;
       nlimit = r.nlimit;
       ndelta = r.ndelta;
-    ((array<T, M>&)r).pitems = NULL;
+    ((array<T, M>&)r).pitems = nullptr;
     ((array<T, M>&)r).ncount = 0;
       return *this;
   }
@@ -434,7 +453,7 @@ namespace mtc
     {
       if ( ncount )
         __safe_array_destruct( pitems, ncount );
-      M().free( pitems );
+      malloc.free( pitems );
     }
   }
 
@@ -474,7 +493,7 @@ namespace mtc
           newlimit = length;
 
       // Allocate new space
-        if ( (newitems = (T*)M().alloc( newlimit * sizeof(T) )) == NULL )
+        if ( (newitems = (T*)malloc.alloc( newlimit * sizeof(T) )) == NULL )
           return ENOMEM;
 
       // Copy the data
@@ -483,7 +502,7 @@ namespace mtc
 
       // Set new buffer
         if ( pitems != NULL )
-          M().free( pitems );
+          malloc.free( pitems );
         pitems = newitems;
         nlimit = newlimit;
       }
@@ -492,7 +511,7 @@ namespace mtc
       else
     if ( length == 0 )
     {
-      M().free( pitems );
+      malloc.free( pitems );
       pitems = 0;
       nlimit = 0;
     }
@@ -504,10 +523,10 @@ namespace mtc
   inline  void   array<T, M>::DelAll()
   {
     __safe_array_destruct( pitems, ncount );
-    M().free( pitems );
-      pitems = 0;
-      nlimit = 0;
-      ncount = 0;
+    malloc.free( pitems );
+    pitems = 0;
+    nlimit = 0;
+    ncount = 0;
   }
 
   template <class T, class M>
@@ -601,10 +620,10 @@ namespace mtc
 
       if ( newlimit != 0 )
       {
-        if ( (newitems = (T*)M().alloc( newlimit * sizeof(T) )) == NULL )
+        if ( (newitems = (T*)malloc.alloc( newlimit * sizeof(T) )) == NULL )
           return ENOMEM;
         memmove( newitems, pitems, ncount * sizeof(T) );
-          M().free( pitems );
+          malloc.free( pitems );
         pitems = newitems;
       }
         else
@@ -686,7 +705,7 @@ namespace mtc
       assert( newlimit > nindex );
 
     // Allocate new space
-      if ( (newitems = (T*)M().alloc( newlimit * sizeof(T) )) == NULL )
+      if ( (newitems = (T*)malloc.alloc( newlimit * sizeof(T) )) == NULL )
         return ENOMEM;
 
     // Copy the data
@@ -695,7 +714,7 @@ namespace mtc
 
     // Set new buffer
       if ( pitems != NULL )
-        M().free( pitems );
+        malloc.free( pitems );
 
       pitems = newitems;
       nlimit = newlimit;
