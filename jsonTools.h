@@ -89,8 +89,8 @@ namespace mtc
     {
       if ( (*s & ~0xff) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
         o = PrintJson( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );   else
-      if ( (unsigned)*s >= 0x80 || (unsigned)*s < 0x20 )
-        o = PrintJson( o, chnext, sprintf( chnext, "\\u%04x", (unsigned)*s ) );           else
+      if ( (unsigned char)*s >= 0x80 || (unsigned char)*s < 0x20 )
+        o = PrintJson( o, chnext, sprintf( chnext, "\\u%04x", (unsigned char)*s ) );           else
       o = PrintJson( o, (char)*s );
     }
 
