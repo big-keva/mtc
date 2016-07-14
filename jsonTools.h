@@ -111,8 +111,8 @@ namespace mtc
     {
       if ( (*s & ~0xff) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
         o = PrintJson( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );   else
-      if ( (unsigned char)*s >= 0x80 || (unsigned char)*s < 0x20 )
-        o = PrintJson( o, chnext, sprintf( chnext, "\\u%04x", (unsigned char)*s ) );           else
+      if ( (unsigned)*s >= 0x80 || (unsigned)*s < 0x20 )
+        o = PrintJson( o, chnext, sprintf( chnext, "\\u%04x", (unsigned)*s ) );           else
       o = PrintJson( o, (char)*s );
     }
 
@@ -121,13 +121,13 @@ namespace mtc
 
   template <class O>
   inline  O*  PrintJson( O* o, const char* s )
-    {  return PrintText( o, s, w_strlen( s ) );  }
+    {  return PrintText( o, (const unsigned char*)s, w_strlen( s ) );  }
   template <class O>
   inline  O*  PrintJson( O* o, const widechar* s )
     {  return PrintText( o, s, w_strlen( s ) );  }
   template <class O>
   inline  O*  PrintJson( O* o, const _auto_<char>& s )
-    {  return PrintText( o, (const char*)s, w_strlen( s ) );  }
+    {  return PrintText( o, (const unsigned char*)(const char*)s, w_strlen( s ) );  }
   template <class O>
   inline  O*  PrintJson( O* o, const _auto_<widechar>& s )
     {  return PrintText( o, (const widechar*)s, w_strlen( s ) );  }
