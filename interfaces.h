@@ -57,7 +57,7 @@ namespace mtc
       {                                                               \
         long rcount;                                                  \
         if ( (rcount = lifetime_counter.DecRef()) == 0 )              \
-          delete this;                                                \
+          Allocator().deallocate( this );                             \
         return rcount;                                                \
       }
   # define  implement_lifetime_stub                                   \

@@ -36,32 +36,19 @@ namespace mtc
 {
   class MessageLogger
   {
-    FILE*   output;
+    FILE* output;
 
   public:
-    MessageLogger(): output( stderr )
+    MessageLogger( FILE* to ): output( to )
       {
+      }
+   ~MessageLogger()
+      {
+        if ( output != stdin && output != stdout && output != stderr )
+          fclose( output );
       }
 
   public:
-    int   vmessage( int err, const char* msg, va_list var )
-      {
-        vfprintf( output, msg, var );
-        fprintf( output, "\n" );
-        return err;
-      }
-    int   message( int err, const char* msg, ... )
-      {
-        if ( msg != nullptr )
-        {
-          va_list vaargs;
-
-          va_start( vaargs, msg );
-            vmessage( err, msg, vaargs );
-          va_end( vaargs );
-        }
-        return err;
-      }
     template <class T>
     const T&  log( const T& t, const char* msg, ... )
       {
@@ -79,8 +66,8 @@ namespace mtc
 
 }
 
-# define log_error( err, msg, ... )   mtc::MessageLogger().log( (err), (msg), __VA_ARGS__ )
-# define log_warning( err, msg, ... ) mtc::MessageLogger().log( (err), (msg), __VA_ARGS__ )
-# define log_info( msg, ... )         mtc::MessageLogger().log( 0,     (msg), __VA_ARGS__ )
+# define log_error( err, msg, ... )   mtc::MessageLogger( stderr ).log( (err), (msg), __VA_ARGS__ )
+# define log_warning( err, msg, ... ) mtc::MessageLogger( stderr ).log( (err), (msg), __VA_ARGS__ )
+# define log_info( msg, ... )         mtc::MessageLogger( stderr ).log( 0,     (msg), __VA_ARGS__ )
 
 # endif  // __stdlog_h__
