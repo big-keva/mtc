@@ -556,8 +556,8 @@ public:     // set_?? methods
           if ( cchkey > 0 )
           {
             byte_t        chnext = *ptrkey;
-            const ztree*  ptrtop = *this;
-            const ztree*  ptrend = *this + GetLen();
+            const ztree*  ptrtop = this->begin();
+            const ztree*  ptrend = this->end();
 
             while ( ptrtop < ptrend && ptrtop->chnode < chnext )
               ++ptrtop;
@@ -631,7 +631,7 @@ public:     // set_?? methods
       {
         ztree*  pfound;
 
-        if ( zhandler == NULL && (zhandler = M().allocate<zdata>()) == nullptr )
+        if ( zhandler == nullptr && (zhandler = M().template allocate<zdata>()) == nullptr )
           return nullptr;
 
         if ( (pfound = zhandler->insert( p, l )) != nullptr )  pfound->keyset = k;
@@ -660,7 +660,7 @@ public:     // set_?? methods
       }
     xvalue<M>*  put_xvalue( const widechar* wszkey, const xvalue<M>& xv )
       {
-        xvalue* pv;
+        xvalue<M>*  pv;
         return (pv = put_xvalue( wszkey )) != nullptr ? &(*pv = xv) : nullptr;
       }
     xvalue<M>*  put_xvalue( unsigned    ndwkey, const xvalue<M>& xv )
@@ -1199,8 +1199,8 @@ namespace mtc
   template <class M>
   inline  int zarray<M>::ztree::lookup( byte_t* keybuf, int keylen, int buflen ) const
   {
-    const ztree*  ptrtop = begin();
-    const ztree*  ptrend = end();
+    const ztree*  ptrtop = this->begin();
+    const ztree*  ptrend = this->end();
     int           outlen;
 
     if ( keylen > 0 )
@@ -1233,7 +1233,7 @@ namespace mtc
         return nerror;
 
   // lookup other elements
-    for ( auto p = begin(); p < end(); ++p )
+    for ( auto p = this->begin(); p < this->end(); ++p )
     {
       if ( b.GetLen() <= (int)(l + sizeof(widechar)) && b.SetLen( l + 0x100 ) != 0 )  return ENOMEM;
         else {  b[l] = p->chnode;  b[l + 1] = 0;  b[l + 2] = 0;  }
@@ -1271,7 +1271,7 @@ namespace mtc
       return buflen + pbeg->GetBufLen();
     }
       else
-    for ( auto p = begin(); p < end(); ++p, ++buflen )
+    for ( auto p = this->begin(); p < this->end(); ++p, ++buflen )
     {
       unsigned  sublen = p->GetBufLen();
       buflen += ::GetBufLen( sublen ) + sublen;
@@ -1302,7 +1302,7 @@ namespace mtc
       return pbeg->Serialize( o );
     }
       else
-    for ( auto p = begin(); p < end(); ++p )
+    for ( auto p = this->begin(); p < this->end(); ++p )
     {
       unsigned  sublen = p->GetBufLen();
 
@@ -1338,9 +1338,9 @@ namespace mtc
       return pbeg->FetchFrom( s );
     }
       else
-    if ( SetLen( lfetch & 0xfff ) == 0 )
+    if ( this->SetLen( lfetch & 0xfff ) == 0 )
     {
-      for ( auto p = begin(); p < end() && s != nullptr; ++p )
+      for ( auto p = this->begin(); p < this->end() && s != nullptr; ++p )
       {
         unsigned  sublen;
 
@@ -1395,7 +1395,7 @@ namespace mtc
   {
     if ( zhandler != nullptr && --zhandler->rcount == 0 )
       delete zhandler;
-    if ( (zhandler = M().allocate<zdata>()) == nullptr )
+    if ( (zhandler = M().template allocate<zdata>()) == nullptr )
       return nullptr;
 
     return (S*)zhandler->FetchFrom( s );
