@@ -290,31 +290,31 @@ namespace mtc
 
   public:     // API
     int   Append( const T& t )
-      {  return Ensure() ? p->Insert( size(), t ) : ENOMEM;  }
+      {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
     int   Append( T& t )
-      {  return Ensure() ? p->Insert( size(), t ) : ENOMEM;  }
+      {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
     int   Append( int c, const T* p )
-      {  return Ensure() ? p->Insert( size(), c, p ) : ENOMEM;   }
+      {  return Ensure() ? parray->Insert( size(), c, p ) : ENOMEM;   }
     int   Append( const array<T, M>& r )
-      {  return Ensure() ? p->Insert( size(), r ) : ENOMEM;  }
+      {  return Ensure() ? parray->Insert( size(), r ) : ENOMEM;  }
     int   Append( array<T, M>& r )
-      {  return Ensure() ? p->Insert( size(), r ) : ENOMEM;  }
+      {  return Ensure() ? parray->Insert( size(), r ) : ENOMEM;  }
     int   Insert( int i, const T& t )
-      {  return Ensure() ? p->Insert( i, t ) : ENOMEM;  }
+      {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
     int   Insert( int i, T& t )
-      {  return Ensure() ? p->Insert( i, t ) : ENOMEM;  }
+      {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
     int   Insert( int i, int c, const T* t )
-      {  return Ensure() ? p->Insert( i, c, t ) : ENOMEM;  }
+      {  return Ensure() ? parray->Insert( i, c, t ) : ENOMEM;  }
     int   Insert( int i, int c, T* t )
-      {  return Ensure() ? p->Insert( i, c, t ) : ENOMEM;  }
+      {  return Ensure() ? parray->Insert( i, c, t ) : ENOMEM;  }
     int   Insert( int i, const array<T, M>& t )
-       {  return Ensure() ? p->Insert( i, t ) : ENOMEM;  }
+       {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
     int   Insert( int i, array<T, M>& t )
-       {  return Ensure() ? p->Insert( i, t ) : ENOMEM;  }
+       {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
     int   Delete( int n )
-      {  return p == nullptr ? 0 : p->Delete( n );  }
+      {  return parray == nullptr ? 0 : parray->Delete( n );  }
     int   GetLen() const
-      {  return p != nullptr ? p->GetLen() : 0;  }
+      {  return parray != nullptr ? parray->GetLen() : 0;  }
     int   SetLen( int l )
       {
         if ( l == 0 )
