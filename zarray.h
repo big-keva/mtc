@@ -987,6 +987,78 @@ public:     // set_?? methods
 
   };
 
+}
+// serialization helpers
+
+template <class M>
+inline  unsigned  GetBufLen( const mtc::zarray<M>& z )
+  {
+    return z.GetBufLen();
+  }
+template <class O, class M>
+inline  O*        Serialize( O* o, const mtc::zarray<M>& z )
+  {
+    return z.Serialize( o );
+  }
+template <class S, class M>
+inline  S*        FetchFrom( S* s,       mtc::zarray<M>& z )
+  {
+    return z.FetchFrom( s );
+  }
+template <class M>
+inline unsigned   GetBufLen( const mtc::array<mtc::zarray<M>, M>& a )
+  {
+    unsigned  length = ::GetBufLen( a.size() );
+
+    for ( auto p = a.begin(); p < a.end(); ++p )
+      length += p->GetBufLen();
+    return length;
+  }
+template <class O, class M>
+inline  O*        Serialize( O* o, const mtc::array<mtc::zarray<M>, M>& a )
+  {
+    if ( (o = ::Serialize( o, a.size() )) != nullptr )
+      for ( auto p = a.begin(); p < a.end() && o != nullptr; ++p )
+        o = p->Serialize( o );
+    return o;
+  }
+
+template <class M>
+inline  unsigned  GetBufLen( const mtc::xvalue<M>& x )
+  {
+    return x.GetBufLen();
+  }
+template <class M, class O>
+inline  O*        Serialize( O* o, const mtc::xvalue<M>& x )
+  {
+    return x.Serialize( o );
+  }
+template <class M, class S>
+inline  S*        FetchFrom( S* s, mtc::xvalue<M>& x )
+  {
+    return x.FetchFrom( s );
+  }
+
+template <class M>
+inline  unsigned  GetBufLen( const mtc::array<mtc::xvalue<M>, M>& a )
+  {
+    unsigned  length = ::GetBufLen( a.size() );
+
+    for ( auto p = a.begin(); p < a.end(); ++p )
+      length += p->GetBufLen();
+    return length;
+  }
+template <class O, class M>
+inline  O*        Serialize( O* o, const mtc::array<mtc::xvalue<M>, M>& a )
+  {
+    if ( (o = ::Serialize( o, a.size() )) != nullptr )
+      for ( auto p = a.begin(); p < a.end() && o != nullptr; ++p )
+        o = p->Serialize( o );
+    return o;
+  }
+
+namespace mtc
+{
   // xvalue inline implementation
 
   template <class M>
@@ -1040,8 +1112,8 @@ public:     // set_?? methods
       case z_array_double:  return 1 + ::GetBufLen( *(array<double_t, M>*)&chdata );
       case z_array_charstr:  return 1 + ::GetBufLen( *(array<_auto_<char, M>, M>*)&chdata );
       case z_array_widestr:  return 1 + ::GetBufLen( *(array<_auto_<widechar, M>, M>*)&chdata );
-      case z_array_xvalue:  return 1 + ::GetBufLen( *(array<xvalue<M>, M>*)&chdata );
-      case z_array_zarray:  return 1 + ::GetBufLen( *(array<zarray<M>, M>*)&chdata );
+      case z_array_xvalue:  return 1 + ::GetBufLen( *get_array_xvalue() );
+      case z_array_zarray:  return 1 + ::GetBufLen( *get_array_zarray() );
 
       default:  return 0;
     }
@@ -1175,25 +1247,6 @@ public:     // set_?? methods
     }
   }
 
-}
-  // serialization helpers
-
-  template <class M>
-  inline  unsigned  GetBufLen( const mtc::zarray<M>& z )  {  return z.GetBufLen();     }
-  template <class M, class O>
-  inline  O*        Serialize( O* o, const mtc::zarray<M>& z )  {  return z.Serialize( o );  }
-  template <class M, class S>
-  inline  S*        FetchFrom( S* s,       mtc::zarray<M>& z )  {  return z.FetchFrom( s );  }
-
-  template <class M>
-  inline  unsigned  GetBufLen( const mtc::xvalue<M>& x )  {  return x.GetBufLen();     }
-  template <class M, class O>
-  inline  O*        Serialize( O* o, const mtc::xvalue<M>& x )  {  return x.Serialize( o );  }
-  template <class M, class S>
-  inline  S*        FetchFrom( S* s,       mtc::xvalue<M>& x )  {  return x.FetchFrom( s );  }
-
-namespace mtc
-{
   // zarray::ztree implementation
 
   template <class M>
