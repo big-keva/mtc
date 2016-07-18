@@ -194,7 +194,7 @@ namespace mtc
 
     o = PrintJson( o, '{' );
 
-    v.for_each( [&o, &bcomma]( const zarray<M>::zkey& k, const xvalue<M>& v )
+    v.for_each( [&o, &bcomma]( const typename zarray<M>::zkey& k, const xvalue<M>& v )
       {
       // possible comma
         if ( bcomma )

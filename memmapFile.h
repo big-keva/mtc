@@ -5,6 +5,7 @@
 # if defined( _MSC_VER )
 #   include <Windows.h>
 # else
+#   include <unistd.h>
 #   include <sys/mman.h>
 # endif  // _MSC_VER
 
@@ -149,17 +150,13 @@ namespace mtc
     return looffs | (((int64_t)hioffs) << 32);
   }
 # else
-  inline  SystemFile  SystemFile::Open( const char* szfile, unsigned dwmode )
+  inline  SystemFile  SystemFile::Open( const char* szpath, unsigned dwmode )
   {
-    Close();
+    SystemFile  openfile;
 
-  // create new name
-    if ( (lppath = strdup( szname )) == NULL )
-      return _u_err_nomem;
-
-    if ( (handle = ::open( lppath, dwmode, 0666 )) == -1 )
-      return _u_err_no_file;
-    return _u_err_ok;
+    if ( (openfile.fileno = ::open( szpath, dwmode, 0666 )) == -1 )
+      return SystemFile().SetError( log_error( ENOENT, "Could not open file %s @%s:%u!", __FILE__, __LINE__ ) );
+    return openfile;
   }
 
   inline  int64_t     SystemFile::Size() const
@@ -218,7 +215,7 @@ namespace mtc
   inline  void  MappedFile::UnmapMem()
   {
     if ( ptrmap != NULL )
-      win32_decl( UnmapViewOfFile( ptrmap ) ) posix_decl( munmap( ptrmap, maplen ) );
+      win32_decl( UnmapViewOfFile( ptrmap ) ) posix_decl( munmap( ptrmap, mapLen ) );
 
     win32_decl( if ( handle != INVALID_HANDLE_VALUE ) )
     win32_decl(   CloseHandle( handle ) );
@@ -253,7 +250,7 @@ namespace mtc
     if ( (memmap.ptrmap = MapViewOfFile( memmap.handle, FILE_MAP_READ, offshi, oalign, (unsigned)memmap.mapLen )) == NULL )
       return MappedFile().SetError( log_error( ENOMEM, "Could not MapViewOfFile(), error code %u!", GetLastError() ) );
 # else
-    int64_t oalign = (offset / dwgran) * dwgran;
+    int64_t oalign = (offset / dwGran) * dwGran;
 
     memmap.cchMem = length;
     memmap.nShift = offset - oalign;

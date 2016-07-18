@@ -29,6 +29,7 @@ SOFTWARE.
 */
 # if !defined( __mtc_platform_h__ )
 # define __mtc_platform_h__
+# include <cstdlib>
 # include <new>
 
 # define array_size( a ) ( sizeof(a) / sizeof((a)[0]) )
