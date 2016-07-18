@@ -370,7 +370,7 @@ namespace mtc
             return ENOMEM;
           }
           if ( --parray->refcount == 0 )
-            parray->GetAllocator().deallocate( p );
+            parray->GetAllocator().deallocate( parray );
 
           ++(parray = palloc)->refcount;
         }
