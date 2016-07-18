@@ -1005,6 +1005,7 @@ inline  S*        FetchFrom( S* s,       mtc::zarray<M>& z )
   {
     return z.FetchFrom( s );
   }
+
 template <class M>
 inline unsigned   GetBufLen( const mtc::array<mtc::zarray<M>, M>& a )
   {
@@ -1021,6 +1022,19 @@ inline  O*        Serialize( O* o, const mtc::array<mtc::zarray<M>, M>& a )
       for ( auto p = a.begin(); p < a.end() && o != nullptr; ++p )
         o = p->Serialize( o );
     return o;
+  }
+template <class S, class M>
+inline  S*        FetchFrom( S* s, mtc::array<mtc::zarray<M>, M>& a )
+  {
+    int   arsize;
+
+    if ( (s = ::FetchFrom( s, arsize )) == nullptr || a.SetLen( arsize ) != 0 )
+      return nullptr;
+
+    for ( auto p = a.begin(); p < a.end(); )
+      if ( (s = (p++)->FetchFrom( s )) == nullptr )
+        break;
+    return s;
   }
 
 template <class M>
@@ -1055,6 +1069,19 @@ inline  O*        Serialize( O* o, const mtc::array<mtc::xvalue<M>, M>& a )
       for ( auto p = a.begin(); p < a.end() && o != nullptr; ++p )
         o = p->Serialize( o );
     return o;
+  }
+template <class S, class M>
+inline  S*        FetchFrom( S* s, mtc::array<mtc::xvalue<M>, M>& a )
+  {
+    int   arsize;
+
+    if ( (s = ::FetchFrom( s, arsize )) == nullptr || a.SetLen( arsize ) != 0 )
+      return nullptr;
+
+    for ( auto p = a.begin(); p < a.end(); )
+      if ( (s = (p++)->FetchFrom( s )) == nullptr )
+        break;
+    return s;
   }
 
 namespace mtc
