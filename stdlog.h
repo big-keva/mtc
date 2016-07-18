@@ -86,8 +86,8 @@ namespace mtc
 
 }
 
-# define log_error( err, msg, ... )   mtc::MessageLogger( stderr ).log( (err), (msg), __VA_ARGS__ )
-# define log_warning( err, msg, ... ) mtc::MessageLogger( stderr ).log( (err), (msg), __VA_ARGS__ )
-# define log_info( msg, ... )         mtc::MessageLogger( stderr ).log( 0,     (msg), __VA_ARGS__ )
+# define log_error   mtc::MessageLogger( stderr ).log
+# define log_warning mtc::MessageLogger( stderr ).log
+# define log_info    mtc::MessageLogger( stderr ).log
 
 # endif  // __stdlog_h__
