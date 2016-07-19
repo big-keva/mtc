@@ -136,7 +136,7 @@ namespace mtc
 
   // create file handle
     if ( (openfile.fileno = CreateFileA( szpath, dwAccess, FILE_SHARE_READ, NULL, dwDispos, dwFlAttr, NULL )) == INVALID_HANDLE_VALUE )
-      return SystemFile().SetError( log_error( ENOENT, "Could not open file %s @%s:%u!", __FILE__, __LINE__ ) );
+      return SystemFile().SetError( log_error( ENOENT, "Could not open file %s @%s:%u!", szpath, __FILE__, __LINE__ ) );
     return openfile;
   }
 
@@ -155,7 +155,8 @@ namespace mtc
     SystemFile  openfile;
 
     if ( (openfile.fileno = ::open( szpath, dwmode, 0666 )) == -1 )
-      return SystemFile().SetError( log_error( ENOENT, "Could not open file %s @%s:%u!", __FILE__, __LINE__ ) );
+      return SystemFile().SetError( log_error( ENOENT, "Could not open file %s @%s:%u, error code %d!",
+        szpath, __FILE__, __LINE__, errno ) );
     return openfile;
   }
 
