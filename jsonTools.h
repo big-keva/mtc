@@ -81,8 +81,8 @@ namespace mtc
     derive_printjson_dec( int64_t,  "%I64d" )
     derive_printjson_dec( word64_t, "%I64u" )
   # else
-    derive_printjson_dec( int64_t,  "%ll" )
-    derive_printjson_dec( word64_t, "%ull" )
+    derive_printjson_dec( int64_t,  "%lld" )
+    derive_printjson_dec( word64_t, "%llu" )
   # endif  // _MSC_VER
   # undef derive_printjson_dec
 
