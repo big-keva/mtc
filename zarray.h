@@ -643,7 +643,7 @@ public:     // set_?? methods
         return &pfound->avalue;
       }
 
-  protected:  // put_xvalue family
+  public:     // put_xvalue family
     xvalue<M>*  put_xvalue( unsigned    ndwkey )
       {
         byte_t  thekey[4];
