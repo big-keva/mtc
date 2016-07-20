@@ -75,8 +75,8 @@ namespace mtc
     T** pptr()              {  return &p; }
     const T** pptr() const  {  return &p; }
 
-    bool  operator == ( const void* v ) const {  return p == v;  }
-    bool  operator != ( const void* v ) const {  return p != v;  }
+    bool  operator == ( const void* v ) const {  return this == v || (this != nullptr && p == v);  }
+    bool  operator != ( const void* v ) const {  return (*this == v) == false;  }
         
     T*  operator -> ()              {  assert( p != nullptr );  return p;  }
     const T* operator -> () const   {  assert( p != nullptr );  return p;  }
@@ -85,6 +85,17 @@ namespace mtc
         T*  r = p;
             p = 0;
         return r;
+      }
+
+    const T& operator []( int i ) const
+      {
+        assert( p != nullptr );
+        return p[i];
+      }
+    T& operator []( int i )
+      {
+        assert( p != nullptr );
+        return p[i];
       }
   };
 
