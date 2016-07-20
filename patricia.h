@@ -622,7 +622,7 @@ namespace mtc
         assert( nnodes <= 513 );
         assert( nchars <= 256 * 4 );
 
-        return Search( nchars, nnodes, sublen, thedic + nchars, (const byte_t*)k, l );
+        return Search( nchars, nnodes, sublen, thedic + nchars, (const byte_t*)k, (int)l );
       }
 
   protected:  // helpers
