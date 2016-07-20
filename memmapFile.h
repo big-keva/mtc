@@ -9,13 +9,15 @@
 #   include <sys/mman.h>
 # endif  // _MSC_VER
 
-# if defined( _MSC_VER )
-#   define  win32_decl( expr )  expr
-#   define  posix_decl( expr )
-# else
-#   define  win32_decl( expr )
-#   define  posix_decl( expr )  expr
-# endif  // _MSC_VER
+# if !defined( win32_decl )
+#   if defined( _MSC_VER )
+#     define  win32_decl( expr )  expr
+#     define  posix_decl( expr )
+#   else
+#     define  win32_decl( expr )
+#     define  posix_decl( expr )  expr
+#   endif  // _MSC_VER
+# endif // !win32_decl
 
 namespace mtc
 {
