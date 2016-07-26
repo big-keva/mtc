@@ -27,7 +27,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 */
-# if !defined( __mtc_mitset_h__ )
+# if !defined( __mtc_bitset_h__ )
 # define __mtc_bitset_h__
 # include "array.h"
 # include <limits.h>
@@ -35,19 +35,19 @@ SOFTWARE.
 namespace mtc
 {
   template <class U, class M>
-  int   bitset_setmax( array<U, M>&  s, unsigned m )
+  inline  int   bitset_setmax( array<U, M>&  s, unsigned m )
     {
       return s.SetLen( (m + sizeof(U) * CHAR_BIT - 1) / (sizeof(U) * CHAR_BIT) );
     }
 
   template <class U, class M>
-  bool  bitset_get( const array<U, M>&  s, unsigned b )
+  inline  bool  bitset_get( const array<U, M>&  s, unsigned b )
     {
       return s.size() > (int)(b / (sizeof(U) * CHAR_BIT)) && (s[b / (sizeof(U) * CHAR_BIT)] & (1 << (b % (sizeof(U) * CHAR_BIT)))) != 0;
     }
 
   template <class U, class M>
-  int   bitset_set( array<U, M>& s, const unsigned l, const unsigned h )
+  inline  int   bitset_set( array<U, M>& s, const unsigned l, const unsigned h )
     {
       if ( s.size() <= (int)(h / (sizeof(U) * CHAR_BIT)) && s.SetLen( h / (sizeof(U) * CHAR_BIT) + 1 ) != 0 )
         return ENOMEM;
@@ -67,7 +67,7 @@ namespace mtc
     }
 
   template <class U, class M>
-  void  bitset_del( array<U, M>& s, const unsigned l, const unsigned h )
+  inline  void  bitset_del( array<U, M>& s, const unsigned l, const unsigned h )
     {
       if ( h >= l && s.size() > (int)(l / (sizeof(U) * CHAR_BIT)) )
       {
