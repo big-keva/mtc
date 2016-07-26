@@ -692,21 +692,11 @@ public:     // set_?? methods
           (unsigned)(sizeof(widechar) * w_strlen( pszkey )) ) : nullptr;
       }
     ztree*  get_untyped( unsigned     thekey )
-      {
-        byte_t  keybuf[4];
-
-        return zhandler != nullptr ? (ztree*)zhandler->search( keybuf, zarray_int_to_key( keybuf, thekey ) ) : nullptr;
-      }
+      {  return (ztree*)((const zarray*)this)->get_untyped( thekey );  }
     ztree*  get_untyped( const char*  thekey )
-      {
-        return zhandler != nullptr ? (ztree*)zhandler->search( (const byte_t*)thekey,
-          (unsigned)strlen( thekey ) ) : nullptr;
-      }
+      {  return (ztree*)((const zarray*)this)->get_untyped( thekey );  }
     ztree*  get_untyped( const widechar*  thekey )
-      {
-        return zhandler != nullptr ? (ztree*)zhandler->search( (const byte_t*)thekey,
-          (unsigned)(sizeof(widechar) * w_strlen( thekey )) ) : nullptr;
-      }
+      {  return (ztree*)((const zarray*)this)->get_untyped( thekey );  }
 
   public:     // get_?
   # define  derive_get_xvalue( _type_ )                                           \
@@ -841,10 +831,10 @@ public:     // set_?? methods
         ztree*  zt;                                                                               \
         return (zt = get_untyped( thekey )) != NULL ? zt->avalue.get_##t_name()  : NULL;          \
       }                                                                                           \
-    const v_type* get_##t_name( k_type thekey ) const                                             \
+    const v_type* get_##t_name( k_type thekey, const v_type* defval = nullptr ) const             \
       {                                                                                           \
         const ztree*  zt;                                                                         \
-        return (zt = get_untyped( thekey )) != NULL ? zt->avalue.get_##t_name()  : NULL;          \
+        return (zt = get_untyped( thekey )) != nullptr ? zt->avalue.get_##t_name() : defval;      \
       }
       derive_put_string( unsigned,        charstr, char )
       derive_put_string( const char*,     charstr, char )
@@ -1362,8 +1352,13 @@ namespace mtc
   // lookup other elements
     for ( auto p = this->begin(); p < this->end(); ++p )
     {
-      if ( b.GetLen() <= (int)(l + sizeof(widechar)) && b.SetLen( l + 0x100 ) != 0 )  return ENOMEM;
-        else {  b[l] = p->chnode;  b[l + 1] = 0;  b[l + 2] = 0;  }
+      if ( l + 1 + sizeof(widechar) >= (unsigned)b.size() )
+        if ( b.SetLen( l + 0x100 ) != 0 )
+          return ENOMEM;
+
+      b[l + 0] = p->chnode;
+      b[l + 1] = 0;
+      b[l + 2] = 0;
 
       if ( (nerror = p->Enumerate( b, l + 1, a )) != 0 )
         return nerror;
