@@ -30,6 +30,25 @@ namespace mtc
     posix_decl( int     fileno );
                 int     nerror;
 
+  public:     // construction
+    SystemFile(): fileno( win32_decl( INVALID_HANDLE_VALUE ) posix_decl( -1 ) ), nerror( 0 )
+      {
+      }
+    SystemFile( const SystemFile& f ): fileno( f.fileno ), nerror( f.nerror )
+      {
+        ((SystemFile&)f).fileno = win32_decl( INVALID_HANDLE_VALUE ) posix_decl( -1 );
+      }
+   ~SystemFile()
+      {
+      }
+    SystemFile& operator = ( const SystemFile& f )
+      {
+        Close();
+          fileno = f.fileno;
+          nerror = f.nerror;
+          ((SystemFile&)f).fileno = win32_decl( INVALID_HANDLE_VALUE ) posix_decl( -1 );
+        return *this;
+      }
   public:     // create
     static  SystemFile  Open( const char* szpath, unsigned dwmode );
 
@@ -171,6 +190,13 @@ namespace mtc
     return curlen;
   }
 # endif
+
+  inline  int   SystemFile::Close()
+  {
+    if ( fileno != win32_decl( INVALID_HANDLE_VALUE ) posix_decl( -1 ) )
+      win32_decl( CloseHandle( fileno ) ) posix_decl( close( fileno ) );
+    return 0;
+  }
 
   // MappedFile implementation
 
