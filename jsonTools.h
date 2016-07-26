@@ -298,7 +298,7 @@ namespace mtc
           _auto_<C, M>  newstr;
           int           newlim;
 
-          if ( (newstr = (C*)M().alloc( newlim = climit + 0x100 )) == nullptr )
+          if ( (newstr = (C*)M().alloc( (newlim = climit + 0x100) * sizeof(C) )) == nullptr )
             return ENOMEM;
           if ( refstr != nullptr )
             memcpy( (C*)newstr, (C*)refstr, sizeof(C) * (cchstr + 1) );
