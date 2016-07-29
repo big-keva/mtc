@@ -93,44 +93,6 @@ namespace mtc
       }
   };
 
-/*
-  template <class T>  inline  T*  allocate()
-    {
-      T*  t;
-
-      return (t = (T*)malloc( sizeof(T) )) != nullptr ? new( t ) T() : nullptr;
-    }
-  template <class T, class A>  inline  T*  allocate( A a )
-    {
-      T*  t;
-
-      return (t = (T*)malloc( sizeof(T) )) != nullptr ? new( t ) T( a ) : nullptr;
-    }
-  template <class T, class A, class B>  inline  T*  allocate( A a, B b )
-    {
-      T*  t;
-
-      return (t = (T*)malloc( sizeof(T) )) != nullptr ? new( t ) T( a, b ) : nullptr;
-    }
-  template <class T, class A, class B, class C>  inline  T*  allocate( A a, B b, C c )
-    {
-      T*  t;
-
-      return (t = (T*)malloc( sizeof(T) )) != nullptr ? new( t ) T( a, b, c ) : nullptr;
-    }
-  template <class T, class A, class B, class C, class D>  inline  T*  allocate( A a, B b, C c, D d )
-    {
-      T*  t;
-
-      return (t = (T*)malloc( sizeof(T) )) != nullptr ? new( t ) T( a, b, c, d ) : nullptr;
-    }
-  template <class T, class A, class B, class C, class D, class E>  inline  T*  allocate( A a, B b, C c, D d, E e )
-    {
-      T*  t;
-
-      return (t = (T*)malloc( sizeof(T) )) != nullptr ? new( t ) T( a, b, c, d, e ) : nullptr;
-    }
-*/
 }
 
 # endif  // __mtc_platform_h__
