@@ -46,6 +46,17 @@ namespace mtc
       return s.size() > (int)(b / (sizeof(U) * CHAR_BIT)) && (s[b / (sizeof(U) * CHAR_BIT)] & (1 << (b % (sizeof(U) * CHAR_BIT)))) != 0;
     }
 
+  template <class U>
+  inline  U     bitsetbits( const unsigned l, const unsigned h )
+    {
+      unsigned  lpos = l % (sizeof(U) * CHAR_BIT);
+      unsigned  hpos = h % (sizeof(U) * CHAR_BIT);
+      U         bits = h < sizeof(U) * CHAR_BIT - 1 ? (1 << (h + 1)) - 1 : (U)-1;
+      U         mask = l >= sizeof(U) * CHAR_BIT ? 0 : (lpos > 0 ? ~((1 << lpos) - 1) : (U)-1);
+
+      return bits & mask;
+    }
+
   template <class U, class M>
   inline  int   bitset_set( array<U, M>& s, const unsigned l, const unsigned h )
     {
@@ -53,7 +64,8 @@ namespace mtc
         return ENOMEM;
 
     // set lower bits
-      s[l / (sizeof(U) * CHAR_BIT)] |= ((U)-1) & ((1 << (h - l + 1)) - 1) << (l % (sizeof(U) * CHAR_BIT));
+      s[l / (sizeof(U) * CHAR_BIT)] |= bitsetbits<U>( l % (sizeof(U) * CHAR_BIT),
+        (h - l + 1) < (sizeof(U) * CHAR_BIT) ? h % (sizeof(U) * CHAR_BIT) : sizeof(U) * CHAR_BIT );
 
     // set sequence bits
       for ( auto p = s.begin() + (l + (sizeof(U) * CHAR_BIT) - 1) / (sizeof(U) * CHAR_BIT);
@@ -61,7 +73,8 @@ namespace mtc
         *p++ = (U)-1;
 
     // set upper bits
-      s[h / (sizeof(U) * CHAR_BIT)] |= ((U)-1) & ((1 << (h % (sizeof(U) * CHAR_BIT))) - 1);
+      s[h / (sizeof(U) * CHAR_BIT)] |= bitsetbits<U>( (h - l + 1) < (sizeof(U) * CHAR_BIT) ? l : 0,
+        h % (sizeof(U) * CHAR_BIT) );
 
       return 0;
     }
@@ -74,7 +87,8 @@ namespace mtc
         U*  p;
 
       // del lower bits
-        s[l / (sizeof(U) * CHAR_BIT)] &= ~(((U)-1) & ((1 << (h - l + 1)) - 1) << (l % (sizeof(U) * CHAR_BIT)));
+        s[l / (sizeof(U) * CHAR_BIT)] &= ~bitsetbits<U>( l % (sizeof(U) * CHAR_BIT),
+          (h - l + 1) < (sizeof(U) * CHAR_BIT) ? h % (sizeof(U) * CHAR_BIT) : sizeof(U) * CHAR_BIT );
 
       // set sequence bits
         for ( p = s.begin() + (l + (sizeof(U) * CHAR_BIT) - 1) / (sizeof(U) * CHAR_BIT);
@@ -83,7 +97,7 @@ namespace mtc
 
       // set upper bits
         if ( p < s.end() )
-          *p &= ~(((U)-1) & ((1 << (h % (sizeof(U) * CHAR_BIT))) - 1));
+          *p &= ~bitsetbits<U>( (h - l + 1) < (sizeof(U) * CHAR_BIT) ? l : 0, h % (sizeof(U) * CHAR_BIT) );
       }
     }
 
