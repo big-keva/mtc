@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __jsonTools_h__ )
 # define __jsonTools_h__
 # include "zarray.h"
+# include <string.h>
 
 namespace mtc
 {
@@ -192,11 +193,12 @@ namespace mtc
   class jsonstream
   {
     S*    stream;
-    char  chnext;
+    char  chbuff[2];
+    int   buflen;
 
   public:     // construction
     jsonstream( S*  s = nullptr ):
-      stream( s ), chnext( '\0' )  {}
+      stream( s ), buflen( 0 )  {}
     operator S* ()
       {  return stream;  }
     jsonstream& operator = ( S* p )
@@ -207,18 +209,57 @@ namespace mtc
       {
         char  getchr;
         
-        if ( (getchr = chnext) == '\0' )
-          getchr = (stream = (S*)::FetchJson( stream, (char&)chnext )) != nullptr ? chnext : '\0';
-        chnext = '\0';
-          return getchr;
+        assert( buflen == 0 || buflen == 1 || buflen == 2 );
+
+        if ( buflen != 0 )
+          return chbuff[--buflen];
+        return (stream = (S*)::FetchJson( stream, (char&)getchr )) != nullptr ? getchr : '\0';
       }
+    /*
+      get first non-space character
+    */
     char  nospace()
       {
-        char  getchr;
+        for ( ; ; )
+        {
+          char  getchr;
+          char  chnext;
 
-        while ( (getchr = getchar()) != '\0' && (unsigned char)getchr <= 0x20 )
-          (void)NULL;
-        return getchr;
+          if ( (getchr = getchar()) == '\0' )
+            return getchr;
+
+          if ( (unsigned char)getchr <= 0x20 )
+            continue;
+
+          if ( getchr != '/' )
+            return getchr;
+
+          switch ( chnext = getchar() )
+          {
+            case '*':
+              {
+                for ( getchr = '/'; ; getchr = chnext )
+                {
+                  if ( (chnext = getchar()) == '\0')
+                    return chnext;
+                  if ( chnext == '/' && getchr == '*' )
+                    break;
+                }
+                break;
+              }
+            case '/':
+              {
+                while ( (getchr = getchar()) != '\0' && getchr != '\n' )
+                  (void)NULL;
+                if ( getchr == '\0' ) return getchr;
+                  else break;
+              }
+
+            case '\0':  return getchr;
+            default:    putchar( chnext );
+                        return getchr;
+          }
+        }
       }
     bool  getfour( char* p )
       {
@@ -227,8 +268,8 @@ namespace mtc
       }
     jsonstream&  putchar( char chr )
       {
-        assert( chnext == '\0' );
-        chnext = chr;
+        assert( buflen == 0 || buflen == 1 );
+        chbuff[buflen++] = chr;
         return *this;
       }
     template <class C, class M>
