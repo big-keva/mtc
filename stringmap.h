@@ -215,13 +215,14 @@ namespace mtc
 
       assert( *ppitem == nullptr || nhcode == (*ppitem)->pos );
 
-      while ( *ppitem != nullptr && !iseq( (*ppitem)->key, k, l ) )
+      while ( *ppitem != nullptr && !iseq( (const Chr*)(1 + *ppitem), k, l ) )
         ppitem = &(*ppitem)->lpn;
       if ( *ppitem != nullptr )
       {
         lpfree = *ppitem;
-         *ppitem = lpfree->lpn;
-        M().deallocate( lpfree );
+        *ppitem = lpfree->lpn;
+        lpfree->lpn = nullptr;
+        lpfree->DelAll();
         --ncount;
       }
       return 0;
@@ -335,7 +336,8 @@ namespace mtc
   template <class Chr, class Val, class M>
   inline  int   _base_stringmap_<Chr, Val, M>::Insert( const Chr* k, const Val& t )
   {
-    unsigned  nindex = gethash( k, strlen( k ) ) % maplen;
+    unsigned  cchstr = w_strlen( k );
+    unsigned  nindex = gethash( k, w_strlen( k ) ) % maplen;
     keyrec*   newrec;
 
   // Ensure the map is allocated
@@ -343,7 +345,7 @@ namespace mtc
       return ENOMEM;
 
   // Allocate the item
-    if ( (newrec = keyrec::Create( k, t, nindex, pitems[nindex] )) == nullptr )
+    if ( (newrec = keyrec::Create( k, cchstr, t, nindex, pitems[nindex] )) == nullptr )
       return ENOMEM;
     pitems[nindex] = newrec;
       ++ncount;
