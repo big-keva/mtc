@@ -224,7 +224,8 @@ namespace mtc
       {
         lpfree = *ppitem;
         *ppitem = lpfree->lpn;
-        delete lpfree;
+        lpfree->lpn = nullptr;
+        lpfree->DelAll();
         --ncount;
       }
       return 0;
