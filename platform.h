@@ -49,16 +49,46 @@ SOFTWARE.
 
 namespace mtc
 {
-  typedef char                char_t;
-  typedef unsigned char       byte_t;
-  typedef short               int16_t;
-  typedef unsigned short      word16_t;
-  typedef int                 int32_t;
-  typedef unsigned int        word32_t;
-  typedef long long           int64_t;
-  typedef unsigned long long  word64_t;
-  typedef float               float_t;
-  typedef double              double_t;
+# if !defined( __char_t_defined__ )
+#   define  __char_t_defined__
+    typedef char                char_t;
+# endif
+# if !defined( __byte_t_defined__ )
+#   define  __byte_t_defined__
+    typedef unsigned char       byte_t;
+# endif
+# if !defined( __int16_t_defined__ )
+#   define  __int16_t_defined__
+    typedef short               int16_t;
+# endif
+# if !defined( __word16_t_defined__ )
+#   define  __word16_t_defined__
+    typedef unsigned short      word16_t;
+# endif
+# if !defined( __int32_t_defined__ )
+#   define  __int32_t_defined__
+    typedef int                 int32_t;
+# endif
+# if !defined( __word32_t_defined__ )
+#   define  __word32_t_defined__
+    typedef unsigned int        word32_t;
+# endif
+# if !defined( __int64_t_defined__ )
+#   define  __int64_t_defined__
+    typedef long long           int64_t;
+# endif
+# if !defined( __word64_t_defined__ )
+#   define  __word64_t_defined__
+    typedef unsigned long long  word64_t;
+# endif
+# if !defined( __float_t_defined__ )
+#   define  __float_t_defined__
+    typedef float               float_t;
+# endif
+# if !defined( __double_t_defined__ )
+#   define  __double_t_defined__
+    typedef double              double_t;
+# endif
 
   template <class T>  inline  T max( const T& t1, const T& t2 )
     {  return t1 >= t2 ? t1 : t2;  }
