@@ -148,6 +148,17 @@ namespace mtc
   typedef xvalue<>  XValue;
   typedef zarray<>  ZArray;
 
+  struct zarray_exception
+  {
+    zarray_exception( const char* msg = nullptr, const char* szfile = nullptr, int lineid = 0 ):
+      message( msg ), file( szfile ), line( lineid ) {}
+
+  protected:  // variables
+    const char* message;
+    const char* file;
+    int         line;
+  };
+
   /*
     xvalue handles any data in local buffer; data may be accessed by accessor methods
   */
@@ -439,22 +450,63 @@ public:     // set_?? methods
         {  return pvalue != nullptr && pvalue->get_word32() != nullptr ? *pvalue->get_word32() : 0;  }
       operator word64_t () const
         {  return pvalue != nullptr && pvalue->get_word64() != nullptr ? *pvalue->get_word64() : 0;  }
+      operator zarray () const
+        {  return pvalue != nullptr && pvalue->get_zarray() != nullptr ? *pvalue->get_zarray() : zarray();  }
 
     public:     // assignment
-      bool  operator = ( const char* s )
-        {  return pvalue != nullptr && pvalue->set_charstr( s ) != nullptr;  }
-      bool  operator = ( const widechar* s )
-        {  return pvalue != nullptr && pvalue->set_widestr( s ) != nullptr;  }
-      bool  operator = ( double f )
-        {  return pvalue != nullptr && pvalue->set_double( f ) != nullptr;  }
-      bool  operator = ( int32_t i )
-        {  return pvalue != nullptr && pvalue->set_int32( i ) != nullptr;  }
-      bool  operator = ( int64_t i )
-        {  return pvalue != nullptr && pvalue->set_int64( i ) != nullptr;  }
-      bool  operator = ( word32_t u )
-        {  return pvalue != nullptr && pvalue->set_word32( u ) != nullptr;  }
-      bool  operator = ( word64_t u )
-        {  return pvalue != nullptr && pvalue->set_word64( u ) != nullptr;  }
+      const char* operator = ( const char* s )
+        {
+          assert( pvalue != nullptr );
+          if ( pvalue->set_charstr( s ) == nullptr )
+            throw zarray_exception( "Could not set charstr", __FILE__, __LINE__ );
+          return pvalue->get_charstr();
+        }
+      const widechar* operator = ( const widechar* s )
+        {
+          assert( pvalue != nullptr );
+          if ( pvalue->set_widestr( s ) == nullptr )
+            throw zarray_exception( "Could not set charstr", __FILE__, __LINE__ );
+          return pvalue->get_charstr();
+        }
+    # define derive_assign( _type_ )                                \
+      _type_##_t& operator = ( _type_##_t t )                       \
+        {                                                           \
+          assert( pvalue != nullptr );                              \
+          return *pvalue->set_##_type_( t );                        \
+        }
+      derive_assign( double )
+      derive_assign( int32 )
+      derive_assign( int64 )
+      derive_assign( word32 )
+      derive_assign( word64 )
+    # undef  derive_assign
+      zarray&  operator = ( const zarray& z )
+        {
+          assert( pvalue != nullptr );
+          return *pvalue->set_zarray( z );
+        }
+
+    public:     // [] operators
+  # define derive_access_operator( _key_type_ )                   \
+    zval  operator [] ( _key_type_ k )                            \
+      {                                                           \
+        zval        zv;  assert( pvalue != nullptr );             \
+        zarray<M>*  pz;                                           \
+        if ( pvalue->gettype() != z_zarray )                      \
+          pvalue->set_zarray();                                   \
+        pz = pvalue->get_zarray();                                \
+        if ( (zv.pvalue = pz->put_xvalue( k )) == nullptr )       \
+          throw zarray_exception( "@" __FILE__ );                 \
+        return zv;                                                \
+      }                                                           \
+    const zval  operator [] ( _key_type_ k ) const                \
+      {  return zval( get_xvalue( k ) );  }
+
+    derive_access_operator( int )
+    derive_access_operator( unsigned )
+    derive_access_operator( const char* )
+    derive_access_operator( const widechar* )
+  # undef derive_access_operator
 
     protected:
       xvalue<M>*  pvalue;
@@ -615,11 +667,14 @@ public:     // set_?? methods
       }
   zarray& operator = ( const zarray& z )
       {
+        zdata*  phandler;
+
+        if ( (phandler = z.zhandler) != nullptr )
+          ++phandler->rcount;
         if ( zhandler != nullptr && --zhandler->rcount == 0 )
           M().deallocate( zhandler );
-        if ( (zhandler = z.zhandler) != nullptr )
-          ++zhandler->rcount;
-        return *this;
+        zhandler = phandler;
+          return *this;
       }
 
   protected:  // helpers
