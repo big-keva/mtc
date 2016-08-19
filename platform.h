@@ -30,6 +30,7 @@ SOFTWARE.
 # if !defined( __mtc_platform_h__ )
 # define __mtc_platform_h__
 # include <cstdlib>
+# include <stdint.h>
 # include <new>
 
 # define array_size( a ) ( sizeof(a) / sizeof((a)[0]) )
@@ -55,31 +56,19 @@ namespace mtc
 # endif
 # if !defined( __byte_t_defined__ )
 #   define  __byte_t_defined__
-    typedef unsigned char       byte_t;
-# endif
-# if !defined( __int16_t_defined__ )
-#   define  __int16_t_defined__
-    typedef short               int16_t;
+    typedef uint8_t byte_t;
 # endif
 # if !defined( __word16_t_defined__ )
 #   define  __word16_t_defined__
-    typedef unsigned short      word16_t;
-# endif
-# if !defined( __int32_t_defined__ )
-#   define  __int32_t_defined__
-    typedef int                 int32_t;
+    typedef uint16_t  word16_t;
 # endif
 # if !defined( __word32_t_defined__ )
 #   define  __word32_t_defined__
-    typedef unsigned int        word32_t;
-# endif
-# if !defined( __int64_t_defined__ )
-#   define  __int64_t_defined__
-    typedef long long           int64_t;
+    typedef uint32_t  word32_t;
 # endif
 # if !defined( __word64_t_defined__ )
 #   define  __word64_t_defined__
-    typedef unsigned long long  word64_t;
+    typedef uint64_t  word64_t;
 # endif
 # if !defined( __float_t_defined__ )
 #   define  __float_t_defined__
