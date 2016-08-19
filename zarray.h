@@ -967,7 +967,7 @@ public:     // set_?? methods
       }                                                                                              \
     const array<_auto_<chtype, M>, M>* get_array_##fnname( ketype k ) const                          \
       {                                                                                              \
-        ztree* zt;                                                                                   \
+        const ztree* zt;                                                                             \
         return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##fnname() : nullptr;       \
       }                                                                                              \
     array<_auto_<chtype, M>, M>* get_array_##fnname( ketype k )                                      \
