@@ -109,6 +109,21 @@ namespace mtc
     z_array_xvalue  = 52
   };
 
+  inline  bool  z_is_integer_type( const unsigned zt )
+  {
+    return zt >= z_char && zt <= z_word64;
+  }
+
+  inline  bool  z_is_float_type( const unsigned zt )
+  {
+    return zt == z_float || zt == z_double;
+  }
+
+  inline  bool  z_is_string_type( const unsigned zt )
+  {
+    return zt == z_charstr || zt == z_widestr;
+  }
+
   /*  integer key to string value conversion                  */
   inline  int       zarray_int_to_key( byte_t* outkey, unsigned  ndwkey )
   {
@@ -174,9 +189,9 @@ namespace mtc
       }
     xvalue( const xvalue& v ): vxtype( v.vxtype )
       {
-        if ( vxtype != 0 )
+        if ( vxtype != 0xff )
           memcpy( chdata, v.chdata, sizeof(chdata) );
-        ((xvalue&)v).vxtype = 0;
+        ((xvalue&)v).vxtype = 0xff;
       }
     ~xvalue()
       {
@@ -184,17 +199,30 @@ namespace mtc
       }
     xvalue& operator = ( const xvalue& v )
       {
-        if ( vxtype != 0 )
+        if ( vxtype != 0xff )
           delete_data();
-        if ( (vxtype = v.vxtype) != 0 )
+        if ( (vxtype = v.vxtype) != 0xff )
           memcpy( chdata, v.chdata, sizeof(chdata) );
-        ((xvalue&)v).vxtype = 0;
+        ((xvalue&)v).vxtype = 0xff;
           return *this;
       }
     unsigned  gettype() const
       {
         return vxtype;
       }
+
+  public:     // typed constructors
+    xvalue( char c ): vxtype( 0xff )              {  set_char( c );  }
+    xvalue( byte_t b ): vxtype( 0xff )            {  set_byte( b );  }
+    xvalue( int16_t i ): vxtype( 0xff )           {  set_int16( i );  }
+    xvalue( int32_t i ): vxtype( 0xff )           {  set_int32( i );  }
+    xvalue( int64_t i ): vxtype( 0xff )           {  set_int64( i );  }
+    xvalue( word16_t i ): vxtype( 0xff )          {  set_word16( i );  }
+    xvalue( word32_t i ): vxtype( 0xff )          {  set_word32( i );  }
+    xvalue( word64_t i ): vxtype( 0xff )          {  set_word64( i );  }
+    xvalue( float   f ): vxtype( 0xff )           {  set_float( f );  }
+    xvalue( double d ): vxtype( 0xff )            {  set_double( d );  }
+    xvalue( const zarray<M>& z ): vxtype( 0xff )  {  set_zarray( z );  }
 
   public:     // serialization
                         unsigned  GetBufLen(    ) const;
@@ -1074,6 +1102,83 @@ public:     // set_?? methods
     template <class O>  O*        Serialize( O*  output ) const;
     template <class S>  S*        FetchFrom( S*  source );
 
+  /*
+    serial_get_*() methods
+
+    static methods allowing direct access to the field of serialized zarray<> structure
+
+    special fast implementation for 'const char*' source also provided
+  */
+  protected:  // serial_* helpers
+    template <class S>          static  S*  serial_jump_length( S*, unsigned );
+    template <class S>          static  S*  serial_skip_xvalue( S* );
+    template <class S>          static  S*  serial_skip_zarray( S* );
+    template <class T, class S> static  S*  serial_skip_array_values( S* );
+    template <class T, class S> static  S*  serial_skip_array_string( S* );
+    template <class S>          static  S*  serial_skip_array_zarray( S* );
+    template <class S>          static  S*  serial_skip_array_xvalue( S* );
+    template <class S>          static  S*  serial_get_untyped( S*, const byte_t*, int, char );
+
+    static  const char* serial_jump_length( const char*, unsigned );
+    static  const char* serial_skip_xvalue( const char* );
+    static  const char* serial_skip_zarray( const char* );
+    static  const char* serial_get_untyped( const char*, const byte_t*, int, char );
+
+  public:     // serial_get_* methods
+    template <class S>  static  S*  serial_get_untyped( S*, unsigned );
+    template <class S>  static  S*  serial_get_untyped( S*, const char* );
+    template <class S>  static  S*  serial_get_untyped( S*, const widechar* );
+
+    template <class S, class Z, class K>
+    static  int serial_get_xvalue( xvalue<Z>&, S*, K );
+
+  # define derive_get_plain( _type_ ) template <class S, class K>                             \
+    static  _type_##_t  serial_get_##_type_( S* s, K k, _type_##_t d = 0 )                    \
+    {                                                                                         \
+      char        t;                                                                          \
+      _type_##_t  v;                                                                          \
+      if ( (s = ::FetchFrom( serial_get_untyped( s, k ), t )) == nullptr || t != z_##_type_ ) \
+        return d;                                                                             \
+      return ::FetchFrom( s, &v, sizeof(v) ) != nullptr ? v : d;                              \
+    }
+  # define derive_get_smart( _type_ ) template <class S, class K>                             \
+    static  _type_##_t  serial_get_##_type_( S* s, K k, _type_##_t d = 0 )                    \
+    {                                                                                         \
+      char        b;                                                                          \
+      _type_##_t  t;                                                                          \
+      if ( (s = ::FetchFrom( serial_get_untyped( s, k ), b )) == nullptr || b != z_##_type_ ) \
+        return d;                                                                             \
+      return ::FetchFrom( s, t ) != nullptr ? t : d;                                          \
+    }
+    derive_get_plain( char )
+    derive_get_plain( byte )
+    derive_get_plain( int16 )
+    derive_get_plain( word16 )
+    derive_get_plain( float )
+    derive_get_plain( double )
+    derive_get_smart( int32 )
+    derive_get_smart( word32 )
+    derive_get_smart( int64 )
+    derive_get_smart( word64 )
+
+  # undef derive_get_plain
+  # undef derive_get_smart
+
+  template <class S, class K>
+  static  int   serial_get_string( char* o, unsigned l, S* s, K k )
+  {
+    unsigned  u;
+    byte_t    t;
+
+    if ( (s = ::FetchFrom( serial_get_untyped( s, k ), t )) == nullptr || t != z_charstr )
+      return EINVAL;
+    if ( (s = ::FetchFrom( s, u )) == nullptr || u >= l )
+      return EFAULT;
+    if ( (s = ::FetchFrom( s, o, u )) != nullptr )  o[u] = 0;
+      else return EFAULT;
+    return 0;
+  }
+
   protected:  // variables
     zdata*  zhandler;
 
@@ -1433,7 +1538,7 @@ namespace mtc
   inline  unsigned  zarray<M>::ztree::GetBufLen() const
   {
     int       branch = plain_branchlen();
-    word16_t  lstore = (branch > 0 ? 0x8000 + branch : size()) + (avalue.gettype() != 0xff ? 0x4000 : 0);
+    word16_t  lstore = (branch > 0 ? 0x0400 + branch : size()) + (avalue.gettype() != 0xff ? 0x0400 : 0);
     unsigned  buflen = ::GetBufLen( lstore );
 
     if ( avalue.gettype() != 0xff )
@@ -1461,7 +1566,9 @@ namespace mtc
   inline  O*   zarray<M>::ztree::Serialize( O* o ) const
   {
     int       branch = plain_branchlen();
-    word16_t  lstore = (branch > 0 ? 0x8000 + branch : this->GetLen()) + (avalue.gettype() != 0xff ? 0x4000 : 0);
+      assert( branch <= 0x100 );
+      assert( size() <= 0x100 );
+    word16_t  lstore = (branch > 0 ? 0x0400 + branch : this->size()) + (avalue.gettype() != 0xff ? 0x0200 : 0);
 
     o = ::Serialize( o, lstore );
 
@@ -1496,13 +1603,13 @@ namespace mtc
     if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
       return nullptr;
 
-    if ( (lfetch & 0x4000) != 0 && (s = avalue.FetchFrom( ::FetchFrom( s, (char&)keyset ) )) == nullptr )
+    if ( (lfetch & 0x0200) != 0 && (s = avalue.FetchFrom( ::FetchFrom( s, (char&)keyset ) )) == nullptr )
       return nullptr;
 
-    if ( (lfetch & 0x8000) != 0 )
+    if ( (lfetch & 0x0400) != 0 )
     {
       ztree*  pbeg = this;
-      int     size = lfetch & 0xfff;
+      int     size = lfetch & 0x1ff;
 
       while ( size-- > 0 )
       {
@@ -1515,7 +1622,7 @@ namespace mtc
       return pbeg->FetchFrom( s );
     }
       else
-    if ( this->SetLen( lfetch & 0xfff ) == 0 )
+    if ( this->SetLen( lfetch & 0x1ff ) == 0 )
     {
       for ( auto p = this->begin(); p < this->end() && s != nullptr; ++p )
       {
@@ -1576,6 +1683,385 @@ namespace mtc
       return nullptr;
 
     return (S*)zhandler->FetchFrom( s );
+  }
+
+  /* serial_* methods section for direct access to fields   */  
+
+  template <class M> template <class S>
+  S*  zarray<M>::serial_jump_length( S* s, unsigned l )
+  {
+    char      slocal[0x100];
+    unsigned  cbpart;
+
+    while ( (cbpart = l < sizeof(slocal) ? l : sizeof(slocal)) > 0 )
+      if ( (s = ::FetchFrom( s, slocal, cbpart )) != nullptr )  l -= cbpart;
+        else return nullptr;
+    return s;
+  }
+
+  template <class M> template <class S>         
+  S*  zarray<M>::serial_skip_xvalue( S* s )
+  {
+    char      vatype;
+    unsigned  sublen;
+
+    if ( (s = ::FetchFrom( s, vatype )) == nullptr )
+      return nullptr;
+    switch ( vatype )
+    {
+    # define  derive_skip_plain( _type_ ) case z_##_type_: return serial_jump_length( s, sizeof(_type_##_t) );
+      derive_skip_plain( char )
+      derive_skip_plain( byte )
+      derive_skip_plain( int16 )
+      derive_skip_plain( word16 )
+      derive_skip_plain( float )
+      derive_skip_plain( double )
+    # undef derive_skip_plain
+
+    # define  derive_skip_smart( _type_ ) case z_##_type_: {  _type_##_t  t;  return ::FetchFrom( s, t ); }
+      derive_skip_smart( int32 )
+      derive_skip_smart( int64 )
+      derive_skip_smart( word32 )
+      derive_skip_smart( word64 )
+    # undef derive_skip_smart
+
+      case z_charstr:
+        return (s = ::FetchFrom( s, sublen )) != nullptr ? serial_jump_length( s, sublen ) : nullptr;
+      case z_widestr:
+        return (s = ::FetchFrom( s, sublen )) != nullptr ? serial_jump_length( s, sizeof(widechar) * sublen ) : nullptr;
+//        case z_buffer  = 18,
+      case z_zarray:
+        return serial_skip_zarray( s );
+
+    # define  derive_skip_array_plain( _type_ ) case z_array_##_type_:  \
+        return (s = ::FetchFrom( s, sublen )) != nullptr ? serial_jump_length( s, sublen * sizeof(_type_##_t) ) : nullptr;
+
+      derive_skip_array_plain( char )
+      derive_skip_array_plain( byte )
+      derive_skip_array_plain( float )
+      derive_skip_array_plain( double )
+    # undef derive_skip_array_plain
+
+      case z_array_int16:   return skip_array_ord<int16_t>( s );
+      case z_array_int32:   return skip_array_ord<int32_t>( s );
+      case z_array_int64:   return skip_array_ord<int64_t>( s );
+      case z_array_word16:  return skip_array_ord<word16_t>( s );
+      case z_array_word32:  return skip_array_ord<word32_t>( s );
+      case z_array_word64:  return skip_array_ord<word64_t>( s );
+
+      case z_array_charstr: return skip_array_str<char>( s );
+      case z_array_widestr: return skip_array_str<widechar>( s );
+//        case z_array_buffer  = 50,
+      case z_array_zarray:  return skip_array_zarray( s );
+      case z_array_xvalue:  return skip_array_xvalue( s );
+      default:
+        return nullptr;
+    }
+  }
+
+  template <class M> template <class S>
+  S*  zarray<M>::serial_skip_zarray( S* s )
+  {
+    word16_t  lfetch;
+    int       arrlen;
+
+    if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
+      return nullptr;
+
+  /*  check if value is stored before other data; either skip or return */
+    if ( (lfetch & 0x0200) != 0 )
+    {
+      char  keyset;
+
+      if ( (s = serial_skip_xvalue( ::FetchFrom( s, keyset ))) == nullptr )
+        return nullptr;
+    }
+
+  /*  check if branch is patricia-like: check exact match               */
+    if ( (lfetch & 0x0400) != 0 )
+      return (s = serial_jump_length( s, lfetch & 0x1ff )) != nullptr ? serial_skip_zarray( s ) : nullptr;
+
+    for ( arrlen = lfetch & 0x1ff; arrlen-- > 0; )
+    {
+      unsigned  sublen;
+      byte_t    chnext;
+
+      if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
+        return nullptr;
+      if ( (s = serial_jump_length( s, sublen )) == nullptr )
+        return nullptr;
+    }
+    return s;
+  }
+
+  template <class M> template <class T, class S>
+  S*  zarray<M>::serial_skip_array_values( S* s )
+  {
+    int   nitems;
+    T     itnext;
+
+    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
+      return nullptr;
+    while ( nitems-- > 0 && (s = ::FetchFrom( s, itnext )) != nullptr )
+      (void)0;
+    return s;
+  }
+
+  template <class M> template <class T, class S>
+  S*  zarray<M>::serial_skip_array_string( S* s )
+  {
+    int       nitems;
+    unsigned  itelen;
+
+    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
+      return nullptr;
+    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = serial_jump_length( s, sizeof(T) * itelen )) != nullptr )
+      (void)0;
+    return s;
+  }
+
+  template <class M> template <class S>
+  S*  zarray<M>::serial_skip_array_zarray( S* s )
+  {
+    int       nitems;
+    unsigned  itelen;
+
+    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
+      return nullptr;
+    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = serial_skip_zarray( s )) != nullptr )
+      (void)0;
+    return s;
+  }
+
+  template <class M> template <class S>
+  S*  zarray<M>::serial_skip_array_xvalue( S* s )
+  {
+    int       nitems;
+    unsigned  itelen;
+
+    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
+      return nullptr;
+    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = serial_skip_xvalue( s )) != nullptr )
+      (void)0;
+    return s;
+  }
+
+  template <class M> template <class S>
+  S*  zarray<M>::serial_get_untyped( S* s, const byte_t* k, int l, char t )
+  {
+    word16_t  lfetch;
+
+    if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
+      return nullptr;
+
+  /*  check if value is stored before other data; either skip or return */
+    if ( (lfetch & 0x0200) != 0 )
+    {
+      char  keyset;
+
+      if ( (s = ::FetchFrom( s, keyset )) == nullptr )
+        return nullptr;
+      if ( l == 0 ) return keyset == t ? s : nullptr;
+        else s = skip_xvalue( s );
+    }
+      else
+    if ( l == 0 )
+      return nullptr;
+
+  /*  check if branch is patricia-like: check exact match               */
+    if ( (lfetch & 0x0400) != 0 )
+    {
+      int     patlen = lfetch & 0x1ff;
+      byte_t  chload;
+
+      while ( patlen-- > 0 && l > 0 )
+      {
+        if ( (s = ::FetchFrom( s, (char&)chload )) != nullptr && chload == *k++ ) --l;
+          else return nullptr;
+      }
+
+      return patlen < 0 ? serial_get_untyped( s, k, l, t ) : nullptr;
+    }
+      else
+    {
+      int     arrlen = lfetch & 0x1ff;
+      byte_t  chfind = *k++;
+
+      while ( arrlen-- > 0 )
+      {
+        unsigned  sublen;
+        byte_t    chnext;
+
+        if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
+          return nullptr;
+
+        if ( chfind == chnext ) return serial_get_untyped( s, k, l - 1, t );
+          else
+        if ( chfind <  chnext ) return nullptr;
+          else
+        if ( (s = skip_buffer( s, sublen )) == nullptr )
+          return nullptr;
+      }
+      return nullptr;
+    }
+  }
+
+  template <class M>
+  const char* zarray<M>::serial_jump_length( const char* s, unsigned l )
+  {
+    return s + l;
+  }
+
+  template <class M>
+  const char* zarray<M>::serial_skip_xvalue( const char* s )
+  {
+    char      vatype = *s++;
+    unsigned  sublen;
+
+    switch ( vatype )
+    {
+      case z_char:    return s + sizeof(char);
+      case z_byte:    return s + sizeof(byte_t);
+      case z_int16:   return s + sizeof(int16_t);
+      case z_word16:  return s + sizeof(word16_t);
+      case z_float:   return s + sizeof(float);
+      case z_double:  return s + sizeof(double);
+
+      case z_int32:
+      case z_int64:
+      case z_word32:
+      case z_word64:  while ( *s++ & 0x80 ) (void)0;  return s;
+
+      case z_charstr: return ::FetchFrom( s, sublen ) + sublen;
+      case z_widestr: return ::FetchFrom( s, sublen ) + sizeof(widechar) * sublen;
+//        case z_buffer  = 18,
+      case z_zarray:  return serial_skip_zarray( s );
+
+      case z_array_char:    return ::FetchFrom( s, sublen ) + sublen;
+      case z_array_byte:    return ::FetchFrom( s, sublen ) + sublen;
+      case z_array_float:   return ::FetchFrom( s, sublen ) + sublen * sizeof(float);
+      case z_array_double:  return ::FetchFrom( s, sublen ) + sublen * sizeof(double);
+
+      case z_array_int16:   return serial_skip_array_values<int16_t>( s );
+      case z_array_int32:   return serial_skip_array_values<int32_t>( s );
+      case z_array_int64:   return serial_skip_array_values<int64_t>( s );
+      case z_array_word16:  return serial_skip_array_values<word16_t>( s );
+      case z_array_word32:  return serial_skip_array_values<word32_t>( s );
+      case z_array_word64:  return serial_skip_array_values<word64_t>( s );
+
+      case z_array_charstr: return serial_skip_array_string<char>( s );
+      case z_array_widestr: return serial_skip_array_string<widechar>( s );
+//        case z_array_buffer  = 50,
+      case z_array_zarray:  return serial_skip_array_zarray( s );
+      case z_array_xvalue:  return serial_skip_array_xvalue( s );
+      default:
+        return nullptr;
+    }
+  }
+
+  template <class M>
+  const char* zarray<M>::serial_skip_zarray( const char* s )
+  {
+    word16_t  lfetch;
+    unsigned  sublen;
+    int       arrlen;
+
+    if ( (lfetch = (byte_t)*s++) & 0x80 )
+      lfetch = (lfetch & 0x7f) | (((word16_t)(byte_t)*s++) << 7);
+
+  /*  check if value is stored before other data; either skip or return */
+    if ( (lfetch & 0x0200) != 0 )
+      s = serial_skip_xvalue( ++s );
+
+  /*  check if branch is patricia-like: check exact match               */
+    if ( (lfetch & 0x0400) != 0 )
+      return serial_skip_zarray( s + (lfetch & 0x1ff) );
+
+    for ( arrlen = lfetch & 0x1ff; arrlen-- > 0; )
+      s = ::FetchFrom( ++s, sublen ) + sublen;
+
+    return s;
+  }
+
+  template <class M>
+  const char* zarray<M>::serial_get_untyped( const char* s, const byte_t* k, int l, char t )
+  {
+    word16_t  lfetch;
+
+    if ( (lfetch = (byte_t)*s++) & 0x80 )
+      lfetch = (lfetch & 0x7f) | (((word16_t)(byte_t)*s++) << 7);
+
+  /*  check if value is stored before other data; either skip or return */
+    if ( (lfetch & 0x0200) != 0 )
+    {
+      if ( l == 0 ) return *s++ == t ? s : nullptr;
+        else s = serial_skip_xvalue( ++s );
+    }
+      else
+    if ( l == 0 )
+      return nullptr;
+
+  /*  check if branch is patricia-like: check exact match               */
+    if ( (lfetch & 0x0400) != 0 )
+    {
+      int     patlen = lfetch & 0x1ff;
+
+      if ( (l -= patlen) < 0 )
+        return nullptr;
+      while ( patlen-- > 0 )
+        if ( *s++ != *k++ ) return nullptr; 
+
+      return serial_get_untyped( s, k, l, t );
+    }
+      else
+    {
+      int     arrlen = lfetch & 0x1ff;
+      byte_t  chfind = *k++;
+
+      while ( arrlen-- > 0 )
+      {
+        unsigned  sublen;
+        byte_t    chnext;
+
+        if ( (chnext = (byte_t)*s++) == chfind )
+        {
+          while ( (*s++ & 0x80) != 0 )
+            (void)NULL;
+          return serial_get_untyped( s, k, l - 1, t );
+        }
+          else
+        if ( chnext > chfind )
+          return nullptr;
+        s = ::FetchFrom( s, sublen ) + sublen;
+      }
+      return nullptr;
+    }
+  }
+
+  template <class M> template <class S>
+  S*  zarray<M>::serial_get_untyped( S* s, unsigned k )
+  {
+    byte_t  thekey[4];
+
+    return serial_get_untyped( s, thekey, zarray_int_to_key( thekey, k ), 0 );
+  }
+
+  template <class M> template <class S>
+  S*  zarray<M>::serial_get_untyped( S* s, const char* k )
+  {
+    return serial_get_untyped( s, (const byte_t*)k, w_strlen( k ), 1 );
+  }
+
+  template <class M> template <class S>
+  S*  zarray<M>::serial_get_untyped( S* s, const widechar* k )
+  {
+    return serial_get_untyped( s, (const byte_t*)k, sizeof(widechar) * w_strlen( k ), 2 );
+  }
+
+  template <class M> template <class S, class Z, class K>
+  int zarray<M>::serial_get_xvalue( xvalue<Z>& z, S* s, K k )
+  {
+    return (s = serial_get_untyped( s, k )) != nullptr ? z.FetchFrom( s ) != nullptr ? 0 : EFAULT : ENOENT;
   }
 
 }
