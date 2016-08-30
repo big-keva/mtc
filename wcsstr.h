@@ -39,6 +39,7 @@ SOFTWARE.
 # include <string.h>
 # include <stdlib.h>
 # include <stdint.h>
+# include <libcodes/codes.h>
 # include "platform.h"
 
 # if !defined( __widechar_defined__ )
@@ -70,28 +71,33 @@ namespace mtc
   // strdup() family
   //
 
-  template <class C, class M>  C*  __impl_strdup( const C* s )
+  template <class C, class M>  C*  __impl_strdup( const C* s, size_t l = (size_t)-1 )
   {
-    size_t  l = w_strlen( s );
-    C*      p;
+    C*  o;
+    C*  p;
 
-    if ( (p = (C*)M().alloc( sizeof(C) * (l + 1) )) == nullptr )
-      return nullptr;
-    while ( (*p++ = *s++) != (C)0 )
-      (void)0;
-    return p - l - 1;
+    if ( l == (size_t)-1 )
+      for ( l = 0; s != nullptr && s[l] != (C)0; ++l )  (void)0;
+
+    if ( (o = p = (C*)M().alloc( sizeof(C) * (l + 1) )) != nullptr )
+      {  while ( l-- > 0 ) *p++ = *s++;  *p = (C)0;  }
+
+    return o;
   }
 
   template <class M = def_alloc<>>
-  inline  widechar* w_strdup( const widechar* s )   {  return s != nullptr ? __impl_strdup<widechar, M>( s ) : nullptr;  }
+  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1 )
+    {  return s != nullptr ? __impl_strdup<widechar, M>( s, l ) : nullptr;  }
+
   template <class M = def_alloc<>>
-  inline  char*     w_strdup( const char* s )       {  return s != nullptr ? __impl_strdup<    char, M>( s ) : nullptr;  }
+  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1 )
+    {  return s != nullptr ? __impl_strdup<    char, M>( s, l ) : nullptr;  }
 
   //
   // strcpy() family
   //
 
-  template <class O, class S>  O*  __impl_strcpy( O* o, const S* s )
+  template <class O, class S> O*  __impl_strcpy( O* o, const S* s )
   {
     for ( auto p = o; (*p++ = *s++) != (O)0; )
       (void)0;
@@ -100,126 +106,136 @@ namespace mtc
 
   inline  widechar* w_strcpy( widechar* o, const widechar* s )  {  return __impl_strcpy( o, s );  }
   inline  widechar* w_strcpy( widechar* o, const char* s )      {  return __impl_strcpy( o, s );  }
-  inline  char* w_strcpy( char* o, const char* s )              {  return __impl_strcpy( o, s );  }
+  inline  char*     w_strcpy( char* o, const char* s )          {  return __impl_strcpy( o, s );  }
 
-  inline  widechar* w_strncpy( widechar* pwsout, const widechar* pwssrc, int n )
+  template <class O, class S> O*  __impl_strncpy( O* o, const S* s, int n )
   {
-    widechar* pwstop = pwsout;
+    O*  p = o;
 
-    while ( n-- > 0 && (*pwsout = *pwssrc++) != 0 )
-      ++pwsout;
-    while ( n-- > 0 )
-      *pwsout++ = 0;
-
-    return pwstop;
+    while ( n-- > 0 && (*p++ = *s++) != (O)0 )
+      (void)0;
+    if ( n > 0 )
+      *p = (O)0;
+    return o;
   }
 
-  inline  char*     w_strncpy( char* pszout, const char* pszsrc, int n )
-  {
-    return ::strncpy( pszout, pszsrc, n );
-  }
+  inline  widechar* w_strncpy( widechar* o, const widechar* s, int n )  {  return __impl_strncpy( o, s, n );  }
+  inline  widechar* w_strncpy( widechar* o, const char* s, int n )      {  return __impl_strncpy( o, s, n );  }
+  inline  char*     w_strncpy( char* o, const char* s, int n )          {  return __impl_strncpy( o, s, n );  }
 
   //
   // strcat() family
   //
 
-  inline  widechar* w_strcat( widechar* pwsout, const widechar* pwssrc )
+  template <class O, class S> O*  __impl_strcat( O* o, const S* s )
   {
-    widechar* pstore = pwsout;
+    O*  p = o;
 
-    while ( *pstore++ != 0 )  (void)NULL;
-
-    w_strcpy( pstore - 1, pwssrc );
-
-    return pwsout;
+    while ( *p++ != (O)0 )
+      (void)0;
+    w_strcpy( p - 1, s );
+      return o;
   }
 
-  inline  char*     w_strcat( char* pszout, const char* pszsrc )
-  {
-    return ::strcat( pszout, pszsrc );
-  }
+  inline  widechar* w_strcat( widechar* o, const widechar* s )    {  return __impl_strcat( o, s );  }
+  inline  widechar* w_strcat( widechar* o, const char* s )        {  return __impl_strcat( o, s );  }
+  inline  char*     w_strcat( char* o, const char* s )            {  return __impl_strcat( o, s );  }
 
   //
   // strcmp() family
   //
-  inline  int     w_strcmp( const char*     pszone,
-                            const char*     psztwo )
+  template <class C>  int __impl_strcmp( const C* s, const C* m )
   {
-    return ::strcmp( pszone, psztwo );
+    int   rc;
+
+    while ( (rc = *s - *m++) == 0 && *s++ != (C)0 )
+      (void)0;
+    return rc;
   }
 
-  inline  int     w_strcmp( const widechar* pszone,
-                            const widechar* psztwo )
+  inline  int   w_strcmp( const char* s, const char* m )          {  return __impl_strcmp( s, m );  }
+  inline  int   w_strcmp( const widechar* s, const widechar* m )  {  return __impl_strcmp( s, m );  }
+
+  inline  int   w_strcmp( const char* s, const widechar* m, unsigned codepage = codepages::codepage_1251 )
   {
+    int   rc;
+
+    if ( codepage != codepages::codepage_utf8 )
+    {
+      while ( (rc = codepages::chartowide( codepage, *s ) - *m++) == 0 && *s++ != 0 )
+        (void)0;
+    }
+      else
     for ( ; ; )
     {
-      widechar  chrone;
-      int       rescmp;
+      size_t    cb = codepages::utf8cbchar( s );
+      widechar  ch = codepages::utf8dechar( s, cb );
 
-      if ( (rescmp = (chrone = *pszone++) - *psztwo++) != 0 )
-        return rescmp;
-      if ( chrone == 0 )
-        return 0;
+      if ( (rc = ch - *m++) != 0 || *s == '\0' )  break;
+        else s += cb;
     }
+    return rc;
   }
 
-  //
-  // strchr() family
-  //
-  inline  char*     w_strchr( const char*     string, int c )
+  inline  int   w_strcmp( const widechar* m, const char* s, unsigned codepage = codepages::codepage_1251 )
   {
-    return (char*)::strchr( string, c );
-  }
-
-  inline  widechar* w_strchr( const widechar* string, int c )
-  {
-    while ( *string != 0 && c != *string )
-      ++string;
-    return (widechar*)( c == *string ? string : NULL );
+    return -w_strcmp( s, m, codepage );
   }
 
   //
   // strncmp() family
   //
-  inline  int     w_strncmp( const widechar* pwsst1, const widechar* pwsst2, size_t cchstr )
+  template <class C, class M> int __impl_strncmp( const C* s, const M* m, size_t n )
   {
-    int   rescmp;
+    int   rc = 0;
 
-    while ( cchstr-- > 0 )
-      if ( (rescmp = *pwsst1++ - *pwsst2++) != 0 )
-        return rescmp;
-    return 0;
+    while ( n-- > 0 && (rc = *s++ - *m++) == 0 )
+      (void)0;
+    return rc;
   }
 
-  inline  int     w_strncmp( const widechar* pwsstr, const char* pszstr, size_t cchstr )
-  {
-    int   rescmp;
+  inline  int   w_strncmp( const char* s, const char* m, size_t n )         {  return __impl_strncmp( s, m, n );  }
+  inline  int   w_strncmp( const char* s, const widechar* m, size_t n )     {  return __impl_strncmp( s, m, n );  }
+  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n ) {  return __impl_strncmp( s, m, n );  }
+  inline  int   w_strncmp( const widechar* s, const char* m, size_t n )     {  return __impl_strncmp( s, m, n );  }
 
-    while ( cchstr-- > 0 )
-      if ( (rescmp = *pwsstr++ - widechar(*pszstr++)) != 0 )
-        return rescmp;
-    return 0;
+  //
+  // strchr() family
+  //
+  template <class C>  C*  __impl_strchr( const C* s, int c )
+  {
+    while ( c != *s && *s != (C)0 )
+      ++s;
+    return c == *s ? (C*)s : nullptr;
   }
 
-  inline  int     w_strncmp( const char* pszstr, const widechar* pwsstr, size_t cchstr )
-  {
-    int   rescmp;
+  inline  char*     w_strchr( const char* s, int c )              {  return __impl_strchr( s, c );  }
+  inline  widechar* w_strchr( const widechar* s, int c )          {  return __impl_strchr( s, c );  }
 
-    while ( cchstr-- > 0 )
-      if ( (rescmp = widechar(*pszstr++) - *pwsstr++) != 0 )
-        return rescmp;
-    return 0;
+  //
+  // strstr family
+  //
+  template <class C>  C*  __impl_strstr( const C* s, const C* m )
+  {
+    while ( *s != (C)0 )
+    {
+      const C* s1;
+      const C* m1;
+
+      while ( *s != (C)0 && *s != *m )
+        ++s;
+
+      for ( s1 = s, m1 = m; *m1 != 0 && *s1++ == *m1++; )
+        (void)0;
+
+      if ( *m1 == (C)0 ) return (C*)s;
+        else ++s;
+    }
+    return nullptr;
   }
 
-  inline  int     w_strncmp( const char* pszst1, const char* pszst2, size_t cchstr )
-  {
-    int   rescmp;
-
-    while ( cchstr-- > 0 )
-      if ( (rescmp = (unsigned char)*pszst1++ - (unsigned char)*pszst2++) != 0 )
-        return rescmp;
-    return 0;
-  }
+  inline  char*     w_strstr( const char* s, const char* m )          {  return __impl_strstr( s, m );  }
+  inline  widechar* w_strstr( const widechar* s, const widechar* m )  {  return __impl_strstr( s, m );  }
 
   inline  double  w_strtod( const widechar* pwsstr, widechar**  pwsend )
   {
