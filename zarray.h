@@ -183,15 +183,18 @@ namespace mtc
     unsigned char vxtype;
     char          chdata[sizeof(array<char>)];
 
+  public:     // untyped constant
+    enum {  undefined_type = 0xff  };
+
   public:     // untyped element construction
-    xvalue(): vxtype( 0xff )
+    xvalue(): vxtype( undefined_type )
       {
       }
     xvalue( const xvalue& v ): vxtype( v.vxtype )
       {
-        if ( vxtype != 0xff )
+        if ( vxtype != undefined_type )
           memcpy( chdata, v.chdata, sizeof(chdata) );
-        ((xvalue&)v).vxtype = 0xff;
+        ((xvalue&)v).vxtype = undefined_type;
       }
     ~xvalue()
       {
@@ -199,30 +202,35 @@ namespace mtc
       }
     xvalue& operator = ( const xvalue& v )
       {
-        if ( vxtype != 0xff )
+        if ( vxtype != undefined_type )
           delete_data();
-        if ( (vxtype = v.vxtype) != 0xff )
+        if ( (vxtype = v.vxtype) != undefined_type )
           memcpy( chdata, v.chdata, sizeof(chdata) );
-        ((xvalue&)v).vxtype = 0xff;
+        ((xvalue&)v).vxtype = undefined_type;
           return *this;
       }
     unsigned  gettype() const
       {
         return vxtype;
       }
+    xvalue& reset()
+      {
+        delete_data();
+        return *this;
+      }
 
   public:     // typed constructors
-    xvalue( char c ): vxtype( 0xff )              {  set_char( c );  }
-    xvalue( byte_t b ): vxtype( 0xff )            {  set_byte( b );  }
-    xvalue( int16_t i ): vxtype( 0xff )           {  set_int16( i );  }
-    xvalue( int32_t i ): vxtype( 0xff )           {  set_int32( i );  }
-    xvalue( int64_t i ): vxtype( 0xff )           {  set_int64( i );  }
-    xvalue( word16_t i ): vxtype( 0xff )          {  set_word16( i );  }
-    xvalue( word32_t i ): vxtype( 0xff )          {  set_word32( i );  }
-    xvalue( word64_t i ): vxtype( 0xff )          {  set_word64( i );  }
-    xvalue( float   f ): vxtype( 0xff )           {  set_float( f );  }
-    xvalue( double d ): vxtype( 0xff )            {  set_double( d );  }
-    xvalue( const zarray<M>& z ): vxtype( 0xff )  {  set_zarray( z );  }
+    xvalue( char c ): vxtype( undefined_type )              {  set_char( c );  }
+    xvalue( byte_t b ): vxtype( undefined_type )            {  set_byte( b );  }
+    xvalue( int16_t i ): vxtype( undefined_type )           {  set_int16( i );  }
+    xvalue( int32_t i ): vxtype( undefined_type )           {  set_int32( i );  }
+    xvalue( int64_t i ): vxtype( undefined_type )           {  set_int64( i );  }
+    xvalue( word16_t i ): vxtype( undefined_type )          {  set_word16( i );  }
+    xvalue( word32_t i ): vxtype( undefined_type )          {  set_word32( i );  }
+    xvalue( word64_t i ): vxtype( undefined_type )          {  set_word64( i );  }
+    xvalue( float   f ): vxtype( undefined_type )           {  set_float( f );  }
+    xvalue( double d ): vxtype( undefined_type )            {  set_double( d );  }
+    xvalue( const zarray<M>& z ): vxtype( undefined_type )  {  set_zarray( z );  }
 
   public:     // serialization
                         unsigned  GetBufLen(    ) const;
