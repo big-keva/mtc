@@ -39,7 +39,6 @@ SOFTWARE.
 # include <string.h>
 # include <stdlib.h>
 # include <stdint.h>
-# include <libcodes/codes.h>
 # include "platform.h"
 
 # if !defined( __widechar_defined__ )
@@ -153,39 +152,39 @@ namespace mtc
     return rc;
   }
 
-  inline  int   w_strcmp( const char* s, const char* m )          {  return __impl_strcmp( s, m );  }
-  inline  int   w_strcmp( const widechar* s, const widechar* m )  {  return __impl_strcmp( s, m );  }
+  template <class ucload = __impl_default_getwidechar>
+  inline  int   w_strcmp( const char* s, const char* m, ucload l = __impl_default_getwidechar() )
+    {  return __impl_strcmp( s, m );  }
+  template <class ucload = __impl_default_getwidechar>
+  inline  int   w_strcmp( const widechar* s, const widechar* m, ucload l = __impl_default_getwidechar() )
+    {  return __impl_strcmp( s, m );  }
 
-  inline  int   w_strcmp( const char* s, const widechar* m, unsigned codepage = codepages::codepage_1251 )
+  struct __impl_default_getwidechar
+  {
+    widechar  operator ()( const char*& s )
+      {  return (widechar)(unsigned char)*s++;  }
+  };
+
+  template <class ucload = __impl_default_getwidechar>
+  inline  int   w_strcmp( const char* s, const widechar* m, ucload l = __impl_default_getwidechar() )
   {
     int   rc;
 
-    if ( codepage != codepages::codepage_utf8 )
-    {
-      while ( (rc = codepages::chartowide( codepage, *s ) - *m++) == 0 && *s++ != 0 )
-        (void)0;
-    }
-      else
-    for ( ; ; )
-    {
-      size_t    cb = codepages::utf8cbchar( s );
-      widechar  ch = codepages::utf8dechar( s, cb );
-
-      if ( (rc = ch - *m++) != 0 || *s == '\0' )  break;
-        else s += cb;
-    }
+    while ( (rc = l( s ) - *m) == 0 && *m != 0 )
+      ++m;
     return rc;
   }
 
-  inline  int   w_strcmp( const widechar* m, const char* s, unsigned codepage = codepages::codepage_1251 )
+  template <class ucload = __impl_default_getwidechar>
+  inline  int   w_strcmp( const widechar* m, const char* s, ucload l = __impl_default_getwidechar() )
   {
-    return -w_strcmp( s, m, codepage );
+    return -w_strcmp( s, m, l );
   }
 
   //
   // strncmp() family
   //
-  template <class C, class M> int __impl_strncmp( const C* s, const M* m, size_t n )
+  template <class C> int  __impl_strncmp( const C* s, const C* m, size_t n )
   {
     int   rc = 0;
 
@@ -194,10 +193,32 @@ namespace mtc
     return rc;
   }
 
-  inline  int   w_strncmp( const char* s, const char* m, size_t n )         {  return __impl_strncmp( s, m, n );  }
-  inline  int   w_strncmp( const char* s, const widechar* m, size_t n )     {  return __impl_strncmp( s, m, n );  }
-  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n ) {  return __impl_strncmp( s, m, n );  }
-  inline  int   w_strncmp( const widechar* s, const char* m, size_t n )     {  return __impl_strncmp( s, m, n );  }
+  template <class ucload = __impl_default_getwidechar>
+  inline  int   w_strncmp( const char* s, const char* m, size_t n, ucload l = __impl_default_getwidechar() )
+    {  return __impl_strncmp( s, m, n );  }
+  template <class ucload = __impl_default_getwidechar>
+  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n, ucload l = __impl_default_getwidechar() )
+    {  return __impl_strncmp( s, m, n );  }
+
+  template <class ucload = __impl_default_getwidechar>
+  inline  int   w_strncmp( const char* s, const widechar* m, size_t n, ucload l = __impl_default_getwidechar() )
+  {
+    int   rc = 0;
+
+    while ( n-- > 0 && (rc = l( s ) - *m++) == 0 )
+      (void)0;
+    return rc;
+  }
+
+  template <class ucload = __impl_default_getwidechar>
+  inline  int   w_strncmp( const widechar* s, const char* m, size_t n, ucload l = __impl_default_getwidechar() )
+  {
+    int   rc = 0;
+
+    while ( n-- > 0 && (rc = *s++ - l( m )) == 0 )
+      (void)0;
+    return rc;
+  }
 
   //
   // strchr() family
@@ -215,7 +236,7 @@ namespace mtc
   //
   // strstr family
   //
-  template <class C>  C*  __impl_strstr( const C* s, const C* m )
+  template <class C>  const C*  __impl_strstr( const C* s, const C* m )
   {
     while ( *s != (C)0 )
     {
@@ -225,18 +246,72 @@ namespace mtc
       while ( *s != (C)0 && *s != *m )
         ++s;
 
-      for ( s1 = s, m1 = m; *m1 != 0 && *s1++ == *m1++; )
+      for ( s1 = s, m1 = m; *m1 != 0 && *s1++ == *m1; ++m1 )
         (void)0;
 
-      if ( *m1 == (C)0 ) return (C*)s;
+      if ( *m1 == (C)0 ) return s;
         else ++s;
     }
     return nullptr;
   }
 
-  inline  char*     w_strstr( const char* s, const char* m )          {  return __impl_strstr( s, m );  }
-  inline  widechar* w_strstr( const widechar* s, const widechar* m )  {  return __impl_strstr( s, m );  }
+  template <class C = __impl_default_getwidechar>  inline  const char*     w_strstr( const char* s, const char* m, C l = __impl_default_getwidechar() )
+    {  return __impl_strstr( s, m );  }
+  template <class C = __impl_default_getwidechar>  inline  const widechar* w_strstr( const widechar* s, const widechar* m, C l = __impl_default_getwidechar() )
+    {  return __impl_strstr( s, m );  }
 
+  template <class ucload = __impl_default_getwidechar>
+  inline  const char*     w_strstr( const char* s, const widechar* m, ucload l = __impl_default_getwidechar() )
+  {
+    if ( *m == 0 )
+      return s;
+
+    while ( *s != '\0' )
+    {
+      const char* o = s;
+
+      if ( l( s ) == *m )
+      {
+        const char*     s1;
+        const widechar* m1;
+
+        for ( s1 = s, m1 = 1 + m; *m1 != 0 && l( s1 ) == *m1; ++m1 )
+          (void)0;
+        if ( *m1 == 0 )
+          return o;
+      }
+    }
+    return nullptr;
+  }
+
+  template <class ucload = __impl_default_getwidechar>
+  inline  const widechar* w_strstr( const widechar* s, const char* m, ucload l = __impl_default_getwidechar() )
+  {
+    if ( *m == 0 )
+      return s;
+
+    while ( *s != 0 )
+    {
+      const widechar* o = s;
+      const char*     c = m;
+
+      if ( *s++ == l( c ) )
+      {
+        const widechar* s1;
+        const char*     c1;
+
+        for ( s1 = s; *c != '\0' && *s++ == l( c1 = c ); c = c1 )
+          (void)0;
+        if ( *c == '\0' )
+          return o;
+      }
+    }
+    return nullptr;
+  }
+
+  //
+  // strtod family
+  //
   inline  double  w_strtod( const widechar* pwsstr, widechar**  pwsend )
   {
     double          bigger = 0.0;
@@ -266,6 +341,9 @@ namespace mtc
     return bigger + decone / decpow;
   }
 
+  //
+  // strtoup family
+  //
   inline  unsigned long w_strtoul( const widechar* pwsstr, widechar**  pwsend, int dwbase )
   {
     unsigned long result = 0;
@@ -320,6 +398,9 @@ namespace mtc
     return ::strtoul( pszstr, pszend, dwbase );
   }
 
+  //
+  // strtol family
+  //
   inline  long          w_strtol( const widechar* pwsstr, widechar**  pwsend, int dwbase )
   {
     if ( *pwsstr == (widechar)'-' )
