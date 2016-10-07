@@ -151,9 +151,6 @@ namespace mtc
     {  memset( p, 0, c * sizeof(float) );  }
 
   // Copy construction methods
-  template <class A>
-  inline  A*              __safe_array_construct_cpy( A* p, const A& r )
-    {  return new( p )A( r );  }
   inline  unsigned long*  __safe_array_construct_cpy( unsigned long* p, unsigned long r )
     {  *p = r;  return p;  }
   inline  unsigned int*   __safe_array_construct_cpy( unsigned int* p, unsigned int r )
@@ -196,8 +193,8 @@ namespace mtc
     int   Append( int c, const T* p )             {  return Insert( size(), c, p );   }
     int   Append( const array<T, M>& r )          {  return Insert( size(), r );      }
     int   Append( array<T, M>& r )                {  return Insert( size(), r );      }
-    int   Insert( int p, const T& t )             {  return Insert( p, (T&)t );       }
-    int   Insert( int p, T& t )                   {  return Insert( p, 1, &t );       }
+    int   Insert( int p, const T& t );
+    int   Insert( int p, T& t );
     int   Insert( int p, int c, const T* t )      {  return Insert( p, c, (T*)t );    }
     int   Insert( int p, int c, T* t );
     int   Insert( int p, const array<T, M>& t )   {  return Insert( p, t.size(), (const T*)t ); }
@@ -247,6 +244,9 @@ namespace mtc
     const T&  first() const {  assert( ncount > 0 );  return *pitems;  }
     const T&  last() const  {  assert( ncount > 0 );  return pitems[ncount - 1];  }
 
+  protected:  // helpers
+    int       GrowTo( int newlen );
+
   protected:
     T*    pitems;
     int   ncount;
@@ -260,11 +260,11 @@ namespace mtc
   {
     struct array_data: public array<T, M>
     {
-      long  refcount;
+      int   refcount;
 
     public:
     
-      array_data( int d ): array<T, M>( d ) {  refcount = 0;  }
+      array_data( int d ): array<T, M>( d ), refcount( 0 )  {}
     };
 
     M           malloc;
@@ -344,7 +344,6 @@ namespace mtc
           parray = nullptr;
             return 0;
         }
-          else
         return Ensure() ? parray->SetLen( l ) : ENOMEM;
       }
     void  DelAll()
@@ -478,6 +477,48 @@ namespace mtc
   }
 
   template <class T, class M>
+  inline  int   array<T, M>::Insert( int nindex, const T& t )
+  {
+    if ( nindex < 0 || nindex > ncount )
+      return EINVAL;
+
+    assert( ncount <= nlimit );
+
+  // Ensure enough space
+    if ( ncount >= nlimit && GrowTo( ncount + 1 ) != 0 )
+      return ENOMEM;
+
+  // Check if the space would be prepared
+    if ( nindex < ncount )
+      memmove( pitems + nindex + 1, pitems + nindex, (ncount - nindex) * sizeof(T) );
+
+  // Create the element with the copy constructor
+    new( pitems + nindex ) T( t );  ++ncount;
+      return 0;
+  }
+
+  template <class T, class M>
+  inline  int   array<T, M>::Insert( int nindex, T& t )
+  {
+    if ( nindex < 0 || nindex > ncount )
+      return EINVAL;
+
+    assert( ncount <= nlimit );
+
+  // Ensure enough space
+    if ( ncount >= nlimit && GrowTo( ncount + 1 ) != 0 )
+      return ENOMEM;
+
+  // Check if the space would be prepared
+    if ( nindex < ncount )
+      memmove( pitems + nindex + 1, pitems + nindex, (ncount - nindex) * sizeof(T) );
+
+  // Create the element with the copy constructor
+    new( pitems + nindex ) T( t );  ++ncount;
+      return 0;
+  }
+
+  template <class T, class M>
   inline  int   array<T, M>::Insert( int nindex, int c, T* p )
   {
     if ( nindex < 0 || nindex > ncount )
@@ -486,29 +527,8 @@ namespace mtc
     assert( ncount <= nlimit );
 
   // Ensure enough space
-    if ( ncount + c > nlimit )
-    {
-      int   newlimit = ((nlimit + c + ndelta - 1) / ndelta) * ndelta;
-        assert( newlimit >= ncount + c );
-      T*    newitems;
-
-      assert( newlimit > nindex );
-
-    // Allocate new space
-      if ( (newitems = (T*)malloc.alloc( newlimit * sizeof(T) )) == NULL )
-        return ENOMEM;
-
-    // Copy the data
-      if ( ncount > 0 )
-        memcpy( newitems, pitems, ncount * sizeof(T) );
-
-    // Set new buffer
-      if ( pitems != NULL )
-        malloc.free( pitems );
-
-      pitems = newitems;
-      nlimit = newlimit;
-    }
+    if ( ncount + c > nlimit && GrowTo( ncount + c ) != 0 )
+      return ENOMEM;
 
   // Check if the space would be prepared
     if ( nindex < ncount )
@@ -516,7 +536,7 @@ namespace mtc
 
   // Create the element with the copy constructor
     for ( ncount += c; c-- > 0; )
-      __safe_array_construct_cpy( pitems + nindex++, *p++ );
+      new( pitems + nindex++ ) T( *p++ );
 
     return 0;
   }
@@ -740,6 +760,31 @@ namespace mtc
       if ( t == (*this)[i] )
         Delete( i-- );
     return 0;
+  }
+
+  template <class T, class M>
+  inline  int   array<T, M>::GrowTo( int newlen )
+  {
+    int   newlimit = ((newlen + ndelta - 1) / ndelta) * ndelta;
+    T*    newitems;
+
+    assert( newlimit >= newlen && newlimit >= ncount );
+
+  // Allocate new space
+    if ( (newitems = (T*)malloc.alloc( newlimit * sizeof(T) )) == NULL )
+      return ENOMEM;
+
+  // Copy the data
+    if ( ncount > 0 )
+      memcpy( newitems, pitems, ncount * sizeof(T) );
+
+  // Set new buffer
+    if ( pitems != NULL )
+      malloc.free( pitems );
+
+    pitems = newitems;
+    nlimit = newlimit;
+      return 0;
   }
 
 }  // mtc namespace
