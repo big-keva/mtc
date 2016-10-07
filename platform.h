@@ -112,6 +112,14 @@ namespace mtc
       }
   };
 
+  template <class T, class... constructor_args>
+  T*  allocate( constructor_args... args ) noexcept
+    {
+      T*  t;
+
+      return (t = (T*)malloc( sizeof(T) )) != nullptr ? new( t ) T( args... ) : nullptr;
+    }
+
 }
 
 # endif  // __mtc_platform_h__
