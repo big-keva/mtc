@@ -71,23 +71,6 @@ namespace mtc
     long  DecRef() {  return --rcount;  }
   };
 
-  # define  implement_lifetime_control                                \
-    protected:  mtc::_lifetime_reference_counter_  lifetime_counter;  \
-    public:     virtual long  Attach()  noexcept override             \
-      {  return lifetime_counter.AddRef();  }                         \
-    public:     virtual long  Detach()  noexcept override             \
-      {                                                               \
-        long rcount;                                                  \
-        if ( (rcount = lifetime_counter.DecRef()) == 0 )              \
-          this->Allocator().deallocate( this );                       \
-        return rcount;                                                \
-      }
-  # define  implement_lifetime_stub                                   \
-    public:     virtual long  Attach()  noexcept override             \
-      {  return 1;  }                                                 \
-    public:     virtual long  Detach()  noexcept override             \
-      {  return 1;  }
-
   template <class iface>
   class API
   {
@@ -147,5 +130,23 @@ namespace mtc
   };
 
 }  // mtc namespace
+
+# define  implement_lifetime_control                                \
+  protected:  mtc::_lifetime_reference_counter_  lifetime_counter;  \
+  public:     virtual long  Attach()  noexcept                      \
+    {  return lifetime_counter.AddRef();  }                         \
+  public:     virtual long  Detach()  noexcept                      \
+    {                                                               \
+      long rcount;                                                  \
+      if ( (rcount = lifetime_counter.DecRef()) == 0 )              \
+        delete this;                                                \
+      return rcount;                                                \
+    }
+# define  implement_lifetime_stub                                   \
+  public:     virtual long  Attach()  noexcept override             \
+    {  return 1;  }                                                 \
+  public:     virtual long  Detach()  noexcept override             \
+    {  return 1;  }
+
 
 # endif  // __interfaces_h__
