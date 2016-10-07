@@ -109,20 +109,9 @@ namespace mtc
     z_array_xvalue  = 52
   };
 
-  inline  bool  z_is_integer_type( const unsigned zt )
-  {
-    return zt >= z_char && zt <= z_word64;
-  }
-
-  inline  bool  z_is_float_type( const unsigned zt )
-  {
-    return zt == z_float || zt == z_double;
-  }
-
-  inline  bool  z_is_string_type( const unsigned zt )
-  {
-    return zt == z_charstr || zt == z_widestr;
-  }
+  inline  bool  z_is_integer_type( const unsigned zt )  {  return zt >= z_char && zt <= z_word64;   }
+  inline  bool  z_is_float_type( const unsigned zt )    {  return zt == z_float || zt == z_double;  }
+  inline  bool  z_is_string_type( const unsigned zt )   {  return zt == z_charstr || zt == z_widestr;   }
 
   /*  integer key to string value conversion                  */
   inline  int       zarray_int_to_key( byte_t* outkey, unsigned  ndwkey )
@@ -181,7 +170,7 @@ namespace mtc
   class xvalue
   {
     unsigned char vxtype;
-    char          chdata[sizeof(array<char>)];
+    char          chdata[sizeof(array<char, M>)];
 
   public:     // untyped constant
     enum {  undefined_type = 0xff  };
@@ -218,19 +207,94 @@ namespace mtc
         delete_data();
         return *this;
       }
+    xvalue  copy() const
+      {
+        xvalue  o;
+
+        switch ( vxtype )
+        {
+          case z_char:    return *get_char();
+          case z_byte:    return *get_byte();
+          case z_int16:   return *get_int16();
+          case z_int32:   return *get_int32();
+          case z_int64:   return *get_int64();
+          case z_word16:  return *get_word16();
+          case z_word32:  return *get_word32();
+          case z_word64:  return *get_word64();
+          case z_float:   return *get_float();
+          case z_double:  return *get_double();
+
+          case z_charstr: return o.set_charstr( get_charstr() ) != nullptr ? o : xvalue();
+          case z_widestr: return o.set_widestr( get_widestr() ) != nullptr ? o : xvalue();
+//          case z_buffer  = 18,
+          case z_zarray:  return o.set_zarray( *get_zarray() ) != nullptr ? o : xvalue();
+
+          case z_array_char:    return o.set_array_char()->Append( *get_array_char() ) == 0 ? o : xvalue();
+          case z_array_byte:    return o.set_array_byte()->Append( *get_array_byte() ) == 0 ? o : xvalue();
+          case z_array_int16:   return o.set_array_int16()->Append( *get_array_int16() ) == 0 ? o : xvalue();
+          case z_array_int32:   return o.set_array_int32()->Append( *get_array_int32() ) == 0 ? o : xvalue();
+          case z_array_int64:   return o.set_array_int64()->Append( *get_array_int64() ) == 0 ? o : xvalue();
+          case z_array_word16:  return o.set_array_word16()->Append( *get_array_word16() ) == 0 ? o : xvalue();
+          case z_array_word32:  return o.set_array_word32()->Append( *get_array_word32() ) == 0 ? o : xvalue();
+          case z_array_word64:  return o.set_array_word64()->Append( *get_array_word64() ) == 0 ? o : xvalue();
+          case z_array_float:   return o.set_array_float ()->Append( *get_array_float () ) == 0 ? o : xvalue();
+          case z_array_double:  return o.set_array_double()->Append( *get_array_double() ) == 0 ? o : xvalue();
+          case z_array_zarray:  return o.set_array_zarray()->Append( *get_array_zarray() ) == 0 ? o : xvalue();
+
+          case z_array_charstr:
+            {
+              array<_auto_<char, M>, M>&  a = *o.set_array_charstr();
+              const array<_auto_<char, M>, M>&  s = *get_array_charstr();
+
+              return s.for_each( [&a]( const _auto_<char, M>& s )
+                {
+                  _auto_<char, M> p;
+
+                  return (p = w_strdup( s, -1, a.GetAllocator() )) != nullptr ? a.Append( p ) : ENOMEM;
+                } ) == 0 ? o : xvalue();
+            }
+          case z_array_widestr:
+            {
+              array<_auto_<widechar, M>, M>&  a = *o.set_array_widestr();
+              const array<_auto_<widechar, M>, M>&  s = *get_array_widestr();
+
+              return s.for_each( [&a]( const _auto_<widechar, M>& s )
+                {
+                  _auto_<widechar, M> p;
+
+                  return (p = w_strdup( s, -1, a.GetAllocator() )) != nullptr ? a.Append( p ) : ENOMEM;
+                } ) == 0 ? o : xvalue();
+            }
+//          z_array_buffer  = 50,
+          case z_array_xvalue:
+            {
+              array<xvalue, M>&  a = *o.set_array_xvalue();
+              const array<xvalue, M>&  s = *get_array_xvalue();
+
+              return s.for_each( [&a]( const xvalue& s )
+                {
+                  xvalue  c;
+
+                  return (c = s.copy()).gettype() != undefined_type ? a.Append( c ) : EFAULT;
+                } ) == 0 ? o : xvalue();
+            }
+          default:  break;
+        }
+        return xvalue();
+      }
 
   public:     // typed constructors
-    xvalue( char c ): vxtype( undefined_type )              {  set_char( c );  }
-    xvalue( byte_t b ): vxtype( undefined_type )            {  set_byte( b );  }
-    xvalue( int16_t i ): vxtype( undefined_type )           {  set_int16( i );  }
-    xvalue( int32_t i ): vxtype( undefined_type )           {  set_int32( i );  }
-    xvalue( int64_t i ): vxtype( undefined_type )           {  set_int64( i );  }
-    xvalue( word16_t i ): vxtype( undefined_type )          {  set_word16( i );  }
-    xvalue( word32_t i ): vxtype( undefined_type )          {  set_word32( i );  }
-    xvalue( word64_t i ): vxtype( undefined_type )          {  set_word64( i );  }
-    xvalue( float   f ): vxtype( undefined_type )           {  set_float( f );  }
-    xvalue( double d ): vxtype( undefined_type )            {  set_double( d );  }
-    xvalue( const zarray<M>& z ): vxtype( undefined_type )  {  set_zarray( z );  }
+    xvalue( char c ):     vxtype( undefined_type )          {  set_char( c );   }
+    xvalue( byte_t b ):   vxtype( undefined_type )          {  set_byte( b );   }
+    xvalue( int16_t i ):  vxtype( undefined_type )          {  set_int16( i );  }
+    xvalue( int32_t i ):  vxtype( undefined_type )          {  set_int32( i );  }
+    xvalue( int64_t i ):  vxtype( undefined_type )          {  set_int64( i );  }
+    xvalue( word16_t i ): vxtype( undefined_type )          {  set_word16( i ); }
+    xvalue( word32_t i ): vxtype( undefined_type )          {  set_word32( i ); }
+    xvalue( word64_t i ): vxtype( undefined_type )          {  set_word64( i ); }
+    xvalue( float   f ):  vxtype( undefined_type )          {  set_float( f );  }
+    xvalue( double d ):   vxtype( undefined_type )          {  set_double( d ); }
+    xvalue( const zarray<M>& z ): vxtype( undefined_type )  {  set_zarray( z ); }
 
   public:     // serialization
                         unsigned  GetBufLen(    ) const;
@@ -305,7 +369,7 @@ public:     // set_?? methods
 /* ordinal types */
   # define  derive_set( _type_ )                                                                  \
     _type_##_t* set_##_type_( _type_##_t v = 0 )                                                  \
-      {  delete_data();  vxtype = z_##_type_;  return __safe_array_construct_cpy( (_type_##_t*)&chdata, v );  }
+      {  delete_data();  vxtype = z_##_type_;  return new( (_type_##_t*)&chdata ) _type_##_t( v );  }
 
       derive_set( char )
       derive_set( byte )
@@ -340,12 +404,6 @@ public:     // set_?? methods
 
         return *(char**)&chdata;
       }
-    char*&    set_charstr()
-      {
-        delete_data();
-          vxtype = z_charstr;
-        return *(char**)&chdata = nullptr;
-      }
     widechar* set_widestr( const widechar*  pszstr, unsigned  cchstr = (unsigned)-1 )
       {
         if ( cchstr == (unsigned)-1 )
@@ -364,43 +422,37 @@ public:     // set_?? methods
 
         return *(widechar**)&chdata;
       }
+    char*&  set_charstr()
+      {  delete_data();  vxtype = z_charstr;  return *(char**)&chdata = nullptr;  }
     widechar*&  set_widestr()
-      {
-        delete_data();
-          vxtype = z_widestr;
-        return *(widechar**)&chdata = nullptr;
-      }
+      {  delete_data();  vxtype = z_widestr;  return *(widechar**)&chdata = nullptr;  }
 
 /* special types: buffer, zarray and array(s) */
     zarray<M>*  set_zarray()
-      {
-        delete_data();  vxtype = z_zarray;
-          __safe_array_construct_def( (zarray<M>*)&chdata, 1 );
-        return (zarray<M>*)&chdata;
-      }
+      {  delete_data();  vxtype = z_zarray;  return new( (zarray<M>*)&chdata ) zarray<M>();  }
     zarray<M>*  set_zarray( const zarray<M>& z )
-      {
-        delete_data();  vxtype = z_zarray;
-        return __safe_array_construct_cpy( (zarray<M>*)&chdata, z );
-      }
+      {  delete_data();  vxtype = z_zarray;  return new( (zarray<M>*)&chdata ) zarray<M>( z );  }
 
-  # define  derive_set( _type_ )                                              \
+/*
+  set_array_#() macrogeneration
+*/
+  # define  derive_set_array( _type_ )                                        \
     array<_type_##_t, M>*  set_array_##_type_()                               \
     {                                                                         \
       delete_data();  vxtype = z_array_##_type_;                              \
       return new( (array<_type_##_t, M>*)&chdata ) array<_type_##_t, M>();    \
     }
-    derive_set( char )
-    derive_set( byte )
-    derive_set( int16 )
-    derive_set( word16 )
-    derive_set( int32 )
-    derive_set( word32 )
-    derive_set( int64 )
-    derive_set( word64 )
-    derive_set( float )
-    derive_set( double )
-  # undef derive_set
+    derive_set_array( char )
+    derive_set_array( byte )
+    derive_set_array( int16 )
+    derive_set_array( word16 )
+    derive_set_array( int32 )
+    derive_set_array( word32 )
+    derive_set_array( int64 )
+    derive_set_array( word64 )
+    derive_set_array( float )
+    derive_set_array( double )
+  # undef derive_set_array
 
     array<_auto_<char, M>, M>*      set_array_charstr()
       {
@@ -422,6 +474,347 @@ public:     // set_?? methods
         delete_data();  vxtype = z_array_xvalue;
         return new( (array<xvalue<M>, M>*)&chdata )array<xvalue<M>, M>();
       }
+
+  protected:  // arithmetic helpers
+    template <class A, class B> static  xvalue  GetMul( A a, B b )  {  return a * b;  }
+    template <class A, class B> static  xvalue  GetDiv( A a, B b )  {  return a / b;  }
+    template <class A, class B> static  xvalue  GetAdd( A a, B b )  {  return a + b;  }
+    template <class A, class B> static  xvalue  GetSub( A a, B b )  {  return a - b;  }
+
+    template <class A, class B> static  xvalue  GetAnd( A a, B b )  {  return a & b;  }
+    template <class A, class B> static  xvalue  GetXor( A a, B b )  {  return a ^ b;  }
+    template <class A, class B> static  xvalue  Get_Or( A a, B b )  {  return a | b;  }
+    template <class A, class B> static  xvalue  GetPct( A a, B b )  {  return a % b;  }
+    template <class A, class B> static  xvalue  GetShl( A a, B b )  {  return a << b;  }
+    template <class A, class B> static  xvalue  GetShr( A a, B b )  {  return a >> b;  }
+
+    /*
+      операции над xvalue и целым или дробным значением - макрогенерация:
+      template <class V> xvalue  (#)( xvalue, V )
+    */
+    # define  derive_operation_xvalue_value( funcname )                     \
+    template <class V>  xvalue  funcname( V v ) const                       \
+      {                                                                     \
+        switch ( gettype() )                                                \
+        {                                                                   \
+          case z_char:    return funcname( *get_char(), v );                \
+          case z_byte:    return funcname( *get_byte(), v );                \
+          case z_int16:   return funcname( *get_int16(), v );               \
+          case z_int32:   return funcname( *get_int32(), v );               \
+          case z_int64:   return funcname( *get_int64(), v );               \
+          case z_word16:  return funcname( *get_word16(), v );              \
+          case z_word32:  return funcname( *get_word32(), v );              \
+          case z_word64:  return funcname( *get_word64(), v );              \
+          case z_float:   return funcname( *get_float(), v );               \
+          case z_double:  return funcname( *get_double(), v );              \
+          default:        return xvalue();                                  \
+        }                                                                   \
+      }
+      derive_operation_xvalue_value( GetMul )
+      derive_operation_xvalue_value( GetDiv )
+      derive_operation_xvalue_value( GetAdd )
+      derive_operation_xvalue_value( GetSub )
+    # undef  derive_operation_xvalue_value
+
+    /*
+      операции над xvalue и xvalue - макрогенерация:
+      xvalue  (#)( const xvalue&, const xvalue& )
+    */
+    # define  derive_operation_xvalue_xvalue( funcname )                    \
+    template <class Z>  xvalue  funcname( const xvalue<Z>& x ) const        \
+      {                                                                     \
+        switch ( x.gettype() )                                              \
+        {                                                                   \
+          case z_char:    return funcname( *x.get_char() );                 \
+          case z_byte:    return funcname( *x.get_byte() );                 \
+          case z_int16:   return funcname( *x.get_int16() );                \
+          case z_int32:   return funcname( *x.get_int32() );                \
+          case z_int64:   return funcname( *x.get_int64() );                \
+          case z_word16:  return funcname( *x.get_word16() );               \
+          case z_word32:  return funcname( *x.get_word32() );               \
+          case z_word64:  return funcname( *x.get_word64() );               \
+          case z_float:   return funcname( *x.get_float() );                \
+          case z_double:  return funcname( *x.get_double() );               \
+          default:        return xvalue();                                  \
+        }                                                                   \
+      }
+      derive_operation_xvalue_xvalue( GetMul )
+      derive_operation_xvalue_xvalue( GetDiv )
+      derive_operation_xvalue_xvalue( GetSub )
+    # undef derive_operation_xvalue_xvalue
+
+    /*
+      специализация GetAdd с поддержкой суммирования однотипных строк
+    */
+    template <class A>
+    static  xvalue  StrCat( A a, const char* b )
+      {
+        return xvalue();
+      }
+    template <class A>
+    static  xvalue  StrCat( A a, const widechar* b )
+      {
+        return xvalue();
+      }
+    static  xvalue  StrCat( const char* a, const char* b )
+      {
+        xvalue  o;
+
+        a = a != nullptr ? a : "";
+        b = b != nullptr ? b : "";
+        if ( o.set_charstr( nullptr, w_strlen( a ) + w_strlen( b ) ) == nullptr )
+          return xvalue();
+        w_strcat( w_strcpy( o.get_charstr(), a ), b );
+          return o;
+      }
+    static  xvalue  StrCat( const widechar* a, const widechar* b )
+      {
+        widechar  z = 0;
+        xvalue    o;
+
+        a = a != nullptr ? a : &z;
+        b = b != nullptr ? b : &z;
+        if ( o.set_widestr( nullptr, w_strlen( a ) + w_strlen( b ) ) == nullptr )
+          return xvalue();
+        w_strcat( w_strcpy( o.get_widestr(), a ), b );
+          return o;
+      }
+    static  xvalue  StrCat( const char*, const widechar* )  {  return xvalue();  }
+    static  xvalue  StrCat( const widechar*, const char* )  {  return xvalue();  }
+
+    template <class V>  xvalue  StrCat( V v ) const
+      {
+        switch ( gettype() )
+        {
+          case z_char:    return StrCat( *get_char(),   v );
+          case z_byte:    return StrCat( *get_byte(),   v );
+          case z_int16:   return StrCat( *get_int16(),  v );
+          case z_int32:   return StrCat( *get_int32(),  v );
+          case z_int64:   return StrCat( *get_int64(),  v );
+          case z_word16:  return StrCat( *get_word16(), v );
+          case z_word32:  return StrCat( *get_word32(), v );
+          case z_word64:  return StrCat( *get_word64(), v );
+          case z_float:   return StrCat( *get_float(),  v );
+          case z_double:  return StrCat( *get_double(), v );
+          case z_charstr: return StrCat( get_charstr(), v );
+          case z_widestr: return StrCat( get_widestr(), v );
+          default:        return xvalue();
+        }
+      }
+    template <class Z>  xvalue  GetAdd( const xvalue<Z>& x ) const
+      {
+        switch ( x.gettype() )
+        {
+          case z_char:    return GetAdd( *x.get_char() );
+          case z_byte:    return GetAdd( *x.get_byte() );
+          case z_int16:   return GetAdd( *x.get_int16() );
+          case z_int32:   return GetAdd( *x.get_int32() );
+          case z_int64:   return GetAdd( *x.get_int64() );
+          case z_word16:  return GetAdd( *x.get_word16() );
+          case z_word32:  return GetAdd( *x.get_word32() );
+          case z_word64:  return GetAdd( *x.get_word64() );
+          case z_float:   return GetAdd( *x.get_float() );
+          case z_double:  return GetAdd( *x.get_double() );
+          case z_charstr: return StrCat( x.get_charstr() );
+          case z_widestr: return StrCat( x.get_widestr() );
+          default:        return xvalue();
+        }
+      }
+
+    /*
+      макрогенерация битовых операций над целочисленными значениями
+    */
+    # define  derive_math( funcname )                                       \
+    template <class V>  xvalue  funcname( V v ) const                       \
+      {                                                                     \
+        switch ( gettype() )                                                \
+        {                                                                   \
+          case z_char:    return funcname( *get_char(), v );                \
+          case z_byte:    return funcname( *get_byte(), v );                \
+          case z_int16:   return funcname( *get_int16(), v );               \
+          case z_int32:   return funcname( *get_int32(), v );               \
+          case z_int64:   return funcname( *get_int64(), v );               \
+          case z_word16:  return funcname( *get_word16(), v );              \
+          case z_word32:  return funcname( *get_word32(), v );              \
+          case z_word64:  return funcname( *get_word64(), v );              \
+          default:        return xvalue();                                  \
+        }                                                                   \
+      }                                                                     \
+    template <class Z>  xvalue  funcname( const xvalue<Z>& x ) const        \
+      {                                                                     \
+        switch ( x.gettype() )                                              \
+        {                                                                   \
+          case z_char:    return funcname( *x.get_char() );                 \
+          case z_byte:    return funcname( *x.get_byte() );                 \
+          case z_int16:   return funcname( *x.get_int16() );                \
+          case z_int32:   return funcname( *x.get_int32() );                \
+          case z_int64:   return funcname( *x.get_int64() );                \
+          case z_word16:  return funcname( *x.get_word16() );               \
+          case z_word32:  return funcname( *x.get_word32() );               \
+          case z_word64:  return funcname( *x.get_word64() );               \
+          default:        return xvalue();                                  \
+        }                                                                   \
+      }
+      derive_math( GetPct )
+      derive_math( GetShl )
+      derive_math( GetShr )
+      derive_math( GetAnd )
+      derive_math( GetXor )
+      derive_math( Get_Or )
+    # undef derive_math
+
+  public:     // arithmetic
+    template <class Z>  xvalue<M> operator * ( const xvalue<Z>& r ) const {  return GetMul( r );  }
+    template <class Z>  xvalue<M> operator / ( const xvalue<Z>& r ) const {  return GetDiv( r );  }
+    template <class Z>  xvalue<M> operator % ( const xvalue<Z>& r ) const {  return GetPct( r );  }
+    template <class Z>  xvalue<M> operator + ( const xvalue<Z>& r ) const {  return GetAdd( r );  }
+    template <class Z>  xvalue<M> operator - ( const xvalue<Z>& r ) const {  return GetSub( r );  }
+    template <class Z>  xvalue<M> operator << ( const xvalue<Z>& r ) const {  return GetShl( r );  }
+    template <class Z>  xvalue<M> operator >> ( const xvalue<Z>& r ) const {  return GetShr( r );  }
+    template <class Z>  xvalue<M> operator & ( const xvalue<Z>& r ) const {  return GetAnd( r );  }
+    template <class Z>  xvalue<M> operator ^ ( const xvalue<Z>& r ) const {  return GetXor( r );  }
+    template <class Z>  xvalue<M> operator | ( const xvalue<Z>& r ) const {  return Get_Or( r );  }
+
+  protected:  // compare helpers
+    /*
+      базовый функционал сравнения:
+        <   0x01
+        >   0x02
+        ==  0x04
+        !=  0x08
+            0x00 - операция не поддерживается
+    */
+    template <class A, class B>
+    static  int   CompTo( A a, B b )
+      {
+        int    rc = (a - b > 0) - (a - b < 0);
+        return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;
+      }
+    # define  derive_strcmp( c1, c2 )                             \
+    static int CompTo( const c1* a, const c2* b )                 \
+      {                                                           \
+        int    rc = w_strcmp( a, b );                             \
+        return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;\
+      }
+      derive_strcmp( char, char )
+      derive_strcmp( char, widechar )
+      derive_strcmp( widechar, char )
+      derive_strcmp( widechar, widechar )
+    # undef derive_strcmp
+
+    # define  derive_noncmp( c1, c2 ) static  int   CompTo( c1, c2 )  {  return 0;  }
+      derive_noncmp( const char*, float )
+      derive_noncmp( const char*, double )
+      derive_noncmp( const widechar*, float )
+      derive_noncmp( const widechar*, double )
+
+      derive_noncmp( char, const char* )
+      derive_noncmp( byte_t, const char* )
+      derive_noncmp( int16_t, const char* )
+      derive_noncmp( int32_t, const char* )
+      derive_noncmp( int64_t, const char* )
+      derive_noncmp( float_t, const char* )
+      derive_noncmp( word16_t, const char* )
+      derive_noncmp( word32_t, const char* )
+      derive_noncmp( word64_t, const char* )
+      derive_noncmp( double_t, const char* )
+
+      derive_noncmp( char, const widechar* )
+      derive_noncmp( byte_t, const widechar* )
+      derive_noncmp( int16_t, const widechar* )
+      derive_noncmp( int32_t, const widechar* )
+      derive_noncmp( int64_t, const widechar* )
+      derive_noncmp( float_t, const widechar* )
+      derive_noncmp( word16_t, const widechar* )
+      derive_noncmp( word32_t, const widechar* )
+      derive_noncmp( word64_t, const widechar* )
+      derive_noncmp( double_t, const widechar* )
+    # undef derive_noncmp
+
+    template <class B>  int   CompTo( const B& b ) const
+      {
+        switch ( gettype() )
+        {
+          case z_char:    return CompTo( *get_char(), b );
+          case z_byte:    return CompTo( *get_byte(), b );
+          case z_int16:   return CompTo( *get_int16(), b );
+          case z_int32:   return CompTo( *get_int32(), b );
+          case z_int64:   return CompTo( *get_int64(), b );
+          case z_float:   return CompTo( *get_float(), b );
+          case z_word16:  return CompTo( *get_word16(), b );
+          case z_word32:  return CompTo( *get_word32(), b );
+          case z_word64:  return CompTo( *get_word64(), b );
+          case z_double:  return CompTo( *get_double(), b );
+
+          case z_charstr: return CompTo( get_charstr(), b );
+          case z_widestr: return CompTo( get_widestr(), b );
+
+          case z_array_char:
+          case z_array_byte:
+          case z_array_int16:
+          case z_array_word16:
+          case z_array_int32:
+          case z_array_word32:
+          case z_array_int64:
+          case z_array_word64:
+          case z_array_float:
+          case z_array_double:
+
+          case z_array_charstr:
+          case z_array_widestr:
+          case z_array_buffer:
+          case z_array_zarray:
+          case z_array_xvalue:
+          default:  break;
+        }
+        return 0;
+      }
+    template <class Z>  int CompTo( const xvalue<Z>& x ) const
+      {
+        switch ( x.gettype() )
+        {
+          case z_char:    return CompTo( *x.get_char() );
+          case z_byte:    return CompTo( *x.get_byte() );
+          case z_int16:   return CompTo( *x.get_int16() );
+          case z_int32:   return CompTo( *x.get_int32() );
+          case z_int64:   return CompTo( *x.get_int64() );
+          case z_float:   return CompTo( *x.get_float() );
+          case z_word16:  return CompTo( *x.get_word16() );
+          case z_word32:  return CompTo( *x.get_word32() );
+          case z_word64:  return CompTo( *x.get_word64() );
+          case z_double:  return CompTo( *x.get_double() );
+
+          case z_charstr: return CompTo( x.get_charstr() );
+          case z_widestr: return CompTo( x.get_widestr() );
+
+          case z_array_char:
+          case z_array_byte:
+          case z_array_int16:
+          case z_array_word16:
+          case z_array_int32:
+          case z_array_word32:
+          case z_array_int64:
+          case z_array_word64:
+          case z_array_float:
+          case z_array_double:
+
+          case z_array_charstr:
+          case z_array_widestr:
+          case z_array_buffer:
+          case z_array_zarray:
+          case z_array_xvalue:
+          default:  break;
+        }
+        return 0;
+      }
+
+  public:     // compare
+    template <class V> bool  operator == ( const V& v ) const { return (CompTo( v ) & 0x04) != 0; }
+    template <class V> bool  operator != ( const V& v ) const { return (CompTo( v ) & 0x08) != 0; }
+    template <class V> bool  operator < ( const V& v ) const  { return (CompTo( v ) & 0x01) != 0; }
+    template <class V> bool  operator > ( const V& v ) const  { return (CompTo( v ) & 0x02) != 0; }
+    template <class V> bool  operator <= ( const V& v ) const { return (CompTo( v ) & 0x05) != 0; }
+    template <class V> bool  operator >= ( const V& v ) const { return (CompTo( v ) & 0x06) != 0; }
 
   protected:  // helpers
     void  delete_data()
@@ -1686,7 +2079,7 @@ namespace mtc
   inline  S*        zarray<M>::FetchFrom( S*  s )
   {
     if ( zhandler != nullptr && --zhandler->rcount == 0 )
-      delete zhandler;
+      M().deallocate( zhandler );
     if ( (zhandler = M().template allocate<zdata>()) == nullptr )
       return nullptr;
 
