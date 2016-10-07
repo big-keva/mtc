@@ -79,7 +79,6 @@ namespace mtc
   
   public:     // enum
     template <class A>  int   Enumerate( const A& action ) const;
-    template <class A>  int   Enumerate( A& action );
   
   public:     // real enumerator
     template <class A>  int   enumerate( A& action, array<char, M>& keybuf, int l = 0 );
