@@ -1,5 +1,4 @@
 /*
-
 The MIT License (MIT)
 
 Copyright (c) 2016 Андрей Коваленко aka Keva
@@ -26,6 +25,27 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+=============================================================================
+
+Данная лицензия разрешает лицам, получившим копию данного программного обеспечения
+и сопутствующей документации (в дальнейшем именуемыми «Программное Обеспечение»),
+безвозмездно использовать Программное Обеспечение без ограничений, включая неограниченное
+право на использование, копирование, изменение, слияние, публикацию, распространение,
+сублицензирование и/или продажу копий Программного Обеспечения, а также лицам, которым
+предоставляется данное Программное Обеспечение, при соблюдении следующих условий:
+
+Указанное выше уведомление об авторском праве и данные условия должны быть включены во
+все копии или значимые части данного Программного Обеспечения.
+
+ДАННОЕ ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ», БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ,
+ЯВНО ВЫРАЖЕННЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ, ВКЛЮЧАЯ ГАРАНТИИ ТОВАРНОЙ ПРИГОДНОСТИ,
+СООТВЕТСТВИЯ ПО ЕГО КОНКРЕТНОМУ НАЗНАЧЕНИЮ И ОТСУТСТВИЯ НАРУШЕНИЙ, НО НЕ ОГРАНИЧИВАЯСЬ
+ИМИ.
+
+НИ В КАКОМ СЛУЧАЕ АВТОРЫ ИЛИ ПРАВООБЛАДАТЕЛИ НЕ НЕСУТ ОТВЕТСТВЕННОСТИ ПО КАКИМ-ЛИБО ИСКАМ,
+ЗА УЩЕРБ ИЛИ ПО ИНЫМ ТРЕБОВАНИЯМ, В ТОМ ЧИСЛЕ, ПРИ ДЕЙСТВИИ КОНТРАКТА, ДЕЛИКТЕ ИЛИ ИНОЙ
+СИТУАЦИИ, ВОЗНИКШИМ ИЗ-ЗА ИСПОЛЬЗОВАНИЯ ПРОГРАММНОГО ОБЕСПЕЧЕНИЯ ИЛИ ИНЫХ ДЕЙСТВИЙ
+С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
 */
 # if !defined( __mtc_wcsstr_h__ )
 # define  __mtc_wcsstr_h__
@@ -39,6 +59,9 @@ SOFTWARE.
 # include <string.h>
 # include <stdlib.h>
 # include <stdint.h>
+# include <stdarg.h>
+# include <stdio.h>
+# include <assert.h>
 # include "platform.h"
 
 # if !defined( __widechar_defined__ )
@@ -70,7 +93,7 @@ namespace mtc
   // strdup() family
   //
 
-  template <class C, class M>  C*  __impl_strdup( const C* s, size_t l = (size_t)-1 )
+  template <class C, class M>  C*  __impl_strdup( const C* s, size_t l, M& m )
   {
     C*  o;
     C*  p;
@@ -78,19 +101,19 @@ namespace mtc
     if ( l == (size_t)-1 )
       for ( l = 0; s != nullptr && s[l] != (C)0; ++l )  (void)0;
 
-    if ( (o = p = (C*)M().alloc( sizeof(C) * (l + 1) )) != nullptr )
+    if ( (o = p = (C*)m.alloc( sizeof(C) * (l + 1) )) != nullptr )
       {  while ( l-- > 0 ) *p++ = *s++;  *p = (C)0;  }
 
     return o;
   }
 
   template <class M = def_alloc<>>
-  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1 )
-    {  return s != nullptr ? __impl_strdup<widechar, M>( s, l ) : nullptr;  }
+  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1, M& m = M() )
+    {  return s != nullptr ? __impl_strdup<widechar>( s, l, m ) : nullptr;  }
 
   template <class M = def_alloc<>>
-  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1 )
-    {  return s != nullptr ? __impl_strdup<    char, M>( s, l ) : nullptr;  }
+  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1, M& m = M() )
+    {  return s != nullptr ? __impl_strdup<    char>( s, l, m ) : nullptr;  }
 
   //
   // strcpy() family
@@ -152,18 +175,18 @@ namespace mtc
     return rc;
   }
 
+  struct __impl_default_getwidechar
+  {
+    widechar  operator ()( const char*& s )
+      {  return (widechar)(unsigned char)*s++;  }
+  };
+
   template <class ucload = __impl_default_getwidechar>
   inline  int   w_strcmp( const char* s, const char* m, ucload l = __impl_default_getwidechar() )
     {  return __impl_strcmp( s, m );  }
   template <class ucload = __impl_default_getwidechar>
   inline  int   w_strcmp( const widechar* s, const widechar* m, ucload l = __impl_default_getwidechar() )
     {  return __impl_strcmp( s, m );  }
-
-  struct __impl_default_getwidechar
-  {
-    widechar  operator ()( const char*& s )
-      {  return (widechar)(unsigned char)*s++;  }
-  };
 
   template <class ucload = __impl_default_getwidechar>
   inline  int   w_strcmp( const char* s, const widechar* m, ucload l = __impl_default_getwidechar() )
@@ -411,6 +434,69 @@ namespace mtc
   inline  long          w_strtol( const char*     pszstr, char**  pszend, int dwbase )
   {
     return ::strtol( pszstr, pszend, dwbase );
+  }
+
+  //
+  // sprintf family
+  //
+  template <class C, class I> C   __impl_inttochr( I value, int radix, bool lower )
+  {
+    int   n = value % radix;
+    return n < 10 ? n + '0' : n + 'A' + (lower ? 'a' - 'A' : 0);
+  }
+
+  template <class C, class I> C*  __impl_inttostr( C* store, I value, int radix = 10, bool lower = true )
+  {
+    C*  stptr = store;
+
+    assert( radix == 10 || radix == 16 );
+
+    do  *stptr++ = __impl_inttochr<C>( value, radix, lower );
+      while ( (value /= radix) != 0 );
+    for ( auto t = store, e = stptr - 1; t < e; ++t, --e )
+      {  C c = *t;  *t = *e;  *e = c;  }
+    *stptr = 0;  return store;
+  }
+
+  template <class C>  C*  __impl_dbltostr( C* store, double value )
+  {
+  }
+
+/*
+  inline  widechar*   w_vsnprintf( widechar* o, size_t l, const widechar* t, va_list v )
+  {
+  }
+
+  inline  widechar*   w_snprintf( widechar* o, size_t l, const widechar* t, ... )
+  {
+  }
+*/
+
+  //
+  // char* strduprintf( format, ... ) family
+  //
+  inline  char* vstrduprintf( const char* format, va_list vaargs )
+  {
+    char* p;
+    int   l;
+
+    if ( (p = (char*)malloc( l = vsnprintf( nullptr, 0, format, vaargs ) + 1 )) == nullptr )
+      return nullptr;
+
+    vsnprintf( p, l, format, vaargs );
+
+    return p;
+  }
+
+  inline  char* strduprintf( const char* format, ... )
+  {
+    va_list vaargs;
+    char*   output;
+
+    va_start( vaargs, format );
+      output = vstrduprintf( format, vaargs );
+    va_end( vaargs );
+    return output;
   }
 
 }  // mtc namespace
