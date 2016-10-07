@@ -62,21 +62,26 @@ namespace mtc
       unsigned            dwattr;
 
     public:     // reading
-      bool  Next()
+      bool  Init()
         {
         // free allocated string
           if ( dirstr != nullptr && --*dirstr == 0 )
             M().free( dirstr );
     
-          for ( dirstr = nullptr; _findnext( handle, &fidata ) == 0; )
-            if ( fidata.attrib & dwattr )
-              if ( (dirstr = (int*)M().alloc( sizeof(int) + strlen( fidata.name ) + 1 )) != nullptr )
-              {
-                strcpy( (char*)(dirstr + 1), fidata.name );  *dirstr = 1;
-                return true;
-              }
+          for ( dirstr = nullptr; (fidata.attrib & dwattr) == 0; )
+            if ( _findnext( handle, &fidata ) != 0 )
+              return false;
 
-          return false;
+          if ( (dirstr = (int*)M().alloc( sizeof(int) + strlen( fidata.name ) + 1 )) == nullptr )
+            return false;
+
+          strcpy( (char*)(dirstr + 1), fidata.name );  *dirstr = 1;
+            return true;
+        }
+      bool  Next()
+        {
+          fidata.attrib = 0;
+          return Init();
         }
 # else
 #   error Undefined directory<> class implementation!
@@ -242,7 +247,7 @@ namespace mtc
         return directory<M>();
     }
 
-    return thedir.didata->Next() ? thedir : directory<M>();
+    return thedir.didata->Init() ? thedir : directory<M>();
 # else
 #   error Undefined directory<> class implementation!
 # endif  // _MSC_VER
