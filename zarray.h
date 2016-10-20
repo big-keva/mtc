@@ -154,10 +154,11 @@ namespace mtc
 
   struct zarray_exception
   {
-    zarray_exception( const char* msg = nullptr, const char* szfile = nullptr, int lineid = 0 ):
-      message( msg ), file( szfile ), line( lineid ) {}
+    zarray_exception( int err, const char* msg = nullptr, const char* szfile = nullptr, int lineid = 0 ):
+      nerror( err ), message( msg ), file( szfile ), line( lineid ) {}
 
   protected:  // variables
+    int         nerror;
     const char* message;
     const char* file;
     int         line;
@@ -428,9 +429,7 @@ public:     // set_?? methods
       {  delete_data();  vxtype = z_widestr;  return *(widechar**)&chdata = nullptr;  }
 
 /* special types: buffer, zarray and array(s) */
-    zarray<M>*  set_zarray()
-      {  delete_data();  vxtype = z_zarray;  return new( (zarray<M>*)&chdata ) zarray<M>();  }
-    zarray<M>*  set_zarray( const zarray<M>& z )
+    zarray<M>*  set_zarray( const zarray<M>& z = zarray<M>() )
       {  delete_data();  vxtype = z_zarray;  return new( (zarray<M>*)&chdata ) zarray<M>( z );  }
 
 /*
@@ -854,82 +853,135 @@ public:     // set_?? methods
   class zarray
   {
     struct ztree;
+    template <class owner, class key> class  zval;
 
+  // private accessors for chain assignments of zval internal class
+    template <class R, class K>
+    static xvalue<M>* get_xvalue( zval<R, K>& r )
+      {
+        xvalue<M>*  xv = get_xvalue( *(R*)&r.parent );
+        zarray<M>*  za;
+        xvalue<M>*  pv;
+
+        if ( (za = xv->get_zarray()) == nullptr
+          && (za = xv->set_zarray()) == nullptr )  throw zarray_exception( ENOMEM, "Out of memory", __FILE__, __LINE__ );
+        if ( (pv = za->get_xvalue( r.thekey )) == nullptr
+          && (pv = za->put_xvalue( r.thekey )) == nullptr ) throw zarray_exception( ENOMEM, "Out of memory", __FILE__, __LINE__ );
+        return pv;
+      }
+    template <class K>
+    static xvalue<M>* get_xvalue( zval<zarray<M>, K>& r )
+      {
+        xvalue<M>*  pv;
+        if ( (pv = ((zarray<M>*)&r.parent)->get_xvalue( r.thekey )) == nullptr
+          && (pv = ((zarray<M>*)&r.parent)->put_xvalue( r.thekey )) == nullptr ) throw zarray_exception( ENOMEM, "Out of memory", __FILE__, __LINE__ );
+        return pv;
+      }
+    template <class R, class K>
+    static const xvalue<M>* get_xvalue( const zval<R, K>& r )
+      {
+        const xvalue<M>*  xv;
+        const zarray<M>*  za;
+        return (xv = get_xvalue( r.parent )) != nullptr && (za = xv->get_zarray()) != nullptr ?
+          za->get_xvalue( r.thekey ) : nullptr;
+      }
+    template <class K>
+    static const xvalue<M>* get_xvalue( const zval<zarray<M>, K>& r )
+      {
+        return r.parent.get_xvalue( r.thekey );
+      }
+
+    template <class owner, class key>
     class  zval
     {
       friend class zarray;
 
-    protected:  // construction
-      zval( const xvalue<M>* p = nullptr ): pvalue( (xvalue<M>*)p )
-        {
-        }
+    // construction
+      zval( owner& o, key k ): parent( o ), thekey( k ) {}
 
     public:     // type conversions
-      operator const char* () const
-        {  return pvalue != nullptr ? pvalue->get_charstr() : nullptr;  }
-      operator const widechar* () const
-        {  return pvalue != nullptr ? pvalue->get_widestr() : nullptr;  }
-      operator double () const
-        {  return pvalue != nullptr && pvalue->get_double() != nullptr ? *pvalue->get_double() : 0.0;  }
-      operator int32_t () const
-        {  return pvalue != nullptr && pvalue->get_int32() != nullptr ? *pvalue->get_int32() : 0;  }
-      operator int64_t () const
-        {  return pvalue != nullptr && pvalue->get_int64() != nullptr ? *pvalue->get_int64() : 0;  }
-      operator word32_t () const
-        {  return pvalue != nullptr && pvalue->get_word32() != nullptr ? *pvalue->get_word32() : 0;  }
-      operator word64_t () const
-        {  return pvalue != nullptr && pvalue->get_word64() != nullptr ? *pvalue->get_word64() : 0;  }
-      operator zarray () const
-        {  return pvalue != nullptr && pvalue->get_zarray() != nullptr ? *pvalue->get_zarray() : zarray();  }
-
-    public:     // assignment
-      const char* operator = ( const char* s )
-        {
-          assert( pvalue != nullptr );
-          if ( pvalue->set_charstr( s ) == nullptr )
-            throw zarray_exception( "Could not set charstr", __FILE__, __LINE__ );
-          return pvalue->get_charstr();
-        }
-      const widechar* operator = ( const widechar* s )
-        {
-          assert( pvalue != nullptr );
-          if ( pvalue->set_widestr( s ) == nullptr )
-            throw zarray_exception( "Could not set charstr", __FILE__, __LINE__ );
-          return pvalue->get_charstr();
-        }
-    # define derive_assign( _type_ )                                \
-      _type_##_t& operator = ( _type_##_t t )                       \
-        {                                                           \
-          assert( pvalue != nullptr );                              \
-          return *pvalue->set_##_type_( t );                        \
-        }
-      derive_assign( double )
-      derive_assign( int32 )
-      derive_assign( int64 )
-      derive_assign( word32 )
-      derive_assign( word64 )
-    # undef  derive_assign
-      zarray&  operator = ( const zarray& z )
-        {
-          assert( pvalue != nullptr );
-          return *pvalue->set_zarray( z );
+    # define derive_operator( _type_ )                                                                    \
+      operator _type_##_t () const                                                                        \
+        {                                                                                                 \
+          const xvalue<M>*  pv;                                                                           \
+          const _type_##_t* pt;                                                                           \
+          return (pv = get_xvalue( *this )) != nullptr && (pt = pv->get_##_type_()) != nullptr ? *pt : 0; \
         }
 
+      derive_operator( char )
+      derive_operator( byte )
+      derive_operator( int16 )
+      derive_operator( int32 )
+      derive_operator( int64 )
+      derive_operator( word16 )
+      derive_operator( word32 )
+      derive_operator( word64 )
+      derive_operator( float )
+      derive_operator( double )
+    # undef derive_operator
+      operator zarray () const  {  const xvalue<M>* p;  return (p = get_xvalue( *this )) != nullptr ? *p->get_zarray() : zarray();  }
+      operator const char* () const {  const xvalue<M>* p;  return (p = get_xvalue( *this )) != nullptr ? p->get_charstr() : nullptr;  }
+      operator const widechar* () const {  const xvalue<M>* p;  return (p = get_xvalue( *this )) != nullptr ? p->get_widestr() : nullptr;  }
+
+  /*
+    zarray[key].set_xxx
+
+    Поддержка конструкций с явным указанием типизации данных, но с выбрасываемыми исключениями:
+      zarray& add = z[1].set_zarray( z )
+      int32_t one = z["1"].set_int32( 1 )
+      const char* two = z[L"w"].set_charstr( "two" )
+  */
+    public:     // zarray[key].set_xxx functions
+    # define derive_setval( _type_ )                              \
+      _type_##_t& set_##_type_( const _type_##_t& t )             \
+        {  return *get_xvalue( *this )->set_##_type_( t );  }
+
+      derive_setval( char )
+      derive_setval( byte )
+      derive_setval( int16 )
+      derive_setval( int32 )
+      derive_setval( int64 )
+      derive_setval( word16 )
+      derive_setval( word32 )
+      derive_setval( word64 )
+      derive_setval( float )
+      derive_setval( double )
+    # undef derive_setval
+      zarray&     set_zarray( const zarray& z = zarray() )  {  return *get_xvalue( *this )->set_zarray( z );  }
+      const char* set_charstr( const char* s )              {  return get_xvalue( *this )->set_charstr( s );  }
+      const char* set_widestr( const widechar* w )          {  return get_xvalue( *this )->set_widestr( w );  }
+
+  /*
+    zarray[key] = ...
+
+    assignment operators - set typed value with automatic type detection
+  */
+    public:     // zarray[key] = assignment
+      char&           operator = ( char c )             {  return set_char( c );    }
+      byte_t&         operator = ( byte_t b )           {  return set_byte( b );    }
+      int16_t&        operator = ( int16_t i )          {  return set_int16( i );   }
+      int32_t&        operator = ( int32_t i )          {  return set_int32( i );   }
+      int64_t&        operator = ( int64_t i )          {  return set_int64( i );   }
+      word16_t&       operator = ( word16_t i )         {  return set_word16( i );  }
+      word32_t&       operator = ( word32_t i )         {  return set_word32( i );  }
+      word64_t&       operator = ( word64_t i )         {  return set_word64( i );  }
+      float&          operator = ( float f )            {  return set_float( f );   }
+      double&         operator = ( double d )           {  return set_double( d );  }
+      zarray&         operator = ( const zarray& z )    {  return set_zarray( z );  }
+      const char*     operator = ( const char* s )      {  return set_charstr( s ); }
+      const widechar* operator = ( const widechar* w )  {  return set_widestr( w ); }
+
+  /*
+    [] operators
+
+    access to assiciative array with defined key
+  */
     public:     // [] operators
-  # define derive_access_operator( _key_type_ )                   \
-    zval  operator [] ( _key_type_ k )                            \
-      {                                                           \
-        zval        zv;  assert( pvalue != nullptr );             \
-        zarray<M>*  pz;                                           \
-        if ( pvalue->gettype() != z_zarray )                      \
-          pvalue->set_zarray();                                   \
-        pz = pvalue->get_zarray();                                \
-        if ( (zv.pvalue = pz->put_xvalue( k )) == nullptr )       \
-          throw zarray_exception( "@" __FILE__ );                 \
-        return zv;                                                \
-      }                                                           \
-    const zval  operator [] ( _key_type_ k ) const                \
-      {  return zval( get_xvalue( k ) );  }
+  # define derive_access_operator( _key_type_ )                               \
+    auto operator [] ( _key_type_ k )                      \
+      {  return zval<zval, _key_type_>( *this, k );  }                        \
+    const auto operator [] ( _key_type_ k ) const          \
+      {  return zval<const zval, _key_type_>( *this, k );  }
 
     derive_access_operator( int )
     derive_access_operator( unsigned )
@@ -938,21 +990,17 @@ public:     // set_?? methods
   # undef derive_access_operator
 
     protected:
-      xvalue<M>*  pvalue;
+      const owner&  parent;
+      key           thekey;
 
     };
 
   public:     // high-level API
-  # define derive_access_operator( _key_type_ )             \
-    zval  operator [] ( _key_type_ k )                      \
-      {                                                     \
-        zval  zv;                                           \
-        if ( (zv.pvalue = get_xvalue( k )) == nullptr )     \
-          zv.pvalue = put_xvalue( k );                      \
-        return zv;                                          \
-      }                                                     \
-    const zval  operator [] ( _key_type_ k ) const          \
-      {  return zval( get_xvalue( k ) );  }
+    # define derive_access_operator( _key_type_ )                         \
+    zval<zarray<M>, _key_type_>  operator [] ( _key_type_ k )             \
+      {  return zval<zarray<M>, _key_type_>( *this, k );  }               \
+    const zval<zarray<M>, _key_type_>  operator [] ( _key_type_ k ) const \
+      {  return zval<zarray<M>, _key_type_>( *(zarray<M>*)this, k );  }
 
     derive_access_operator( unsigned )
     derive_access_operator( const char* )
