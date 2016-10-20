@@ -1,5 +1,6 @@
 # if !defined( __memmapFile_h__ )
 # define __memmapFile_h__
+# include "stdlog.h"
 # include <fcntl.h>
 
 # if defined( _MSC_VER )
@@ -40,6 +41,7 @@ namespace mtc
       }
    ~SystemFile()
       {
+        Close();
       }
     SystemFile& operator = ( const SystemFile& f )
       {
