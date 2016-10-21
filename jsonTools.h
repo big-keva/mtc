@@ -881,21 +881,19 @@ namespace mtc
   template <class S, class M>
   S*  ParseJson( S* s, xvalue<M>& x, const jsonRevive* p = nullptr )
   {
-    return ParseJson( jsonstream<S>( s ), x, p );
+    jsonstream<S> source( s );
+
+    return ParseJson( source, x, p );
   }
 
   template <class S, class M>
   S*  ParseJson( S* s, zarray<M>& z, const jsonRevive* p = nullptr )
   {
-    return ParseJson( jsonstream<S>( s ), z, p );
+    jsonstream<S> source( s );
+
+    return ParseJson( source, z, p );
   }
 
-/*
-  template <class S, class M>
-  inline  S*  ParseJson( S* s, zarray<M>& v )
-  {
-  }
-*/
 }
 
 # endif  // __jsonTools_h__
