@@ -60,85 +60,22 @@ namespace mtc
     inline  bool  is_space( char c )  {  return c > 0 && c <= 0x20;  }
     inline  bool  is_space( widechar c )  {  return c <= 0x20;  }
 
-    struct test_nostr
-    {
-      template <class chartype>
-      static  const chartype* parse( int&, const chartype* )  {  return nullptr;  }
-    };
-
-    template <const char checkstr[], int checkval, class nextpart = test_nostr>
-    struct teststring
-    {
-      template <class chartype>
-      static  const chartype* parse( int& v, const chartype* s )
-        {
-          int   l = w_strlen( checkstr );
-          int   r;
-
-          if ( (r = w_strncmp( s, checkstr, l )) == 0 )
-            {  v = checkval;  return s + l;  }
-
-          return r > 0 ? nextpart::parse( v, s ) : nullptr;
-        }
-    };
-
-    extern const char a_sun[];
-    extern const char a_mon[];
-    extern const char a_tue[];
-    extern const char a_wed[];
-    extern const char a_thu[];
-    extern const char a_fri[];
-    extern const char a_sat[];
-
-    extern const char f_sun[];
-    extern const char f_mon[];
-    extern const char f_tue[];
-    extern const char f_wed[];
-    extern const char f_thu[];
-    extern const char f_fri[];
-    extern const char f_sat[];
-
-    extern const char a_jan[];
-    extern const char a_feb[];
-    extern const char a_mar[];
-    extern const char a_apr[];
-    extern const char a_may[];
-    extern const char a_jun[];
-    extern const char a_jul[];
-    extern const char a_aug[];
-    extern const char a_sep[];
-    extern const char a_oct[];
-    extern const char a_nov[];
-    extern const char a_dec[];
-
-    extern const char f_jan[];
-    extern const char f_feb[];
-    extern const char f_mar[];
-    extern const char f_apr[];
-    extern const char f_may[];
-    extern const char f_jun[];
-    extern const char f_jul[];
-    extern const char f_aug[];
-    extern const char f_sep[];
-    extern const char f_oct[];
-    extern const char f_nov[];
-    extern const char f_dec[];
-
-    extern const char am[];
-    extern const char pm[];
+# define derive_check( out, str, key, val )                   \
+    if ( w_strncmp( key, str, sizeof(key) - 1 ) == 0 )  {  out = val;  return str + sizeof(key) - 1;  } else
 
     struct ParseWeekDayAbbrEn
     {
       template <class chartype>
       static  const chartype* parse( int& d, const chartype* s )
         {
-          return teststring<a_fri, 5,
-                 teststring<a_mon, 1,
-                 teststring<a_sat, 6,
-                 teststring<a_sun, 0,
-                 teststring<a_thu, 4,
-                 teststring<a_tue, 2,
-                 teststring<a_wed, 3>>>>>>>::parse( d, s );
+          derive_check( d, s, "Fri", 5 )
+          derive_check( d, s, "Mon", 1 )
+          derive_check( d, s, "Sat", 6 )
+          derive_check( d, s, "Sun", 0 )
+          derive_check( d, s, "Thu", 4 )
+          derive_check( d, s, "Tue", 2 )
+          derive_check( d, s, "Wed", 3 )
+          return nullptr;
         }
     };
 
@@ -147,13 +84,14 @@ namespace mtc
       template <class chartype>
       static  const chartype* parse( int& d, const chartype* s )
         {
-          return teststring<f_fri, 5,
-                 teststring<f_mon, 1,
-                 teststring<f_sat, 6,
-                 teststring<f_sun, 0,
-                 teststring<f_thu, 4,
-                 teststring<f_tue, 2,
-                 teststring<f_wed, 3>>>>>>>::parse( d, s );
+          derive_check( d, s, "Friday",   5 )
+          derive_check( d, s, "Monday",   1 )
+          derive_check( d, s, "Saturday", 6 )
+          derive_check( d, s, "Sunday",   0 )
+          derive_check( d, s, "Thursday", 4 )
+          derive_check( d, s, "Tuesday",  2 )
+          derive_check( d, s, "Wednesday", 3 )
+          return nullptr;
         }
     };
 
@@ -162,18 +100,19 @@ namespace mtc
       template <class chartype>
       static  const chartype* parse( int& d, const chartype* s )
         {
-          return teststring<a_apr, 3,
-                 teststring<a_aug, 7,
-                 teststring<a_dec, 11,
-                 teststring<a_feb, 1,
-                 teststring<a_jan, 0,
-                 teststring<a_jul, 6,
-                 teststring<a_jun, 5,
-                 teststring<a_mar, 2,
-                 teststring<a_may, 4,
-                 teststring<a_nov, 10,
-                 teststring<a_oct, 9,
-                 teststring<a_sep, 8>>>>>>>>>>>>::parse( d, s );
+          derive_check( d, s, "Apr", 3 )
+          derive_check( d, s, "Aug", 7 )
+          derive_check( d, s, "Dec", 11 )
+          derive_check( d, s, "Feb", 1 )
+          derive_check( d, s, "Jan", 0 )
+          derive_check( d, s, "Jul", 6 )
+          derive_check( d, s, "Jun", 5 )
+          derive_check( d, s, "Mar", 2 )
+          derive_check( d, s, "May", 4 )
+          derive_check( d, s, "Nov", 10 )
+          derive_check( d, s, "Oct", 9 )
+          derive_check( d, s, "Sep", 8 )
+          return nullptr;
         }
     };
 
@@ -182,18 +121,19 @@ namespace mtc
       template <class chartype>
       static  const chartype* parse( int& d, const chartype* s )
         {
-          return teststring<f_apr, 3,
-                 teststring<f_aug, 7,
-                 teststring<f_dec, 11,
-                 teststring<f_feb, 1,
-                 teststring<f_jan, 0,
-                 teststring<f_jul, 6,
-                 teststring<f_jun, 5,
-                 teststring<f_mar, 2,
-                 teststring<f_may, 4,
-                 teststring<f_nov, 10,
-                 teststring<f_oct, 9,
-                 teststring<f_sep, 8>>>>>>>>>>>>::parse( d, s );
+          derive_check( d, s, "April", 3 )
+          derive_check( d, s, "August", 7 )
+          derive_check( d, s, "December", 11 )
+          derive_check( d, s, "February", 1 )
+          derive_check( d, s, "January", 0 )
+          derive_check( d, s, "July", 6 )
+          derive_check( d, s, "June", 5 )
+          derive_check( d, s, "March", 2 )
+          derive_check( d, s, "May", 4 )
+          derive_check( d, s, "November", 10 )
+          derive_check( d, s, "October", 9 )
+          derive_check( d, s, "September", 8 )
+          return nullptr;
         }
     };
 
@@ -202,10 +142,12 @@ namespace mtc
       template <class chartype>
       static  const chartype* parse( int& d, const chartype* s )
         {
-          return teststring<am, 0,
-                 teststring<pm, 1>>::parse( d, s );
+          derive_check( d, s, "am", 0 )
+          derive_check( d, s, "pm", 1 )
+          return nullptr;
         }
     };
+# undef derive_check
 
     template <class chartype, class intvalue>
     const chartype* parseint( intvalue& v, const chartype* s )
