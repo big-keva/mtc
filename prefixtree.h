@@ -163,8 +163,9 @@ namespace mtc
   template <class V, class counter, class M>
   inline  void    prefixtree<V, counter, M>::DelAll()
   {
-    elmptr = nullptr;
-    SetLen( 0 );
+    if ( hasval )
+      avalue.~V();
+    this->SetLen( 0 );
   }
   
   template <class V, class counter, class M>
@@ -173,7 +174,7 @@ namespace mtc
     size_t    buflen = CounterGetBufLen();
     size_t    sublen;
   
-    for ( auto p = begin(); p < end(); ++p )
+    for ( auto p = this->begin(); p < this->end(); ++p )
       buflen += ::GetBufLen( sublen = p->GetBufLen() ) + sublen + 1;
   
     if ( hasval )
@@ -186,10 +187,10 @@ namespace mtc
   template <class O>
   inline  O*  prefixtree<V, counter, M>::Serialize( O* o ) const
   {
-    if ( (o = CounterSerialize( o, (int)size(), elmptr != nullptr )) == nullptr )
+    if ( (o = CounterSerialize( o, (int)this->size(), hasval )) == nullptr )
       return nullptr;
   
-    for ( auto p = begin(); p < end(); ++p )
+    for ( auto p = this->begin(); p < this->end(); ++p )
       o = p->Serialize( ::Serialize( ::Serialize( o, p->chnode ), p->length ) );
   
     if ( hasval )
@@ -213,7 +214,7 @@ namespace mtc
   {
     int   nerror;
   
-    for ( auto p = begin(); p < end(); ++p )
+    for ( auto p = this->begin(); p < this->end(); ++p )
     {
       if ( keybuf.size() <= l && keybuf.SetLen( l + 0x10 ) != 0 )
         return ENOMEM;
