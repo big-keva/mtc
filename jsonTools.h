@@ -213,7 +213,7 @@ namespace mtc
 
         if ( buflen != 0 )
           return chbuff[--buflen];
-        return (stream = (S*)::FetchJson( stream, (char&)getchr )) != nullptr ? getchr : '\0';
+        return (stream = (S*)::FetchFrom( stream, (char&)getchr )) != nullptr ? getchr : '\0';
       }
     /*
       get first non-space character
@@ -397,14 +397,6 @@ namespace mtc
     {  if ( o != nullptr ) o = fwrite( &c, 1, 1, o ) == 1 ? o : nullptr;  return o;  }
   inline  FILE*   PrintJson( FILE* o, const char* s, size_t l )
     {  if ( o != nullptr ) o = fwrite( s, 1, l, o ) == l ? o : nullptr;  return o;  }
-
-  /*
-    Примитивы для вычитывания
-  */
-  inline  const char* FetchJson( const char* s, char& c )
-    {  if ( s != nullptr ) c = *s++;  return s;  }
-  inline  FILE*       FetchJson( FILE* f, char& c )
-    {  if ( f != nullptr ) f = fread( &c, sizeof(c), 1, f ) == 1 ? f : nullptr;  return f;  }
 
 // JSON serialization
   # define  derive_printjson_dec( _type_, _tmpl_ )                      \
