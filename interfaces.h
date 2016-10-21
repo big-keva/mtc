@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __interfaces_h__ )
 # define  __interfaces_h__
 # include <cassert>
+# include <atomic>
 
 namespace mtc
 {
@@ -60,15 +61,6 @@ namespace mtc
   {
     virtual long  Attach() = 0;
     virtual long  Detach() = 0;
-  };
-
-  class _lifetime_reference_counter_
-  {
-    long  rcount;
-
-  public: _lifetime_reference_counter_(): rcount( 0 )   {}
-    long  AddRef() {  return ++rcount;  }
-    long  DecRef() {  return --rcount;  }
   };
 
   template <class iface>
@@ -132,13 +124,13 @@ namespace mtc
 }  // mtc namespace
 
 # define  implement_lifetime_control                                \
-  protected:  mtc::_lifetime_reference_counter_  lifetime_counter;  \
+  protected:  std::atomic_long lifetime_counter;                    \
   public:     virtual long  Attach()  noexcept                      \
-    {  return lifetime_counter.AddRef();  }                         \
+    {  return ++lifetime_counter;  }                                \
   public:     virtual long  Detach()  noexcept                      \
     {                                                               \
       long rcount;                                                  \
-      if ( (rcount = lifetime_counter.DecRef()) == 0 )              \
+      if ( (rcount = --lifetime_counter) == 0 )                     \
         delete this;                                                \
       return rcount;                                                \
     }
