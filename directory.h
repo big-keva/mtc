@@ -1,8 +1,7 @@
 /*
-
 The MIT License (MIT)
 
-Copyright (c) 2016 ������ ��������� aka Keva
+Copyright (c) 2016 Андрей Коваленко aka Keva
   keva@meta.ua
   keva@rambler.ru
   skype: big_keva
@@ -26,119 +25,62 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+=============================================================================
+
+Данная лицензия разрешает лицам, получившим копию данного программного обеспечения
+и сопутствующей документации (в дальнейшем именуемыми «Программное Обеспечение»),
+безвозмездно использовать Программное Обеспечение без ограничений, включая неограниченное
+право на использование, копирование, изменение, слияние, публикацию, распространение,
+сублицензирование и/или продажу копий Программного Обеспечения, а также лицам, которым
+предоставляется данное Программное Обеспечение, при соблюдении следующих условий:
+
+Указанное выше уведомление об авторском праве и данные условия должны быть включены во
+все копии или значимые части данного Программного Обеспечения.
+
+ДАННОЕ ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ», БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ,
+ЯВНО ВЫРАЖЕННЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ, ВКЛЮЧАЯ ГАРАНТИИ ТОВАРНОЙ ПРИГОДНОСТИ,
+СООТВЕТСТВИЯ ПО ЕГО КОНКРЕТНОМУ НАЗНАЧЕНИЮ И ОТСУТСТВИЯ НАРУШЕНИЙ, НО НЕ ОГРАНИЧИВАЯСЬ
+ИМИ.
+
+НИ В КАКОМ СЛУЧАЕ АВТОРЫ ИЛИ ПРАВООБЛАДАТЕЛИ НЕ НЕСУТ ОТВЕТСТВЕННОСТИ ПО КАКИМ-ЛИБО ИСКАМ,
+ЗА УЩЕРБ ИЛИ ПО ИНЫМ ТРЕБОВАНИЯМ, В ТОМ ЧИСЛЕ, ПРИ ДЕЙСТВИИ КОНТРАКТА, ДЕЛИКТЕ ИЛИ ИНОЙ
+СИТУАЦИИ, ВОЗНИКШИМ ИЗ-ЗА ИСПОЛЬЗОВАНИЯ ПРОГРАММНОГО ОБЕСПЕЧЕНИЯ ИЛИ ИНЫХ ДЕЙСТВИЙ
+С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
 */
 # if !defined( __mtc_dir_h__ )
 # define __mtc_dir_h__
 # include "platform.h"
+# include <atomic>
 
-# if defined( _MSC_VER )
+# if defined( WIN32 )
 #   include <io.h>
+# else
+#   include <dirent.h>
 # endif
 
 namespace mtc
 {
 
-  template <class M = def_alloc<>>
   class directory
   {
-    struct directory_data
+    class dir_str
     {
-      int   refcnt;
-      int*  dirstr;
+      char*   strptr;
 
-    public:     // construction
-      directory_data():
-        refcnt( 1 ), dirstr( nullptr ) {}
-     ~directory_data()
-        {
-          if ( dirstr != nullptr && --*dirstr )
-            M().free( dirstr );
-        }
+    public:     // implementation
+      dir_str( char* s = nullptr );
+      dir_str( const dir_str& );
+     ~dir_str();
+      dir_str& operator = ( const dir_str& );
+      dir_str& operator = ( char* );
+      operator const char* () const   {  return strptr;  }
 
-    public:     // real
-# if defined( _MSC_VER )
-      struct  _finddata_t fidata;
-      intptr_t            handle;
-      unsigned            dwattr;
+    public:
+      static char*  strdup( const char*, int l = -1 );
 
-    public:     // reading
-      bool  Init()
-        {
-        // free allocated string
-          if ( dirstr != nullptr && --*dirstr == 0 )
-            M().free( dirstr );
-    
-          for ( dirstr = nullptr; (fidata.attrib & dwattr) == 0; )
-            if ( _findnext( handle, &fidata ) != 0 )
-              return false;
+    private:
+      std::atomic_int*  base();
 
-          if ( (dirstr = (int*)M().alloc( sizeof(int) + strlen( fidata.name ) + 1 )) == nullptr )
-            return false;
-
-          strcpy( (char*)(dirstr + 1), fidata.name );  *dirstr = 1;
-            return true;
-        }
-      bool  Next()
-        {
-          fidata.attrib = 0;
-          return Init();
-        }
-# else
-#   error Undefined directory<> class implementation!
-# endif  // _MSC_VER
-    };
-
-    directory_data* didata;
-
-  public:     // interface class
-    class direntry
-    {
-      friend class directory;
-
-      int*        szname;
-      unsigned    attrib;
-
-    protected:  // internal initialization
-      direntry( int* s, unsigned a ): attrib( a )
-        {
-          if ( (szname = s) != nullptr )
-            ++*szname;
-        }
-
-    public:     // initialization
-      direntry(): szname( nullptr ), attrib( 0 )
-        {
-        }
-      direntry( const direntry& d ): attrib( d.attrib )
-        {
-          if ( (szname = d.szname) != nullptr )
-            ++*szname;
-        }
-     ~direntry()
-        {
-          if ( szname != nullptr && --*szname == 0 )
-            M().free( szname );
-        }
-      direntry& operator = ( const direntry& d )
-        {
-          if ( szname != nullptr && --*szname == 0 )
-            M().free( szname );
-          if ( (szname = d.szname) != nullptr )
-            ++*szname;
-          attrib = d.attrib;
-            return *this;
-        }
-
-    public:     // name access and attributes
-      const char*     getname() const
-        {  return szname != nullptr ? (char*)(szname + 1) : nullptr;  }
-      const unsigned  getattr() const
-        {  return attrib;  }
-
-      operator const char* () const
-        {  return getname();  }
-      operator bool () const
-        {  return szname != nullptr;  }
     };
 
   public:     // constants
@@ -149,10 +91,97 @@ namespace mtc
       attr_any  = 0x00000003
     };
 
+    class direntry
+    {
+      friend class directory;
+
+      dir_str     szfold;
+      dir_str     szname;
+      unsigned    uattrs;
+
+    protected:  // internal initialization
+      direntry( dir_str& dir, char* str, unsigned att ): szfold( dir ), szname( str ), uattrs( att )
+        {}
+
+    public:     // initialization
+      direntry(): uattrs( 0 )
+        {}
+      direntry( const direntry& d ): szfold( d.szfold ), szname( d.szname ), uattrs( d.uattrs )
+        {}
+      direntry& operator = ( const direntry& d )
+        {
+          szfold = d.szfold;
+          szname = d.szname;
+          uattrs = d.uattrs;
+          return *this;
+        }
+
+    public:     // name access and attributes
+      const char* folder() const  {  return szfold;  }
+      const char* string() const  {  return szname;  }
+      unsigned    attrib() const  {  return uattrs;  }
+
+      operator bool () const          {  return defined();  }
+      bool  defined() const           {  return szname != nullptr;  }
+
+    };
+
+  protected:
+    struct dir_val
+    {
+      std::atomic_int refcnt;
+      unsigned        dwattr;     // directory::attr_xxx virtual attribute combine
+      char*           szname;     // pointer to string in system-specific struct
+      dir_str         folder;     // current scanned folder
+
+# if defined( WIN32 )
+      struct  _finddata_t fidata;
+      intptr_t            handle;
+
+    public:     // construction
+      dir_val( unsigned attr ): refcnt( 1 ), szname( nullptr ), dwattr( attr ), handle( -1 )
+        {
+        }
+      
+    public:     // read
+      unsigned    attrib() const  {  return (fidata.attrib & _A_SUBDIR) ? attr_dir : attr_file;  }
+      char*       doread()        {  return szname = (_findnext( handle, &fidata ) == 0 ? fidata.name : nullptr);  }
+# else
+      DIR*                dirptr;
+      struct dirent*      pentry;
+      _auto<char>         filter;
+
+    public:     // construction
+      dir_val( unsigned attr ): refcnt( 1 ), szname( nullptr ), dwattr( attr ), dirptr( nullptr ), pentry( nullptr )
+        {
+        }
+     ~dir_val()
+        {
+          if ( dirptr != nullptr )
+            closedir( dirptr );
+        }
+
+    public:     // read
+      unsigned    attrib() const
+        {
+          return pentry != nullptr ? pentry->d_type == DT_DIR ? attr_dir : attr_file : 0;
+        }
+      char*       doread()
+        {
+          for ( szname = nullptr; szname == nullptr && dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr; )
+            if ( *filter == '\0' || fnmatch( filter, pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
+              szname = pentry->d_name;
+          return szname;
+        }
+# endif   // WIN32
+
+    };
+
+    dir_val*  didata;
+
   public:     // construction
     directory(): didata( nullptr )
-      {
-      }
+      {}
     directory( const directory& d )
       {
         if ( (didata = d.didata) != nullptr )
@@ -161,32 +190,31 @@ namespace mtc
    ~directory()
       {
         if ( didata != nullptr && --didata->refcnt == 0 )
-          M().deallocate( didata );
+          delete didata;
       }
     directory& operator = ( const directory& d )
       {
         if ( didata != nullptr && --didata->refcnt == 0 )
-          M().deallocate( didata );
+          delete didata;
         if ( (didata = d.didata) != nullptr )
           ++didata->refcnt;
         return *this;
       }
 
-    operator bool () const
-      {
-        return didata != nullptr;
-      }
+    bool  defined() const   {  return didata != nullptr;  }
+    operator bool () const  {  return defined();  }
 
   public:     // recursive directory scanner
     direntry  Get();
 
   public:     // lambda
-    template <class _do_> int   for_each( _do_ action )
+    template <class _do_>
+    int   for_each( _do_ action )
       {
         direntry  d;
         int       e;
 
-        while ( (en = Get()) != false && (e = action( d )) == 0 )
+        while ( (en = Get()).defined() && (e = action( d )) == 0 )
           (void)NULL;
         return e;
       }
@@ -196,61 +224,163 @@ namespace mtc
 
   };
 
-  template <class M>
-  typename directory<M>::direntry  directory<M>::Get()
+  // directory::dir_str implementation
+
+  inline
+  directory::dir_str::dir_str( char* s )
+    {
+      if ( (strptr = s) != nullptr )
+        ++*base();
+    }
+
+  inline
+  directory::dir_str::dir_str( const dir_str& s )
+    {
+      if ( (strptr = s.strptr) != nullptr )
+        ++*base();
+    }
+
+  inline
+  directory::dir_str::~dir_str()
+    {
+      if ( strptr != nullptr && --*base() <= 0 )
+        delete base();
+    }
+
+  inline
+  directory::dir_str& directory::dir_str::operator = ( const dir_str& s )
+    {
+      if ( strptr != nullptr && --*base() <= 0 )
+        delete base();
+      if ( (strptr = s.strptr) != nullptr )
+        ++*base();
+      return *this;
+    }
+
+  inline
+  directory::dir_str& directory::dir_str::operator = ( char* s )
+    {
+      if ( strptr != nullptr && --*base() <= 0 )
+        delete base();
+      if ( (strptr = s) != nullptr )
+        ++*base();
+      return *this;
+    }
+
+  inline
+  std::atomic_int*  directory::dir_str::base()
+    {
+      return strptr != nullptr ? -1 + (std::atomic_int*)strptr : nullptr;
+    }
+
+  inline
+  char*   directory::dir_str::strdup( const char* s, int l )
+    {
+      std::atomic_int*  palloc;
+
+      if ( l == -1 )
+        l = w_strlen( s );
+
+      if ( (palloc = (std::atomic_int*)malloc( sizeof(std::atomic_int) + l + 1 )) == nullptr )
+        return nullptr;
+      else *palloc++ = 0;
+
+      *(l + (char*)memcpy( palloc, s, l )) = '\0';
+        return (char*)palloc;
+    }
+
+  // directory implementation
+
+  inline
+  directory::direntry directory::Get()
   {
-    direntry  output;
-
-  // check if nothing to get now
-    if ( didata != nullptr && didata->dirstr == nullptr && --didata->refcnt == 0 )
-      {  M().deallocate( didata );  didata = nullptr;  }
-
   // check if deallocated
     if ( didata == nullptr )
       return direntry();
 
-# if defined( _MSC_VER )
-    output = direntry( didata->dirstr, didata->fidata.attrib & _A_SUBDIR ? attr_dir : attr_file );
-      didata->Next();
-    return output;
-# else
-#   error Undefined directory<> class implementation!
-# endif  // _MSC_VER
+    if ( didata->szname == nullptr )
+      while ( didata->doread() != nullptr && (didata->attrib() & didata->dwattr) == 0 )
+        (void)NULL;
+        
+    if ( didata->szname != nullptr )
+    {
+      direntry  output( didata->folder, dir_str::strdup( didata->szname ), didata->attrib() );
+        didata->szname = nullptr;
+      return output;
+    }
+    return direntry();
   }
 
-  template <class M>
-  directory<M>  directory<M>::Open( const char* pszdir, unsigned uflags )
+  inline
+  directory directory::Open( const char* pszdir, unsigned uflags )
   {
-    directory<M>  thedir;
+    directory   thedir;
+    char*       folder;
+    char*       endptr;
 
   // allocate directory object
-    if ( (thedir.didata = M().allocate<directory<M>::directory_data>()) == nullptr )
-      return thedir;
+    if ( (thedir.didata = allocate<directory::dir_val>( uflags )) == nullptr )
+      return directory();
 
-# if defined( _MSC_VER )
+# if defined( WIN32 )
     char      altdir[1024];
 
-    if ( uflags & attr_dir )  thedir.didata->dwattr = _A_SUBDIR;
-      else thedir.didata->dwattr = 0;
-    if ( uflags & attr_file )
-      thedir.didata->dwattr |= ~_A_SUBDIR;
-    
   // check if a direct name is provided, else if the template has the wild card
     if ( (thedir.didata->handle = _findfirst( pszdir, &thedir.didata->fidata )) == -1 )
     {
-      if ( strchr( pszdir, '*' ) == nullptr && strchr( pszdir, '?' ) == nullptr )
-      {
-        if ( *pszdir == '\0' )  pszdir = "./*";
-          else  pszdir = strcat( strcpy( altdir, pszdir ), "/*" );
-      }
-      if ( (thedir.didata->handle = _findfirst( pszdir, &thedir.didata->fidata )) == -1 )
-        return directory<M>();
+      if ( strchr( pszdir, '*' ) != nullptr || strchr( pszdir, '?' ) != nullptr )
+        return directory();
+
+      if ( *pszdir == '\0' )  pszdir = "./*";
+        else
+      if ( pszdir[strlen( pszdir ) - 1] != '/' && pszdir[strlen( pszdir ) - 1] != '\\' )
+        pszdir = strcat( strcpy( altdir, pszdir ), "/*" );
+      else
+        pszdir = strcat( strcpy( altdir, pszdir ), "*" );
+
+      if ( (thedir.didata->handle = _findfirst( pszdir, &thedir.didata->fidata )) == -1 ) return directory();
+        else thedir.didata->szname = thedir.didata->fidata.name;
+    } else thedir.didata->szname = thedir.didata->fidata.name;
+
+    while ( (thedir.didata->attrib() & uflags) == 0 )
+      if ( thedir.didata->doread() == nullptr )
+        return directory();
+
+  // create folder string
+    if ( (thedir.didata->folder = folder = dir_str::strdup( pszdir )) == nullptr )
+      return directory();
+
+    for ( endptr = folder; *endptr != 0; ++endptr )
+      (void)NULL;
+
+    while ( endptr >= folder && *endptr != '/' && *endptr != '\\' )
+      *endptr-- = 0;
+# else
+  // check if has directory delimiter
+    if ( (endptr = strrchr( pszdir, '/' )) == nullptr )
+    {
+      if ( (thedir.didata->folder = folder = w_strdup( "./" )) == nullptr )  return directory();
+        else endptr = pszdir;
+    }
+      else
+  // create directory name and mask
+    if ( (thedir.didata->folder = folder = (char*)malloc( endptr - pszdir + 2 )) == nullptr )  return directory();
+      else
+    {
+      memcpy( folder, pszdir, endptr - pszdir + 1 );
+        folder[endptr++ - pszdir + 1] = '\0';
     }
 
-    return thedir.didata->Init() ? thedir : directory<M>();
-# else
-#   error Undefined directory<> class implementation!
+  // create the mask
+    if ( (thedir->didata->filter = w_strdup( endptr )) == nullptr )
+      return directory();
+
+  // parse the search entry to directory and the mask
+    if ( (thedir.diinfo->dirptr = opendir( folder )) == nullptr )
+      return directory();
 # endif  // _MSC_VER
+
+    return thedir;
   }
 
 }
