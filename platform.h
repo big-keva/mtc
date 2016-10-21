@@ -33,6 +33,22 @@ SOFTWARE.
 # include <stdint.h>
 # include <new>
 
+# if !defined( win32_decl )
+#   if defined( WIN32 )
+#     define win32_decl( expr ) expr
+#   else
+#     define win32_decl( expr )
+#   endif
+# endif
+
+# if !defined( posix_decl )
+#   if defined( WIN32 )
+#     define posix_decl( expr )
+#   else
+#     define posix_decl( expr ) expr
+#   endif
+# endif
+
 # define array_size( a ) ( sizeof(a) / sizeof((a)[0]) )
 # define array_end( a ) ((a) + sizeof(a) / sizeof((a)[0]))
 
