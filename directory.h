@@ -50,12 +50,15 @@ SOFTWARE.
 # if !defined( __mtc_dir_h__ )
 # define __mtc_dir_h__
 # include "platform.h"
+# include "autoptr.h"
+# include "wcsstr.h"
 # include <atomic>
 
 # if defined( WIN32 )
 #   include <io.h>
 # else
 #   include <dirent.h>
+#   include <fnmatch.h>
 # endif
 
 namespace mtc
@@ -149,7 +152,7 @@ namespace mtc
 # else
       DIR*                dirptr;
       struct dirent*      pentry;
-      _auto<char>         filter;
+      _auto_<char>        filter;
 
     public:     // construction
       dir_val( unsigned attr ): refcnt( 1 ), szname( nullptr ), dwattr( attr ), dirptr( nullptr ), pentry( nullptr )
@@ -169,7 +172,7 @@ namespace mtc
       char*       doread()
         {
           for ( szname = nullptr; szname == nullptr && dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr; )
-            if ( *filter == '\0' || fnmatch( filter, pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
+            if ( *(char*)filter == '\0' || fnmatch( filter, pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
               szname = pentry->d_name;
           return szname;
         }
@@ -214,7 +217,7 @@ namespace mtc
         direntry  d;
         int       e;
 
-        while ( (en = Get()).defined() && (e = action( d )) == 0 )
+        while ( (d = Get()).defined() && (e = action( d )) == 0 )
           (void)NULL;
         return e;
       }
@@ -281,9 +284,9 @@ namespace mtc
       if ( l == -1 )
         l = w_strlen( s );
 
-      if ( (palloc = (std::atomic_int*)malloc( sizeof(std::atomic_int) + l + 1 )) == nullptr )
-        return nullptr;
-      else *palloc++ = 0;
+      if ( (palloc = (std::atomic_int*)malloc( sizeof(std::atomic_int) + l + 1 )) != nullptr )
+        new( palloc++ ) std::atomic_int( 0 );
+      else return nullptr;
 
       *(l + (char*)memcpy( palloc, s, l )) = '\0';
         return (char*)palloc;
@@ -357,26 +360,22 @@ namespace mtc
       *endptr-- = 0;
 # else
   // check if has directory delimiter
-    if ( (endptr = strrchr( pszdir, '/' )) == nullptr )
+    if ( (endptr = (char*)strrchr( pszdir, '/' )) == nullptr )
     {
-      if ( (thedir.didata->folder = folder = w_strdup( "./" )) == nullptr )  return directory();
-        else endptr = pszdir;
+      if ( (thedir.didata->folder = folder = dir_str::strdup( "./" )) == nullptr )  return directory();
+        else endptr = (char*)pszdir;
     }
       else
   // create directory name and mask
-    if ( (thedir.didata->folder = folder = (char*)malloc( endptr - pszdir + 2 )) == nullptr )  return directory();
-      else
-    {
-      memcpy( folder, pszdir, endptr - pszdir + 1 );
-        folder[endptr++ - pszdir + 1] = '\0';
-    }
+    if ( (thedir.didata->folder = folder = dir_str::strdup( pszdir )) == nullptr )  return directory();
+      else folder[endptr++ - pszdir + 1] = '\0';
 
   // create the mask
-    if ( (thedir->didata->filter = w_strdup( endptr )) == nullptr )
+    if ( (thedir.didata->filter = w_strdup( endptr )) == nullptr )
       return directory();
 
   // parse the search entry to directory and the mask
-    if ( (thedir.diinfo->dirptr = opendir( folder )) == nullptr )
+    if ( (thedir.didata->dirptr = opendir( folder )) == nullptr )
       return directory();
 # endif  // _MSC_VER
 

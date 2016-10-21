@@ -86,14 +86,14 @@ namespace mtc
     return s - o - 1;
   }
 
-  inline  auto w_strlen( const widechar* s )  {  return (size_t)__impl_strlen( s );  }
-  inline  auto w_strlen( const char* s )      {  return (size_t)__impl_strlen( s );  }
+  inline  size_t w_strlen( const widechar* s )  {  return __impl_strlen( s );  }
+  inline  size_t w_strlen( const char* s )      {  return __impl_strlen( s );  }
 
   //
   // strdup() family
   //
 
-  template <class C, class M>  C*  __impl_strdup( const C* s, size_t l, M& m )
+  template <class C>  C*  __impl_strdup( const C* s, size_t l )
   {
     C*  o;
     C*  p;
@@ -101,19 +101,17 @@ namespace mtc
     if ( l == (size_t)-1 )
       for ( l = 0; s != nullptr && s[l] != (C)0; ++l )  (void)0;
 
-    if ( (o = p = (C*)m.alloc( sizeof(C) * (l + 1) )) != nullptr )
+    if ( (o = p = (C*)malloc( sizeof(C) * (l + 1) )) != nullptr )
       {  while ( l-- > 0 ) *p++ = *s++;  *p = (C)0;  }
 
     return o;
   }
 
-  template <class M = def_alloc<>>
-  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1, M& m = M() )
-    {  return s != nullptr ? __impl_strdup<widechar>( s, l, m ) : nullptr;  }
+  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1 )
+    {  return s != nullptr ? __impl_strdup<widechar>( s, l ) : nullptr;  }
 
-  template <class M = def_alloc<>>
-  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1, M& m = M() )
-    {  return s != nullptr ? __impl_strdup<    char>( s, l, m ) : nullptr;  }
+  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1 )
+    {  return s != nullptr ? __impl_strdup<    char>( s, l ) : nullptr;  }
 
   //
   // strcpy() family
