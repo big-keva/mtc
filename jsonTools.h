@@ -139,7 +139,7 @@ namespace mtc
     return jsonRevive::Create<M>( z_widestr, z_##_type_, thekey, sizeof(widechar) * w_strlen( thekey ), fsnext, nullptr );  \
   }
   derive_revive( char )
-  derive_revive( byte08 )
+  derive_revive( byte )
   derive_revive( int16 )
   derive_revive( word16 )
   derive_revive( int32 )
