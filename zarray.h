@@ -2191,18 +2191,18 @@ namespace mtc
       derive_skip_array_plain( double )
     # undef derive_skip_array_plain
 
-      case z_array_int16:   return skip_array_ord<int16_t>( s );
-      case z_array_int32:   return skip_array_ord<int32_t>( s );
-      case z_array_int64:   return skip_array_ord<int64_t>( s );
-      case z_array_word16:  return skip_array_ord<word16_t>( s );
-      case z_array_word32:  return skip_array_ord<word32_t>( s );
-      case z_array_word64:  return skip_array_ord<word64_t>( s );
+      case z_array_int16:   return serial_skip_array_values<int16_t>( s );
+      case z_array_int32:   return serial_skip_array_values<int32_t>( s );
+      case z_array_int64:   return serial_skip_array_values<int64_t>( s );
+      case z_array_word16:  return serial_skip_array_values<word16_t>( s );
+      case z_array_word32:  return serial_skip_array_values<word32_t>( s );
+      case z_array_word64:  return serial_skip_array_values<word64_t>( s );
 
-      case z_array_charstr: return skip_array_str<char>( s );
-      case z_array_widestr: return skip_array_str<widechar>( s );
+      case z_array_charstr: return serial_skip_array_string<char>( s );
+      case z_array_widestr: return serial_skip_array_string<widechar>( s );
 //        case z_array_buffer  = 50,
-      case z_array_zarray:  return skip_array_zarray( s );
-      case z_array_xvalue:  return skip_array_xvalue( s );
+      case z_array_zarray:  return serial_skip_array_zarray( s );
+      case z_array_xvalue:  return serial_skip_array_xvalue( s );
       default:
         return nullptr;
     }
