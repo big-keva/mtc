@@ -77,8 +77,9 @@ namespace mtc
           va_list vaargs;
 
           va_start( vaargs, msg );
-            vfprintf( output, msg, vaargs );
-             fprintf( output, "\n" );
+            fprintf( output, "%d: ", (int)t );
+           vfprintf( output, msg, vaargs );
+            fprintf( output, "\n" );
           va_end( vaargs );
         }
         return t;
