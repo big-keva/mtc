@@ -56,6 +56,7 @@ SOFTWARE.
 # include <errno.h>
 # include <cassert>
 # include "platform.h"
+# include <atomic>
 # include <new>
 
 # if defined( _MSC_VER )
@@ -260,7 +261,7 @@ namespace mtc
   {
     struct array_data: public array<T, M>
     {
-      int   refcount;
+      std::atomic_int refcount;
 
     public:
     
@@ -425,6 +426,11 @@ namespace mtc
     const T*  begin() const {  return *this;  }
     const T*  end() const   {  return size() + *this;  }
     int       size() const  {  return parray != nullptr ? parray->size() : 0;  }
+    T&        first()       {  return (*this)[0];  }
+    T&        last()        {  return (*this)[size() - 1];  }
+    const T&  first() const {  return (*this)[0];  }
+    const T&  last() const  {  return (*this)[size() - 1];  }
+
   };
 
 // array inline implementation
