@@ -94,15 +94,15 @@ namespace mtc
     virtual unsigned  Put ( const void*,   word32_t ) noexcept override;
 
   public:     // overridables from IFlatStream
-    virtual int       PGet( IByteBuffer**, int64_t, word32_t ) noexcept override;
-    virtual word32_t  PGet(       void*,   int64_t, word32_t ) noexcept override;
-    virtual word32_t  PPut( const void*,   int64_t, word32_t ) noexcept override;
-    virtual int64_t   Seek( int64_t                          ) noexcept override;
-    virtual int64_t   Size(                                  ) noexcept override;
-    virtual int64_t   Tell(                                  ) noexcept override;       
+    virtual int       GetBuf( IByteBuffer**, int64_t, word32_t ) noexcept override;
+    virtual word32_t  PosGet(       void*,   int64_t, word32_t ) noexcept override;
+    virtual word32_t  PosPut( const void*,   int64_t, word32_t ) noexcept override;
+    virtual int64_t   Seek  ( int64_t                          ) noexcept override;
+    virtual int64_t   Size  (                                  ) noexcept override;
+    virtual int64_t   Tell  (                                  ) noexcept override;       
 
   public:     // overridables from IFileStream
-    virtual int       Map ( IByteBuffer**, int64_t, word32_t ) noexcept override;
+    virtual int       MemMap( IByteBuffer**, int64_t, word32_t ) noexcept override;
 
   public:     // creation
     int               Open( const char*, unsigned );
@@ -194,7 +194,7 @@ namespace mtc
     Close();
   }
 
-  int   FileStream::Map( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
+  int   FileStream::MemMap( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
   {
     _auto_<FileMemmap>  memmap;
     int                 nerror;
@@ -223,7 +223,7 @@ namespace mtc
     if ( (buf = (filebuffer*)malloc( (size_t)(sizeof(filebuffer) + len - 1) )) == nullptr )
       return nullptr;
 
-    return PGet( (char*)(new( buf.ptr() ) filebuffer( (unsigned)len ))->GetPtr(), 0, (unsigned)len ) == len ? buf.detach() : nullptr;
+    return PosGet( (char*)(new( buf.ptr() ) filebuffer( (unsigned)len ))->GetPtr(), 0, (unsigned)len ) == len ? buf.detach() : nullptr;
   }
 
 # if defined( WIN32 )
@@ -242,19 +242,19 @@ namespace mtc
     return WriteFile( handle, src, len, &nwrite, nullptr ) ? nwrite : 0;
   }
 
-  int       FileStream::PGet( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
+  int       FileStream::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
   {
     _auto_<filebuffer>  buffer;
 
     if ( (buffer = (filebuffer*)malloc( sizeof(filebuffer) + len - 1 )) == nullptr )
       return ENOMEM;
-    if ( PGet( (char*)(new( buffer.ptr() ) filebuffer( len ))->GetPtr(), off, len ) != len )
+    if ( PosGet( (char*)(new( buffer.ptr() ) filebuffer( len ))->GetPtr(), off, len ) != len )
       return EACCES;
     (*ppi = buffer.detach())->Attach();
       return 0;
   }
 
-  unsigned  FileStream::PGet( void* out, int64_t off, word32_t len ) noexcept
+  unsigned  FileStream::PosGet( void* out, int64_t off, word32_t len ) noexcept
   {
     DWORD       cbread;
     OVERLAPPED  reinfo;
@@ -269,7 +269,7 @@ namespace mtc
     return ReadFile( handle, out, len, &cbread, &reinfo ) ? cbread : 0;
   }
 
-  unsigned  FileStream::PPut( const void* src, int64_t off, word32_t len ) noexcept
+  unsigned  FileStream::PosPut( const void* src, int64_t off, word32_t len ) noexcept
   {
     DWORD       nwrite;
     OVERLAPPED  reinfo;

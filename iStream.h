@@ -16,12 +16,12 @@ namespace mtc
 
   struct  IFlatStream: public IByteStream
   {
-    virtual int       PGet( IByteBuffer**, int64_t, word32_t ) = 0;
-    virtual word32_t  PGet(       void*,   int64_t, word32_t ) = 0;
-    virtual word32_t  PPut( const void*,   int64_t, word32_t ) = 0;
-    virtual int64_t   Seek( int64_t                          ) = 0;
-    virtual int64_t   Size(                                  ) = 0;
-    virtual int64_t   Tell(                                  ) = 0;
+    virtual int       GetBuf( IByteBuffer**, int64_t, word32_t ) = 0;
+    virtual word32_t  PosGet(       void*,   int64_t, word32_t ) = 0;
+    virtual word32_t  PosPut( const void*,   int64_t, word32_t ) = 0;
+    virtual int64_t   Seek  ( int64_t                          ) = 0;
+    virtual int64_t   Size  (                                  ) = 0;
+    virtual int64_t   Tell  (                                  ) = 0;
   };
 
 }
