@@ -123,8 +123,13 @@ namespace mtc
 
 }  // mtc namespace
 
+  struct reference_counter: public std::atomic_int
+  {
+    reference_counter(): std::atomic_int( 0 ) {}
+  };
+
 # define  implement_lifetime_control                                \
-  protected:  std::atomic_long lifetime_counter;                    \
+  protected:  reference_counter lifetime_counter;                   \
   public:     virtual long  Attach()  noexcept                      \
     {  return ++lifetime_counter;  }                                \
   public:     virtual long  Detach()  noexcept                      \
