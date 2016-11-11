@@ -49,6 +49,14 @@ SOFTWARE.
 #   endif
 # endif
 
+# if !defined( debug_decl )
+#   if defined( _DEBUG )
+#     define debug_decl( expr ) expr
+#   else
+#     define debug_decl( expr )
+#   endif
+# endif
+
 # define array_size( a ) ( sizeof(a) / sizeof((a)[0]) )
 # define array_end( a ) ((a) + sizeof(a) / sizeof((a)[0]))
 
@@ -99,6 +107,16 @@ namespace mtc
     {  return t1 >= t2 ? t1 : t2;  }
   template <class T>  inline  T min( const T& t1, const T& t2 )
     {  return t1 <  t2 ? t1 : t2;  }
+
+  template <class T>
+  void  inplace_swap( T& t1, T& t2 )
+    {
+      char* c1 = (char*)&t1;
+      char* c2 = (char*)&t2;
+      int   cc = sizeof(t1);
+
+      while ( cc-- > 0 )  {  char c = *c1;  *c1++ = *c2;  *c2++ = c;  }
+    }
 
   class rtl_mm
   {

@@ -1,18 +1,9 @@
 # if !defined( __mtc_sort_h__ )
 # define __mtc_sort_h__
+# include "platform.h"
 
 namespace mtc
 {
-  template <class T>
-  void  __inplace_swap__( T& t1, T& t2 )
-    {
-      char* c1 = (char*)&t1;
-      char* c2 = (char*)&t2;
-      int   cc = sizeof(t1);
-
-      while ( cc-- > 0 )  {  char c = *c1;  *c1++ = *c2;  *c2++ = c;  }
-    }
-
   template<class _iterator, class T, class compare>
   void  __inplace_sort__( _iterator first, _iterator last, const T& pv, compare cmp )
   {
@@ -29,7 +20,7 @@ namespace mtc
         {
           m = m == f ? l :
               m == l ? f : m;
-          __inplace_swap__( *f++, *l-- );
+          inplace_swap( *f++, *l-- );
         }
       } while ( f <= l );
 
@@ -55,7 +46,7 @@ namespace mtc
         {
           m = m == f ? l :
               m == l ? f : m;
-          __inplace_swap__( *f++, *l-- );
+          inplace_swap( *f++, *l-- );
         }
       } while ( f <= l );
 
