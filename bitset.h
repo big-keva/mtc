@@ -34,6 +34,23 @@ SOFTWARE.
 
 namespace mtc
 {
+  template <class U, class M1, class M2>
+  inline  void  bitset_and( array<U, M1>& a, const array<U, M2>& b )
+    {
+      int i;
+
+      for ( i = 0; i < a.size() && i < b.size(); ++i )
+        a[i] &= b[i];
+      a.SetLen( i );
+    }
+
+  template <class U, class M1, class M2>
+  inline  void  bitset_not( array<U, M1>& a, const array<U, M2>& b )
+    {
+      for ( auto i = 0; i < a.size() && i < b.size(); ++i )
+        a[i] &= ~b[i];
+    }
+
   template <class U, class M>
   inline  int   bitset_setmax( array<U, M>&  s, unsigned m )
     {
