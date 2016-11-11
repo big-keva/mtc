@@ -10,8 +10,8 @@ namespace mtc
   //
   struct  IByteStream: public Iface
   {
-    virtual unsigned  Get(       void*, word32_t ) = 0;
-    virtual unsigned  Put( const void*, word32_t ) = 0;
+    virtual word32_t  Get(       void*, word32_t ) = 0;
+    virtual word32_t  Put( const void*, word32_t ) = 0;
   };
 
   struct  IFlatStream: public IByteStream
