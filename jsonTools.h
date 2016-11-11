@@ -51,6 +51,7 @@ SOFTWARE.
 */
 # if !defined( __jsonTools_h__ )
 # define __jsonTools_h__
+# include "charstream.h"
 # include "zarray.h"
 # include <string.h>
 
@@ -186,35 +187,18 @@ namespace mtc
 # undef derive_revive
 
   /*
-    jsonstream - класс для вычитывания данных из потока с промежуточной буферизацией,
-    позволяющий делать getchar() и putchar(). Глубина стека тождественно равна 1 :)
+    charstream - класс для вычитывания данных из потока с промежуточной буферизацией,
+    позволяющий делать getchar() и putchar(). Глубина стека тождественно равна 2 :)
   */
   template <class S>
-  class jsonstream
+  struct jsonstream: public charstream<S>
   {
-    S*    stream;
-    char  chbuff[2];
-    int   buflen;
+    jsonstream( S* s ): charstream<S>( s )  {}
 
-  public:     // construction
-    jsonstream( S*  s = nullptr ):
-      stream( s ), buflen( 0 )  {}
-    operator S* ()
-      {  return stream;  }
-    jsonstream& operator = ( S* p )
-      {  stream = p;  return *this;  }
+  public:     // override
+    jsonstream& putchar( char c ) {  return (jsonstream&)charstream<S>::putchar( c );  }
 
-  public:     // reading
-    char  getchar()
-      {
-        char  getchr;
-        
-        assert( buflen == 0 || buflen == 1 || buflen == 2 );
-
-        if ( buflen != 0 )
-          return chbuff[--buflen];
-        return (stream = (S*)::FetchFrom( stream, (char&)getchr )) != nullptr ? getchr : '\0';
-      }
+  public:     // gets
     /*
       get first non-space character
     */
@@ -265,12 +249,6 @@ namespace mtc
       {
         return (*p++ = nospace()) != '\0' && (*p++ = getchar()) != '\0'
             && (*p++ = getchar()) != '\0' && (*p++ = getchar()) != '\0';
-      }
-    jsonstream&  putchar( char chr )
-      {
-        assert( buflen == 0 || buflen == 1 );
-        chbuff[buflen++] = chr;
-        return *this;
       }
     template <class C, class M>
     int   getstring( _auto_<C, M>&  refstr, const unsigned maxval = (1 << (sizeof(C) * CHAR_BIT)) - 1 )
