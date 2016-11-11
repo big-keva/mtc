@@ -44,9 +44,9 @@ namespace mtc
 
   public:     // overridables
     virtual const char* GetPtr(                       ) noexcept override {  return nshift + (char*)ptrmap;  }
-    virtual unsigned    GetLen(                       ) noexcept override {  return cchmem;  }
-    virtual int         SetBuf( const void*, unsigned ) noexcept override {  return EINVAL;  }
-    virtual int         SetLen( unsigned              ) noexcept override {  return EINVAL;  }
+    virtual word32_t    GetLen(                       ) noexcept override {  return cchmem;  }
+    virtual int         SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
+    virtual int         SetLen( word32_t              ) noexcept override {  return EINVAL;  }
 
   public:     // helpers
     int   Create( FileStream*, int64_t, word32_t );
@@ -72,16 +72,16 @@ namespace mtc
       implement_lifetime_control
 
     public:     // construction
-      filebuffer( unsigned l ): length( l ) {}
+      filebuffer( word32_t l ): length( l ) {}
           
     public:     // overridables
       virtual const char* GetPtr() noexcept override {  return buffer;  }
-      virtual unsigned    GetLen() noexcept override {  return length;  }
-      virtual int         SetBuf( const void*, unsigned ) noexcept override {  return EINVAL;  }
-      virtual int         SetLen( unsigned ) noexcept override {  return EINVAL;  }
+      virtual word32_t    GetLen() noexcept override {  return length;  }
+      virtual int         SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
+      virtual int         SetLen( word32_t ) noexcept override {  return EINVAL;  }
     
     protected:  // variables
-      unsigned  length;
+      word32_t  length;
       char      buffer[1];
     };
 
@@ -90,8 +90,8 @@ namespace mtc
    ~FileStream();
 
   public:     // overridables from IStream
-    virtual unsigned  Get (       void*,   word32_t ) noexcept override;
-    virtual unsigned  Put ( const void*,   word32_t ) noexcept override;
+    virtual word32_t  Get (       void*,   word32_t ) noexcept override;
+    virtual word32_t  Put ( const void*,   word32_t ) noexcept override;
 
   public:     // overridables from IFlatStream
     virtual int       GetBuf( IByteBuffer**, int64_t, word32_t ) noexcept override;
@@ -223,19 +223,22 @@ namespace mtc
     if ( (buf = (filebuffer*)malloc( (size_t)(sizeof(filebuffer) + len - 1) )) == nullptr )
       return nullptr;
 
-    return PosGet( (char*)(new( buf.ptr() ) filebuffer( (unsigned)len ))->GetPtr(), 0, (unsigned)len ) == len ? buf.detach() : nullptr;
+    return PosGet( (char*)(new( buf.ptr() ) filebuffer( (word32_t)len ))->GetPtr(), 0, (word32_t)len ) == len ? buf.detach() : nullptr;
   }
 
 # if defined( WIN32 )
 
-  unsigned  FileStream::Get( void* out, unsigned len ) noexcept
+  word32_t  FileStream::Get( void* out, word32_t len ) noexcept
   {
-    DWORD cbread;
+    DWORD     cbread;
+    word32_t  dwread = ReadFile( handle, out, len, &cbread, nullptr ) ? cbread : 0;
 
-    return ReadFile( handle, out, len, &cbread, nullptr ) ? cbread : 0;
+    debug_decl( DWORD uError = GetLastError() );
+
+    return dwread;
   }
 
-  unsigned  FileStream::Put( const void* src, unsigned len ) noexcept
+  word32_t  FileStream::Put( const void* src, word32_t len ) noexcept
   {
     DWORD nwrite;
 
@@ -400,38 +403,38 @@ namespace mtc
     return _u_err_ok;
   }
 
-  unsigned  CFileStream::Get( void*        lpdata,
-                              unsigned     ccdata )
+  word32_t  CFileStream::Get( void*        lpdata,
+                              word32_t     ccdata )
   {
     return ::read( handle, lpdata, ccdata );
   }
 
-  unsigned  CFileStream::Put( const void*  lpdata,
-                              unsigned     ccdata )
+  word32_t  CFileStream::Put( const void*  lpdata,
+                              word32_t     ccdata )
   {
     return ::write( handle, lpdata, ccdata );
   }
 
-  unsigned  CFileStream::PGet( void*       lpdata,
-                               unsigned    ccdata,
-                               int64       offset )
+  word32_t  CFileStream::PosGet( void*       lpdata,
+                                 word32_t    ccdata,
+                                 int64       offset )
   {
     return ::pread( handle, lpdata, ccdata, offset );
   }
 
-  unsigned  CFileStream::PPut( const void* lpdata,
-                               unsigned    ccdata,
-                               int64       offset )
+  word32_t  CFileStream::PosPut( const void* lpdata,
+                                 word32_t    ccdata,
+                                 int64       offset )
   {
     return ::pwrite( handle, lpdata, ccdata, offset );
   }
 
-  int64     CFileStream::Seek( int64       offset )
+  int64_t   CFileStream::Seek( int64_t     offset )
   {
     return ::lseek( handle, offset, SEEK_SET );
   }
 
-  int64     CFileStream::Size()
+  int64_t   CFileStream::Size()
   {
     int64   curpos = ::lseek( handle, 0, SEEK_CUR );
     int64   curlen = ::lseek( handle, 0, SEEK_END );
