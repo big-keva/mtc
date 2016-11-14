@@ -69,7 +69,7 @@ namespace mtc
 
   public:     // construction
     charstream( S*  s = nullptr ): stream( s ), buflen( 0 )  {}
-    charstream& operator = ( S* s )   {  stream = s;  buflen = 0;  return *this;  }
+    charstream& operator = ( S* s )   {  stream = s;  return *this;  }
     operator S* ()  {  return stream;  }
 
   public:     // reading

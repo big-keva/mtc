@@ -194,6 +194,7 @@ namespace mtc
   struct jsonstream: public charstream<S>
   {
     jsonstream( S* s ): charstream<S>( s )  {}
+    jsonstream& operator = ( S* s ) {  return (jsonstream&)charstream<S>::operator = ( s );  }
 
   public:     // override
     jsonstream& putchar( char c ) {  return (jsonstream&)charstream<S>::putchar( c );  }
