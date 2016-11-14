@@ -1,7 +1,8 @@
 /*
+
 The MIT License (MIT)
 
-Copyright (c) 2016 Андрей Коваленко aka Keva
+Copyright (c) 2000-2016 Андрей Коваленко aka Keva
   keva@meta.ua
   keva@rambler.ru
   skype: big_keva
@@ -46,6 +47,7 @@ SOFTWARE.
 ЗА УЩЕРБ ИЛИ ПО ИНЫМ ТРЕБОВАНИЯМ, В ТОМ ЧИСЛЕ, ПРИ ДЕЙСТВИИ КОНТРАКТА, ДЕЛИКТЕ ИЛИ ИНОЙ
 СИТУАЦИИ, ВОЗНИКШИМ ИЗ-ЗА ИСПОЛЬЗОВАНИЯ ПРОГРАММНОГО ОБЕСПЕЧЕНИЯ ИЛИ ИНЫХ ДЕЙСТВИЙ
 С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
+
 */
 # if !defined( __mtc_dir_h__ )
 # define __mtc_dir_h__

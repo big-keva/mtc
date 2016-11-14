@@ -2,7 +2,7 @@
 
 The MIT License (MIT)
 
-Copyright (c) 2016 Андрей Коваленко aka Keva
+Copyright (c) 2000-2016 Андрей Коваленко aka Keva
   keva@meta.ua
   keva@rambler.ru
   skype: big_keva
