@@ -365,24 +365,13 @@ namespace mtc
       else return false;
   }
 
-  /*
-    Примитивы для записи данных в обычный поток по протоколу Serialize()
-  */
-  inline  char*   PrintJson( char* o, char c )
-    {  if ( o != nullptr ) *o++ = c;  return o;  }
-  inline  char*   PrintJson( char* o, const char* s, size_t l )
-    {  if ( o != nullptr ) while ( l-- > 0 ) *o++ = *s++;  return o;  }
-  inline  FILE*   PrintJson( FILE* o, char c )
-    {  if ( o != nullptr ) o = fwrite( &c, 1, 1, o ) == 1 ? o : nullptr;  return o;  }
-  inline  FILE*   PrintJson( FILE* o, const char* s, size_t l )
-    {  if ( o != nullptr ) o = fwrite( s, 1, l, o ) == l ? o : nullptr;  return o;  }
-
 // JSON serialization
-  # define  derive_printjson_dec( _type_, _tmpl_ )                      \
-  template <class O> inline  O*  PrintJson( O* o, _type_ t )            \
-    {                                                                   \
-      char  decval[0x10];                                               \
-      return PrintJson( o, decval, sprintf( decval, _tmpl_, t ) );      \
+  # define  derive_printjson_dec( _type_, _tmpl_ )                                      \
+  template <class O, class D = json_compact>                                            \
+  inline  O*  PrintJson( O* o, _type_ t, const D& decorate = D() )                      \
+    {                                                                                   \
+      char  decval[0x10];                                                               \
+      return ::Serialize( decorate.Shift( o ), decval, sprintf( decval, _tmpl_, t ) );  \
     }
     derive_printjson_dec( char,   "%d" )
     derive_printjson_dec( byte_t, "%u" )
@@ -399,11 +388,12 @@ namespace mtc
   # endif  // _MSC_VER
   # undef derive_printjson_dec
 
-  # define  derive_printjson_flo( _type_ )                              \
-    template <class O> inline  O*  PrintJson( O* o, _type_ t )          \
-    {                                                                   \
-      char  floval[0x10];                                               \
-      return PrintJson( o, floval, sprintf( floval, "%f", t ) );        \
+  # define  derive_printjson_flo( _type_ )                                            \
+    template <class O, class D = json_compact>                                        \
+    inline  O*  PrintJson( O* o, _type_ t, const D& decorate = D() )                  \
+    {                                                                                 \
+      char  floval[0x10];                                                             \
+      return ::Serialize( decorate.Shift( o ), floval, sprintf( floval, "%f", t ) );  \
     }
     derive_printjson_flo( float )
     derive_printjson_flo( double )
@@ -418,112 +408,149 @@ namespace mtc
     char                chnext[0x10];
 
     if ( s == nullptr )
-      return PrintJson( o, "null", 4 );
+      return ::Serialize( o, "null", 4 );
 
-    for ( o = PrintJson( o, '\"' ); l-- > 0; ++s )
+    for ( o = ::Serialize( o, '\"' ); l-- > 0; ++s )
     {
       if ( (*s & ~0xff) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
-        o = PrintJson( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );   else
+        o = ::Serialize( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );   else
       if ( (unsigned)*s >= 0x80 || (unsigned)*s < 0x20 )
-        o = PrintJson( o, chnext, sprintf( chnext, "\\u%04x", (unsigned)*s ) );           else
-      o = PrintJson( o, (char)*s );
+        o = ::Serialize( o, chnext, sprintf( chnext, "\\u%04x", (unsigned)*s ) );           else
+      o = ::Serialize( o, (char)*s );
     }
 
-    return PrintJson( o, '\"' );
+    return ::Serialize( o, '\"' );
   }
 
-  template <class O>
-  inline  O*  PrintJson( O* o, const char* s )
+  template <class O, class D = json_compact>
+  inline  O*  PrintJson( O* o, const char* s, const D& decorate = D() )
     {  return PrintText( o, (const unsigned char*)s, w_strlen( s ) );  }
-  template <class O>
-  inline  O*  PrintJson( O* o, const widechar* s )
+  template <class O, class D = json_compact>
+  inline  O*  PrintJson( O* o, const widechar* s, const D& decorate = D() )
     {  return PrintText( o, s, w_strlen( s ) );  }
-  template <class O>
-  inline  O*  PrintJson( O* o, const _auto_<char>& s )
+  template <class O, class D = json_compact>
+  inline  O*  PrintJson( O* o, const _auto_<char>& s, const D& decorate = D() )
     {  return PrintText( o, (const unsigned char*)(const char*)s, w_strlen( s ) );  }
-  template <class O>
-  inline  O*  PrintJson( O* o, const _auto_<widechar>& s )
+  template <class O, class D = json_compact>
+  inline  O*  PrintJson( O* o, const _auto_<widechar>& s, const D& decorate = D() )
     {  return PrintText( o, (const widechar*)s, w_strlen( s ) );  }
 
-  template <class O, class M>  O*  PrintJson( O*, const xvalue<M>& );
-  template <class O, class M>  O*  PrintJson( O*, const zarray<M>& );
+  struct json_compact
+  {
+    template <class O>  O*  Shift( O* o ) const {  return o;  }
+    template <class O>  O*  Space( O* o ) const {  return o;  }
+    template <class O>  O*  Break( O* o ) const {  return o;  }
+  };
+
+  class json_decorated
+  {
+    int   nlevel;
+
+  public:     // construction
+    json_decorated(): nlevel( 0 ) {  }
+    json_decorated( const json_decorated& js ): nlevel( js.nlevel + 1 ) {  }
+
+  public:     // shifts
+    template <class O>  O*  Shift( O* o ) const
+      {
+        for ( auto n = 0; o != nullptr && n < nlevel; ++n )
+          o = ::Serialize( o, "  ", 2 );
+        return o;
+      }
+    template <class O>  O*  Space( O* o ) const
+      {
+        return ::Serialize( o, ' ' );
+      }
+    template <class O>  O*  Break( O* o ) const
+      {
+        return ::Serialize( o, '\n' );
+      }
+  };
+
+  template <class O, class M, class D = json_compact>  O*  PrintJson( O*, const xvalue<M>&, const D& decorate = D() );
+  template <class O, class M, class D = json_compact>  O*  PrintJson( O*, const zarray<M>&, const D& decorate = D() );
 
 // arrays
-  template <class O, class T, class M>
-  inline  O*  PrintJson( O* o, const array<T, M>&  a )
+  template <class O, class T, class M, class D = json_compact>
+  inline  O*  PrintJson( O* o, const array<T, M>& a, const D& decorate = D() )
   {
     auto  ptop = a.begin();
     auto  pend = a.end();
 
-    for ( o = PrintJson( o, '[' ); o != nullptr && ptop < pend; ++ptop )
-      o = PrintJson( PrintJson( o, *ptop ), ", ", ptop < pend - 1 ? 2 : 0 );
-    return PrintJson( o, ']' );
+    for ( o = decorate.Break( ::Serialize( decorate.Shift( o ), '[' ) ); o != nullptr && ptop < pend; ++ptop )
+    {
+      o = decorate.Break( ::Serialize( PrintJson( o, *ptop, D( decorate ) ), ",", ptop < pend - 1 ? 1 : 0 ) );
+    }
+    return ::Serialize( decorate.Shift( o ), ']' );
   }
 
-  template <class O, class M>
-  inline  O*  PrintJson( O* o, const xvalue<M>& v )
+  template <class O, class M, class D>
+  inline  O*  PrintJson( O* o, const xvalue<M>& v, const D& decorate )
   {
     switch ( v.gettype() )
     {
-      case z_char:    return PrintJson( o, *v.get_char() );
-      case z_byte:    return PrintJson( o, *v.get_byte() );
-      case z_int16:   return PrintJson( o, *v.get_int16() );
-      case z_word16:  return PrintJson( o, *v.get_word16() );
-      case z_int32:   return PrintJson( o, *v.get_int32() );
-      case z_word32:  return PrintJson( o, *v.get_word32() );
-      case z_int64:   return PrintJson( o, *v.get_int64() );
-      case z_word64:  return PrintJson( o, *v.get_word64() );
-      case z_float:   return PrintJson( o, *v.get_float() );
-      case z_double:  return PrintJson( o, *v.get_double() );
+      case z_char:    return PrintJson( decorate.Space( o ), *v.get_char() );
+      case z_byte:    return PrintJson( decorate.Space( o ), *v.get_byte() );
+      case z_int16:   return PrintJson( decorate.Space( o ), *v.get_int16() );
+      case z_word16:  return PrintJson( decorate.Space( o ), *v.get_word16() );
+      case z_int32:   return PrintJson( decorate.Space( o ), *v.get_int32() );
+      case z_word32:  return PrintJson( decorate.Space( o ), *v.get_word32() );
+      case z_int64:   return PrintJson( decorate.Space( o ), *v.get_int64() );
+      case z_word64:  return PrintJson( decorate.Space( o ), *v.get_word64() );
+      case z_float:   return PrintJson( decorate.Space( o ), *v.get_float() );
+      case z_double:  return PrintJson( decorate.Space( o ), *v.get_double() );
 
-      case z_charstr: return PrintJson( o, v.get_charstr() );
-      case z_widestr: return PrintJson( o, v.get_widestr() );
-      case z_zarray:  return PrintJson( o, *v.get_zarray() );
+      case z_charstr: return PrintJson( decorate.Space( o ), v.get_charstr() );
+      case z_widestr: return PrintJson( decorate.Space( o ), v.get_widestr() );
+      case z_zarray:  return PrintJson( decorate.Break( o ), *v.get_zarray(), D( decorate ) );
 
-      case z_array_char:    return PrintJson( o, *v.get_array_char() );
-      case z_array_byte:    return PrintJson( o, *v.get_array_byte() );
-      case z_array_int16:   return PrintJson( o, *v.get_array_int16() );
-      case z_array_word16:  return PrintJson( o, *v.get_array_word16() );
-      case z_array_int32:   return PrintJson( o, *v.get_array_int32() );
-      case z_array_word32:  return PrintJson( o, *v.get_array_word32() );
-      case z_array_int64:   return PrintJson( o, *v.get_array_int64() );
-      case z_array_word64:  return PrintJson( o, *v.get_array_word64() );
-      case z_array_float:   return PrintJson( o, *v.get_array_float() );
-      case z_array_double:  return PrintJson( o, *v.get_array_double() );
+      case z_array_char:    return PrintJson( decorate.Break( o ), *v.get_array_char(),   D( decorate ) );
+      case z_array_byte:    return PrintJson( decorate.Break( o ), *v.get_array_byte(),   D( decorate ) );
+      case z_array_int16:   return PrintJson( decorate.Break( o ), *v.get_array_int16(),  D( decorate ) );
+      case z_array_word16:  return PrintJson( decorate.Break( o ), *v.get_array_word16(), D( decorate ) );
+      case z_array_int32:   return PrintJson( decorate.Break( o ), *v.get_array_int32(),  D( decorate ) );
+      case z_array_word32:  return PrintJson( decorate.Break( o ), *v.get_array_word32(), D( decorate ) );
+      case z_array_int64:   return PrintJson( decorate.Break( o ), *v.get_array_int64(),  D( decorate ) );
+      case z_array_word64:  return PrintJson( decorate.Break( o ), *v.get_array_word64(), D( decorate ) );
+      case z_array_float:   return PrintJson( decorate.Break( o ), *v.get_array_float(),  D( decorate ) );
+      case z_array_double:  return PrintJson( decorate.Break( o ), *v.get_array_double(), D( decorate ) );
 
       case z_array_charstr: return PrintJson( o, *v.get_array_charstr() );
       case z_array_widestr: return PrintJson( o, *v.get_array_widestr() );
-      case z_array_zarray:  return PrintJson( o, *v.get_array_zarray() );
+      case z_array_zarray:  return PrintJson( decorate.Break( o ), *v.get_array_zarray(), D( decorate ) );
       case z_array_xvalue:  return PrintJson( o, *v.get_array_xvalue() );
 
       default:  assert( false );  abort();  return o;
     }
   }
 
-  template <class O, class M>
-  inline  O*  PrintJson( O* o, const zarray<M>& v )
+  template <class O, class M, class D>
+  inline  O*  PrintJson( O* o, const zarray<M>& v, const D& decorate )
   {
     bool  bcomma = false;
 
-    o = PrintJson( o, '{' );
+    o = decorate.Break( ::Serialize( decorate.Shift( o ), '{' ) );
 
-    v.for_each( [&o, &bcomma]( const typename zarray<M>::zkey& k, const xvalue<M>& v )
+    v.for_each( [&]( const typename zarray<M>::zkey& k, const xvalue<M>& v )
       {
+        D   subdecor( decorate );
+
       // possible comma
         if ( bcomma )
-          o = PrintJson( o, ", ", 2 );
+          o = subdecor.Break( ::Serialize( o, ',' ) );
 
       // key
-        if ( (const char*)k != nullptr )      o = PrintJson( o, (const char*)k );  else
-        if ( (const widechar*)k != nullptr )  o = PrintJson( o, (const widechar*)k );  else
-                                              o = PrintJson( PrintJson( PrintJson( o, '"' ), (unsigned)k ), '"' );
+        if ( (const char*)k != nullptr )      o = PrintJson( subdecor.Shift( o ), (const char*)k );  else
+        if ( (const widechar*)k != nullptr )  o = PrintJson( subdecor.Shift( o ), (const widechar*)k );  else
+                                            o = ::Serialize( PrintJson( ::Serialize( subdecor.Shift( o ), '"' ), (unsigned)k ), '"' );
 
       // value
-        o = PrintJson( PrintJson( o, ": ", 2 ), v );  bcomma = true;
+        o = PrintJson( ::Serialize( o, ':' ), v, subdecor );
+        bcomma = true;
         return 0;
       } );
 
-    return PrintJson( o, '}' );
+    return ::Serialize( decorate.Shift( bcomma ? decorate.Break( o ) : o ), '}' );
   }
 
   /*
