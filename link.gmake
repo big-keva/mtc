@@ -1,0 +1,11 @@
+ifndef __mtc_link__
+
+__mtc_link__ = 1
+
+MTC_LIB = $(MKHOME)/lib/libmtc$(_LIB)
+MTC_DIR = $(MKHOME)/mtc
+LIBSET += $(MTC_LIB)
+DIRSET += MTC
+
+endif
+
