@@ -58,7 +58,7 @@ namespace mtc
 
   /*
     charstream - класс для вычитывания данных из потока с промежуточной буферизацией,
-    позволяющий делать getchar() и putchar(). Глубина стека тождественно равна 2 :)
+    позволяющий делать getnext() и putback(). Глубина стека тождественно равна 2 :)
   */
   template <class S>
   class charstream
@@ -73,7 +73,7 @@ namespace mtc
     operator S* ()  {  return stream;  }
 
   public:     // reading
-    char  getchar()
+    char  getnext()
       {
         char  getchr;
         
@@ -93,7 +93,7 @@ namespace mtc
           char  getchr;
           char  chnext;
 
-          if ( (getchr = getchar()) == '\0' )
+          if ( (getchr = getnext()) == '\0' )
             return getchr;
 
           if ( (unsigned char)getchr <= 0x20 )
@@ -102,13 +102,13 @@ namespace mtc
           if ( getchr != '/' )
             return getchr;
 
-          switch ( chnext = getchar() )
+          switch ( chnext = getnext() )
           {
             case '*':
               {
                 for ( getchr = '/'; ; getchr = chnext )
                 {
-                  if ( (chnext = getchar()) == '\0')
+                  if ( (chnext = getnext()) == '\0')
                     return chnext;
                   if ( chnext == '/' && getchr == '*' )
                     break;
@@ -117,7 +117,7 @@ namespace mtc
               }
             case '/':
               {
-                while ( (getchr = getchar()) != '\0' && getchr != '\n' )
+                while ( (getchr = getnext()) != '\0' && getchr != '\n' )
                   (void)NULL;
                 if ( getchr == '\0' ) return getchr;
                   else break;
@@ -129,7 +129,7 @@ namespace mtc
           }
         }
       }
-    charstream&  putchar( char chr )
+    charstream&  putback( char chr )
       {
         assert( buflen == 0 || buflen == 1 );
         chbuff[buflen++] = chr;
