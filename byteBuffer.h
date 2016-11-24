@@ -56,7 +56,7 @@ SOFTWARE.
 namespace mtc
 {
   int   CreateByteBuffer( IByteBuffer** );
-  int   CreateByteBuffer( IByteBuffer**, const void*, unsigned );
+  int   CreateByteBuffer( IByteBuffer**, const void*, word32_t );
 }
 
 # endif  // __byteBuffer_h__

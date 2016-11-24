@@ -55,23 +55,30 @@ SOFTWARE.
 
 namespace mtc
 {
-  class ByteBuffer: protected array<char>
+  class ByteBuffer: public array<char>, public IByteBuffer
   {
     implement_lifetime_control
 
   public:
-    virtual const char* GetPtr() noexcept override
+    virtual const char* GetPtr() override
       {
         return begin();
       }
-    virtual unsigned    GetLen() noexcept override {  return size();   }
-    virtual int         SetBuf( const void* p, unsigned l )
+    virtual word32_t    GetLen() override
+      {
+        return size();
+      }
+    virtual int         SetBuf( const void* p, word32_t l ) override
       {
         if ( SetLen( l ) != 0 )
           return ENOMEM;
         memcpy( begin(), p, l );
           return 0;
-      }    
+      }
+    virtual int         SetLen( word32_t l ) override
+      {
+        return array<char>::SetLen( (int)l );
+      }
   };
 
   int   CreateByteBuffer( IByteBuffer** ppi )
@@ -86,7 +93,7 @@ namespace mtc
         return 0;
     }
 
-  int   CreateByteBuffer( IByteBuffer** ppi, const void* memptr, unsigned length );
+  int   CreateByteBuffer( IByteBuffer** ppi, const void* memptr, word32_t length )
     {
       _auto_<ByteBuffer>  palloc;
 
@@ -94,7 +101,7 @@ namespace mtc
         return EINVAL;
       if ( (palloc = allocate<ByteBuffer>()) == nullptr )
         return ENOMEM;
-      if ( palloc->Append( (const char*)memptr, length ) != 0 )
+      if ( palloc->Append( length, (const char*)memptr ) != 0 )
         return ENOMEM;
       (*ppi = palloc.detach())->Attach();
         return 0;
