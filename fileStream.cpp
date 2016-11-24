@@ -481,6 +481,11 @@ namespace mtc
     return curlen;
   }
 
+  int64_t   FileStream::Tell() noexcept
+  {
+    return ::lseek( handle, 0, SEEK_CUR );
+  }
+
 # endif
 
   FileStream*   openFileStream( const char* lpname, unsigned dwmode )
