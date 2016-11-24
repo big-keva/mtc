@@ -182,7 +182,7 @@ namespace mtc
 
   /*
     charstream - класс для вычитывания данных из потока с промежуточной буферизацией,
-    позволяющий делать getchar() и putchar(). Глубина стека тождественно равна 2 :)
+    позволяющий делать getnext() и putback(). Глубина стека тождественно равна 2 :)
   */
   template <class S>
   struct jsonstream: public charstream<S>
@@ -191,7 +191,7 @@ namespace mtc
     jsonstream& operator = ( S* s ) {  return (jsonstream&)charstream<S>::operator = ( s );  }
 
   public:     // override
-    jsonstream& putchar( char c ) {  return (jsonstream&)charstream<S>::putchar( c );  }
+    jsonstream& putback( char c ) {  return (jsonstream&)charstream<S>::putback( c );  }
 
   public:     // gets
     /*
@@ -204,7 +204,7 @@ namespace mtc
           char  getchr;
           char  chnext;
 
-          if ( (getchr = getchar()) == '\0' )
+          if ( (getchr = this->getnext()) == '\0' )
             return getchr;
 
           if ( (unsigned char)getchr <= 0x20 )
@@ -213,13 +213,13 @@ namespace mtc
           if ( getchr != '/' )
             return getchr;
 
-          switch ( chnext = getchar() )
+          switch ( chnext = this->getnext() )
           {
             case '*':
               {
                 for ( getchr = '/'; ; getchr = chnext )
                 {
-                  if ( (chnext = getchar()) == '\0')
+                  if ( (chnext = this->getnext()) == '\0')
                     return chnext;
                   if ( chnext == '/' && getchr == '*' )
                     break;
@@ -228,22 +228,22 @@ namespace mtc
               }
             case '/':
               {
-                while ( (getchr = getchar()) != '\0' && getchr != '\n' )
+                while ( (getchr = this->getnext()) != '\0' && getchr != '\n' )
                   (void)NULL;
                 if ( getchr == '\0' ) return getchr;
                   else break;
               }
 
             case '\0':  return getchr;
-            default:    putchar( chnext );
+            default:    this->putback( chnext );
                         return getchr;
           }
         }
       }
     bool  getfour( char* p )
       {
-        return (*p++ = nospace()) != '\0' && (*p++ = getchar()) != '\0'
-            && (*p++ = getchar()) != '\0' && (*p++ = getchar()) != '\0';
+        return (*p++ = nospace()) != '\0' && (*p++ = this->getnext()) != '\0'
+            && (*p++ = this->getnext()) != '\0' && (*p++ = this->getnext()) != '\0';
       }
     template <class C, class M>
     int   getstring( _auto_<C, M>&  refstr, const unsigned maxval = (1 << (sizeof(C) * CHAR_BIT)) - 1 )
@@ -256,7 +256,7 @@ namespace mtc
         if ( (chnext = nospace()) != '\"' )
           return EINVAL;
 
-        for ( chprev = '\0'; (chnext = getchar()) != '\0'; chprev = chnext )
+        for ( chprev = '\0'; (chnext = this->getnext()) != '\0'; chprev = chnext )
         {
         // check for end of identifier
           if ( chnext == '\"' && chprev != '\\' )
@@ -562,9 +562,9 @@ namespace mtc
       char  chnext;                                                               \
       if ( (chnext = s.nospace()) < '0' || chnext > '9' )                         \
         return nullptr;                                                           \
-      for ( v = (byte_t)chnext - '0'; (chnext = s.getchar()) >= '0' && chnext <= '9'; )  \
+      for ( v = (byte_t)chnext - '0'; (chnext = s.getnext()) >= '0' && chnext <= '9'; )  \
         v = v * 10 + (byte_t)chnext - '0';                                        \
-      return s.putchar( chnext );                                                 \
+      return s.putback( chnext );                                                 \
     }
     derive_parse( byte_t )
     derive_parse( word16_t )
@@ -579,13 +579,13 @@ namespace mtc
     char  chnext;                                                                 \
     bool  is_neg;                                                                 \
     if ( is_neg = ((chnext = s.nospace()) == '-') )                               \
-      chnext = s.getchar();                                                       \
+      chnext = s.getnext();                                                       \
     if ( chnext < '0' || chnext > '9' )                                           \
       return nullptr;                                                             \
-    for ( v = (byte_t)chnext - '0'; (chnext = s.getchar()) >= '0' && chnext <= '9'; )  \
+    for ( v = (byte_t)chnext - '0'; (chnext = s.getnext()) >= '0' && chnext <= '9'; )  \
       v = v * 10 + (byte_t)chnext - '0';                                          \
     if ( is_neg ) v = -v;                                                         \
-      return s.putchar( chnext );                                                 \
+      return s.putback( chnext );                                                 \
   }
     derive_parse( char )
     derive_parse( int16_t )
@@ -601,9 +601,9 @@ namespace mtc
       char* floptr;                                                               \
       char* endptr;                                                               \
       for ( *(floptr = flobuf) = s.nospace(); floptr < flobuf + 0x40 && *floptr != '\0'        \
-        && strchr( "0123456789.-eE", *floptr ) != nullptr; *++floptr = s.getchar() )  (void)NULL; \
+        && strchr( "0123456789.-eE", *floptr ) != nullptr; *++floptr = s.getnext() )  (void)NULL; \
       v = (_type_)strtod( flobuf, &endptr );                                                    \
-      return endptr == floptr && floptr < array_end( flobuf ) ? s.putchar( *floptr ) : nullptr; \
+      return endptr == floptr && floptr < array_end( flobuf ) ? s.putback( *floptr ) : nullptr; \
     }
     derive_parse( float )
     derive_parse( double )
@@ -620,13 +620,13 @@ namespace mtc
       {                                                                               \
         _type_  avalue;                                                               \
                                                                                       \
-        if ( ParseJson( s.putchar( chnext ), avalue ) == nullptr )                    \
+        if ( ParseJson( s.putback( chnext ), avalue ) == nullptr )                    \
           return nullptr;                                                             \
         if ( a.Append( avalue ) != 0 )                                                \
           return nullptr;                                                             \
         if ( (chnext = s.nospace()) == ',' )                                          \
           continue;                                                                   \
-        if ( chnext == ']' )  s.putchar( chnext );                                    \
+        if ( chnext == ']' )  s.putback( chnext );                                    \
           else return nullptr;                                                        \
       }                                                                               \
       return chnext == ']' ? s : nullptr;                                             \
@@ -655,11 +655,11 @@ namespace mtc
     {
       _auto_<C, M>  sznext;
 
-      if ( chnext != '\"' || s.putchar( chnext ).getstring( sznext ) != 0 || a.Append( sznext ) != 0 )
+      if ( chnext != '\"' || s.putback( chnext ).getstring( sznext ) != 0 || a.Append( sznext ) != 0 )
         return nullptr;
       if ( (chnext = s.nospace()) == ',' )
         continue;
-      if ( chnext == ']' )  s.putchar( chnext );
+      if ( chnext == ']' )  s.putback( chnext );
         else return nullptr;
     }
     return chnext == ']' ? s : nullptr;
@@ -676,14 +676,14 @@ namespace mtc
     {
       T t;
 
-      if ( (S*)(s = ParseJson( s.putchar( chnext ), t, p )) == nullptr )
+      if ( (S*)(s = ParseJson( s.putback( chnext ), t, p )) == nullptr )
         return nullptr;
       if ( a.Append( t ) != 0 )
         return nullptr;
 
       if ( (chnext = s.nospace()) == ',' )
         continue;
-      if ( chnext == ']' )  s.putchar( chnext );
+      if ( chnext == ']' )  s.putback( chnext );
         else return nullptr;
     }
     return chnext == ']' ? s : nullptr;
@@ -734,8 +734,8 @@ namespace mtc
   // untyped xvalue load: object zarray {...}, untyped array [...], string "...", integer -?[0-9]+ or float -?[0-9]+\.?[0-9]*([Ee]-?[0-9]+)?
     switch ( chnext = s.nospace() )
     {
-      case '{':   return ParseJson( s.putchar( chnext ), *x.set_zarray(), p );
-      case '[':   return ParseJson( s.putchar( chnext ), *x.set_array_xvalue(), p );
+      case '{':   return ParseJson( s.putback( chnext ), *x.set_zarray(), p );
+      case '[':   return ParseJson( s.putback( chnext ), *x.set_array_xvalue(), p );
       case '\"':
         {
           _auto_<widechar, M> wcsstr;
@@ -744,7 +744,7 @@ namespace mtc
           unsigned            intval;
 
         // get next string
-          if ( s.putchar( chnext ).getstring( wcsstr ) != 0 )
+          if ( s.putback( chnext ).getstring( wcsstr ) != 0 )
             return nullptr;
 
         // check if charstr or widestr
@@ -767,7 +767,7 @@ namespace mtc
         return nullptr;
       for ( chprev = '\0', bexpon = bpoint = false; ; )
       {
-        if ( (chnext = s.getchar()) >= '0' && chnext <= '9' )
+        if ( (chnext = s.getnext()) >= '0' && chnext <= '9' )
         {
           if ( cvalue.Append( chprev = chnext ) != 0 )
             return nullptr;
@@ -792,7 +792,7 @@ namespace mtc
         }
           else
         {
-          s.putchar( chnext );
+          s.putback( chnext );
           break;
         }
       }
@@ -841,7 +841,7 @@ namespace mtc
       const jsonRevive*   ptypes = nullptr;
 
     // get variable name as widestring
-      if ( chnext != '\"' || s.putchar( chnext ).getstring( wcskey ) != 0 )
+      if ( chnext != '\"' || s.putback( chnext ).getstring( wcskey ) != 0 )
         return nullptr;
 
     // check variable name type (if defined); create key type and value type for the key
@@ -873,7 +873,7 @@ namespace mtc
     // check for comma
       if ( (chnext = s.nospace()) == ',' )
         continue;
-      if ( chnext == '}' )  s.putchar( chnext );
+      if ( chnext == '}' )  s.putback( chnext );
         else return nullptr;
     }
 
