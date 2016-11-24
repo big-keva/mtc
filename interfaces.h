@@ -102,7 +102,8 @@ namespace mtc
           piface->Attach();
         return *this;
       }
-    operator iface** ()             {  return &piface; }
+    operator iface** ()             {  return &piface;  }
+    operator void** ()              {  return (void**)&piface;  }
     operator iface* ()              {  return piface;  }
     operator const iface* () const  {  return piface;  }
     iface*  operator -> ()
