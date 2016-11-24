@@ -77,4 +77,29 @@ namespace mtc
 
 }
 
+inline  mtc::IByteStream* Serialize( mtc::IByteStream* s, char c )
+  {  return s != nullptr && s->Put( &c, sizeof(c) ) == sizeof(c) ? s : nullptr;  }
+inline  mtc::IByteStream* Serialize( mtc::IByteStream* s, const void* p, unsigned l )
+  {  return s != nullptr && s->Put( p, l ) == l ? s : nullptr;  }
+
+inline  mtc::IFlatStream* Serialize( mtc::IFlatStream* s, char c )
+  {  return s != nullptr && s->Put( &c, sizeof(c) ) == sizeof(c) ? s : nullptr;  }
+inline  mtc::IFlatStream* Serialize( mtc::IFlatStream* s, const void* p, unsigned l )
+  {  return s != nullptr && s->Put( p, l ) == l ? s : nullptr;  }
+
+inline  mtc::IByteStream* FetchFrom( mtc::IByteStream* s, char& c )
+  {  return s != nullptr && s->Get( &c, sizeof(c) ) == sizeof(c) ? s : nullptr;  }
+inline  mtc::IByteStream* FetchFrom( mtc::IByteStream* s, void* p, unsigned l )
+  {  return s != nullptr && s->Get( p, l ) == l ? s : nullptr;  }
+
+inline  mtc::IFlatStream* FetchFrom( mtc::IFlatStream* s, char& c )
+  {  return s != nullptr && s->Get( &c, sizeof(c) ) == sizeof(c) ? s : nullptr;  }
+inline  mtc::IFlatStream* FetchFrom( mtc::IFlatStream* s, void* p, unsigned l )
+  {  return s != nullptr && s->Get( p, l ) == l ? s : nullptr;  }
+
+inline  int64_t           GetCurPos( mtc::IFlatStream* s )
+  {  return s != nullptr ? s->Tell() : -1;  }
+inline  mtc::IFlatStream*  SetCurPos( mtc::IFlatStream* s, mtc::word64_t offset )
+  {  return s != nullptr && s->Seek( (int64_t)offset ) == (int64_t)offset ? s : nullptr;  }
+
 # endif  // __mtc_istream_h__
