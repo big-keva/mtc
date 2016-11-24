@@ -190,12 +190,12 @@ namespace mtc
 
   public:     // members
     int   Append( const T& t )                    {  return Insert( size(), t );      }
-    int   Append( T& t )                          {  return Insert( size(), t );      }
+    int   Append( T&& t )                         {  return Insert( size(), static_cast<T&&>( t ) );  }
     int   Append( int c, const T* p )             {  return Insert( size(), c, p );   }
     int   Append( const array<T, M>& r )          {  return Insert( size(), r );      }
     int   Append( array<T, M>& r )                {  return Insert( size(), r );      }
     int   Insert( int p, const T& t );
-    int   Insert( int p, T& t );
+    int   Insert( int p, T&& t );
     int   Insert( int p, int c, const T* t )      {  return Insert( p, c, (T*)t );    }
     int   Insert( int p, int c, T* t );
     int   Insert( int p, const array<T, M>& t )   {  return Insert( p, t.size(), (const T*)t ); }
@@ -312,7 +312,7 @@ namespace mtc
   public:     // API
     int   Append( const T& t )
       {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
-    int   Append( T& t )
+    int   Append( T&& t )
       {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
     int   Append( int c, const T* p )
       {  return Ensure() ? parray->Insert( size(), c, p ) : ENOMEM;   }
@@ -322,7 +322,7 @@ namespace mtc
       {  return Ensure() ? parray->Insert( size(), r ) : ENOMEM;  }
     int   Insert( int i, const T& t )
       {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
-    int   Insert( int i, T& t )
+    int   Insert( int i, T&& t )
       {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
     int   Insert( int i, int c, const T* t )
       {  return Ensure() ? parray->Insert( i, c, t ) : ENOMEM;  }
@@ -504,7 +504,7 @@ namespace mtc
   }
 
   template <class T, class M>
-  inline  int   array<T, M>::Insert( int nindex, T& t )
+  inline  int   array<T, M>::Insert( int nindex, T&& t )
   {
     if ( nindex < 0 || nindex > ncount )
       return EINVAL;
@@ -520,7 +520,7 @@ namespace mtc
       memmove( pitems + nindex + 1, pitems + nindex, (ncount - nindex) * sizeof(T) );
 
   // Create the element with the copy constructor
-    new( pitems + nindex ) T( t );  ++ncount;
+    new( pitems + nindex ) T( static_cast<T&&>( t ) );  ++ncount;
       return 0;
   }
 
