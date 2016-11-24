@@ -278,6 +278,18 @@ namespace mtc
     return PosGet( (char*)(new( buf.ptr() ) filebuffer( (word32_t)len ))->GetPtr(), 0, (word32_t)len ) == len ? buf.detach() : nullptr;
   }
 
+  int       FileStream::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
+  {
+    _auto_<filebuffer>  buffer;
+
+    if ( (buffer = (filebuffer*)malloc( sizeof(filebuffer) + len - 1 )) == nullptr )
+      return ENOMEM;
+    if ( PosGet( (char*)(new( buffer.ptr() ) filebuffer( len ))->GetPtr(), off, len ) != len )
+      return EACCES;
+    (*ppi = buffer.detach())->Attach();
+      return 0;
+  }
+
 # if defined( WIN32 )
 
   word32_t  FileStream::Get( void* out, word32_t len ) noexcept
@@ -295,18 +307,6 @@ namespace mtc
     DWORD nwrite;
 
     return WriteFile( handle, src, len, &nwrite, nullptr ) ? nwrite : 0;
-  }
-
-  int       FileStream::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
-  {
-    _auto_<filebuffer>  buffer;
-
-    if ( (buffer = (filebuffer*)malloc( sizeof(filebuffer) + len - 1 )) == nullptr )
-      return ENOMEM;
-    if ( PosGet( (char*)(new( buffer.ptr() ) filebuffer( len ))->GetPtr(), off, len ) != len )
-      return EACCES;
-    (*ppi = buffer.detach())->Attach();
-      return 0;
   }
 
   unsigned  FileStream::PosGet( void* out, int64_t off, word32_t len ) noexcept
