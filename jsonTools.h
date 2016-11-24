@@ -359,7 +359,42 @@ namespace mtc
       else return false;
   }
 
+// JSON decoration modes
+
+  struct json_compact
+  {
+    template <class O>  O*  Shift( O* o ) const {  return o;  }
+    template <class O>  O*  Space( O* o ) const {  return o;  }
+    template <class O>  O*  Break( O* o ) const {  return o;  }
+  };
+
+  class json_decorated
+  {
+    int   nlevel;
+
+  public:     // construction
+    json_decorated(): nlevel( 0 ) {  }
+    json_decorated( const json_decorated& js ): nlevel( js.nlevel + 1 ) {  }
+
+  public:     // shifts
+    template <class O>  O*  Shift( O* o ) const
+      {
+        for ( auto n = 0; o != nullptr && n < nlevel; ++n )
+          o = ::Serialize( o, "  ", 2 );
+        return o;
+      }
+    template <class O>  O*  Space( O* o ) const
+      {
+        return ::Serialize( o, ' ' );
+      }
+    template <class O>  O*  Break( O* o ) const
+      {
+        return ::Serialize( o, '\n' );
+      }
+  };
+
 // JSON serialization
+
   # define  derive_printjson_dec( _type_, _tmpl_ )                                      \
   template <class O, class D = json_compact>                                            \
   inline  O*  PrintJson( O* o, _type_ t, const D& decorate = D() )                      \
@@ -428,38 +463,6 @@ namespace mtc
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const _auto_<widechar>& s, const D& decorate = D() )
     {  return PrintText( o, (const widechar*)s, w_strlen( s ) );  }
-
-  struct json_compact
-  {
-    template <class O>  O*  Shift( O* o ) const {  return o;  }
-    template <class O>  O*  Space( O* o ) const {  return o;  }
-    template <class O>  O*  Break( O* o ) const {  return o;  }
-  };
-
-  class json_decorated
-  {
-    int   nlevel;
-
-  public:     // construction
-    json_decorated(): nlevel( 0 ) {  }
-    json_decorated( const json_decorated& js ): nlevel( js.nlevel + 1 ) {  }
-
-  public:     // shifts
-    template <class O>  O*  Shift( O* o ) const
-      {
-        for ( auto n = 0; o != nullptr && n < nlevel; ++n )
-          o = ::Serialize( o, "  ", 2 );
-        return o;
-      }
-    template <class O>  O*  Space( O* o ) const
-      {
-        return ::Serialize( o, ' ' );
-      }
-    template <class O>  O*  Break( O* o ) const
-      {
-        return ::Serialize( o, '\n' );
-      }
-  };
 
   template <class O, class M, class D = json_compact>  O*  PrintJson( O*, const xvalue<M>&, const D& decorate = D() );
   template <class O, class M, class D = json_compact>  O*  PrintJson( O*, const zarray<M>&, const D& decorate = D() );
