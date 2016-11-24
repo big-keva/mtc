@@ -686,7 +686,7 @@ public:     // set_?? methods
     template <class A, class B>
     static  int   CompTo( A a, B b )
       {
-        int    rc = (a - b > 0) - (a - b < 0);
+        int    rc = (double(a) - double(b) > 0) - (double(a) - double(b) < 0);
         return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;
       }
     # define  derive_strcmp( c1, c2 )                             \
@@ -701,33 +701,28 @@ public:     // set_?? methods
       derive_strcmp( widechar, widechar )
     # undef derive_strcmp
 
-    # define  derive_noncmp( c1, c2 ) static  int   CompTo( c1, c2 )  {  return 0;  }
+    # define  derive_noncmp( c1, c2 ) static  int   CompTo( c1, c2 )  {  return 0;  } \
+                                      static  int   CompTo( c2, c1 )  {  return 0;  }
+      derive_noncmp( const char*, char )
+      derive_noncmp( const char*, byte_t )
+      derive_noncmp( const char*, int16_t )
+      derive_noncmp( const char*, int32_t )
+      derive_noncmp( const char*, int64_t )
+      derive_noncmp( const char*, word16_t )
+      derive_noncmp( const char*, word32_t )
+      derive_noncmp( const char*, word64_t )
       derive_noncmp( const char*, float )
       derive_noncmp( const char*, double )
+      derive_noncmp( const widechar*, char )
+      derive_noncmp( const widechar*, byte_t )
+      derive_noncmp( const widechar*, int16_t )
+      derive_noncmp( const widechar*, int32_t )
+      derive_noncmp( const widechar*, int64_t )
+      derive_noncmp( const widechar*, word16_t )
+      derive_noncmp( const widechar*, word32_t )
+      derive_noncmp( const widechar*, word64_t )
       derive_noncmp( const widechar*, float )
       derive_noncmp( const widechar*, double )
-
-      derive_noncmp( char, const char* )
-      derive_noncmp( byte_t, const char* )
-      derive_noncmp( int16_t, const char* )
-      derive_noncmp( int32_t, const char* )
-      derive_noncmp( int64_t, const char* )
-      derive_noncmp( float_t, const char* )
-      derive_noncmp( word16_t, const char* )
-      derive_noncmp( word32_t, const char* )
-      derive_noncmp( word64_t, const char* )
-      derive_noncmp( double_t, const char* )
-
-      derive_noncmp( char, const widechar* )
-      derive_noncmp( byte_t, const widechar* )
-      derive_noncmp( int16_t, const widechar* )
-      derive_noncmp( int32_t, const widechar* )
-      derive_noncmp( int64_t, const widechar* )
-      derive_noncmp( float_t, const widechar* )
-      derive_noncmp( word16_t, const widechar* )
-      derive_noncmp( word32_t, const widechar* )
-      derive_noncmp( word64_t, const widechar* )
-      derive_noncmp( double_t, const widechar* )
     # undef derive_noncmp
 
     template <class B>  int   CompTo( const B& b ) const
