@@ -56,6 +56,7 @@ SOFTWARE.
 # include <stdlib.h>
 # include <string.h>
 # include <fcntl.h>
+# include <errno.h>
 # if defined( WIN32 )
 #   include <Windows.h>
 # else
@@ -164,7 +165,7 @@ namespace mtc
 
   protected:  // variables
     win32_decl( HANDLE handle );
-    posix_decl( int    handle )
+    posix_decl( int    handle );
 
   };
 
@@ -368,6 +369,8 @@ namespace mtc
     DWORD     dwDispos;
     DWORD     dwFlAttr = FILE_ATTRIBUTE_NORMAL;
 
+    Close();
+
   // detect access mode
     switch( dwmode & 0x000f )
     {
@@ -429,66 +432,50 @@ namespace mtc
 
 # else
 
-  _u_err_ CFileStream::Close()
+  void  FileStream::Close()
   {
     if ( handle != -1 )
       ::close( handle );
     handle = -1;
-      return _u_err_ok;
   }
 
-  _u_err_ CFileStream::Create( const char*  szname, unsigned short dwmode )
+  int   FileStream::Open( const char* szname, unsigned dwmode )
   {
-    _u_err_ uerror;
-
   // check if stream is open; close it
-    if ( (uerror = Close()) != _u_err_ok )
-      return uerror;
+    Close();
 
-  // create new name
-    if ( (lppath = strdup( szname )) == NULL )
-      return _u_err_nomem;
-
-    if ( (handle = ::open( lppath, dwmode, 0666 )) == -1 )
-      return _u_err_no_file;
-    return _u_err_ok;
+    return (handle = ::open( szname, dwmode, 0666 )) != -1 ? 0 : errno;
   }
 
-  word32_t  CFileStream::Get( void*        lpdata,
-                              word32_t     ccdata )
+  word32_t  FileStream::Get( void* lpdata, word32_t cbdata ) noexcept
   {
-    return ::read( handle, lpdata, ccdata );
+    return ::read( handle, lpdata, cbdata );
   }
 
-  word32_t  CFileStream::Put( const void*  lpdata,
-                              word32_t     ccdata )
+  word32_t  FileStream::Put( const void* lpdata, word32_t cbdata ) noexcept
   {
-    return ::write( handle, lpdata, ccdata );
+    return ::write( handle, lpdata, cbdata );
   }
 
-  word32_t  CFileStream::PosGet( void*       lpdata,
-                                 word32_t    ccdata,
-                                 int64       offset )
+  word32_t  FileStream::PosGet( void* lpdata, int64_t offset, word32_t length ) noexcept
   {
-    return ::pread( handle, lpdata, ccdata, offset );
+    return ::pread( handle, lpdata, length, offset );
   }
 
-  word32_t  CFileStream::PosPut( const void* lpdata,
-                                 word32_t    ccdata,
-                                 int64       offset )
+  word32_t  FileStream::PosPut( const void* pvdata, int64_t offset, word32_t length ) noexcept
   {
-    return ::pwrite( handle, lpdata, ccdata, offset );
+    return ::pwrite( handle, pvdata, length, offset );
   }
 
-  int64_t   CFileStream::Seek( int64_t     offset )
+  int64_t   FileStream::Seek( int64_t     offset ) noexcept
   {
     return ::lseek( handle, offset, SEEK_SET );
   }
 
-  int64_t   CFileStream::Size()
+  int64_t   FileStream::Size() noexcept
   {
-    int64   curpos = ::lseek( handle, 0, SEEK_CUR );
-    int64   curlen = ::lseek( handle, 0, SEEK_END );
+    int64_t curpos = ::lseek( handle, 0, SEEK_CUR );
+    int64_t curlen = ::lseek( handle, 0, SEEK_END );
 
     ::lseek( handle, curpos, SEEK_SET );
     return curlen;

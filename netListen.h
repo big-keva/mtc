@@ -1,6 +1,7 @@
 # if !defined( __mtc_netListen_h__ )
 # define __mtc_netListen_h__
 # include "netStream.h"
+# include <errno.h>
 # include <atomic>
 
 namespace mtc
@@ -15,7 +16,7 @@ namespace mtc
       friend class NetListen;
 
     public:     // construction
-      ListenSocket( int socket = InvalidSocket ): socketid( (void*)socket ), refcount( 0 ) {}
+      ListenSocket( int socket = InvalidSocket ): socketid( (void*)(word64_t)socket ), refcount( 0 ) {}
       ListenSocket( const ListenSocket& ) = delete;
       ListenSocket& operator = ( const ListenSocket& ) = delete;
      ~ListenSocket()

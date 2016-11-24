@@ -11,10 +11,12 @@
 # if defined( WIN32 )
 #   include <WinSock2.h>
 # else
-#   include <unistd.h>
+#   include <netinet/tcp.h>
 #   include <sys/socket.h>
 #   include <arpa/inet.h>
+#   include <unistd.h>
 #   include <netdb.h>
+#   include <fcntl.h>
 # endif   // WIN32
 
 namespace mtc
@@ -53,11 +55,23 @@ namespace mtc
         return ioctlsocket( sockid, FIONBIO, &nonblk );
       }
     static  int   NonDelay( SOCKET sockid )
-    {
-      int   flag = 1;
+      {
+        int   flag = 1;
 
-      return setsockopt( sockid, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) ) < 0 ? GetError() : 0;
-    }
+        return setsockopt( sockid, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) ) < 0 ? GetError() : 0;
+      }
+    static  int   CloseSocket( SOCKET sockid )
+      {
+        return closesocket( sockid );
+      }
+    static  void* CastToVoid( SOCKET sockid )
+      {
+        return (void*)(word64_t)sockid;
+      }
+    static  SOCKET CastToSocket( void* p )
+     {
+        return *(SOCKET*)&p;
+     }
   };
 
 # else
@@ -81,12 +95,24 @@ namespace mtc
       {
         return fcntl( sockid, F_SETFL, fcntl( sockid, F_GETFL ) | O_NONBLOCK ) == -1 ? EINVAL : 0;
       }
-    int     NonDelay( SOCKET sockid )
+    static  int   NonDelay( SOCKET sockid )
       {
         int   flag = 1;
 
         return setsockopt( sockid, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int) ) < 0 ? errno : 0;
       }
+    static  int   CloseSocket( SOCKET sockid )
+      {
+        return close( sockid );
+      }
+    static  void* CastToVoid( SOCKET sockid )
+      {
+        return (void*)(word64_t)sockid;
+      }
+    static  SOCKET CastToSocket( void* p )
+     {
+        return *(SOCKET*)&p;
+     }
 
   };
 
@@ -135,7 +161,7 @@ namespace mtc
   CNetStream::~CNetStream()
     {
       if ( sockid != Sockets::InvalidSocket )
-        closesocket( sockid );
+        Sockets::CloseSocket( sockid );
     }
 
   word32_t  CNetStream::Get( void*  o, word32_t l )
@@ -182,14 +208,14 @@ namespace mtc
     auto          eclose = [this]( int nerror )
       {
         if ( sockid != Sockets::InvalidSocket )
-          closesocket( sockid );
+          Sockets::CloseSocket( sockid );
         sockid = Sockets::InvalidSocket;
           return nerror;
       };
 
   // check if socket is not created; create the socket
     if ( sockid != Sockets::InvalidSocket )
-      closesocket( sockid );
+      Sockets::CloseSocket( sockid );
 
     if ( (sockid = socket( AF_INET, SOCK_STREAM, 0 )) == Sockets::InvalidSocket )
       return Sockets::GetError();
@@ -243,8 +269,8 @@ namespace mtc
       fd_set          wr_fds;
       struct timeval  tbreak;
 
-      FD_ZERO( &rd_fds );   FD_SET( (SOCKET)sockid, &rd_fds );
-      FD_ZERO( &wr_fds );   FD_SET( (SOCKET)sockid, &wr_fds );
+      FD_ZERO( &rd_fds );   FD_SET( sockid, &rd_fds );
+      FD_ZERO( &wr_fds );   FD_SET( sockid, &wr_fds );
 
       tbreak.tv_sec   =  msconn / 1000;
       tbreak.tv_usec  = (msconn % 1000) * 1000;
@@ -288,7 +314,7 @@ namespace mtc
 
   // check if there is data in stream
     FD_ZERO( &fd );
-    FD_SET( (SOCKET)sockid, &fd );
+    FD_SET( sockid, &fd );
 
     tv.tv_usec = (tm - (tv.tv_sec = tm / 1000) * 1000) * 1000;
 
@@ -350,22 +376,22 @@ namespace mtc
 
   // begin listen socket - check if there are incoming connection
     FD_ZERO( &solist );
-    FD_SET( (Sockets::SOCKET)listen, &solist );
+    FD_SET( Sockets::CastToSocket( listen ), &solist );
 
     tlimit.tv_usec = (mswait - (tlimit.tv_sec = mswait / 1000) * 1000) * 1000;
 
   // check if the query present in queue
-    if ( select( 1 + (Sockets::SOCKET)listen, &solist, nullptr, nullptr, &tlimit ) <= 0 )
+    if ( select( 1 + Sockets::CastToSocket( listen ), &solist, nullptr, nullptr, &tlimit ) <= 0 )
       return EAGAIN;
 
     // get incoming socket
-    if ( (getone = accept( (Sockets::SOCKET)listen, nullptr, nullptr )) != Sockets::InvalidSocket )
+    if ( (getone = accept( Sockets::CastToSocket( listen ), nullptr, nullptr )) != Sockets::InvalidSocket )
     {
       _auto_<CNetStream>  palloc;
 
       if ( (palloc = allocate<CNetStream>( getone )) == nullptr )
       {
-        closesocket( getone );
+        Sockets::CloseSocket( getone );
         return ENOMEM;
       }
       ((INetStream*)(*ppvout = (void*)palloc.detach()))->Attach();
@@ -380,7 +406,7 @@ namespace mtc
     struct hostent* hoaddr;
     int             socopt = 1;
     Sockets::SOCKET sockid;
-    auto            eclose = [sockid]( int nerror ) {  closesocket( sockid ); return nerror; };
+    auto            eclose = [sockid]( int nerror ) {  Sockets::CloseSocket( sockid ); return nerror; };
 
   // resolve host address
     if ( (hoaddr = gethostbyname( szhost )) == NULL )
@@ -414,14 +440,14 @@ namespace mtc
   // set nonblocking mode
     Sockets::NonBlock( sockid );
 
-    *ppvout = (void*)sockid;
+    *ppvout = Sockets::CastToVoid( sockid );
       return 0;
   }
 
   void  NetListen::ListenSocket::Detach( void* listen )
   {
-    if ( (Sockets::SOCKET)listen != Sockets::InvalidSocket )
-      closesocket( (Sockets::SOCKET)listen );
+    if ( Sockets::CastToSocket( listen ) != Sockets::InvalidSocket )
+      Sockets::CloseSocket( Sockets::CastToSocket( listen ) );
   }
 
 }
