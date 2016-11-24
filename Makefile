@@ -1,6 +1,6 @@
 TARGET=LIB
-OUTPUT=mtc$(_LIB)
-OBJDIR=../tmp
+OUTPUT=../lib/libmtc$(_LIB)
+OBJDIR=../tmp/mtc
 SOURCE=byteBuffer.cpp  dirtest.cpp  dirtools.cpp  fileStream.cpp  netStream.cpp
 
-include $(MKHOME)/maketools.gmake
+include $(MKHOME)/gbuild/maketools.gmake
