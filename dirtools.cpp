@@ -3,6 +3,8 @@
 # if defined( WIN32 )
 #   include <windows.h>
 # else
+#   include <sys/stat.h>
+#   include <unistd.h>
 # endif
 
 namespace mtc
@@ -16,7 +18,9 @@ namespace mtc
     return GetFileAttributesEx( szpath, GetFileExInfoStandard, &fiData ) != 0 ?
       (((int64_t)fiData.nFileSizeHigh) << 32) | fiData.nFileSizeLow : -1;
 # else
-#   error Implementation not defined!
+    struct stat64 fistat;
+
+    return stat64( szpath, &fistat ) == 0 ? fistat.st_size : -1;
 # endif
   }
 
