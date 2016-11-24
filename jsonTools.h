@@ -81,9 +81,13 @@ namespace mtc
         memcpy( thekey, pk, lk );
     }
 
-  protected:  // closed destructor
+  public:     // closed destructor
    ~jsonRevive()
     {
+      if ( listed != nullptr )
+        delete listed;
+      if ( nested != nullptr )
+        delete nested;
     }
 
   public:     // creation
@@ -95,16 +99,6 @@ namespace mtc
         if ( (palloc = (jsonRevive*)M().alloc( sizeof(*palloc) + l - sizeof(palloc->thekey) )) != nullptr )
           new( palloc ) jsonRevive( k, v, p, l, n, s );
         return palloc;
-      }
-    template <class M = def_alloc<>>
-    void    Delete()
-      {
-        if ( listed != nullptr )
-          listed->Delete();
-        if ( nested != nullptr )
-          nested->Delete();
-        this->~jsonRevive();
-          M().free( this );
       }
     const  jsonRevive*  Search( unsigned  k ) const
       {
@@ -125,18 +119,18 @@ namespace mtc
 
   };
 
-# define  derive_revive( _type_ )                                                                     \
-  template <class M = def_alloc<>>  jsonRevive* add_##_type_( unsigned thekey, jsonRevive* fsnext )   \
-  {                                                                                                   \
-    byte_t  strkey[4];                                                                                \
-    return jsonRevive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nullptr );  \
-  }                                                                                                   \
-  template <class M = def_alloc<>>  jsonRevive* add_##_type_( const char* thekey, jsonRevive* fsnext )  \
-  {                                                                                                   \
-    return jsonRevive::Create<M>( z_charstr, z_##_type_, thekey, strlen( thekey ), fsnext, nullptr ); \
-  }                                                                                                   \
-  template <class M = def_alloc<>>  jsonRevive* add_##_type_( const widechar* thekey, jsonRevive* fsnext )   \
-  {                                                                                                   \
+# define  derive_revive( _type_ )                                                                             \
+  template <class M = def_alloc<>>  jsonRevive* add_##_type_( unsigned thekey, jsonRevive* fsnext = nullptr ) \
+  {                                                                                                           \
+    byte_t  strkey[4];                                                                                        \
+    return jsonRevive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nullptr );   \
+  }                                                                                                                       \
+  template <class M = def_alloc<>>  jsonRevive* add_##_type_( const char* thekey, jsonRevive* fsnext = nullptr )      \
+  {                                                                                                                   \
+    return jsonRevive::Create<M>( z_charstr, z_##_type_, thekey, strlen( thekey ), fsnext, nullptr );                 \
+  }                                                                                                                   \
+  template <class M = def_alloc<>>  jsonRevive* add_##_type_( const widechar* thekey, jsonRevive* fsnext = nullptr )  \
+  {                                                                                                                   \
     return jsonRevive::Create<M>( z_widestr, z_##_type_, thekey, sizeof(widechar) * w_strlen( thekey ), fsnext, nullptr );  \
   }
   derive_revive( char )
@@ -167,19 +161,19 @@ namespace mtc
   derive_revive( array_buffer )
 # undef derive_revive
 
-# define  derive_revive( _type_ )                                                                         \
-  template <class M = def_alloc<>>  jsonRevive* add_##_type_( unsigned  thekey, jsonRevive* nested, jsonRevive* fsnext )  \
-  {                                                                                                       \
-    byte_t  strkey[4];                                                                                    \
-    return jsonRevive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nested );  \
-  }                                                                                                   \
-  template <class M = def_alloc<>>  jsonRevive*  add_##_type_( const char* szname, jsonRevive* nested, jsonRevive* fsnext )                \
-  {                                                                                                   \
-    return jsonRevive::Create<M>( z_charstr, z_##_type_, szname, strlen( szname ), fsnext, nested );       \
-  }                                                                                                   \
-  template <class M = def_alloc<>>  jsonRevive*  add_##_type_( const widechar* szname, void* nested, void* fsnext )            \
-  {                                                                                                   \
-    return jsonRevive::Create<M>( z_widestr, z_##_type_, szname, sizeof(widechar) * w_strlen( szname ), fsnext, nested );  \
+# define  derive_revive( _type_ )                                                                                                   \
+  template <class M = def_alloc<>>  jsonRevive* add_##_type_( unsigned  thekey, jsonRevive* nested, jsonRevive* fsnext = nullptr )  \
+  {                                                                                                                                 \
+    byte_t  strkey[4];                                                                                                              \
+    return jsonRevive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nested );                \
+  }                                                                                                                                   \
+  template <class M = def_alloc<>>  jsonRevive*  add_##_type_( const char* szname, jsonRevive* nested, jsonRevive* fsnext = nullptr ) \
+  {                                                                                                                                   \
+    return jsonRevive::Create<M>( z_charstr, z_##_type_, szname, strlen( szname ), fsnext, nested );                                  \
+  }                                                                                                                                   \
+  template <class M = def_alloc<>>  jsonRevive*  add_##_type_( const widechar* szname, void* nested, void* fsnext = nullptr ) \
+  {                                                                                                                           \
+    return jsonRevive::Create<M>( z_widestr, z_##_type_, szname, sizeof(widechar) * w_strlen( szname ), fsnext, nested );     \
   } 
   derive_revive( zarray )
   derive_revive( array_zarray )
