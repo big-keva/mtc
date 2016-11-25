@@ -118,9 +118,9 @@ namespace mtc
     array<char> verstr;
 
   public:     // access
-    const char* GetMethod() const noexcept  {  return method.size() > 0 && method.last() != 0 ? method : "GET"; }
-    const char* GetURI() const noexcept     {  return urlstr.size() > 0 && urlstr.last() != 0 ? urlstr : "/";   }
-    const char* GetVersion() const noexcept {  return verstr.size() > 0 && verstr.last() != 0 ? verstr : "1.0"; }
+    const char* GetMethod() const noexcept  {  return method.size() > 0 && method.first() != 0 ? method.begin() : "GET"; }
+    const char* GetURI() const noexcept     {  return urlstr.size() > 0 && urlstr.first() != 0 ? urlstr.begin() : "/";   }
+    const char* GetVersion() const noexcept {  return verstr.size() > 0 && verstr.first() != 0 ? verstr.begin() : "1.0"; }
 
     int   SetMethod( const char* s ) noexcept   {  method.SetLen( 0 );  return method.Append( w_strlen( s ) + 1, s );  }
     int   SetURI( const char* s ) noexcept      {  urlstr.SetLen( 0 );  return urlstr.Append( w_strlen( s ) + 1, s );  }
@@ -145,13 +145,13 @@ namespace mtc
     HTTPResponce(): hresult( 200 )  {}
 
   public:     // fields
-    const char* GetVersion() const noexcept {  return version.size() > 0 && version.last() != 0 ? version : "1.0"; }
-    unsigned  GetStatus() const noexcept    {  return hresult;  }
-    const char* GetComment() const noexcept {  return comment.size() > 0 ? comment : "";  }
+    const char* GetVersion() const noexcept {  return version.size() > 0 && version.first() != 0 ? version.begin() : "1.0"; }
+    const char* GetComment() const noexcept {  return comment.size() > 0 ? comment.begin() : "";  }
+    unsigned    GetStatus() const noexcept  {  return hresult;  }
 
     int   SetVersion( const char* s ) noexcept  {  version.SetLen( 0 );  return version.Append( w_strlen( s ) + 1, s );  }
-    void  SetStatus( unsigned u ) noexcept {  hresult = u;  }
     int   SetComment( const char* s ) noexcept  {  comment.SetLen( 0 );  return comment.Append( w_strlen( s ) + 1, s );  }
+    void  SetStatus( unsigned u ) noexcept {  hresult = u;  }
 
   public:     // serialization
     template <class S>  S*  Fetch( S* ) noexcept;
@@ -264,7 +264,7 @@ namespace mtc
   {
     char  c;
 
-    return (c = s.getchar()) == '\r' ? s.getchar() : c;
+    return (c = s.getnext()) == '\r' ? s.getnext() : c;
   }
 
   // HTTPRequest implementation
@@ -352,7 +352,7 @@ namespace mtc
   template <class O>
   O*    HTTPResponce::Store( O* o ) noexcept
   {
-    const char* verstr = version.size() > 0 && version.first() != '\0' ? version : "1.0";
+    const char* verstr = GetVersion();
     char        resstr[0x20];
 
     sprintf( resstr, "%d", hresult );

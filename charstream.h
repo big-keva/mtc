@@ -124,7 +124,7 @@ namespace mtc
               }
 
             case '\0':  return getchr;
-            default:    putchar( chnext );
+            default:    this->putchar( chnext );
                         return getchr;
           }
         }

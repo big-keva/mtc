@@ -477,13 +477,16 @@ namespace mtc
   //
   inline  char* vstrduprintf( const char* format, va_list vaargs )
   {
-    char* p;
-    int   l;
+    va_list v;
+    char*   p;
+    int     l;
 
-    if ( (p = (char*)malloc( l = vsnprintf( nullptr, 0, format, vaargs ) + 1 )) == nullptr )
-      return nullptr;
+    va_copy( v, vaargs );
+      p = (char*)malloc( l = vsnprintf( nullptr, 0, format, v ) + 1 );
+    va_end( v );
 
-    vsnprintf( p, l, format, vaargs );
+    if ( p != nullptr )
+      vsnprintf( p, l, format, vaargs );
 
     return p;
   }
