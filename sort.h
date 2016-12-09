@@ -110,15 +110,15 @@ namespace mtc
   template<typename _iterator>
   void  inplace_sort(_iterator first, _iterator last )
   {
-    if ( first < --last )
-      __inplace_sort__( first, last, *first );    
+    if ( last - first > 1 )
+      __inplace_sort__( first, --last, *first );    
   }
 
   template<typename _iterator, typename compare>
   void  inplace_sort(_iterator first, _iterator last, compare cmp )
   {
-    if ( first < --last )
-      __inplace_sort__( first, last, *first, cmp );    
+    if ( last - first > 1 )
+      __inplace_sort__( first, --last, *first, cmp );    
   }
 
 }
