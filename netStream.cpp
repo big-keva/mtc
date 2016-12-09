@@ -174,13 +174,15 @@ namespace mtc
       while ( outptr < outend )
       {
         int   cbread;
+        int   nerror;
 
       // try read data
         if ( (cbread = recv( sockid, outptr, outend - outptr, 0 )) < 0 )
         { 
-          win32_decl( log_error( EFAULT, "recv( ... %u, 0 ) returned error, "
-            "WSAGetLastError() == %d!", outend - outptr, WSAGetLastError() ) );
-          return (word32_t)-1;
+          if ( (nerror = Sockets::GetError()) == Sockets::E_INPROGRESS )
+            continue;
+          log_error( nerror, "recv( ... %u, 0 ) error (%d)!", outend - outptr, nerror );
+            return (word32_t)-1;
         }
 
       // check for zero byte count
@@ -193,12 +195,14 @@ namespace mtc
 
   int   CNetStream::SetGetTimeout( word32_t msTimeout )
   {
-    return (tmoGet = msTimeout) != (word32_t)-1 && sockid != Sockets::InvalidSocket ? SetGetTimeout() : 0;
+    tmoGet = msTimeout;
+    return sockid != Sockets::InvalidSocket ? SetGetTimeout() : 0;
   }
 
   int   CNetStream::SetPutTimeout( word32_t msTimeout )
   {
-    return (tmoPut = msTimeout) != (word32_t)-1 && sockid != Sockets::InvalidSocket ? SetPutTimeout() : 0;
+    tmoPut = msTimeout;
+    return sockid != Sockets::InvalidSocket ? SetPutTimeout() : 0;
   }
 
   int   CNetStream::ConnectSocket( const char* szhost, unsigned short dwport, unsigned msconn )
@@ -310,24 +314,22 @@ namespace mtc
   {
     fd_set          fd;
     struct timeval  tv;
-    word32_t        tm = tmoGet != (word32_t)-1 ? tmoGet : 0;
 
   // check if there is data in stream
     FD_ZERO( &fd );
     FD_SET( sockid, &fd );
 
-    tv.tv_usec = (tm - (tv.tv_sec = tm / 1000) * 1000) * 1000;
+    tv.tv_usec = (tmoGet - (tv.tv_sec = tmoGet / 1000) * 1000) * 1000;
 
   // check the data in buffer
-    return select( sockid + 1, &fd, nullptr, nullptr, &tv ) > 0;
+    return select( sockid + 1, &fd, nullptr, nullptr, tmoGet != (word32_t)-1 ? &tv : nullptr ) > 0;
   }
 
   int   CNetStream::SetGetTimeout() const noexcept
   {
 	  struct timeval  tv;
-    word32_t        tm = tmoGet != (word32_t)-1 ? tmoGet : 0;
 
-    tv.tv_usec = (tm - (tv.tv_sec = tm / 1000) * 1000) * 1000;
+    tv.tv_usec = (tmoGet - (tv.tv_sec = tmoGet / 1000) * 1000) * 1000;
 
     return setsockopt( sockid, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv) ) != 0 ?
       Sockets::GetError() : 0;
@@ -336,9 +338,8 @@ namespace mtc
   int   CNetStream::SetPutTimeout() const noexcept
   {
 	  struct timeval  tv;
-    word32_t        tm = tmoPut != (word32_t)-1 ? tmoPut : 0;
 
-    tv.tv_usec = (tm - (tv.tv_sec = tm / 1000) * 1000) * 1000;
+    tv.tv_usec = (tmoPut - (tv.tv_sec = tmoPut / 1000) * 1000) * 1000;
 
     return setsockopt( sockid, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv) ) != 0 ?
       Sockets::GetError() : 0;
@@ -381,7 +382,7 @@ namespace mtc
     tlimit.tv_usec = (mswait - (tlimit.tv_sec = mswait / 1000) * 1000) * 1000;
 
   // check if the query present in queue
-    if ( select( 1 + Sockets::CastToSocket( listen ), &solist, nullptr, nullptr, &tlimit ) <= 0 )
+    if ( select( 1 + Sockets::CastToSocket( listen ), &solist, nullptr, nullptr, mswait != (unsigned)-1 ? &tlimit : nullptr ) <= 0 )
       return EAGAIN;
 
     // get incoming socket
