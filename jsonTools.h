@@ -295,8 +295,9 @@ namespace mtc
             case 'r':   if ( append( refstr, (C)'\r', cchstr, climit ) == 0 )  break;  else return ENOMEM;
             case '\"':  if ( append( refstr, (C)'\"', cchstr, climit ) == 0 )  break;  else return ENOMEM;
             case '/':   if ( append( refstr, (C)'/' , cchstr, climit ) == 0 )  break;  else return ENOMEM;
-            case '\\':  if ( append( refstr, (C)'\\', cchstr, climit ) == 0 )  break;  else return ENOMEM;
-            default:                                                                     return EINVAL;
+            case '\\':  if ( append( refstr, (C)'\\', cchstr, climit ) == 0 )
+              {  chnext = '\0';  break;  }  else return ENOMEM;
+            default:    return EINVAL;
           }
           chprev = '\0';
         }
@@ -428,8 +429,55 @@ namespace mtc
     derive_printjson_flo( double )
   # undef derive_printjson_flo
 
-  template <class O, class C>
-  inline  O*  PrintText( O* o, const C* s, size_t l )
+  template <class O>
+  inline  O*  PrintText( O* o, const char* s, size_t l )
+  {
+    static char         repsrc[] = "\b\t\n\f\r\"/\\";
+    static const char*  repval[] = { "\\b", "\\t", "\\n", "\\f", "\\r", "\\\"", "\\/", "\\\\" };
+    char*               reppos;
+    char                chbuff[0x10];
+    const char*         endptr;
+
+    if ( s == nullptr )
+      return ::Serialize( o, "null", 4 );
+
+    for ( endptr = s + l, o = ::Serialize( o, '\"' ); s < endptr; )
+    {
+      if ( (reppos = strchr( repsrc, *s )) != nullptr )
+        {
+          o = ::Serialize( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );
+          ++s;
+        }
+      else if ( (unsigned char)*s < 0x20 )
+        o = ::Serialize( o, chbuff, sprintf( chbuff, "\\u%04x", *s++ ) );
+      else if ( (unsigned char)*s < 0x80 )
+        o = ::Serialize( o, (char)*s++ );
+      else
+        {
+          widechar      ucchar = 0;
+          unsigned char chnext = (unsigned char)*s++;
+          int           nleast = 0;
+
+          assert( (unsigned char)*s >= 0x80 );
+
+          if ( (chnext & 0xe0) == 0xc0 )  {  ucchar = (chnext & 0x1f);  nleast = 1;  }  else
+          if ( (chnext & 0xf0) == 0xe0 )  {  ucchar = (chnext & 0x0f);  nleast = 2;  }  else
+          if ( (chnext & 0xf8) == 0xf0 )  {  ucchar = (chnext & 0x07);  nleast = 3;  }  else
+          if ( (chnext & 0xfc) == 0xf8 )  {  ucchar = (chnext & 0x03);  nleast = 4;  }  else
+          if ( (chnext & 0xfe) == 0xfc )  {  ucchar = (chnext & 0x01);  nleast = 5;  };
+
+          while ( nleast-- > 0 && s < endptr && (*s & 0xc0) == 0x80 )
+            ucchar = (ucchar << 6) | (*s++ & 0x3f);
+
+          o = ::Serialize( o, chbuff, sprintf( chbuff, "\\u%04x", ucchar ) );         
+        }
+    }
+
+    return ::Serialize( o, '\"' );
+  }
+
+  template <class O>
+  inline  O*  PrintText( O* o, const widechar* s, size_t l )
   {
     static char         repsrc[] = "\b\t\n\f\r\"/\\";
     static const char*  repval[] = { "\\b", "\\t", "\\n", "\\f", "\\r", "\\\"", "\\/", "\\\\" };
@@ -442,10 +490,11 @@ namespace mtc
     for ( o = ::Serialize( o, '\"' ); l-- > 0; ++s )
     {
       if ( (*s & ~0xff) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
-        o = ::Serialize( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );   else
-      if ( (unsigned)*s >= 0x80 || (unsigned)*s < 0x20 )
-        o = ::Serialize( o, chnext, sprintf( chnext, "\\u%04x", (unsigned)*s ) );           else
-      o = ::Serialize( o, (char)*s );
+        o = ::Serialize( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );
+      else if ( *s >= 0x80 || *s < 0x20 )
+        o = ::Serialize( o, chnext, sprintf( chnext, "\\u%04x", *s ) );
+      else
+        o = ::Serialize( o, (char)*s );
     }
 
     return ::Serialize( o, '\"' );
@@ -453,13 +502,13 @@ namespace mtc
 
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const char* s, const D& decorate = D() )
-    {  return PrintText( o, (const unsigned char*)s, w_strlen( s ) );  }
+    {  return PrintText( o, s, w_strlen( s ) );  }
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const widechar* s, const D& decorate = D() )
     {  return PrintText( o, s, w_strlen( s ) );  }
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const _auto_<char>& s, const D& decorate = D() )
-    {  return PrintText( o, (const unsigned char*)(const char*)s, w_strlen( s ) );  }
+    {  return PrintText( o, (const char*)s, w_strlen( s ) );  }
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const _auto_<widechar>& s, const D& decorate = D() )
     {  return PrintText( o, (const widechar*)s, w_strlen( s ) );  }
@@ -512,10 +561,10 @@ namespace mtc
       case z_array_float:   return PrintJson( decorate.Break( o ), *v.get_array_float(),  D( decorate ) );
       case z_array_double:  return PrintJson( decorate.Break( o ), *v.get_array_double(), D( decorate ) );
 
-      case z_array_charstr: return PrintJson( o, *v.get_array_charstr() );
-      case z_array_widestr: return PrintJson( o, *v.get_array_widestr() );
+      case z_array_charstr: return PrintJson( decorate.Break( o ), *v.get_array_charstr(), D( decorate ) );
+      case z_array_widestr: return PrintJson( decorate.Break( o ), *v.get_array_widestr(), D( decorate ) );
       case z_array_zarray:  return PrintJson( decorate.Break( o ), *v.get_array_zarray(), D( decorate ) );
-      case z_array_xvalue:  return PrintJson( o, *v.get_array_xvalue() );
+      case z_array_xvalue:  return PrintJson( decorate.Break( o ), *v.get_array_xvalue(), D( decorate ) );
 
       default:  assert( false );  abort();  return o;
     }
@@ -735,7 +784,77 @@ namespace mtc
     switch ( chnext = s.nospace() )
     {
       case '{':   return ParseJson( s.putback( chnext ), *x.set_zarray(), p );
-      case '[':   return ParseJson( s.putback( chnext ), *x.set_array_xvalue(), p );
+      case '[':
+        {
+          if ( (s = ParseJson( s.putback( chnext ), *x.set_array_xvalue(), p )) != nullptr && p == nullptr && x.get_array_xvalue()->size() > 0 )
+          {
+            array<xvalue<M>, M>*  parray = x.get_array_xvalue();
+            xvalue<M>             newval;
+
+            for ( auto p = parray->begin() + 1; p < parray->end(); ++p )
+              if ( p->gettype() != p[-1].gettype() )
+                return (S*)s;
+
+            switch ( parray->first().gettype() )
+            {
+            # define  derive_transform( _type_ )                                                        \
+              case z_##_type_:                                                                          \
+                {                                                                                       \
+                  array<_type_##_t, M>& a = *newval.set_array_##_type_();                               \
+                                                                                                        \
+                  if ( parray->for_each( [&a]( const xvalue<M>& s ){  return a.Append( *s.get_##_type_() );  } ) != 0 ) \
+                    return (S*)s;                                                                       \
+                  break;                                                                                \
+                }
+              derive_transform( char )
+              derive_transform( byte )
+              derive_transform( int16 )
+              derive_transform( int32 )
+              derive_transform( int64 )
+              derive_transform( float )
+              derive_transform( word16 )
+              derive_transform( word32 )
+              derive_transform( word64 )
+              derive_transform( double )
+            # undef  derive_transform
+              case z_charstr:
+                {
+                  array<_auto_<char, M>, M>&  a = *newval.set_array_charstr();
+
+                  if ( a.SetLen( parray->GetLen() ) != 0 )
+                    return (S*)s;
+                  for ( auto i = 0; i < parray->size(); ++i )
+                    inplace_swap( *(char**)(a + i), *(char**)(*parray)[i].get_holder() );
+                  break;
+                }
+              case z_widestr:
+                {
+                  array<_auto_<widechar, M>, M>&  a = *newval.set_array_widestr();
+
+                  if ( a.SetLen( parray->GetLen() ) != 0 )
+                    return (S*)s;
+                  for ( auto i = 0; i < parray->size(); ++i )
+                    inplace_swap( *(widechar**)(a + i), *(widechar**)(*parray)[i].get_holder() );
+                  break;
+                }
+              case z_zarray:
+                {
+                  array<zarray<M>, M>&  a = *newval.set_array_zarray();
+
+                  if ( a.SetLen( parray->GetLen() ) != 0 )
+                    return (S*)s;
+                  for ( auto i = 0; i < parray->size(); ++i )
+                    a[i] = *(*parray)[i].get_zarray();
+                  break;
+                }
+              default:
+                newval = x;
+                break;
+            }
+            x = newval;
+          }
+          return (S*)s;
+        }
       case '\"':
         {
           _auto_<widechar, M> wcsstr;
