@@ -170,8 +170,8 @@ namespace mtc
   template <class M>
   class xvalue
   {
-    unsigned char vxtype;
-    char          chdata[sizeof(array<char, M>)];
+    byte_t  vxtype;
+    char    chdata[sizeof(array<char, M>)];
 
   public:     // untyped constant
     enum {  undefined_type = 0xff  };
@@ -320,15 +320,18 @@ namespace mtc
   # undef derive_get
 
 /* regular strings  */
-    const char*     get_charstr() const {  return vxtype == z_charstr ? *(const char**)&chdata : nullptr;  }
-    const widechar* get_widestr() const {  return vxtype == z_widestr ? *(const widechar**)&chdata : nullptr;  }
-          char*     get_charstr()       {  return vxtype == z_charstr ? *(char**)&chdata : nullptr;  }
-          widechar* get_widestr()       {  return vxtype == z_widestr ? *(widechar**)&chdata : nullptr;  }
+    const char*       get_charstr() const {  return vxtype == z_charstr ? *(const char**)&chdata : nullptr;  }
+    const widechar*   get_widestr() const {  return vxtype == z_widestr ? *(const widechar**)&chdata : nullptr;  }
+          char*       get_charstr()       {  return vxtype == z_charstr ? *(char**)&chdata : nullptr;  }
+          widechar*   get_widestr()       {  return vxtype == z_widestr ? *(widechar**)&chdata : nullptr;  }
 
 /* special types: buffer and zarray */
 //    const char*     get_buffer() const {  return vxtype == z_charstr ? *(const char**)&chdata : nullptr;  }
     const zarray<M>*  get_zarray() const  {  return vxtype == z_zarray ? (const zarray<M>*)&chdata : nullptr;  }
           zarray<M>*  get_zarray()        {  return vxtype == z_zarray ? (zarray<M>*)&chdata : nullptr;  }
+
+    const void*       get_holder() const  {  return &chdata;  }
+          void*       get_holder()        {  return &chdata;  }
 
 /* arrays */
   # define  derive_get( _type_ )  \
