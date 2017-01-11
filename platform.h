@@ -140,40 +140,49 @@ namespace mtc
       while ( cc-- > 0 )  {  char c = *c1;  *c1++ = *c2;  *c2++ = c;  }
     }
 
-  class rtl_mm
+/*
+  plain memory allocation interface class
+*/
+  struct def_alloc
   {
-    public: void*   alloc( size_t n ) noexcept  {  return ::malloc( n );  }
-    public: void    free( void*  p ) noexcept   {  if ( p ) ::free( p );  }
+    void*   alloc( size_t n ) noexcept  {  return ::malloc( n );  }
+    void    free( void*  p ) noexcept   {  if ( p ) ::free( p );  }
   };
 
-  template <class mm = rtl_mm>
-  class def_alloc: public mm
-  {
-  public:     // objects allocation
-    template <class T, class... constructor_args>
-    T*  allocate( constructor_args... args ) noexcept
-      {
-        T*  t;
-
-        return (t = (T*)mm::alloc( sizeof(T) )) != nullptr ? new( t ) T( args... ) : nullptr;
-      }
-    template <class T>
-    void          deallocate( T* p ) noexcept
-      {
-        if ( p != nullptr )
-        {
-          p->~T();
-          mm::free( (void*)p );
-        }
-      }
-  };
-
-  template <class T, class... constructor_args>
-  T*  allocate( constructor_args... args ) noexcept
+  template <class T, class M, class... constructor_args>
+  T*    allocate_with( M& m, constructor_args... args ) noexcept
     {
       T*  t;
 
-      return (t = (T*)malloc( sizeof(T) )) != nullptr ? new( t ) T( args... ) : nullptr;
+      return (t = (T*)m.alloc( sizeof(T) )) != nullptr ? new( t ) T( args... ) : nullptr;
+    }
+
+  template <class T, class... constructor_args>
+  T*    allocate( constructor_args... args ) noexcept
+    {
+      T*  t;
+
+      return (t = (T*)def_alloc().alloc( sizeof(T) )) != nullptr ? new( t ) T( args... ) : nullptr;
+    }
+
+  template <class M, class T>
+  void  deallocate_with( M& m, T* p ) noexcept
+    {
+      if ( p != nullptr )
+      {
+        p->~T();
+        m.free( (void*)p );
+      }
+    }
+
+  template <class M, class T>
+  void  deallocate( T* p )
+    {
+      if ( p != nullptr )
+      {
+        p->~T();
+        def_alloc().free( (void*)p );
+      }
     }
 
 }
