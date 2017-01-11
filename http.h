@@ -101,6 +101,11 @@ namespace mtc
     template <class S>  S*    Fetch( S* ) noexcept;
     template <class O>  O*    Store( O* ) noexcept;
 
+    template <class action> void  for_each( const action& _do_ )
+      {
+        keyset.for_each( [&]( const headkey& hk ){  _do_( hk.key, hk.val );  return 0;  } );
+      }
+
   protected:  // helpers
     template <class S>  S*    Fetch( charstream<S>& ) noexcept;
     template <class S>  char  GetCh( charstream<S>& ) noexcept;
@@ -191,7 +196,7 @@ namespace mtc
 
     if ( (keypos = keymap.Search( k )) == nullptr )
       return nullptr;
-    return *keypos >= 0 && *keypos < keyset.size() ? keyset[*keypos].val : nullptr;
+    return *keypos >= 0 && *keypos < keyset.size() ? (const char*)keyset[*keypos].val : nullptr;
   }
 
   template <class S>
