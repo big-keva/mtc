@@ -79,7 +79,14 @@ public:     // construction
       e = s.e;
       return *this;
     }
-
+  const char* getptr() const
+    {
+      return (const char*)p < (const char*)e ? (const char*)p : nullptr;
+    }
+  sourcebuf*  skipto( unsigned l )
+    {
+      return (p = l + (char*)p) < e ? this : nullptr;
+    }
 };
 
 inline  sourcebuf*  FetchFrom( sourcebuf* s, char& c )
