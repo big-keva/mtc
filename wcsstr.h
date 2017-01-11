@@ -269,6 +269,9 @@ namespace mtc
       while ( *s != (C)0 && *s != *m )
         ++s;
 
+      if ( *s == (C)0 )
+        break;
+
       for ( s1 = s, m1 = m; *m1 != 0 && *s1++ == *m1; ++m1 )
         (void)0;
 
