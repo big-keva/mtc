@@ -195,7 +195,7 @@ namespace mtc
 
   };
 
-  template <class Val, class allocator = def_alloc<>>
+  template <class Val, class allocator = def_alloc>
   class stringmap: public _base_stringmap_<char, Val, allocator>
   {
     public: stringmap( unsigned maplen = 69959 ): _base_stringmap_<char, Val, allocator>( maplen ) {}
@@ -203,7 +203,7 @@ namespace mtc
               {
               }
   };
-  template <class Val, class allocator = def_alloc<>>
+  template <class Val, class allocator = def_alloc>
   class widestringmap: public _base_stringmap_<widechar, Val, allocator>
   {
     public: widestringmap( unsigned maplen = 69959 ): _base_stringmap_<widechar, Val, allocator>( maplen ) {}

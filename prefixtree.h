@@ -40,7 +40,7 @@ SOFTWARE.
 
 namespace mtc
 {
-  template <class V, class counter, class M = def_alloc<>>
+  template <class V, class counter, class M = def_alloc>
   class prefixtree: public array<prefixtree<V, counter, M>, M>
   {
     typedef array<prefixtree<V, counter, M>, M> nested;

@@ -58,7 +58,7 @@ SOFTWARE.
 namespace mtc
 {
 
-  template <class T, class M = def_alloc<>>
+  template <class T, class M = def_alloc>
   class _auto_
   {
     T*  p;
@@ -73,20 +73,25 @@ namespace mtc
       }
    ~_auto_()
       {
-        M().deallocate( p );
+        M m;
+        deallocate_with( m, p );
       }
     _auto_& operator = ( const _auto_& a )
       {
-        M().deallocate( p );
-          p = a.p;  ((_auto_<T, M>&)a).p = nullptr;
-        return *this;
+        M m;
+
+        deallocate_with( m, p );
+          p = a.p;
+        ((_auto_<T, M>&)a).p = nullptr;
+          return *this;
       }
     _auto_& operator = ( T* a )
       {
-        if ( p )
-          M().deallocate( p );
-        p = a;
-          return *this;
+        M m;
+
+        deallocate_with( m, p );
+          p = a;
+        return *this;
       }
     operator T* ()              {  return p;  }
     operator const T* () const  {  return p;  }

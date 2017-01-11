@@ -146,8 +146,8 @@ namespace mtc
     return intkey;
   }
 
-  template <class M = def_alloc<>>  class zarray;
-  template <class M = def_alloc<>>  class xvalue;
+  template <class M = def_alloc>  class zarray;
+  template <class M = def_alloc>  class xvalue;
 
   typedef xvalue<>  XValue;
   typedef zarray<>  ZArray;
@@ -170,35 +170,24 @@ namespace mtc
   template <class M>
   class xvalue
   {
+    M       malloc;
     byte_t  vxtype;
     char    chdata[sizeof(array<char, M>)];
+
+  public:             // allocator
+    M&    GetAllocator()              {  return malloc;     }
+    M&    SetAllocator( const M& m )  {  return malloc = m; }
 
   public:     // untyped constant
     enum {  undefined_type = 0xff  };
 
   public:     // untyped element construction
-    xvalue(): vxtype( undefined_type )
-      {
-      }
-    xvalue( const xvalue& v ): vxtype( v.vxtype )
-      {
-        if ( vxtype != undefined_type )
-          memcpy( chdata, v.chdata, sizeof(chdata) );
-        ((xvalue&)v).vxtype = undefined_type;
-      }
-    ~xvalue()
-      {
-        delete_data();
-      }
-    xvalue& operator = ( const xvalue& v )
-      {
-        if ( vxtype != undefined_type )
-          delete_data();
-        if ( (vxtype = v.vxtype) != undefined_type )
-          memcpy( chdata, v.chdata, sizeof(chdata) );
-        ((xvalue&)v).vxtype = undefined_type;
-          return *this;
-      }
+    xvalue();
+    xvalue( M& );
+    xvalue( const xvalue& );
+   ~xvalue();
+    xvalue& operator = ( const xvalue& );
+
     unsigned  gettype() const
       {
         return vxtype;
@@ -212,35 +201,37 @@ namespace mtc
       {
         xvalue  o;
 
+        o.SetAllocator( GetAllocator() );
+
         switch ( vxtype )
         {
-          case z_char:    return *get_char();
-          case z_byte:    return *get_byte();
-          case z_int16:   return *get_int16();
-          case z_int32:   return *get_int32();
-          case z_int64:   return *get_int64();
-          case z_word16:  return *get_word16();
-          case z_word32:  return *get_word32();
-          case z_word64:  return *get_word64();
-          case z_float:   return *get_float();
-          case z_double:  return *get_double();
+          case z_char:    o.set_char( *get_char() );      return o;
+          case z_byte:    o.set_byte( *get_byte() );      return o;
+          case z_int16:   o.set_int16( *get_int16() );    return o;
+          case z_int32:   o.set_int32( *get_int32() );    return o;
+          case z_int64:   o.set_int64( *get_int64() );    return o;
+          case z_float:   o.set_float( *get_float() );    return o;
+          case z_word16:  o.set_word16( *get_word16() );  return o;
+          case z_word32:  o.set_word32( *get_word32() );  return o;
+          case z_word64:  o.set_word64( *get_word64() );  return o;
+          case z_double:  o.set_double( *get_double() );  return o;
 
-          case z_charstr: return o.set_charstr( get_charstr() ) != nullptr ? o : xvalue();
-          case z_widestr: return o.set_widestr( get_widestr() ) != nullptr ? o : xvalue();
+          case z_charstr: return o.set_charstr( get_charstr() ) != nullptr ? o : xvalue( GetAllocator() );
+          case z_widestr: return o.set_widestr( get_widestr() ) != nullptr ? o : xvalue( GetAllocator() );
 //          case z_buffer  = 18,
-          case z_zarray:  return o.set_zarray( *get_zarray() ) != nullptr ? o : xvalue();
+          case z_zarray:  return o.set_zarray( *get_zarray()  ) != nullptr ? o : xvalue( GetAllocator() );
 
-          case z_array_char:    return o.set_array_char()->Append( *get_array_char() ) == 0 ? o : xvalue();
-          case z_array_byte:    return o.set_array_byte()->Append( *get_array_byte() ) == 0 ? o : xvalue();
-          case z_array_int16:   return o.set_array_int16()->Append( *get_array_int16() ) == 0 ? o : xvalue();
-          case z_array_int32:   return o.set_array_int32()->Append( *get_array_int32() ) == 0 ? o : xvalue();
-          case z_array_int64:   return o.set_array_int64()->Append( *get_array_int64() ) == 0 ? o : xvalue();
-          case z_array_word16:  return o.set_array_word16()->Append( *get_array_word16() ) == 0 ? o : xvalue();
-          case z_array_word32:  return o.set_array_word32()->Append( *get_array_word32() ) == 0 ? o : xvalue();
-          case z_array_word64:  return o.set_array_word64()->Append( *get_array_word64() ) == 0 ? o : xvalue();
-          case z_array_float:   return o.set_array_float ()->Append( *get_array_float () ) == 0 ? o : xvalue();
-          case z_array_double:  return o.set_array_double()->Append( *get_array_double() ) == 0 ? o : xvalue();
-          case z_array_zarray:  return o.set_array_zarray()->Append( *get_array_zarray() ) == 0 ? o : xvalue();
+          case z_array_char:    return o.set_array_char()->Append( *get_array_char() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_byte:    return o.set_array_byte()->Append( *get_array_byte() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_int16:   return o.set_array_int16()->Append( *get_array_int16() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_int32:   return o.set_array_int32()->Append( *get_array_int32() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_int64:   return o.set_array_int64()->Append( *get_array_int64() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_word16:  return o.set_array_word16()->Append( *get_array_word16() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_word32:  return o.set_array_word32()->Append( *get_array_word32() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_word64:  return o.set_array_word64()->Append( *get_array_word64() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_float:   return o.set_array_float ()->Append( *get_array_float () ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_double:  return o.set_array_double()->Append( *get_array_double() ) == 0 ? o : xvalue( GetAllocator() );
+          case z_array_zarray:  return o.set_array_zarray()->Append( *get_array_zarray() ) == 0 ? o : xvalue( GetAllocator() );
 
           case z_array_charstr:
             {
@@ -281,7 +272,7 @@ namespace mtc
             }
           default:  break;
         }
-        return xvalue();
+        return xvalue( GetAllocator() );
       }
 
   public:     // typed constructors
@@ -397,7 +388,7 @@ public:     // set_?? methods
           cchstr = pszstr != nullptr ? (unsigned)w_strlen( pszstr ) : 0;
         delete_data();
 
-        if ( (*(char**)&chdata = (char*)M().alloc( cchstr + 1 )) == nullptr )
+        if ( (*(char**)&chdata = (char*)GetAllocator().alloc( cchstr + 1 )) == nullptr )
           return nullptr;
 
         if ( pszstr != nullptr )
@@ -415,7 +406,7 @@ public:     // set_?? methods
 
         delete_data();
 
-        if ( (*(widechar**)&chdata = (widechar*)M().alloc( sizeof(widechar) * (cchstr + 1) )) == nullptr )
+        if ( (*(widechar**)&chdata = (widechar*)GetAllocator().alloc( sizeof(widechar) * (cchstr + 1) )) == nullptr )
           return nullptr;
 
         if ( pszstr != nullptr )
@@ -432,8 +423,18 @@ public:     // set_?? methods
       {  delete_data();  vxtype = z_widestr;  return *(widechar**)&chdata = nullptr;  }
 
 /* special types: buffer, zarray and array(s) */
+    zarray<M>*  set_zarray( M& m )
+      {
+        delete_data();
+        vxtype = z_zarray;
+        return new( (zarray<M>*)&chdata ) zarray<M>( m );
+      }
     zarray<M>*  set_zarray( const zarray<M>& z = zarray<M>() )
-      {  delete_data();  vxtype = z_zarray;  return new( (zarray<M>*)&chdata ) zarray<M>( z );  }
+      {
+        delete_data();
+        vxtype = z_zarray;
+        return new( (zarray<M>*)&chdata ) zarray<M>( z );
+      }
 
 /*
   set_array_#() macrogeneration
@@ -820,7 +821,7 @@ public:     // set_?? methods
         {
 //          case z_buffer:  __safe_array_destruct( (_freebuffer_*)&chdata, 1 ); break;
           case z_charstr:
-          case z_widestr: M().free( *(char**)&chdata );                     break;
+          case z_widestr: GetAllocator().free( *(char**)&chdata );          break;
           case z_zarray:  __safe_array_destruct( (zarray<M>*)&chdata, 1 );  break;
 
       # define derive_destruct( _type_ )          \
@@ -850,6 +851,13 @@ public:     // set_?? methods
   template <class M>
   class zarray
   {
+    M     malloc;     // used memory allocator
+
+  public:             // allocator
+    M&    GetAllocator()              {  return malloc;     }
+    M&    SetAllocator( const M& m )  {  return malloc = m; }
+
+  private:    // internal classes
     struct ztree;
     template <class owner, class key> class  zval;
 
@@ -1046,9 +1054,9 @@ public:     // set_?? methods
       xvalue<M> avalue;     // the element value
 
     public:     // construction
-      ztree( byte_t chinit = '\0' ): chnode( chinit ), keyset( 0 )  {}
-      ztree( const ztree& z ): chnode( z.chnode ), keyset( z.keyset ) {  assert( z.size() == 0 );  }
-     ~ztree()  {}
+      ztree( M& memman, byte_t chinit = '\0' );
+      ztree( const ztree& );
+     ~ztree();
 
     public:     // unserialized tree work
       ztree*        insert( const byte_t* ptrkey, unsigned cchkey )
@@ -1067,9 +1075,10 @@ public:     // set_?? methods
                 ++ptrtop;
               if ( ptrtop >= ptrend || ptrtop->chnode != chnext )
               {
+                ztree newchr( GetAllocator(), chnext );
                 int   newpos;
 
-                if ( expand->Insert( newpos = (int)(ptrtop - *expand), ztree( chnext ) ) != 0 ) return nullptr;
+                if ( expand->Insert( newpos = (int)(ptrtop - *expand), newchr ) != 0 ) return nullptr;
                   else  ptrtop = *expand + newpos;
               }
               expand = ptrtop;
@@ -1115,8 +1124,8 @@ public:     // set_?? methods
       int     rcount;
 
     public:     // construction
-      zdata():
-        ztree(), nitems( 0 ), rcount( 1 ) {}
+      zdata( M& memman ):
+        ztree( memman ), nitems( 0 ), rcount( 1 ) {}
 
     };
 
@@ -1127,30 +1136,11 @@ public:     // set_?? methods
     };
 
   public:     // construction
-    zarray(): zhandler( nullptr )
-      {
-      }
-    zarray( const zarray& z )
-      {
-        if ( (zhandler = z.zhandler) != nullptr )
-          ++zhandler->rcount;
-      }
-   ~zarray()
-      {
-        if ( zhandler != nullptr && --zhandler->rcount == 0 )
-          M().deallocate( zhandler );
-      }
-  zarray& operator = ( const zarray& z )
-      {
-        zdata*  phandler;
-
-        if ( (phandler = z.zhandler) != nullptr )
-          ++phandler->rcount;
-        if ( zhandler != nullptr && --zhandler->rcount == 0 )
-          M().deallocate( zhandler );
-        zhandler = phandler;
-          return *this;
-      }
+    zarray();
+    zarray( M& );
+    zarray( const zarray& );
+   ~zarray();
+    zarray& operator = ( const zarray& z );
 
   protected:  // helpers
     static  byte_t* inc_assign( byte_t* p, byte_t c )
@@ -1161,7 +1151,7 @@ public:     // set_?? methods
       {
         ztree*  pfound;
 
-        if ( zhandler == nullptr && (zhandler = M().template allocate<zdata>()) == nullptr )
+        if ( zhandler == nullptr && (zhandler = allocate_with<zdata>( GetAllocator(), GetAllocator() )) == nullptr )
           return nullptr;
 
         if ( (pfound = zhandler->insert( p, l )) != nullptr )  pfound->keyset = k;
@@ -1328,19 +1318,19 @@ public:     // set_?? methods
     v_type* set_##v_type( k_type k )                                                              \
       {                                                                                           \
         xvalue<M>*  zv;                                                                           \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_##v_type() : nullptr;                  \
+        return (zv = put_xvalue( k )) != nullptr ? zv->set_##v_type( GetAllocator() ) : nullptr;  \
       }                                                                                           \
-    v_type* set_##v_type( k_type k, const v_type& z )                                               \
+    v_type* set_##v_type( k_type k, const v_type& z )                                             \
       {                                                                                           \
         xvalue<M>*  zv;                                                                           \
         return (zv = put_xvalue( k )) != nullptr ? zv->set_##v_type( z ) : nullptr;               \
       }                                                                                           \
-    v_type* get_##v_type( k_type k )                                                                \
+    v_type* get_##v_type( k_type k )                                                              \
       {                                                                                           \
         ztree*  zt;                                                                               \
         return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##v_type() : nullptr;          \
       }                                                                                           \
-    const v_type* get_##v_type( k_type k ) const                                                          \
+    const v_type* get_##v_type( k_type k ) const                                                  \
       {                                                                                           \
         const ztree*  zt;                                                                         \
         return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##v_type() : nullptr;          \
@@ -1520,7 +1510,7 @@ public:     // set_?? methods
     void      DelAllData()
       {
         if ( zhandler != nullptr && --zhandler->rcount == 0 )
-          M().deallocate( zhandler );
+          deallocate_with( GetAllocator(), zhandler );
         zhandler = nullptr;
       }
 
@@ -1731,6 +1721,45 @@ inline  S*        FetchFrom( S* s, mtc::array<mtc::xvalue<M>, M>& a )
 namespace mtc
 {
   // xvalue inline implementation
+
+  template <class M>
+  xvalue<M>::xvalue(): vxtype( undefined_type )
+  {
+  }
+
+  template <class M>
+  xvalue<M>::xvalue( M& m ): malloc( m ), vxtype( undefined_type )
+  {
+  }
+
+  template <class M>
+  xvalue<M>::xvalue( const xvalue& v ): malloc( v.malloc ), vxtype( v.vxtype )
+  {
+    if ( vxtype != undefined_type )
+      memcpy( chdata, v.chdata, sizeof(chdata) );
+    ((xvalue&)v).vxtype = undefined_type;
+  }
+
+  template <class M>
+  xvalue<M>::~xvalue()
+  {
+    delete_data();
+  }
+
+  template <class M>
+  xvalue<M>& xvalue<M>::operator = ( const xvalue<M>& v )
+  {
+    if ( vxtype != undefined_type )
+      delete_data();
+
+    malloc = v.malloc;
+
+    if ( (vxtype = v.vxtype) != undefined_type )
+      memcpy( chdata, v.chdata, sizeof(chdata) );
+
+    ((xvalue&)v).vxtype = undefined_type;
+      return *this;
+  }
 
   template <class M>
   inline  unsigned  xvalue<M>::GetBufLen() const
@@ -2060,22 +2089,30 @@ namespace mtc
 
       while ( size-- > 0 )
       {
-        if ( pbeg->SetLen( 1 ) == 0 ) pbeg = *pbeg;
-          else  return nullptr;
-        if ( (s = ::FetchFrom( s, (char&)pbeg->chnode )) == nullptr )
+        ztree ztchar( GetAllocator() );
+
+        if ( (s = ::FetchFrom( s, (char&)ztchar.chnode )) == nullptr )
           return nullptr;
+        if ( pbeg->Append( ztchar ) == 0 ) pbeg = *pbeg;
+          else  return nullptr;
       }
 
       return pbeg->FetchFrom( s );
     }
       else
-    if ( this->SetLen( lfetch & 0x1ff ) == 0 )
     {
-      for ( auto p = this->begin(); p < this->end() && s != nullptr; ++p )
+      int     size = lfetch & 0x1ff;
+     
+      while ( s != nullptr && size-- > 0 )
       {
+        ztree     ztnext( GetAllocator() );
         unsigned  sublen;
 
-        s = p->FetchFrom( ::FetchFrom( ::FetchFrom( s, (char&)p->chnode ), sublen ) );
+        if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)ztnext.chnode ), sublen )) == nullptr )
+          return nullptr;
+        if ( this->Append( ztnext ) != 0 )
+          return nullptr;
+        s = this->last().FetchFrom( s );
       }
     }
     return s;
@@ -2090,6 +2127,72 @@ namespace mtc
     for ( size = 0, pbeg = this; pbeg->GetLen() == 1 && pbeg->avalue.gettype() == 0xff; pbeg = *pbeg )
       ++size;
     return size;
+  }
+
+// zarray::ztree implementation
+
+  template <class M>
+  zarray<M>::ztree::ztree( M& memman, byte_t chinit = '\0' ):
+    array<ztree, M>( memman ), chnode( chinit ), keyset( 0 ), avalue( memman )
+  {
+  }
+
+  template <class M>
+  zarray<M>::ztree::ztree( const ztree& z ):
+    array<ztree, M>( ((ztree&)z).GetAllocator() ), chnode( z.chnode ), keyset( z.keyset ), avalue( z.avalue )
+  {
+    assert( z.size() == 0 );
+  }
+
+  template <class M>
+  zarray<M>::ztree::~ztree()
+  {
+  }
+
+// zarray implementation
+
+  template <class M>
+  zarray<M>::zarray(): zhandler( nullptr )
+  {
+  }
+
+  template <class M>
+  zarray<M>::zarray( M& m ): malloc( m ), zhandler( nullptr )
+  {
+  }
+
+  template <class M>
+  zarray<M>::zarray( const zarray& z ): malloc( z.malloc )
+  {
+    if ( (zhandler = z.zhandler) != nullptr )
+      ++zhandler->rcount;
+  }
+
+  template <class M>
+  zarray<M>::~zarray()
+  {
+    if ( zhandler != nullptr && --zhandler->rcount == 0 )
+      deallocate_with( GetAllocator(), zhandler );
+  }
+
+  /*
+    att: indirect implementation to prevent delete of data while assigning
+    structure to itself or return from function
+  */
+  template <class M>
+  zarray<M>& zarray<M>::operator = ( const zarray& z )
+  {
+    zdata*  phandler;
+
+    if ( (phandler = z.zhandler) != nullptr )
+      ++phandler->rcount;
+
+    if ( zhandler != nullptr && --zhandler->rcount == 0 )
+      deallocate_with( GetAllocator(), zhandler );
+
+    malloc = z.malloc;
+      zhandler = phandler;
+    return *this;
   }
 
   template <class M>
@@ -2125,8 +2228,9 @@ namespace mtc
   inline  S*        zarray<M>::FetchFrom( S*  s )
   {
     if ( zhandler != nullptr && --zhandler->rcount == 0 )
-      M().deallocate( zhandler );
-    if ( (zhandler = M().template allocate<zdata>()) == nullptr )
+      deallocate_with( GetAllocator(), zhandler );
+
+    if ( (zhandler = allocate_with<zdata>( GetAllocator(), GetAllocator() )) == nullptr )
       return nullptr;
 
     return (S*)zhandler->FetchFrom( s );

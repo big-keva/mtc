@@ -6,7 +6,7 @@
 namespace mtc
 {
 
-  template <class M = def_alloc<>>
+  template <class M = def_alloc>
   class PagedAllocator
   {
     const unsigned  page_size_limit;
