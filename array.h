@@ -173,13 +173,14 @@ namespace mtc
   inline  float*          __safe_array_construct_cpy( float* p, float r )
     {  *p = r;  return p;  }
 
-  template <class T, class M = def_alloc<>>
+  template <class T, class M = def_alloc>
   class array
   {
     M     malloc;
 
   public:     // construction
           array( int adelta = 0x10 );
+          array( M& m, int adelta = 0x10 );
           array( const array<T, M>& );
          ~array();
     array<T, M>& operator =( const array<T, M>& );
@@ -226,13 +227,10 @@ namespace mtc
     void  SetDelta( int n ) {  ndelta = n;      }
 
   public:     // iterators
-    template <class _func_>
-    int       for_each( _func_ ) const;
-    template <class _func_>
-    int       for_each( _func_ );
-    template <class _func_>
-    int       DeleteIf( _func_ );
-    int       DeleteIf( const T& );
+    template <class _func_> int   for_each( _func_ ) const;
+    template <class _func_> int   for_each( _func_ );
+    template <class _func_> void  DeleteIf( _func_ );
+                            void  DeleteIf( const T& );
 
   public:     // stl compatibility
     T*        begin()       {  return pitems;  }
@@ -256,7 +254,72 @@ namespace mtc
 
   };
 
-  template <class T, class M = def_alloc<>>
+  template <class T, int L>
+  class static_array
+  {
+    int   ncount;
+    char  aitems[L * sizeof(T)];
+
+  public:     // construction
+    static_array();
+    static_array( const static_array& );
+   ~static_array();
+    static_array& operator = ( const static_array& );
+
+    enum
+    {
+      limit = L
+    };
+
+  public:     // operations
+    int   Append( const T& t )                    {  return Insert( size(), t );      }
+    int   Append( T&& t )                         {  return Insert( size(), static_cast<T&&>( t ) );  }
+    int   Append( int c, const T* p )             {  return Insert( size(), c, p );   }
+    int   Append( const static_array& r )         {  return Insert( size(), r );      }
+    int   Append( static_array& r )               {  return Insert( size(), r );      }
+    int   Insert( int p, const T& t );
+    int   Insert( int p, T&& t );
+    int   Insert( int p, int c, const T* t )      {  return Insert( p, c, (T*)t );    }
+    int   Insert( int p, int c, T* t );
+    int   Insert( int p, const static_array& t )  {  return Insert( p, t.size(), (const T*)t ); }
+    int   Insert( int p, static_array& t )        {  return Insert( p, t.size(), (T*)t );       }
+    int   Delete( int );
+    int   GetLen() const                          {  return ncount;  }
+    int   SetLen( int );
+    void  DelAll();
+
+  public:     // searchers
+    template <class _test_> int   Lookup( _test_ ) const;
+                            int   Lookup( const T& ) const;
+    template <class _test_> bool  Search( _test_, int& ) const;
+                            bool  Search( const T&, int& ) const;
+
+  public:     // operators
+    operator        T* ()       {  return (T*)aitems;   }
+    operator const  T* () const {  return (const T*)aitems;   }
+          T&  operator [] ( int i )         {  assert( i < ncount );  return begin()[i];  }
+    const T&  operator [] ( int i ) const   {  assert( i < ncount );  return begin()[i];  }
+
+  public:     // iterators
+    template <class _func_> int   for_each( _func_ ) const;
+    template <class _func_> int   for_each( _func_ );
+    template <class _func_> void  DeleteIf( _func_ );
+                            void  DeleteIf( const T& );
+
+  public:     // stl compatibility
+    const T*  begin() const {  return (const T*)aitems;  }
+    T*        begin()       {  return (T*)aitems;  }
+    const T*  end() const   {  return ncount + begin();  }
+    T*        end()         {  return ncount + begin();  }
+    int       size() const  {  return ncount;  }
+    T&        first()       {  assert( ncount > 0 );  return *begin();  }
+    const T&  first() const {  assert( ncount > 0 );  return *begin();  }
+    T&        last()        {  assert( ncount > 0 );  return begin()[ncount - 1];  }
+    const T&  last() const  {  assert( ncount > 0 );  return begin()[ncount - 1];  }
+
+  };
+
+  template <class T, class M = def_alloc>
   class shared_array
   {
     struct array_data: public array<T, M>
@@ -275,35 +338,16 @@ namespace mtc
   protected:  // helper
     bool  Ensure()
       {
-        if ( parray == nullptr && (parray = malloc.template allocate<array_data>( ndelta )) != nullptr )
+        if ( parray == nullptr && (parray = allocate_with<array_data>( malloc, ndelta )) != nullptr )
           {  ++parray->refcount;  parray->SetAllocator( malloc );  }
         return parray != nullptr;
       }
   public:     // construction
-    shared_array( int adelta = 0x10 ): parray( nullptr ), ndelta( adelta )
-      {
-      }
-    shared_array( const shared_array& a ):
-                          malloc( a.malloc ),
-                          ndelta( a.ndelta )
-      {
-        if ( (parray = a.parray) != nullptr )
-          ++parray->refcount;
-      }
-   ~shared_array()
-      {
-        if ( parray != nullptr && --parray->refcount == 0 )
-          malloc.deallocate( parray );
-      }
-    shared_array& operator = ( const shared_array& a )
-      {
-        if ( parray != nullptr && --parray->refcount == 0 )
-          malloc.deallocate( parray );
-        malloc = a.malloc;
-        if ( (parray = a.parray) != nullptr )
-          ++parray->refcount;
-        return *this;
-      }
+    shared_array( int adelta = 0x10 );
+    shared_array( const M& ralloc, int adelta = 0x10 );
+    shared_array( const shared_array& );
+   ~shared_array();
+    shared_array& operator = ( const shared_array& );
 
   public:     // set allocator
     M&    GetAllocator()              {  return malloc;     }
@@ -341,7 +385,7 @@ namespace mtc
         if ( l == 0 )
         {
           if ( parray != nullptr && --parray->refcount == 0 )
-            malloc.deallocate( parray );
+            deallocate_with( GetAllocator(), parray );
           parray = nullptr;
             return 0;
         }
@@ -350,7 +394,7 @@ namespace mtc
     void  DelAll()
       {
         if ( parray != nullptr && --parray->refcount == 0 )
-          malloc.deallocate( parray );
+          deallocate_with( GetAllocator(), parray );
         parray = nullptr;
       }
     int   Privatize()
@@ -359,16 +403,17 @@ namespace mtc
         {
           array_data* palloc;
 
-          if ( (palloc = malloc.template allocate<array_data>( parray->GetDelta() )) == nullptr )
+          if ( (palloc = allocate_with<array_data>( GetAllocator(), parray->GetDelta() )) == nullptr )
             return ENOMEM;  else parray->SetAllocator( malloc );
 
           if ( palloc->Append( *parray ) != 0 )
           {
-            malloc.deallocate( palloc );
+            deallocate_with( GetAllocator(), palloc );
             return ENOMEM;
           }
+
           if ( --parray->refcount == 0 )
-            parray->GetAllocator().deallocate( parray );
+            deallocate_with( parray->GetAllocator(), parray );
 
           ++(parray = palloc)->refcount;
         }
@@ -408,17 +453,14 @@ namespace mtc
       {  ndelta = n;  if ( parray != nullptr )  parray->SetDelta( ndelta );  }
 
   public:     // iterators
-    template <class _func_>
-    int       for_each( _func_ func ) const
+    template <class _func_> int   for_each( _func_ func ) const
       {  return parray != nullptr ? parray->for_each( func ) : 0;  }
-    template <class _func_>
-    int       for_each( _func_ func )
+    template <class _func_> int   for_each( _func_ func )
       {  return parray != nullptr ? parray->for_each( func ) : 0;  }
-    template <class _func_>
-    int       DeleteIf( _func_ func )
-      {  return parray != nullptr ? parray->DeleteIf( func ) : 0;  }
-    int       DeleteIf( const T& t )
-      {  return parray != nullptr ? parray->DeleteIf( t ) : 0;  }
+    template <class _func_> void  DeleteIf( _func_ func )
+      {  if ( parray != nullptr ) parray->DeleteIf( func );  }
+                            void  DeleteIf( const T& t )
+      {  if ( parray != nullptr ) parray->DeleteIf( t );  }
 
   public:     // stl compatibility
     T*        begin()       {  return *this;  }
@@ -436,28 +478,27 @@ namespace mtc
 // array inline implementation
 
   template <class T, class M>
-  inline  array<T, M>::array( int adelta ):
-                      pitems( 0 ),
-                      ncount( 0 ),
-                      nlimit( 0 ),
-                      ndelta( adelta <= 0 ? 0x10 : adelta )
+  array<T, M>::array( int adelta ):
+    pitems( nullptr ), ncount( 0 ), nlimit( 0 ), ndelta( adelta <= 0 ? 0x10 : adelta )
   {
   }
 
   template <class T, class M>
-  inline array<T, M>::array( const array<T, M>& r ):
-                      malloc( r.malloc ),
-                      pitems( r.pitems ),
-                      ncount( r.ncount ), 
-                      nlimit( r.nlimit ),
-                      ndelta( r.ndelta )
+  array<T, M>::array( M& m, int adelta ):
+    malloc( m ), pitems( nullptr ), ncount( 0 ), nlimit( 0 ), ndelta( adelta <= 0 ? 0x10 : adelta )
+  {
+  }
+
+  template <class T, class M>
+  array<T, M>::array( const array<T, M>& r ):
+    malloc( r.malloc ), pitems( r.pitems ), ncount( r.ncount ),  nlimit( r.nlimit ), ndelta( r.ndelta )
   {
     ((array<T, M>&)r).pitems = nullptr;
     ((array<T, M>&)r).ncount = 0;
   }
 
   template <class T, class M>
-  inline array<T, M>& array<T, M>::operator = ( const array<T, M>& r )
+  array<T, M>& array<T, M>::operator = ( const array<T, M>& r )
   {
     this->~array<T, M>();
       malloc = r.malloc;
@@ -470,7 +511,6 @@ namespace mtc
       return *this;
   }
 
-
   template <class T, class M>
   inline  array<T, M>::~array()
   {
@@ -478,7 +518,7 @@ namespace mtc
     {
       if ( ncount )
         __safe_array_destruct( pitems, ncount );
-      malloc.free( pitems );
+      GetAllocator().free( pitems );
     }
   }
 
@@ -583,7 +623,7 @@ namespace mtc
           newlimit = length;
 
       // Allocate new space
-        if ( (newitems = (T*)malloc.alloc( newlimit * sizeof(T) )) == NULL )
+        if ( (newitems = (T*)GetAllocator().alloc( newlimit * sizeof(T) )) == NULL )
           return ENOMEM;
 
       // Copy the data
@@ -592,7 +632,7 @@ namespace mtc
 
       // Set new buffer
         if ( pitems != NULL )
-          malloc.free( pitems );
+          GetAllocator().free( pitems );
         pitems = newitems;
         nlimit = newlimit;
       }
@@ -601,7 +641,7 @@ namespace mtc
       else
     if ( length == 0 )
     {
-      malloc.free( pitems );
+      GetAllocator().free( pitems );
       pitems = 0;
       nlimit = 0;
     }
@@ -613,7 +653,7 @@ namespace mtc
   inline  void   array<T, M>::DelAll()
   {
     __safe_array_destruct( pitems, ncount );
-    malloc.free( pitems );
+    GetAllocator().free( pitems );
     pitems = 0;
     nlimit = 0;
     ncount = 0;
@@ -710,10 +750,10 @@ namespace mtc
 
       if ( newlimit != 0 )
       {
-        if ( (newitems = (T*)malloc.alloc( newlimit * sizeof(T) )) == NULL )
+        if ( (newitems = (T*)GetAllocator().alloc( newlimit * sizeof(T) )) == NULL )
           return ENOMEM;
         memmove( newitems, pitems, ncount * sizeof(T) );
-          malloc.free( pitems );
+          GetAllocator().free( pitems );
         pitems = newitems;
       }
         else
@@ -751,21 +791,19 @@ namespace mtc
 
   template <class T, class M>
   template <class _func_>
-  inline  int   array<T, M>::DeleteIf( _func_ _if_ )
+  inline  void  array<T, M>::DeleteIf( _func_ _if_ )
   {
     for ( int i = 0; i < size(); ++i )
       if ( _if_( (*this)[i] ) )
         Delete( i-- );
-    return 0;
   }
 
   template <class T, class M>
-  inline  int   array<T, M>::DeleteIf( const T& t )
+  inline  void  array<T, M>::DeleteIf( const T& t )
   {
     for ( int i = 0; i < size(); ++i )
       if ( t == (*this)[i] )
         Delete( i-- );
-    return 0;
   }
 
   template <class T, class M>
@@ -777,7 +815,7 @@ namespace mtc
     assert( newlimit >= newlen && newlimit >= ncount );
 
   // Allocate new space
-    if ( (newitems = (T*)malloc.alloc( newlimit * sizeof(T) )) == NULL )
+    if ( (newitems = (T*)GetAllocator().alloc( newlimit * sizeof(T) )) == NULL )
       return ENOMEM;
 
   // Copy the data
@@ -786,11 +824,273 @@ namespace mtc
 
   // Set new buffer
     if ( pitems != NULL )
-      malloc.free( pitems );
+      GetAllocator().free( pitems );
 
     pitems = newitems;
     nlimit = newlimit;
       return 0;
+  }
+
+  // static_array template implementation
+
+  template <class T, int L>
+  static_array<T, L>::static_array(): ncount( 0 )
+  {
+  }
+
+  template <class T, int L>
+  static_array<T, L>::static_array( const static_array& a ): ncount( a.ncount )
+  {
+    const T*  s;
+          T*  d;
+
+    for ( s = a.begin(), d = begin(); s < a.end(); )
+      new( d++ ) T( *s++ );
+  }
+
+  template <class T, int L>
+  static_array<T, L>::~static_array()
+  {
+    __safe_array_destruct( begin(), size() );
+  }
+
+  template <class T, int L>
+  static_array<T, L>& static_array<T, L>::operator = ( const static_array<T, L>& a )
+  {
+    const T*  s;
+          T*  d;
+
+    if ( size() > a.size() )
+      __safe_array_destruct( begin() + a.size(), a.size() - size() );
+
+    for ( s = a.begin(), d = begin(); s < a.end() && d < end(); )
+      *d++ = *s++;
+
+    while ( s < a.end() )
+      new( d++ ) T( *s++ );
+
+    ncount = a.ncount;
+      return *this;
+  }
+
+  template <class T, int L>
+  int   static_array<T, L>::Insert( int p, const T& t )
+  {
+    if ( p < 0 || p > ncount || ncount >= (int)L )
+      return EINVAL;
+
+    if ( p < ncount )
+      memmove( begin() + p + 1, begin() + p, (ncount - p) * sizeof(T) );
+
+    new( begin() + p ) T( t );  ++ncount;
+      return 0;
+  }
+
+  template <class T, int L>
+  int   static_array<T, L>::Insert( int p, T&& t )
+  {
+    if ( p < 0 || p > ncount || ncount >= (int)L )
+      return EINVAL;
+
+    if ( p < ncount )
+      memmove( begin() + p + 1, begin() + p, (ncount - p) * sizeof(T) );
+
+    new( begin() + p ) T( static_cast<T&&>( t ) );  ++ncount;
+      return 0;
+  }
+
+  template <class T, int L>
+  int   static_array<T, L>::Insert( int p, int c, T* t )
+  {
+    if ( p < 0 || p > ncount || (ncount + c) > (int)L )
+      return EINVAL;
+
+    if ( p < ncount )
+      memmove( begin() + p + c, begin() + p, (ncount - p) * sizeof(T) );
+
+    for ( ncount += c; c-- > 0; )
+      new( begin() + p++ ) T( *t++ );
+
+    return 0;
+  }
+
+  template <class T, int L>
+  int   static_array<T, L>::Delete( int i )
+  {
+    if ( i < 0 || i >= ncount )
+      return EINVAL;
+
+    __safe_array_destruct( begin() + i, 1 );
+      memmove( begin() + i, begin() + i + 1, (ncount - i - 1) * sizeof(T) );
+
+    --ncount;
+      return 0;
+  }
+
+  template <class T, int L>
+  int   static_array<T, L>::SetLen( int newlen )
+  {
+    if ( newlen > (int)L )
+      return ENOMEM;
+    if ( newlen < ncount )
+      __safe_array_destruct( begin() + newlen, ncount - newlen );
+    if ( newlen > ncount )
+      __safe_array_construct_def( begin() + ncount, newlen - ncount );
+    ncount = newlen;
+      return 0;
+  }
+
+  template <class T, int L>
+  void  static_array<T, L>::DelAll()
+  {
+    __safe_array_destruct( begin(), size() );
+      ncount = 0;
+  }
+
+  template <class T, int L>
+  template <class _test_>
+  int   static_array<T, L>::Lookup( _test_ test ) const
+  {
+    for ( auto p = begin(); p < end(); ++p )
+      if ( test( *p ) ) return p - begin();
+    return -1;
+  }
+
+  template <class T, int L>
+  int   static_array<T, L>::Lookup( const T& t ) const
+  {
+    for ( auto p = begin(); p < end(); ++p )
+      if ( t == *p )  return p - begin();
+    return -1;
+  }
+
+  template <class T, int L>
+  template <class _test_>
+  bool  static_array<T, L>::Search( _test_ test, int& p ) const
+  {
+    int   l = 0;
+    int   h = ncount - 1;
+    int   m;
+    bool  s = false;
+
+    while ( l <= h )
+    {
+      int   r;
+
+      m = ( l + h ) >> 1;
+      r = test( k, begin()[m] );
+
+      if ( r > 0 ) l = m + 1;
+        else
+      {
+        h = m - 1;
+        s |= (r == 0);
+      }
+    }
+    p = (int)l;
+    return s;
+  }
+
+  template <class T, int L>
+  bool  static_array<T, L>::Search( const T& t, int& p ) const
+  {
+    int   l = 0;
+    int   h = ncount - 1;
+    int   m;
+    bool  s = false;
+
+    while ( l <= h )
+    {
+      m = ( l + h ) >> 1;
+      if ( begin()[m] < t ) l = m + 1;
+        else
+      {
+        h = m - 1;
+        s |= (begin()[m] == t);
+      }
+    }
+    p = (int)l;
+    return s;
+  }
+
+  template <class T, int L>
+  template <class _func_>
+  int   static_array<T, L>::for_each( _func_ func ) const
+  {
+    const T*  p;
+    int       e;
+
+    for ( p = begin(), e = 0; p < end() && (e = func( *p )) == 0; ++p )
+      (void)NULL;
+    return e;
+  }
+
+  template <class T, int L>
+  template <class _func_>
+  int   static_array<T, L>::for_each( _func_ func )
+  {
+    T*  p;
+    int e;
+
+    for ( p = begin(), e = 0; p < end() && (e = func( *p )) == 0; ++p )
+      (void)NULL;
+    return e;
+  }
+
+  template <class T, int L>
+  template <class _func_>
+  void  static_array<T, L>::DeleteIf( _func_ test )
+  {
+    T*  p;
+
+    for ( p = begin(); p < end(); ++p )
+      if ( test( *p ) ) Delete( (p--) - begin() );
+  }
+
+  template <class T, int L>
+  void  static_array<T, L>::DeleteIf( const T& t )
+  {
+    T*  p;
+
+    for ( p = begin(); p < end(); ++p )
+      if ( *p == t ) Delete( (p--) - begin() );
+  }
+
+// shared_array implementation
+
+  template <class T, class M>
+  shared_array<T, M>::shared_array( int adelta ): parray( nullptr ), ndelta( adelta )
+  {
+  }
+
+  template <class T, class M>
+  shared_array<T, M>::shared_array( const M& ralloc, int adelta ): malloc( ralloc ), parray( nullptr ), ndelta( adelta )
+  {
+  }
+
+  template <class T, class M>
+  shared_array<T, M>::shared_array( const shared_array& a ): malloc( a.malloc ), ndelta( a.ndelta )
+  {
+    if ( (parray = a.parray) != nullptr )
+      ++parray->refcount;
+  }
+
+  template <class T, class M>
+  shared_array<T, M>::~shared_array()
+  {
+    if ( parray != nullptr && --parray->refcount == 0 )
+      deallocate_with( malloc, parray );
+  }
+
+  template <class T, class M>
+  shared_array<T, M>& shared_array<T, M>::operator = ( const shared_array& a )
+  {
+    if ( parray != nullptr && --parray->refcount == 0 )
+      deallocate_with( malloc, parray );
+    if ( (parray = a.parray) != nullptr )
+      ++parray->refcount;
+    malloc = a.malloc;
+      return *this;
   }
 
 }  // mtc namespace
