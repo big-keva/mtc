@@ -119,18 +119,18 @@ namespace mtc
 
   };
 
-# define  derive_revive( _type_ )                                                                             \
-  template <class M = def_alloc<>>  jsonRevive* add_##_type_( unsigned thekey, jsonRevive* fsnext = nullptr ) \
-  {                                                                                                           \
-    byte_t  strkey[4];                                                                                        \
-    return jsonRevive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nullptr );   \
-  }                                                                                                                       \
-  template <class M = def_alloc<>>  jsonRevive* add_##_type_( const char* thekey, jsonRevive* fsnext = nullptr )      \
-  {                                                                                                                   \
-    return jsonRevive::Create<M>( z_charstr, z_##_type_, thekey, strlen( thekey ), fsnext, nullptr );                 \
-  }                                                                                                                   \
-  template <class M = def_alloc<>>  jsonRevive* add_##_type_( const widechar* thekey, jsonRevive* fsnext = nullptr )  \
-  {                                                                                                                   \
+# define  derive_revive( _type_ )                                                                                           \
+  template <class M = def_alloc>  jsonRevive* add_##_type_( unsigned thekey, jsonRevive* fsnext = nullptr )                 \
+  {                                                                                                                         \
+    byte_t  strkey[4];                                                                                                      \
+    return jsonRevive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nullptr );     \
+  }                                                                                                                         \
+  template <class M = def_alloc>  jsonRevive* add_##_type_( const char* thekey, jsonRevive* fsnext = nullptr )              \
+  {                                                                                                                         \
+    return jsonRevive::Create<M>( z_charstr, z_##_type_, thekey, strlen( thekey ), fsnext, nullptr );                       \
+  }                                                                                                                         \
+  template <class M = def_alloc>  jsonRevive* add_##_type_( const widechar* thekey, jsonRevive* fsnext = nullptr )          \
+  {                                                                                                                         \
     return jsonRevive::Create<M>( z_widestr, z_##_type_, thekey, sizeof(widechar) * w_strlen( thekey ), fsnext, nullptr );  \
   }
   derive_revive( char )
@@ -161,19 +161,19 @@ namespace mtc
   derive_revive( array_buffer )
 # undef derive_revive
 
-# define  derive_revive( _type_ )                                                                                                   \
-  template <class M = def_alloc<>>  jsonRevive* add_##_type_( unsigned  thekey, jsonRevive* nested, jsonRevive* fsnext = nullptr )  \
-  {                                                                                                                                 \
-    byte_t  strkey[4];                                                                                                              \
+# define  derive_revive( _type_ )                                                                                                     \
+  template <class M = def_alloc>  jsonRevive* add_##_type_( unsigned  thekey, jsonRevive* nested, jsonRevive* fsnext = nullptr )      \
+  {                                                                                                                                   \
+    byte_t  strkey[4];                                                                                                                \
     return jsonRevive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nested );                \
   }                                                                                                                                   \
-  template <class M = def_alloc<>>  jsonRevive*  add_##_type_( const char* szname, jsonRevive* nested, jsonRevive* fsnext = nullptr ) \
+  template <class M = def_alloc>  jsonRevive*  add_##_type_( const char* szname, jsonRevive* nested, jsonRevive* fsnext = nullptr )   \
   {                                                                                                                                   \
     return jsonRevive::Create<M>( z_charstr, z_##_type_, szname, strlen( szname ), fsnext, nested );                                  \
   }                                                                                                                                   \
-  template <class M = def_alloc<>>  jsonRevive*  add_##_type_( const widechar* szname, void* nested, void* fsnext = nullptr ) \
-  {                                                                                                                           \
-    return jsonRevive::Create<M>( z_widestr, z_##_type_, szname, sizeof(widechar) * w_strlen( szname ), fsnext, nested );     \
+  template <class M = def_alloc>  jsonRevive*  add_##_type_( const widechar* szname, void* nested, void* fsnext = nullptr )           \
+  {                                                                                                                                   \
+    return jsonRevive::Create<M>( z_widestr, z_##_type_, szname, sizeof(widechar) * w_strlen( szname ), fsnext, nested );             \
   } 
   derive_revive( zarray )
   derive_revive( array_zarray )
@@ -280,8 +280,26 @@ namespace mtc
 
             if ( getfour( hexchr ) )  uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
               else  return EINVAL;
-            if ( endptr - hexchr != 4 || uvalue > maxval )
+            if ( endptr - hexchr != 4 )
               return EINVAL;
+              
+            if ( sizeof(C) == sizeof(char) && uvalue > 127 )
+            {
+              if ( (uvalue & ~0x07ff) == 0 )
+              {
+                if ( append( refstr, (C)(0xC0 | (unsigned char)(uvalue >> 6)),   cchstr, climit ) != 0
+                  || append( refstr, (C)(0x80 | (unsigned char)(uvalue & 0x3f)), cchstr, climit ) != 0 )
+                return ENOMEM;
+              }
+                else
+              {
+                if ( append( refstr, (C)(0xE0 | (unsigned char)(uvalue >> 12)),          cchstr, climit ) != 0
+                  || append( refstr, (C)(0x80 | (unsigned char)((uvalue >> 6) & 0x3F)),  cchstr, climit ) != 0
+                  || append( refstr, (C)(0x80 | (unsigned char)(uvalue & 0x3f)),         cchstr, climit ) != 0 )
+                return ENOMEM;
+              }
+            }
+              else
             if ( append( refstr, (C)uvalue, cchstr, climit ) != 0 )
               return ENOMEM;
           }
@@ -460,6 +478,7 @@ namespace mtc
 
           assert( (unsigned char)*s >= 0x80 );
 
+        /* decode utf-8 sequence to unicode character */
           if ( (chnext & 0xe0) == 0xc0 )  {  ucchar = (chnext & 0x1f);  nleast = 1;  }  else
           if ( (chnext & 0xf0) == 0xe0 )  {  ucchar = (chnext & 0x0f);  nleast = 2;  }  else
           if ( (chnext & 0xf8) == 0xf0 )  {  ucchar = (chnext & 0x07);  nleast = 3;  }  else
@@ -535,20 +554,20 @@ namespace mtc
   {
     switch ( v.gettype() )
     {
-      case z_char:    return PrintJson( decorate.Space( o ), *v.get_char() );
-      case z_byte:    return PrintJson( decorate.Space( o ), *v.get_byte() );
-      case z_int16:   return PrintJson( decorate.Space( o ), *v.get_int16() );
-      case z_word16:  return PrintJson( decorate.Space( o ), *v.get_word16() );
-      case z_int32:   return PrintJson( decorate.Space( o ), *v.get_int32() );
-      case z_word32:  return PrintJson( decorate.Space( o ), *v.get_word32() );
-      case z_int64:   return PrintJson( decorate.Space( o ), *v.get_int64() );
-      case z_word64:  return PrintJson( decorate.Space( o ), *v.get_word64() );
-      case z_float:   return PrintJson( decorate.Space( o ), *v.get_float() );
-      case z_double:  return PrintJson( decorate.Space( o ), *v.get_double() );
+      case z_char:    return PrintJson( decorate.Shift( o ), *v.get_char() );
+      case z_byte:    return PrintJson( decorate.Shift( o ), *v.get_byte() );
+      case z_int16:   return PrintJson( decorate.Shift( o ), *v.get_int16() );
+      case z_word16:  return PrintJson( decorate.Shift( o ), *v.get_word16() );
+      case z_int32:   return PrintJson( decorate.Shift( o ), *v.get_int32() );
+      case z_word32:  return PrintJson( decorate.Shift( o ), *v.get_word32() );
+      case z_int64:   return PrintJson( decorate.Shift( o ), *v.get_int64() );
+      case z_word64:  return PrintJson( decorate.Shift( o ), *v.get_word64() );
+      case z_float:   return PrintJson( decorate.Shift( o ), *v.get_float() );
+      case z_double:  return PrintJson( decorate.Shift( o ), *v.get_double() );
 
-      case z_charstr: return PrintJson( decorate.Space( o ), v.get_charstr() );
-      case z_widestr: return PrintJson( decorate.Space( o ), v.get_widestr() );
-      case z_zarray:  return PrintJson( decorate.Break( o ), *v.get_zarray(), D( decorate ) );
+      case z_charstr: return PrintJson( decorate.Shift( o ), v.get_charstr() );
+      case z_widestr: return PrintJson( decorate.Shift( o ), v.get_widestr() );
+      case z_zarray:  return PrintJson(                 o,  *v.get_zarray(), decorate );
 
       case z_array_char:    return PrintJson( decorate.Break( o ), *v.get_array_char(),   D( decorate ) );
       case z_array_byte:    return PrintJson( decorate.Break( o ), *v.get_array_byte(),   D( decorate ) );
