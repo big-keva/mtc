@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __mtc_hashmap_h__ )
 # define  __mtc_hashmap_h__
 
+# include "platform.h"
 # include <cassert>
 # include <string.h>
 # include <stdlib.h>
@@ -109,84 +110,64 @@ namespace mtc
   inline  bool      hashmap_iseq( const unsigned char* p1, const unsigned char* p2 )
     {  return p1 == p2 || strcmp( (const char*)p1, (const char*)p2 ) == 0;  }
 
-  template <class Key, class Val>
+  template <class K, class V, class M = def_alloc>
   class   hashmap
   {
+    M   allocator;
+
     struct  keyrec
     {
-      Key       key;
-      Val       val;
+      K         key;
+      V         val;
       unsigned  pos;
       keyrec*   lpn;
-    protected:
-      template <class thekey, class theval>
-      keyrec( thekey&  k, theval& t,
-              unsigned p, keyrec* n ): key( k ), val( t ), pos( p ), lpn( n )
-        {}
-      template <class thekey>
-      keyrec( thekey&  k,
-              unsigned p, keyrec* n ): key( k ), pos( p ), lpn( n )
-        {}
-     ~keyrec()
-        {}
 
-    public:     // creation
-      void    DelAll()
-        {
-          if ( this != nullptr )
-          {
-            if ( lpn != nullptr )
-              lpn->DelAll();
-            delete this;
-          }
-        }
-      template <class thekey, class theval>
-      static  keyrec* Create( thekey&   k, theval& t,
-                              unsigned  p, keyrec* n )
-                {
-                  keyrec* newrec = (keyrec*)malloc( sizeof(keyrec) );
+    public:   // construction
+      keyrec( const K& k, const V& v, unsigned p, keyrec* n ): key( k ), val( v ), pos( p ), lpn( n ) {}
+      keyrec( const K& k,             unsigned p, keyrec* n ): key( k ), pos( p ), lpn( n ) {}
 
-                  if ( newrec != nullptr )
-                    new ( newrec ) keyrec( k, t, p, n );
-                  return newrec;
-                }
-      template <class thekey>
-      static  keyrec* Create( thekey    k,
-                              unsigned  p, keyrec* n )
-                {
-                  keyrec* newrec = (keyrec*)malloc( sizeof(keyrec) );
-
-                  if ( newrec != nullptr )
-                    new ( newrec ) keyrec( k, p, n );
-                  return newrec;
-                }
     };
 
-  private:    // copy prevent section
-    hashmap( const hashmap<Key, Val>& );
-    hashmap<Key, Val>& operator = ( const hashmap<Key, Val>& );
+  protected:  // allocation
+    template <class... constructor_args>
+    keyrec* Create( const K& k, constructor_args... a )
+      {
+        keyrec* palloc;
+
+        if ( (palloc = (keyrec*)allocator.alloc( sizeof(keyrec) )) != nullptr )
+          new( palloc ) keyrec( k, a... );
+
+        return palloc;
+      }
 
   public:     // construction
-    hashmap( unsigned tablen = 69959 );
+    hashmap( unsigned tablen = 69959 ): pitems( nullptr ), maplen( tablen ), ncount( 0 )  {}
    ~hashmap();
+    hashmap( const hashmap& ) = delete;
+    hashmap& operator = ( const hashmap& ) = delete;
 
-  // Map work methods
-    int           Delete( const Key& );
+  public:     // methods
+    int           Append( const hashmap& );
+    int           Delete( const K& );
     void          DelAll();
-    unsigned      GetLen() const;
-    unsigned      MapLen() const;
+    unsigned      GetLen() const  {  return ncount;  }
+    unsigned      MapLen() const  {  return maplen;  }
     int           Rehash( unsigned  newlen );
-    const Val*    Search( const Key& ) const;
-    Val*          Search( const Key& );
-    Val*          AddKey( const Key& );
-    int           Insert( const Key&, const Val& );
-    int           Insert( const Key&, Val& );
+          V*      Insert( const K&, const V& v = V() );
+    const V*      Search( const K& ) const;
+          V*      Search( const K& );
 
-  // Enumerator support methods
-    const void*   Enum( const void* ) const;
-    void*         Enum( void* );
-    static  Key&  GetKey( const void* );
-    static  Val&  GetVal( const void* );
+  public:     // stl compat
+    int     size() const  {  return GetLen();  }
+
+  // enumerator support methods
+    const void*         Enum( const void* ) const;
+          void*         Enum( void* );
+    static const K&     GetKey( const void* p ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->key;  }
+    static       K&     GetKey(       void* p ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->key;  }
+    static const V&     GetVal( const void* p ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->val;  }
+    static       V&     GetVal(       void* p ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->val;  }
+
     template <class action>
     int           for_each( action ) const;
     template <class action>
@@ -195,17 +176,17 @@ namespace mtc
     void          DeleteIf( ifcond _if_ );
 
   protected:  // helpers
-    int       Alloc()
+    int     NewMap()
       {
-        assert( pitems == nullptr );
-        assert( maplen != 0 );
+        assert( pitems == nullptr && maplen != 0 );
 
         if ( pitems != nullptr || maplen == 0 )
           return EINVAL;
-        if ( (pitems = (keyrec**)malloc( maplen * sizeof(keyrec*) )) == nullptr )
+        if ( (pitems = (keyrec**)allocator.alloc( maplen * sizeof(keyrec*) )) == nullptr )
           return ENOMEM;
-        else memset( pitems, 0, maplen * sizeof(keyrec*) );
-          return 0;
+        for ( auto p = pitems; p < pitems + maplen; )
+          *p++ = nullptr;
+        return 0;
       }
 
   private:
@@ -217,71 +198,71 @@ namespace mtc
 
   // Map inline implementation
 
-  template <class Key, class Val>
-  inline  hashmap<Key, Val>::hashmap( unsigned tablen ):
-    pitems( nullptr ), maplen( tablen ), ncount( 0 )
-  {
-  }
-
-  template <class Key, class Val>
-  inline  hashmap<Key, Val>::~hashmap()
-  {
-    DelAll();
-  }
-
-  template <class Key, class Val>
-  inline  int   hashmap<Key, Val>::Delete( const Key& k )
-  {
-    if ( pitems != nullptr && ncount != 0 )
+  template <class K, class V, class M>
+  hashmap<K, V, M>::~hashmap()
     {
-      unsigned  nhcode = hashmap_gethash( k ) % maplen;
-      keyrec**  ppitem = &pitems[nhcode];
-      keyrec*   lpfree;
-
-      assert( *ppitem == nullptr || nhcode == (*ppitem)->pos );
-
-      while ( *ppitem != nullptr && !hashmap_iseq( (*ppitem)->key, k ) )
-        ppitem = &(*ppitem)->lpn;
-      if ( *ppitem != nullptr )
+      if ( pitems != nullptr )
       {
-        lpfree = *ppitem;
-        *ppitem = lpfree->lpn;
-        lpfree->lpn = nullptr;
-        lpfree->DelAll();
-        --ncount;
+        DelAll();
+        allocator.free( pitems );
       }
+    }
+
+  template <class K, class V, class M>
+  int   hashmap<K, V, M>::Append( const hashmap<K, V, M>& s )
+    {
+      for ( const void* p = nullptr; (p = e.Enum( p )) != nullptr; )
+        if ( Insert( GetKey( p ), GetVal( p ) ) == nullptr )
+          return ENOMEM;
+
       return 0;
     }
-    return EINVAL;
-  }
 
-  template <class Key, class Val>
-  inline  void  hashmap<Key, Val>::DelAll()
-  {
-    if ( pitems != nullptr )
+  template <class K, class V, class M>
+  inline  int   hashmap<K, V, M>::Delete( const K& k )
     {
-      for ( auto p = pitems; p < pitems + maplen; )
-        (*p++)->DelAll();
-      free( pitems );
-        pitems = nullptr;
+      if ( pitems != nullptr && ncount != 0 )
+      {
+        unsigned  pos = hashmap_gethash( k ) % maplen;
+        keyrec**  ptr = &pitems[pos];
+
+        assert( *ptr == nullptr || pos == (*ptr)->pos );
+
+        while ( *ptr != nullptr && !hashmap_iseq( (*ptr)->key, k ) )
+          ptr = &(*ptr)->lpn;
+
+        if ( *ptr != nullptr )
+        {
+          keyrec* del = *ptr;
+          
+          *ptr = del->lpn;
+            del->~keyrec();
+            allocator.free( del );
+          --ncount;
+        }
+        return 0;
+      }
+      return EINVAL;
     }
-    ncount = 0;
-  }
 
-  template <class Key, class Val>
-  inline  unsigned  hashmap<Key, Val>::GetLen() const
-  {
-    return ncount;
-  }
+  template <class K, class V, class M>
+  inline  void  hashmap<K, V, M>::DelAll()
+    {
+      keyrec* del;
 
-  template <class Key, class Val>
-  inline  unsigned  hashmap<Key, Val>::MapLen() const
-  {
-    return maplen;
-  }
+      if ( pitems != nullptr )
+        for ( auto p = pitems; p < pitems + maplen; ++p )
+          while ( (del = *p) != nullptr )
+          {
+            *p = del->lpn;
+              del->~keyrec();
+            allocator.free( del );
+          }
+      ncount = 0;
+    }
 
-  template <class Key, class Val>
-  inline  int       hashmap<Key, Val>::Rehash( unsigned newlen )
+  template <class K, class V, class M>
+  inline  int   hashmap<K, V, M>::Rehash( unsigned newlen )
   {
     if ( newlen == 0 )
       return EINVAL;
@@ -291,7 +272,7 @@ namespace mtc
       keyrec**  newitems;
       unsigned  oldindex;
 
-      if ( (newitems = (keyrec**)malloc( newlen * sizeof(keyrec*) )) == NULL )
+      if ( (newitems = (keyrec**)allocator.alloc( newlen * sizeof(keyrec*) )) == NULL )
         return ENOMEM;
       else memset( newitems, 0, newlen * sizeof(keyrec*) );
 
@@ -317,208 +298,150 @@ namespace mtc
     return 0;
   }
 
-  template <class Key, class Val>
-  inline  const Val*  hashmap<Key, Val>::Search( const Key& k ) const
-  {
-    if ( pitems != nullptr )
+  template <class K, class V, class M>
+  V*    hashmap<K, V, M>::Insert( const K& k, const V& v )
     {
-      unsigned  nhcode = hashmap_gethash( k ) % maplen;
-      keyrec*   lpitem = pitems[nhcode];
+      unsigned  pos = hashmap_gethash( k ) % maplen;
+      keyrec*   ptr;
 
-      assert( lpitem == nullptr || nhcode == lpitem->pos );
+      if ( pitems == nullptr && NewMap() != 0 )
+        return nullptr;
 
-      while ( lpitem != nullptr && !hashmap_iseq( lpitem->key, k ) )
-        lpitem = lpitem->lpn;
-      return lpitem != nullptr ? &lpitem->val : nullptr;
-    }
-    return nullptr;
-  }
+      if ( (ptr = Create( k, v, pos, pitems[pos] )) != nullptr ) pitems[pos] = ptr;
+        else return nullptr;
 
-  template <class Key, class Val>
-  inline  Val*    hashmap<Key, Val>::Search( const Key& k )
-  {
-    if ( pitems != nullptr )
-    {
-      unsigned  nhcode = hashmap_gethash( k ) % maplen;
-      keyrec*   lpitem = pitems[nhcode];
-
-      assert( lpitem == nullptr || nhcode == lpitem->pos );
-
-      while ( lpitem != nullptr && !hashmap_iseq( lpitem->key, k ) )
-        lpitem = lpitem->lpn;
-      return lpitem != nullptr ? &lpitem->val : nullptr;
-    }
-    return nullptr;
-  }
-
-  template <class Key, class Val>
-  inline  Val*      hashmap<Key, Val>::AddKey( const Key& k )
-  {
-    unsigned  nindex = hashmap_gethash( k ) % maplen;
-    keyrec*   newrec;
-    int       nerror;
-
-  // Ensure the map is allocated
-    if ( pitems == nullptr && (nerror = Alloc()) != 0 )
-      return nullptr;
-
-  // Allocate the item
-    if ( (newrec = keyrec::Create( k, nindex, pitems[nindex] )) == NULL )
-      return nullptr;
-    pitems[nindex] = newrec;
       ++ncount;
-
-    return &newrec->val;
-  }
-
-  template <class Key, class Val>
-  inline  int       hashmap<Key, Val>::Insert( const Key& k, const Val& t )
-  {
-    unsigned  nindex = hashmap_gethash( k ) % maplen;
-    keyrec*   newrec;
-    int       nerror;
-
-  // Ensure the map is allocated
-    if ( pitems == nullptr && (nerror = Alloc()) != 0 )
-      return nerror;
-
-  // Allocate the item
-    if ( (newrec = keyrec::Create( k, t, nindex, pitems[nindex] )) == nullptr )
-      return ENOMEM;
-    pitems[nindex] = newrec;
-      ++ncount;
-
-    return 0;
-  }
-
-  template <class Key, class Val>
-  inline  int       hashmap<Key, Val>::Insert( const Key& k, Val& t )
-  {
-    unsigned  nindex = hashmap_gethash( k ) % maplen;
-    keyrec*   newrec;
-    int       nerror;
-
-  // Ensure the map is allocated
-    if ( pitems == nullptr && (nerror = Alloc()) != 0 )
-      return nerror;
-
-  // Allocate the item
-    if ( (newrec = keyrec::Create( k, t, nindex, pitems[nindex] )) == nullptr )
-      return ENOMEM;
-    pitems[nindex] = newrec;
-      ++ncount;
-
-    return 0;
-  }
-
-  template <class Key, class Val>
-  inline  const void* hashmap<Key, Val>::Enum( const void* pvn ) const
-  {
-    keyrec**  ppktop;
-    keyrec**  ppkend;
-
-  // Check pitems initialized
-    if ( pitems == nullptr )
-      return nullptr;
-
-  // For the first call, make valid object pointer
-    if ( pvn != nullptr )
-    {
-      keyrec*   lpnext;
-
-      if ( (lpnext = ((keyrec*)pvn)->lpn) != nullptr )
-        return lpnext;
-
-      ppktop = pitems + ((keyrec*)pvn)->pos + 1;
+        return 0;
     }
-      else
-    ppktop = pitems;
 
-    for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
-      (void)nullptr;
-
-    return ppktop < ppkend ? *ppktop : nullptr;
-  }
-
-  template <class Key, class Val>
-  inline  void*     hashmap<Key, Val>::Enum( void* pvn )
-  {
-    keyrec**  ppktop;
-    keyrec**  ppkend;
-
-  // Check pitems initialized
-    if ( pitems == nullptr )
-      return nullptr;
-
-  // For the first call, make valid object pointer
-    if ( pvn != nullptr )
+  template <class K, class V, class M>
+  const V*  hashmap<K, V, M>::Search( const K& k ) const
     {
-      keyrec*   lpnext;
+      if ( pitems != NULL )
+      {
+        unsigned      pos = hashmap_gethash( k ) % maplen;
+        const keyrec* ptr = pitems[pos];
 
-      if ( (lpnext = ((keyrec*)pvn)->lpn) != nullptr )
-        return lpnext;
+        assert( ptr == NULL || pos == ptr->pos );
 
-      ppktop = pitems + ((keyrec*)pvn)->pos + 1;
+        while ( ptr != nullptr && !hashmap_iseq( ptr->key, k ) )
+          ptr = ptr->lpn;
+
+        return ptr != nullptr ? &ptr->val : nullptr;
+      }
+      return nullptr;
     }
-      else
-    ppktop = pitems;
 
-    for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
-      (void)nullptr;
+  template <class K, class V, class M>
+  V*      hashmap<K, V, M>::Search( const K& k )
+    {
+      if ( pitems != NULL )
+      {
+        unsigned  pos = hashmap_gethash( k ) % maplen;
+        keyrec*   ptr = pitems[pos];
 
-    return ppktop < ppkend ? *ppktop : nullptr;
-  }
+        assert( ptr == NULL || pos == ptr->pos );
 
-  template <class Key, class Val>
-  inline  Key&      hashmap<Key, Val>::GetKey( const void*  pvn )
-  {
-    assert( pvn != NULL );
+        while ( ptr != nullptr && !hashmap_iseq( ptr->key, k ) )
+          ptr = ptr->lpn;
 
-    return ((keyrec*)pvn)->key;
-  }
+        return ptr != nullptr ? &ptr->val : nullptr;
+      }
+      return nullptr;
+    }
 
-  template <class Key, class Val>
-  inline  Val&      hashmap<Key, Val>::GetVal( const void*  pvn )
-  {
-    assert( pvn != NULL );
+  template <class K, class V, class M>
+  const void* hashmap<K, V, M>::Enum( const void* pvn ) const
+    {
+      auto  ppktop = pitems;
+      auto  ppkend = pitems + maplen;
 
-    return ((keyrec*)pvn)->val;
-  }
+    // Check pitems initialized
+      if ( pitems == nullptr )
+        return nullptr;
 
-  template <class Key, class Val>
+    // For the first call, make valid object pointer
+      if ( pvn != nullptr )
+      {
+        const keyrec* lpnext;
+
+        if ( (lpnext = ((const keyrec*)pvn)->lpn) != nullptr )
+          return lpnext;
+
+        ppktop = pitems + ((const keyrec*)pvn)->pos + 1;
+      }
+        else
+      ppktop = pitems;
+
+      for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
+        (void)NULL;
+
+      return ppktop < ppkend ? *ppktop : nullptr;
+    }
+
+  template <class K, class V, class M>
+  void* hashmap<K, V, M>::Enum( void* pvn )
+    {
+      keyrec**  ppktop;
+      keyrec**  ppkend;
+
+    // Check pitems initialized
+      if ( pitems == nullptr )
+        return nullptr;
+
+    // For the first call, make valid object pointer
+      if ( pvn != nullptr )
+      {
+        keyrec* lpnext;
+
+        if ( (lpnext = ((keyrec*)pvn)->lpn) != nullptr )
+          return lpnext;
+
+        ppktop = pitems + ((const keyrec*)pvn)->pos + 1;
+      }
+        else
+      ppktop = pitems;
+
+      for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
+        (void)NULL;
+
+      return ppktop < ppkend ? *ppktop : nullptr;
+    }
+
+  template <class K, class V, class M>
   template <class action>
-  inline  int       hashmap<Key, Val>::for_each( action _do_ ) const
-  {
-    const void* p = nullptr;
-    int         e = 0;
+  int       hashmap<K, V, M>::for_each( action _do_ ) const
+    {
+      const void* p = nullptr;
+      int         e = 0;
 
-    while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
-      (void)0;
+      while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
+        (void)0;
 
-    return e;
-  }
+      return e;
+    }
 
-  template <class Key, class Val>
+  template <class K, class V, class M>
   template <class action>
-  inline  int       hashmap<Key, Val>::for_each( action _do_ )
-  {
-    const void* p = nullptr;
-    int         e = 0;
+  inline  int       hashmap<K, V, M>::for_each( action _do_ )
+    {
+      void* p = nullptr;
+      int   e = 0;
 
-    while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
-      (void)0;
+      while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
+        (void)0;
 
-    return e;
-  }
+      return e;
+    }
 
-  template <class Key, class Val>
+  template <class K, class V, class M>
   template <class ifcond>
-  inline  void      hashmap<Key, Val>::DeleteIf( ifcond _if_ )
+  void      hashmap<K, V, M>::DeleteIf( ifcond _if_ )
   {
     for ( auto p = Enum( nullptr ); p != nullptr; )
       if ( _if_( GetKey( p ), GetVal( p ) ) )
       {
-        const Key&  delkey = GetKey( p );
+        const K&  delkey = GetKey( p );
 
         p = Enum( p );  Delete( delkey );
       }

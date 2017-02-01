@@ -67,7 +67,7 @@ SOFTWARE.
 namespace mtc
 {
 
-  template <class Chr, class Val, class M = def_alloc<>>
+  template <class Chr, class Val, class M = def_alloc>
   class   _base_stringmap_
   {
     struct  keyrec
