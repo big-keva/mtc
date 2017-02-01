@@ -79,10 +79,11 @@ namespace mtc
       return s.SetLen( (m + sizeof(U) * CHAR_BIT - 1) / (sizeof(U) * CHAR_BIT) );
     }
 
-  template <class U, class M>
-  inline  bool  bitset_get( const array<U, M>&  s, unsigned b )
+  template <class bitset>
+  inline  bool  bitset_get( const bitset& s, unsigned b )
     {
-      return s.size() > (int)(b / (sizeof(U) * CHAR_BIT)) && (s[b / (sizeof(U) * CHAR_BIT)] & (1 << (b % (sizeof(U) * CHAR_BIT)))) != 0;
+      return s.size() > (int)(b / (sizeof(s.last()) * CHAR_BIT))
+        && (s[b / (sizeof(s.last()) * CHAR_BIT)] & (1 << (b % (sizeof(s.last()) * CHAR_BIT)))) != 0;
     }
 
   template <class U>
