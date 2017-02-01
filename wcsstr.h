@@ -247,12 +247,18 @@ namespace mtc
     return rc;
   }
 
-  template <class clower>
-  inline  int   w_strcasecmp( const char* s, const char* m, clower l = []( char c ){  return c;  } )
+  struct __impl_default_tolower
+  {
+    widechar  operator ()( widechar c ) {  return c;  }
+    char      operator ()( char     c ) {  return c;  }
+  };
+
+  template <class clower = __impl_default_tolower>
+  inline  int   w_strcasecmp( const char* s, const char* m, clower l = __impl_default_tolower() )
     {  return __impl_strcasecmp( s, m, l );  }
 
-  template <class clower>
-  inline  int   w_strcasecmp( const widechar* s, const widechar* m, clower l = []( widechar c ){  return c;  } )
+  template <class clower = __impl_default_tolower>
+  inline  int   w_strcasecmp( const widechar* s, const widechar* m, clower l = __impl_default_tolower() )
     {  return __impl_strcasecmp( s, m, l );  }
 
   //
