@@ -173,8 +173,120 @@ namespace mtc
   inline  float*          __safe_array_construct_cpy( float* p, float r )
     {  *p = r;  return p;  }
 
+/* array searchers */
+  template <class T>
+  int    Lookup( const T* begin, const T* end, const T& match )
+    {
+      for ( const T* start = begin; begin < end; ++begin )
+        if ( match == *begin )  return begin - start;
+      return -1;
+    }
+
+  template <class T, class _test>
+  int    Lookup( const T* begin, const T* end, _test test )
+    {
+      for ( const T* start = begin; begin < end; ++begin )
+        if ( test( *begin ) ) return begin - start;
+      return -1;
+    }
+
+  template <class T>
+  bool    Search( const T* begin, const T* end, const T& match, int& pos )
+    {
+      const T*  start;
+      bool      found = false;
+
+      if ( (start = begin) < end-- )
+        for ( found = false; begin <= end; )
+        {
+          const T*  median = begin + ((end - begin) >> 1);
+
+          if ( *median < match )  begin = median + 1;
+            else
+          {
+            end = median - 1;
+            found |= *median == match;
+          }
+        }
+      pos = begin - start;
+      return found;
+    }
+
+  template <class T, class _comp>
+  bool    Search( const T* begin, const T* end, _comp comp, int& pos )
+    {
+      const T*  start;
+      bool      found = false;
+
+      if ( (start = begin) < end-- )
+        for ( found = false; begin <= end; )
+        {
+          const T*  median = begin + ((end - begin) >> 1);
+          int       rescmp = comp( *median );
+
+          if ( rescmp < 0 ) begin = median + 1;
+            else
+          {
+            end = median - 1;
+            found |= rescmp == 0;
+          }
+        }
+      pos = begin - start;
+      return found;
+    }
+
+  template <class T, class _func>
+  int     for_each( T* begin, T* end, _func func )
+    {
+      int e;
+
+      for ( auto next = begin; next < end; ++next )
+        if ( (e = func( *next )) != 0 ) return e;
+      return 0;
+    }
+
+  template <class T, class _func>
+  void    for_all( T* begin, T* end, _func func )
+    {
+      for ( auto next = begin; next < end; )
+        func( *next++ );
+    }
+
+  template <class T, class this_type>
+  class _base_array
+  {
+    this_type&  _this() {  return *(this_type*)this;  }
+    const this_type&  _this() const {  return *(const this_type*)this;  }
+
+  public:     // searchers
+                        int   Lookup( const T& t ) const          {  return mtc::Lookup( _this().begin(), _this().end(), t );  }
+    template <class P>  int   Lookup( P p ) const                 {  return mtc::Lookup( _this().begin(), _this().end(), p );  }
+                        bool  Search( const T& t, int& p ) const  {  return mtc::Search( _this().begin(), _this().end(), t, p );  }
+    template <class C>  bool  Search( C c, int& p ) const         {  return mtc::Search( _this().begin(), _this().end(), c, p );  }
+
+  public:     // for_*
+    template <class _func> int    for_each( _func func ) const  {  return mtc::for_each( _this().begin(), _this().end(), func );  }
+    template <class _func> int    for_each( _func func )        {  return mtc::for_each( _this().begin(), _this().end(), func );  }
+
+    template <class _func> void   for_all( _func  func ) const  {  return mtc::for_all( _this().begin(), _this().end(), func );  }
+    template <class _func> void   for_all( _func  func )        {  return mtc::for_all( _this().begin(), _this().end(), func );  }
+
+  public:     // operators
+    operator        T* ()       {  return _this().begin();  }
+    operator const  T* () const {  return _this().begin();  }
+          T&  operator [] ( int i )       {  assert( i >= 0 && i < _this().size() );  return _this().begin()[i];  }
+    const T&  operator [] ( int i ) const {  assert( i >= 0 && i < _this().size() );  return _this().begin()[i];  }
+
+  public:     // stl compatibility
+    T&        first()       {  assert( _this().size() > 0 );  return _this().begin()[0];  }
+    const T&  first() const {  assert( _this().size() > 0 );  return _this().begin()[0];  }
+    T&        last()        {  assert( _this().size() > 0 );  return _this().begin()[_this().size() - 1];  }
+    const T&  last() const  {  assert( _this().size() > 0 );  return _this().begin()[_this().size() - 1];  }
+
+  };
+
   template <class T, class M = def_alloc>
-  class array
+  class array: public _base_array<T, array<T, M>>
   {
     M     malloc;
 
@@ -206,19 +318,12 @@ namespace mtc
     int   SetLen( int );
     void  DelAll();
 
-  public:     // searchers
-    int   Lookup( const T& ) const;
-    template <class _pred_>
-    int   Lookup( _pred_ ) const;
-    bool  Search( const T&, int& ) const;
-    template <class _key_, class _cmp_>
-    bool  Search( const _key_&, int&, _cmp_ ) const;
-
-  public:     // operators
-    operator        T* ()         {  return pitems;   }
-    operator const  T* () const   {  return pitems;   }
-    T&    operator [] ( int );
-    const T&  operator [] ( int ) const;
+  public:     // stl compat
+    int       size() const  {  return ncount;  }
+    T*        begin()       {  return pitems;  }
+    const T*  begin() const {  return pitems;  }
+    T*        end()         {  return pitems + ncount;  }
+    const T*  end() const   {  return pitems + ncount;  }
 
   public:     // customizing
     int   GetLimit() const  {  return nlimit;   }
@@ -226,22 +331,9 @@ namespace mtc
     int   SetLimit( int );
     void  SetDelta( int n ) {  ndelta = n;      }
 
-  public:     // iterators
-    template <class _func_> int   for_each( _func_ ) const;
-    template <class _func_> int   for_each( _func_ );
-    template <class _func_> void  DeleteIf( _func_ );
+  public:     // delete
+    template <class _test>  void  DeleteIf( _test );
                             void  DeleteIf( const T& );
-
-  public:     // stl compatibility
-    T*        begin()       {  return pitems;  }
-    T*        end()         {  return pitems + ncount;  }
-    const T*  begin() const {  return pitems;  }
-    const T*  end() const   {  return pitems + ncount;  }
-    int       size() const  {  return ncount;  }
-    T&        first()       {  assert( ncount > 0 );  return *pitems;  }
-    T&        last()        {  assert( ncount > 0 );  return pitems[ncount - 1];  }
-    const T&  first() const {  assert( ncount > 0 );  return *pitems;  }
-    const T&  last() const  {  assert( ncount > 0 );  return pitems[ncount - 1];  }
 
   protected:  // helpers
     int       GrowTo( int newlen );
@@ -254,8 +346,34 @@ namespace mtc
 
   };
 
+  template <class T>
+  class inline_array: public _base_array<T, inline_array<T>>
+  {
+    const T*  pitems;
+    int       ncount;
+
+  public:     // construction
+    inline_array(): pitems( nullptr ), ncount( 0 )  {}
+    inline_array( const T* p, int l ): pitems( p ), ncount( l ) {}
+    template <class A>
+    inline_array( const A& a ): pitems( a.begin() ), ncount( a.size() ) {}
+    template <class A>
+    inline_array& operator = ( const A& a )
+      {
+        pitems = a.begin();
+        ncount = a.size();
+        return *this;
+      }
+
+  public:     // stl compatibility
+    int       size() const  {  return ncount;  }
+    const T*  begin() const {  return pitems;  }
+    const T*  end() const   {  return ncount + begin();  }
+
+  };
+
   template <class T, int L>
-  class static_array
+  class static_array: public _base_array<T, static_array<T, L>>
   {
     int   ncount;
     char  aitems[L * sizeof(T)];
@@ -288,39 +406,21 @@ namespace mtc
     int   SetLen( int );
     void  DelAll();
 
-  public:     // searchers
-    template <class _test_> int   Lookup( _test_ ) const;
-                            int   Lookup( const T& ) const;
-    template <class _test_> bool  Search( _test_, int& ) const;
-                            bool  Search( const T&, int& ) const;
-
-  public:     // operators
-    operator        T* ()       {  return (T*)aitems;   }
-    operator const  T* () const {  return (const T*)aitems;   }
-          T&  operator [] ( int i )         {  assert( i < ncount );  return begin()[i];  }
-    const T&  operator [] ( int i ) const   {  assert( i < ncount );  return begin()[i];  }
-
-  public:     // iterators
-    template <class _func_> int   for_each( _func_ ) const;
-    template <class _func_> int   for_each( _func_ );
-    template <class _func_> void  DeleteIf( _func_ );
+  public:     // delete
+    template <class _test> void   DeleteIf( _test );
                             void  DeleteIf( const T& );
 
   public:     // stl compatibility
+    int       size() const  {  return ncount;  }
     const T*  begin() const {  return (const T*)aitems;  }
     T*        begin()       {  return (T*)aitems;  }
     const T*  end() const   {  return ncount + begin();  }
     T*        end()         {  return ncount + begin();  }
-    int       size() const  {  return ncount;  }
-    T&        first()       {  assert( ncount > 0 );  return *begin();  }
-    const T&  first() const {  assert( ncount > 0 );  return *begin();  }
-    T&        last()        {  assert( ncount > 0 );  return begin()[ncount - 1];  }
-    const T&  last() const  {  assert( ncount > 0 );  return begin()[ncount - 1];  }
 
   };
 
   template <class T, class M = def_alloc>
-  class shared_array
+  class shared_array: public _base_array<T, shared_array<T, M>>
   {
     struct array_data: public array<T, M>
     {
@@ -343,8 +443,8 @@ namespace mtc
         return parray != nullptr;
       }
   public:     // construction
-    shared_array( int adelta = 0x10 );
-    shared_array( const M& ralloc, int adelta = 0x10 );
+    shared_array( int adelta = 0x10 ): parray( nullptr ), ndelta( adelta )  {}
+    shared_array( const M& ralloc, int adelta = 0x10 ): malloc( ralloc ), parray( nullptr ), ndelta( adelta ) {}
     shared_array( const shared_array& );
    ~shared_array();
     shared_array& operator = ( const shared_array& );
@@ -354,32 +454,19 @@ namespace mtc
     M&    SetAllocator( const M& m )  {  return malloc = m; }
 
   public:     // API
-    int   Append( const T& t )
-      {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
-    int   Append( T&& t )
-      {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
-    int   Append( int c, const T* p )
-      {  return Ensure() ? parray->Insert( size(), c, p ) : ENOMEM;   }
-    int   Append( const array<T, M>& r )
-      {  return Ensure() ? parray->Insert( size(), r ) : ENOMEM;  }
-    int   Append( array<T, M>& r )
-      {  return Ensure() ? parray->Insert( size(), r ) : ENOMEM;  }
-    int   Insert( int i, const T& t )
-      {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
-    int   Insert( int i, T&& t )
-      {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
-    int   Insert( int i, int c, const T* t )
-      {  return Ensure() ? parray->Insert( i, c, t ) : ENOMEM;  }
-    int   Insert( int i, int c, T* t )
-      {  return Ensure() ? parray->Insert( i, c, t ) : ENOMEM;  }
-    int   Insert( int i, const array<T, M>& t )
-       {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
-    int   Insert( int i, array<T, M>& t )
-       {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
-    int   Delete( int n )
-      {  return parray == nullptr ? 0 : parray->Delete( n );  }
-    int   GetLen() const
-      {  return parray != nullptr ? parray->GetLen() : 0;  }
+    int   Append( const T& t )  {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
+    int   Append( T&& t )       {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
+    int   Append( int c, const T* p )     {  return Ensure() ? parray->Insert( size(), c, p ) : ENOMEM;   }
+    int   Append( const array<T, M>& r )  {  return Ensure() ? parray->Insert( size(), r ) : ENOMEM;  }
+    int   Append( array<T, M>& r )    {  return Ensure() ? parray->Insert( size(), r ) : ENOMEM;  }
+    int   Insert( int i, const T& t ) {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
+    int   Insert( int i, T&& t )      {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
+    int   Insert( int i, int c, const T* t )  {  return Ensure() ? parray->Insert( i, c, t ) : ENOMEM;  }
+    int   Insert( int i, int c, T* t )        {  return Ensure() ? parray->Insert( i, c, t ) : ENOMEM;  }
+    int   Insert( int i, const array<T, M>& t ) {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
+    int   Insert( int i,       array<T, M>& t ) {  return Ensure() ? parray->Insert( i, t ) : ENOMEM;  }
+    int   Delete( int n ) {  return parray == nullptr ? 0 : parray->Delete( n );  }
+    int   GetLen() const  {  return parray != nullptr ? parray->GetLen() : 0;  }
     int   SetLen( int l )
       {
         if ( l == 0 )
@@ -420,58 +507,22 @@ namespace mtc
         return 0;
       }
 
-  public:     // searchers
-    int   Lookup( const T& t ) const
-      {  return parray != nullptr ? parray->Lookup( t ) : -1;  }
-    template <class _pred_>
-    int   Lookup( _pred_ test ) const
-      {  return parray != nullptr ? parray->Lookup( test ) : -1;  }
-    bool  Search( const T& t, int& s ) const
-      {  return parray != nullptr ? parray->Search( t, s ) : (s = 0) != 0;  }
-    template <class _key_, class _cmp_>
-    bool  Search( const _key_& k, int& s, _cmp_ cmp ) const
-      {  return parray != nullptr ? parray->Search( k, s, cmp ) : (s = 0) != 0;  }
-
-  public:     // operators
-    operator        T* ()
-      {  return parray != nullptr ? (T*)*parray : (T*)nullptr;  }
-    operator const  T* () const
-      {  return parray != nullptr ? (const T*)*parray : (T*)nullptr;  }
-    T&    operator [] ( int n )
-      {  assert( parray != nullptr );  return (*parray)[n];  }
-    const T&  operator [] ( int n ) const
-      {  assert( parray != nullptr );  return (*parray)[n];  }
-
   public:     // customizing
-    int   GetLimit() const
-      {  return parray != nullptr ? parray->GetLimit() : 0;  }
-    int   GetDelta() const
-      {  return parray != nullptr ? parray->GetDelta() : ndelta;  }
-    int   SetLimit( int l )
-      {  return Ensure() ? parray->SetLimit( l ) : ENOMEM;  }
-    void  SetDelta( int n )
-      {  ndelta = n;  if ( parray != nullptr )  parray->SetDelta( ndelta );  }
+    int   GetLimit() const  {  return parray != nullptr ? parray->GetLimit() : 0;  }
+    int   GetDelta() const  {  return parray != nullptr ? parray->GetDelta() : ndelta;  }
+    int   SetLimit( int l ) {  return Ensure() ? parray->SetLimit( l ) : ENOMEM;  }
+    void  SetDelta( int n ) {  ndelta = n;  if ( parray != nullptr )  parray->SetDelta( ndelta );  }
 
-  public:     // iterators
-    template <class _func_> int   for_each( _func_ func ) const
-      {  return parray != nullptr ? parray->for_each( func ) : 0;  }
-    template <class _func_> int   for_each( _func_ func )
-      {  return parray != nullptr ? parray->for_each( func ) : 0;  }
-    template <class _func_> void  DeleteIf( _func_ func )
-      {  if ( parray != nullptr ) parray->DeleteIf( func );  }
-                            void  DeleteIf( const T& t )
-      {  if ( parray != nullptr ) parray->DeleteIf( t );  }
+  public:     // delete
+    template <class _func_> void  DeleteIf( _func_ func ) {  if ( parray != nullptr ) parray->DeleteIf( func );  }
+                            void  DeleteIf( const T& t )  {  if ( parray != nullptr ) parray->DeleteIf( t );  }
 
   public:     // stl compatibility
-    T*        begin()       {  return *this;  }
-    T*        end()         {  return size() + *this;  }
-    const T*  begin() const {  return *this;  }
-    const T*  end() const   {  return size() + *this;  }
     int       size() const  {  return parray != nullptr ? parray->size() : 0;  }
-    T&        first()       {  return (*this)[0];  }
-    T&        last()        {  return (*this)[size() - 1];  }
-    const T&  first() const {  return (*this)[0];  }
-    const T&  last() const  {  return (*this)[size() - 1];  }
+    T*        begin()       {  return parray != nullptr ? parray->begin() : nullptr;  }
+    T*        end()         {  return parray != nullptr ? parray->end() : nullptr;  }
+    const T*  begin() const {  return parray != nullptr ? parray->begin() : nullptr;  }
+    const T*  end() const   {  return parray != nullptr ? parray->end() : nullptr;  }
 
   };
 
@@ -660,86 +711,6 @@ namespace mtc
   }
 
   template <class T, class M>
-  inline  int   array<T, M>::Lookup( const T& t ) const
-  {
-    for ( auto p = begin(); p < end(); ++p )
-      if ( *p == t )  return p - begin();
-    return -1;
-  }
-
-  template <class T, class M>
-  template <class _pred_>
-  inline  int   array<T, M>::Lookup( _pred_ pred ) const
-  {
-    for ( auto p = begin(); p < end(); ++p )
-      if ( pred( *p ) ) return p - begin();
-    return -1;
-  }
-
-  template <class T, class M>
-  inline  bool  array<T, M>::Search( const T& t, int& p ) const
-  {
-    int   l = 0;
-    int   h = ncount - 1;
-    int   m;
-    bool  s = false;
-
-    while ( l <= h )
-    {
-      m = ( l + h ) >> 1;
-      if ( pitems[m] < t ) l = m + 1;
-        else
-      {
-        h = m - 1;
-        s |= (pitems[m] == t);
-      }
-    }
-    p = (int)l;
-    return s;
-  }
-
-  template <class T, class M>
-  template <class _key_, class _cmp_>
-  inline  bool  array<T, M>::Search( const _key_& k, int& p, _cmp_ comp ) const
-  {
-    int   l = 0;
-    int   h = ncount - 1;
-    int   m;
-    bool  s = false;
-
-    while ( l <= h )
-    {
-      int   r;
-
-      m = ( l + h ) >> 1;
-      r = comp( k, pitems[m] );
-
-      if ( r > 0 ) l = m + 1;
-        else
-      {
-        h = m - 1;
-        s |= (r == 0);
-      }
-    }
-    p = (int)l;
-    return s;
-  }
-
-  template <class T, class M>
-  inline  T&    array<T, M>::operator [] ( int nindex )
-  {
-    assert( nindex < ncount && nindex >= 0 );
-    return pitems[nindex];
-  }
-
-  template <class T, class M>
-  inline  const T&  array<T, M>::operator [] ( int nindex ) const
-  {
-    assert( nindex < ncount && nindex >= 0 );
-    return pitems[nindex];
-  }
-
-  template <class T, class M>
   inline  int   array<T, M>::SetLimit( int newlimit )
   {
     if ( newlimit < ncount && SetLen( newlimit ) != 0 )
@@ -760,32 +731,6 @@ namespace mtc
       this->~array<T, M>();
     }
     nlimit = newlimit;
-    return 0;
-  }
-
-  template <class T, class M>
-  template <class _func_>
-  inline  int   array<T, M>::for_each( _func_ func ) const
-  {
-    int   nerror;
-
-    for ( auto p = begin(); p < end(); ++p )
-      if ( (nerror = func( *p )) != 0 )
-        return nerror;
-
-    return 0;
-  }
-
-  template <class T, class M>
-  template <class _func_>
-  inline  int   array<T, M>::for_each( _func_ func )
-  {
-    int   nerror;
-
-    for ( auto p = begin(); p < end(); ++p )
-      if ( (nerror = func( *p )) != 0 )
-        return nerror;
-
     return 0;
   }
 
@@ -948,98 +893,8 @@ namespace mtc
   }
 
   template <class T, int L>
-  template <class _test_>
-  int   static_array<T, L>::Lookup( _test_ test ) const
-  {
-    for ( auto p = begin(); p < end(); ++p )
-      if ( test( *p ) ) return p - begin();
-    return -1;
-  }
-
-  template <class T, int L>
-  int   static_array<T, L>::Lookup( const T& t ) const
-  {
-    for ( auto p = begin(); p < end(); ++p )
-      if ( t == *p )  return p - begin();
-    return -1;
-  }
-
-  template <class T, int L>
-  template <class _test_>
-  bool  static_array<T, L>::Search( _test_ test, int& p ) const
-  {
-    int   l = 0;
-    int   h = ncount - 1;
-    int   m;
-    bool  s = false;
-
-    while ( l <= h )
-    {
-      int   r;
-
-      m = ( l + h ) >> 1;
-      r = test( k, begin()[m] );
-
-      if ( r > 0 ) l = m + 1;
-        else
-      {
-        h = m - 1;
-        s |= (r == 0);
-      }
-    }
-    p = (int)l;
-    return s;
-  }
-
-  template <class T, int L>
-  bool  static_array<T, L>::Search( const T& t, int& p ) const
-  {
-    int   l = 0;
-    int   h = ncount - 1;
-    int   m;
-    bool  s = false;
-
-    while ( l <= h )
-    {
-      m = ( l + h ) >> 1;
-      if ( begin()[m] < t ) l = m + 1;
-        else
-      {
-        h = m - 1;
-        s |= (begin()[m] == t);
-      }
-    }
-    p = (int)l;
-    return s;
-  }
-
-  template <class T, int L>
-  template <class _func_>
-  int   static_array<T, L>::for_each( _func_ func ) const
-  {
-    const T*  p;
-    int       e;
-
-    for ( p = begin(), e = 0; p < end() && (e = func( *p )) == 0; ++p )
-      (void)NULL;
-    return e;
-  }
-
-  template <class T, int L>
-  template <class _func_>
-  int   static_array<T, L>::for_each( _func_ func )
-  {
-    T*  p;
-    int e;
-
-    for ( p = begin(), e = 0; p < end() && (e = func( *p )) == 0; ++p )
-      (void)NULL;
-    return e;
-  }
-
-  template <class T, int L>
-  template <class _func_>
-  void  static_array<T, L>::DeleteIf( _func_ test )
+  template <class _func>
+  void  static_array<T, L>::DeleteIf( _func test )
   {
     T*  p;
 
@@ -1059,16 +914,6 @@ namespace mtc
 // shared_array implementation
 
   template <class T, class M>
-  shared_array<T, M>::shared_array( int adelta ): parray( nullptr ), ndelta( adelta )
-  {
-  }
-
-  template <class T, class M>
-  shared_array<T, M>::shared_array( const M& ralloc, int adelta ): malloc( ralloc ), parray( nullptr ), ndelta( adelta )
-  {
-  }
-
-  template <class T, class M>
   shared_array<T, M>::shared_array( const shared_array& a ): malloc( a.malloc ), ndelta( a.ndelta )
   {
     if ( (parray = a.parray) != nullptr )
@@ -1079,14 +924,14 @@ namespace mtc
   shared_array<T, M>::~shared_array()
   {
     if ( parray != nullptr && --parray->refcount == 0 )
-      deallocate_with( malloc, parray );
+      deallocate_with( GetAllocator(), parray );
   }
 
   template <class T, class M>
   shared_array<T, M>& shared_array<T, M>::operator = ( const shared_array& a )
   {
     if ( parray != nullptr && --parray->refcount == 0 )
-      deallocate_with( malloc, parray );
+      deallocate_with( GetAllocator(), parray );
     if ( (parray = a.parray) != nullptr )
       ++parray->refcount;
     malloc = a.malloc;
