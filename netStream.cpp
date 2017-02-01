@@ -48,9 +48,9 @@ namespace mtc
       {
         return WSAGetLastError();
       }
-    static  int   NonBlock( SOCKET sockid )
+    static  int   SetBlock( SOCKET sockid, bool on_off )
       {
-        u_long  nonblk = 1;
+        u_long  nonblk = on_off ? 0 : 1;
 
         return ioctlsocket( sockid, FIONBIO, &nonblk );
       }
@@ -91,9 +91,10 @@ namespace mtc
       {
         return errno;
       }
-    static  int   NonBlock( SOCKET sockid )
+    static  int   SetBlock( SOCKET sockid, bool on_off )
       {
-        return fcntl( sockid, F_SETFL, fcntl( sockid, F_GETFL ) | O_NONBLOCK ) == -1 ? EINVAL : 0;
+        return fcntl( sockid, F_SETFL, on_off ? (fcntl( sockid, F_GETFL ) |  O_NONBLOCK) :
+                                                (fcntl( sockid, F_GETFL ) & ~O_NONBLOCK) ) == -1 ? EINVAL : 0;
       }
     static  int   NonDelay( SOCKET sockid )
       {
@@ -241,8 +242,7 @@ namespace mtc
     }
 
   // set socket to be non-blocking
-    if ( msconn != 0 )
-      Sockets::NonBlock( sockid );
+    Sockets::SetBlock( sockid, msconn != 0 && msconn != (unsigned)-1 );
 
   // try connect socket
     if ( (nerror = connect( sockid, (const sockaddr*)&scaddr, sizeof(scaddr) )) == 0 )
@@ -327,22 +327,32 @@ namespace mtc
 
   int   CNetStream::SetGetTimeout() const noexcept
   {
-	  struct timeval  tv;
+    if ( tmoGet != (word32_t)-1 )
+    {
+	    struct timeval  tv;
 
-    tv.tv_usec = (tmoGet - (tv.tv_sec = tmoGet / 1000) * 1000) * 1000;
+      tv.tv_usec = (tmoGet - (tv.tv_sec = tmoGet / 1000) * 1000) * 1000;
 
-    return setsockopt( sockid, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv) ) != 0 ?
-      Sockets::GetError() : 0;
+      return setsockopt( sockid, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv) ) != 0 ?
+        Sockets::GetError() : 0;
+    }
+      else
+    return Sockets::SetBlock( sockid, true );
   }
 
   int   CNetStream::SetPutTimeout() const noexcept
   {
-	  struct timeval  tv;
+    if ( tmoPut != (word32_t)-1 )
+    {
+	    struct timeval  tv;
 
-    tv.tv_usec = (tmoPut - (tv.tv_sec = tmoPut / 1000) * 1000) * 1000;
+      tv.tv_usec = (tmoPut - (tv.tv_sec = tmoPut / 1000) * 1000) * 1000;
 
-    return setsockopt( sockid, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv) ) != 0 ?
-      Sockets::GetError() : 0;
+      return setsockopt( sockid, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tv, sizeof(tv) ) != 0 ?
+        Sockets::GetError() : 0;
+    }
+      else
+    return Sockets::SetBlock( sockid, true );
   }
 
   /*
@@ -423,7 +433,7 @@ namespace mtc
       return Sockets::GetError();
 
   // set nonblocking mode
-    Sockets::NonBlock( sockid  );
+    Sockets::SetBlock( sockid, false );
 
     setsockopt( sockid, SOL_SOCKET, SO_REUSEADDR, (const char*)&socopt, sizeof(socopt) );
 
@@ -432,14 +442,14 @@ namespace mtc
       return eclose( Sockets::GetError() );
 
   // set nonblocking mode
-    Sockets::NonBlock( sockid  );
+    Sockets::SetBlock( sockid, false );
 
   // set che socket to the listen state
     if ( listen( sockid, mswait ) != 0 )
       return eclose( Sockets::GetError() );
 
   // set nonblocking mode
-    Sockets::NonBlock( sockid );
+    Sockets::SetBlock( sockid, false );
 
     *ppvout = Sockets::CastToVoid( sockid );
       return 0;
