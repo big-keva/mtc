@@ -60,7 +60,7 @@ SOFTWARE.
 namespace mtc
 {
 
-  template <class V, class M = def_alloc<>>
+  template <class V, class M = def_alloc>
   class patricia
   {
     class patnode;
@@ -255,7 +255,7 @@ namespace mtc
      ~patnode()
         {
           getarray().for_each( []( patnode* p )
-            {  M().deallocate( p );  } );
+            {  deallocate_with( M(), p );  } );
           delvalue();
         }
 
@@ -498,7 +498,8 @@ namespace mtc
               palloc->getarray().move( rnodes );
                 palloc->getarray().insert( n, p );
             }
-            M().deallocate( this );
+            deallocate_with( M(), this );
+
             return palloc.detach();
           }
           return this;
@@ -604,98 +605,37 @@ namespace mtc
 
   class patriciaSearch
   {
+    enum
+    {
+      asterisk = 0x0100 + '*',
+      question = 0x0100 + '?'
+    };
+
   public:     // construction
     patriciaSearch( const void* p ): serial( (const byte_t*)p )
       {}
       
   public:     // search
-    const byte_t* Search( const void* k, size_t l ) const
-      {
-        const byte_t* thedic;
-        int           nchars;
-        int           nnodes;
-        int           sublen;
-
-        if ( (thedic = ::FetchFrom( ::FetchFrom( ::FetchFrom( serial, nchars ), nnodes ), sublen )) == nullptr )
-          return nullptr;
-
-        assert( nnodes <= 513 );
-        assert( nchars <= 256 * 4 );
-
-        return Search( nchars, nnodes, sublen, thedic + nchars, (const byte_t*)k, (int)l );
-      }
+    const byte_t* Search( const void*, size_t ) const;
+    template <class _func_>
+    int           Select( const void*, size_t, _func_ ) const;
 
   protected:  // helpers
-    const byte_t* Search( int           nchars,
-                          int           nnodes,
-                          int           arsize,
+    const byte_t* Search( const byte_t* keystr,
+                          int           keylen,
                           const byte_t* thedic,
-                          const byte_t* thekey,
-                          int           cchkey ) const
-      {
-        bool    bvalue = (nnodes & 1) != 0;
-        byte_t  chfind;
+                          int           nnodes ) const;
+    template <class _func_>
+    int           Select( const byte_t* dicstr, int           diclen,
+                          const byte_t* keystr, const byte_t* keyend,
+                          const byte_t* thedic, int           nnodes,
+                          _func_        insert,
+                          byte_t*       buftop,
+                          byte_t*       bufend,
+                          byte_t*       bufptr ) const;
 
-        assert( cchkey >= nchars );
-
-      // если строка кончилась, то узел должен иметь значение
-        if ( cchkey == 0 )
-        {
-          if ( !bvalue )
-            return nullptr;
-
-          for ( nnodes >>= 1; nnodes-- > 0; )
-          {
-            int   cchars;
-            int   cnodes;
-            int   curlen;
-
-            thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
-            thedic = ::FetchFrom( thedic + cchars, curlen );
-              thedic = thedic + curlen;
-          }
-
-          return thedic;
-        }
-
-        assert( cchkey > 0 );
-
-        for ( chfind = *thekey, nnodes >>= 1; nnodes-- > 0; )
-        {
-          int   cchars;
-          int   cnodes;
-          int   curlen;
-          int   rescmp;
-
-        // извлечь характеристики очередного узла
-          thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
-
-        // проверить на совпадение
-          if ( (rescmp = chfind - *thedic) > 0 )
-            return nullptr;
-
-          if ( rescmp == 0 )
-          {
-          // сравнить строку с текущим элементом; если не совпадает, завершить поиск
-            if ( cchkey < cchars )
-              return nullptr;
-            while ( cchars > 0 && *thedic++ == *thekey++ )
-              {  --cchars;  --cchkey;  }
-            if ( cchars > 0 )
-              return nullptr;
-
-          // есть совпадение, извлечь размер вложенного массива и значения
-            thedic = ::FetchFrom( thedic, curlen );
-              return Search( cchars, cnodes, curlen, thedic, thekey, cchkey );
-          }
-
-        // извлечь вложенный размер
-          thedic = ::FetchFrom( thedic + cchars, curlen );
-            thedic += curlen;
-        }
-
-        return nullptr;
-      }
+  protected:  // internals
+    const byte_t* JumpOver( int nnodes, const byte_t* dicptr ) const;
 
   protected:  // variables
     const byte_t* serial;
@@ -731,6 +671,201 @@ namespace mtc
       return nullptr;
 
     return pfound->getvalue() != nullptr ? pfound->getvalue() : pfound->setvalue( v );
+  }
+
+  // patriciaSearch implementation
+
+  template <class _func_>
+  int           patriciaSearch::Select( const void* k, size_t l, _func_ f ) const
+  {
+    byte_t        thekey[0x100];
+    const byte_t* thedic;
+    int           nchars;
+    int           nnodes;
+    int           sublen;
+
+    if ( (thedic = ::FetchFrom( ::FetchFrom( ::FetchFrom( serial, nchars ), nnodes ), sublen )) == nullptr )
+      return 0;
+
+    assert( nnodes <= 513 );
+    assert( nchars <= 256 * 4 );
+
+    return Select( thedic, nchars, (const byte_t*)k, l + (const byte_t*)k, thedic + nchars, nnodes, f, thekey, array_end( thekey ), thekey );
+  }
+
+  inline
+  const byte_t* patriciaSearch::Search( const void* k, size_t l ) const
+  {
+    const byte_t* thedic;
+    int           nchars;
+    int           nnodes;
+    int           sublen;
+    const byte_t* thekey = (const byte_t*)k;
+    int           cchkey = l;
+
+    if ( (thedic = ::FetchFrom( ::FetchFrom( ::FetchFrom( serial, nchars ), nnodes ), sublen )) == nullptr )
+      return nullptr;
+
+    assert( nnodes <= 513 );
+    assert( nchars <= 256 * 4 );
+
+    while ( cchkey > 0 && nchars > 0 && *thekey++ == *thedic++ )
+    {
+      --cchkey;
+      --nchars;
+    }
+    return nchars == 0 ? Search( thekey, cchkey, thedic, nnodes ) : nullptr;
+  }
+
+  template <class _func_>
+  int           patriciaSearch::Select( const byte_t* dicstr, int           diclen,
+                                        const byte_t* keystr, const byte_t* keyend,
+                                        const byte_t* thedic, int           nnodes,
+                                        _func_        addptr,
+                                        byte_t*       buftop,
+                                        byte_t*       bufend,
+                                        byte_t*       bufptr ) const
+  {
+    bool    bvalue = (nnodes & 1) != 0;
+    int     nerror;
+
+    assert( diclen >= 0 );
+    assert( keyend >= keystr );
+
+  // сравнить соответствующие друг другу фрагменты строки и шаблона
+    while ( diclen > 0 && keystr < keyend && (*keystr == *dicstr || *keystr == '?') )
+    {
+      if ( buftop != nullptr )
+      {
+        if ( bufptr < bufend )  *bufptr++ = *dicstr;
+          else return E2BIG;
+      }
+      ++dicstr;
+      ++keystr;
+      --diclen;
+    }
+
+  // если строка запроса отсканирована полностью:
+  //  - если строка узла словаря исчерпана и есть данные, зарегистрировать их;
+  //  - иначе оборвать сканирование
+    if ( keystr == keyend )
+      return diclen == 0 && bvalue ? addptr( buftop, bufptr - buftop, JumpOver( nnodes >> 1, thedic ) ) : 0;
+
+    assert( keystr < keyend );
+
+  // если в строке словаря остались символы, а шаблон - не звёздочка, оборвать сканирование
+    if ( diclen > 0 )
+    {
+      if ( *keystr != '*' )
+        return 0;
+
+    // если символ шаблона '*', зайти рекурсивно, предположив соответствие 0..N символов фрагмента
+      for ( auto nmatch = 0; nmatch <= diclen; ++nmatch )
+      {
+        if ( buftop != nullptr && nmatch > 0 )
+        {
+          if ( bufend > bufptr )  *bufptr++ = dicstr[nmatch - 1];
+            else return E2BIG;
+        }
+        if ( (nerror = Select( dicstr + nmatch, diclen - nmatch, keystr + 1, keyend, thedic, nnodes, addptr, buftop, bufend, bufptr )) != 0 )
+          return nerror;
+      }
+      return nnodes > 1 ? Select( dicstr + diclen, 0, keystr, keyend, thedic, nnodes, addptr, buftop, bufend, bufptr ) : 0;
+    }
+      else
+  // если строка в узле словаря исчерпана, а у узла нету вложенных узлов, то соответствие
+  // может быть только в случае '*', во всех остальных - обрыв сканирования
+    {
+      if ( nnodes <= 1 )
+        return keyend - keystr == 1 && *keystr == '*' ? addptr( buftop, bufptr - buftop, thedic ) : 0;
+
+      for ( nnodes >>= 1; nnodes-- > 0; )
+      {
+        const byte_t* subdic;
+        int           cchars;
+        int           cnodes;
+        int           curlen;
+
+      // извлечь характеристики очередного узла
+        thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
+        subdic = ::FetchFrom( thedic + cchars, curlen );
+
+        if ( (nerror = Select( thedic, cchars, keystr, keyend, subdic, cnodes, addptr, buftop, bufend, bufptr )) != 0 )
+          return nerror;
+
+        thedic = subdic + curlen;
+      }
+    }
+
+    return 0;
+  }
+
+  inline
+  const byte_t* patriciaSearch::Search( const byte_t* thekey,
+                                        int           cchkey,
+                                        const byte_t* thedic,
+                                        int           nnodes ) const
+  {
+    bool    bvalue = (nnodes & 1) != 0;
+    byte_t  chfind;
+
+    assert( cchkey >= 0 );
+
+  // если строка кончилась, то узел должен иметь значение
+    if ( cchkey == 0 )
+      return bvalue ? JumpOver( nnodes >> 1, thedic ) : nullptr;
+
+    assert( cchkey > 0 );
+
+    for ( chfind = *thekey, nnodes >>= 1; nnodes-- > 0; )
+    {
+      int   cchars;
+      int   cnodes;
+      int   curlen;
+      int   rescmp;
+
+    // извлечь характеристики очередного узла
+      thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
+
+    // проверить на совпадение
+      if ( (rescmp = chfind - *thedic) > 0 )
+        return nullptr;
+
+      if ( rescmp == 0 )
+      {
+      // сравнить строку с текущим элементом; если не совпадает, завершить поиск
+        if ( cchkey < cchars )
+          return nullptr;
+        while ( cchars > 0 && *thedic++ == *thekey++ )
+          {  --cchars;  --cchkey;  }
+        if ( cchars > 0 )
+          return nullptr;
+
+      // есть совпадение, извлечь размер вложенного массива и значения
+        return Search( thekey, cchkey, ::FetchFrom( thedic, curlen ), cnodes );
+      }
+
+    // извлечь вложенный размер
+      thedic = ::FetchFrom( thedic + cchars, curlen ) + curlen;
+    }
+
+    return nullptr;
+  }
+
+  inline
+  const byte_t* patriciaSearch::JumpOver( int nnodes, const byte_t* thedic ) const
+  {
+    while ( nnodes-- > 0 )
+    {
+      int   cchars;
+      int   cnodes;
+      int   curlen;
+
+      thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
+      thedic = ::FetchFrom( thedic + cchars, curlen );
+      thedic = thedic + curlen;
+    }
+    return thedic;
   }
 
 }
