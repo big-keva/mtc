@@ -163,6 +163,12 @@ namespace mtc
   inline  widechar* w_strcat( widechar* o, const char* s )        {  return __impl_strcat( o, s );  }
   inline  char*     w_strcat( char* o, const char* s )            {  return __impl_strcat( o, s );  }
 
+  struct __impl_default_getwidechar
+  {
+    widechar  operator ()( const char*& s )
+      {  return (widechar)(unsigned char)*s++;  }
+  };
+
   //
   // strcmp() family
   //
@@ -174,19 +180,6 @@ namespace mtc
       (void)0;
     return rc;
   }
-
-  struct __impl_default_getwidechar
-  {
-    widechar  operator ()( const char*& s )
-      {  return (widechar)(unsigned char)*s++;  }
-  };
-
-  template <class ucload = __impl_default_getwidechar>
-  inline  int   w_strcmp( const char* s, const char* m, ucload l = __impl_default_getwidechar() )
-    {  return __impl_strcmp( s, m );  }
-  template <class ucload = __impl_default_getwidechar>
-  inline  int   w_strcmp( const widechar* s, const widechar* m, ucload l = __impl_default_getwidechar() )
-    {  return __impl_strcmp( s, m );  }
 
   template <class ucload = __impl_default_getwidechar>
   inline  int   w_strcmp( const char* s, const widechar* m, ucload l = __impl_default_getwidechar() )
@@ -204,6 +197,9 @@ namespace mtc
     return -w_strcmp( s, m, l );
   }
 
+  inline  int   w_strcmp( const char* s, const char* m )          {  return __impl_strcmp( s, m );  }
+  inline  int   w_strcmp( const widechar* s, const widechar* m )  {  return __impl_strcmp( s, m );  }
+
   //
   // strncmp() family
   //
@@ -215,13 +211,6 @@ namespace mtc
       (void)0;
     return rc;
   }
-
-  template <class ucload = __impl_default_getwidechar>
-  inline  int   w_strncmp( const char* s, const char* m, size_t n, ucload l = __impl_default_getwidechar() )
-    {  return __impl_strncmp( s, m, n );  }
-  template <class ucload = __impl_default_getwidechar>
-  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n, ucload l = __impl_default_getwidechar() )
-    {  return __impl_strncmp( s, m, n );  }
 
   template <class ucload = __impl_default_getwidechar>
   inline  int   w_strncmp( const char* s, const widechar* m, size_t n, ucload l = __impl_default_getwidechar() )
@@ -242,6 +231,29 @@ namespace mtc
       (void)0;
     return rc;
   }
+
+  inline  int   w_strncmp( const char* s, const char* m, size_t n )         {  return __impl_strncmp( s, m, n );  }
+  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n ) {  return __impl_strncmp( s, m, n );  }
+
+  //
+  // strcasecmp() family
+  //
+  template <class C, class L>  int __impl_strcasecmp( const C* s, const C* m, L l )
+  {
+    int   rc;
+
+    while ( (rc = l( *s ) - l( *m++ )) == 0 && *s++ != (C)0 )
+      (void)0;
+    return rc;
+  }
+
+  template <class clower>
+  inline  int   w_strcasecmp( const char* s, const char* m, clower l = []( char c ){  return c;  } )
+    {  return __impl_strcasecmp( s, m, l );  }
+
+  template <class clower>
+  inline  int   w_strcasecmp( const widechar* s, const widechar* m, clower l = []( widechar c ){  return c;  } )
+    {  return __impl_strcasecmp( s, m, l );  }
 
   //
   // strchr() family
