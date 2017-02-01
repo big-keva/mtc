@@ -106,6 +106,8 @@ namespace mtc
     operator void** ()              {  return (void**)&piface;  }
     operator iface* ()              {  return piface;  }
     operator const iface* () const  {  return piface;  }
+    iface*  ptr()                   {  return piface;  }
+    const iface*  ptr() const       {  return piface;  }
     iface*  operator -> ()
       {
         assert( piface != nullptr );
