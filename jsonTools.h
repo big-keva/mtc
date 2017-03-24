@@ -268,7 +268,7 @@ namespace mtc
 
         // check regular char
           if ( chprev != '\\' )
-            if ( append( refstr, (C)chnext, cchstr, climit ) != 0 ) return ENOMEM;
+            if ( append( refstr, (C)(byte_t)chnext, cchstr, climit ) != 0 ) return ENOMEM;
               else continue;
 
         // check long code: 4 symbols
@@ -287,15 +287,15 @@ namespace mtc
             {
               if ( (uvalue & ~0x07ff) == 0 )
               {
-                if ( append( refstr, (C)(0xC0 | (unsigned char)(uvalue >> 6)),   cchstr, climit ) != 0
-                  || append( refstr, (C)(0x80 | (unsigned char)(uvalue & 0x3f)), cchstr, climit ) != 0 )
+                if ( append( refstr, (C)(0xC0 | (byte_t)(uvalue >> 6)),   cchstr, climit ) != 0
+                  || append( refstr, (C)(0x80 | (byte_t)(uvalue & 0x3f)), cchstr, climit ) != 0 )
                 return ENOMEM;
               }
                 else
               {
-                if ( append( refstr, (C)(0xE0 | (unsigned char)(uvalue >> 12)),          cchstr, climit ) != 0
-                  || append( refstr, (C)(0x80 | (unsigned char)((uvalue >> 6) & 0x3F)),  cchstr, climit ) != 0
-                  || append( refstr, (C)(0x80 | (unsigned char)(uvalue & 0x3f)),         cchstr, climit ) != 0 )
+                if ( append( refstr, (C)(0xE0 | (byte_t)(uvalue >> 12)),          cchstr, climit ) != 0
+                  || append( refstr, (C)(0x80 | (byte_t)((uvalue >> 6) & 0x3F)),  cchstr, climit ) != 0
+                  || append( refstr, (C)(0x80 | (byte_t)(uvalue & 0x3f)),         cchstr, climit ) != 0 )
                 return ENOMEM;
               }
             }
