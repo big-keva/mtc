@@ -145,8 +145,8 @@ namespace mtc
 */
   struct def_alloc
   {
-    void*   alloc( size_t n ) noexcept  {  return ::malloc( n );  }
-    void    free( void*  p ) noexcept   {  if ( p ) ::free( p );  }
+    static  void*   alloc( size_t n ) noexcept  {  return ::malloc( n );  }
+    static  void    free( void*  p ) noexcept   {  if ( p ) ::free( p );  }
   };
 
   template <class T, class M, class... constructor_args>
@@ -183,6 +183,85 @@ namespace mtc
         p->~T();
         def_alloc().free( (void*)p );
       }
+    }
+
+/* array searchers */
+  template <class T>
+  int    Lookup( const T* begin, const T* end, const T& match )
+    {
+      for ( const T* start = begin; begin < end; ++begin )
+        if ( match == *begin )  return begin - start;
+      return -1;
+    }
+
+  template <class T, class _test>
+  int    Lookup( const T* begin, const T* end, _test test )
+    {
+      for ( const T* start = begin; begin < end; ++begin )
+        if ( test( *begin ) ) return begin - start;
+      return -1;
+    }
+
+  template <class T>
+  bool    Search( const T* begin, const T* end, const T& match, int& pos )
+    {
+      const T*  start;
+      bool      found = false;
+
+      if ( (start = begin) < end-- )
+        for ( found = false; begin <= end; )
+        {
+          const T*  median = begin + ((end - begin) >> 1);
+
+          if ( *median < match )  begin = median + 1;
+            else
+          {
+            end = median - 1;
+            found |= *median == match;
+          }
+        }
+      pos = begin - start;
+      return found;
+    }
+
+  template <class T, class _comp>
+  bool    Search( const T* begin, const T* end, _comp comp, int& pos )
+    {
+      const T*  start;
+      bool      found = false;
+
+      if ( (start = begin) < end-- )
+        for ( found = false; begin <= end; )
+        {
+          const T*  median = begin + ((end - begin) >> 1);
+          int       rescmp = comp( *median );
+
+          if ( rescmp < 0 ) begin = median + 1;
+            else
+          {
+            end = median - 1;
+            found |= rescmp == 0;
+          }
+        }
+      pos = begin - start;
+      return found;
+    }
+
+  template <class T, class _func>
+  int     for_each( T* begin, T* end, _func func )
+    {
+      int e;
+
+      for ( auto next = begin; next < end; ++next )
+        if ( (e = func( *next )) != 0 ) return e;
+      return 0;
+    }
+
+  template <class T, class _func>
+  void    for_all( T* begin, T* end, _func func )
+    {
+      for ( auto next = begin; next < end; )
+        func( *next++ );
     }
 
 }
