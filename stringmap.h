@@ -141,11 +141,10 @@ namespace mtc
     const Chr*    KeyStr( const Chr*, unsigned l = (unsigned)-1 ) const;
     unsigned      MapLen() const;
 
+          Val*    AddKey( const Chr*, unsigned l, const Val& v = Val() );
+          Val*    Insert( const Chr*, const Val& v = Val() );
     const Val*    Search( const Chr*, unsigned l = (unsigned)-1 ) const;
           Val*    Search( const Chr*, unsigned l = (unsigned)-1 );
-          Val*    AddKey( const Chr*, unsigned l = (unsigned)-1 );
-    int           Insert( const Chr*, const Val& );
-    int           Insert( const Chr*, Val& );
 
   // Enumerator support methods
     void*               Enum( const void* );
@@ -199,10 +198,8 @@ namespace mtc
   class stringmap: public _base_stringmap_<char, Val, allocator>
   {
     public: stringmap( unsigned maplen = 69959 ): _base_stringmap_<char, Val, allocator>( maplen ) {}
-           ~stringmap()
-              {
-              }
   };
+
   template <class Val, class allocator = def_alloc>
   class widestringmap: public _base_stringmap_<widechar, Val, allocator>
   {
@@ -331,7 +328,7 @@ namespace mtc
   }
 
   template <class Chr, class Val, class M>
-  inline  Val*  _base_stringmap_<Chr, Val, M>::AddKey( const Chr* k, unsigned l )
+  inline  Val*  _base_stringmap_<Chr, Val, M>::AddKey( const Chr* k, unsigned l, const Val& t )
   {
     keyrec*   newrec;
     unsigned  hindex;
@@ -347,7 +344,7 @@ namespace mtc
   // Allocate the item
     hindex = gethash( k, l ) % maplen;
 
-    if ( (newrec = keyrec::Create( k, l, hindex, pitems[hindex] )) == NULL )
+    if ( (newrec = keyrec::Create( k, l, t, hindex, pitems[hindex] )) == NULL )
       return nullptr;
     pitems[hindex] = newrec;
       ++ncount;
@@ -356,7 +353,7 @@ namespace mtc
   }
 
   template <class Chr, class Val, class M>
-  inline  int   _base_stringmap_<Chr, Val, M>::Insert( const Chr* k, const Val& t )
+  inline  Val*  _base_stringmap_<Chr, Val, M>::Insert( const Chr* k, const Val& t )
   {
     unsigned  cchstr = w_strlen( k );
     unsigned  nindex = gethash( k, w_strlen( k ) ) % maplen;
@@ -364,34 +361,15 @@ namespace mtc
 
   // Ensure the map is allocated
     if ( pitems == nullptr && Alloc() != 0 )
-      return ENOMEM;
+      return nullptr;
 
   // Allocate the item
     if ( (newrec = keyrec::Create( k, cchstr, t, nindex, pitems[nindex] )) == nullptr )
-      return ENOMEM;
+      return nullptr;
     pitems[nindex] = newrec;
       ++ncount;
 
-    return 0;
-  }
-
-  template <class Chr, class Val, class M>
-  inline  int   _base_stringmap_<Chr, Val, M>::Insert( const Chr* k, Val& t )
-  {
-    unsigned  nindex = gethash( k, strlen( k ) ) % maplen;
-    keyrec*   newrec;
-
-  // Ensure the map is allocated
-    if ( pitems == nullptr && Alloc() != 0 )
-      return ENOMEM;
-
-  // Allocate the item
-    if ( (newrec = keyrec::Create( k, strlen( k ), t, nindex, pitems[nindex] )) == nullptr )
-      return ENOMEM;
-    pitems[nindex] = newrec;
-      ++ncount;
-
-    return 0;
+    return &newrec->val;
   }
 
   template <class Chr, class Val, class M>
