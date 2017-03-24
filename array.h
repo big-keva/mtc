@@ -173,85 +173,6 @@ namespace mtc
   inline  float*          __safe_array_construct_cpy( float* p, float r )
     {  *p = r;  return p;  }
 
-/* array searchers */
-  template <class T>
-  int    Lookup( const T* begin, const T* end, const T& match )
-    {
-      for ( const T* start = begin; begin < end; ++begin )
-        if ( match == *begin )  return begin - start;
-      return -1;
-    }
-
-  template <class T, class _test>
-  int    Lookup( const T* begin, const T* end, _test test )
-    {
-      for ( const T* start = begin; begin < end; ++begin )
-        if ( test( *begin ) ) return begin - start;
-      return -1;
-    }
-
-  template <class T>
-  bool    Search( const T* begin, const T* end, const T& match, int& pos )
-    {
-      const T*  start;
-      bool      found = false;
-
-      if ( (start = begin) < end-- )
-        for ( found = false; begin <= end; )
-        {
-          const T*  median = begin + ((end - begin) >> 1);
-
-          if ( *median < match )  begin = median + 1;
-            else
-          {
-            end = median - 1;
-            found |= *median == match;
-          }
-        }
-      pos = begin - start;
-      return found;
-    }
-
-  template <class T, class _comp>
-  bool    Search( const T* begin, const T* end, _comp comp, int& pos )
-    {
-      const T*  start;
-      bool      found = false;
-
-      if ( (start = begin) < end-- )
-        for ( found = false; begin <= end; )
-        {
-          const T*  median = begin + ((end - begin) >> 1);
-          int       rescmp = comp( *median );
-
-          if ( rescmp < 0 ) begin = median + 1;
-            else
-          {
-            end = median - 1;
-            found |= rescmp == 0;
-          }
-        }
-      pos = begin - start;
-      return found;
-    }
-
-  template <class T, class _func>
-  int     for_each( T* begin, T* end, _func func )
-    {
-      int e;
-
-      for ( auto next = begin; next < end; ++next )
-        if ( (e = func( *next )) != 0 ) return e;
-      return 0;
-    }
-
-  template <class T, class _func>
-  void    for_all( T* begin, T* end, _func func )
-    {
-      for ( auto next = begin; next < end; )
-        func( *next++ );
-    }
-
   template <class T, class this_type>
   class _base_array
   {
@@ -278,17 +199,19 @@ namespace mtc
     const T&  operator [] ( int i ) const {  assert( i >= 0 && i < _this().size() );  return _this().begin()[i];  }
 
   public:     // stl compatibility
-    T&        first()       {  assert( _this().size() > 0 );  return _this().begin()[0];  }
-    const T&  first() const {  assert( _this().size() > 0 );  return _this().begin()[0];  }
-    T&        last()        {  assert( _this().size() > 0 );  return _this().begin()[_this().size() - 1];  }
-    const T&  last() const  {  assert( _this().size() > 0 );  return _this().begin()[_this().size() - 1];  }
+    T&        at( int i )       {  assert( _this().size() > 0 && i < _this().size() );  return _this().begin()[i];  }
+    const T&  at( int i ) const {  assert( _this().size() > 0 && i < _this().size() );  return _this().begin()[i];  }
+    T&        first()           {  assert( _this().size() > 0 );  return _this().begin()[0];  }
+    const T&  first() const     {  assert( _this().size() > 0 );  return _this().begin()[0];  }
+    T&        last()            {  assert( _this().size() > 0 );  return _this().begin()[_this().size() - 1];  }
+    const T&  last() const      {  assert( _this().size() > 0 );  return _this().begin()[_this().size() - 1];  }
 
   };
 
   template <class T, class M = def_alloc>
   class array: public _base_array<T, array<T, M>>
   {
-    M     malloc;
+    M     allocatorObject;
 
   public:     // construction
           array( int adelta = 0x10 );
@@ -298,8 +221,8 @@ namespace mtc
     array<T, M>& operator =( const array<T, M>& );
 
   public:     // set allocator
-    M&    GetAllocator()              {  return malloc;     }
-    M&    SetAllocator( const M& m )  {  return malloc = m; }
+    M&    GetAllocator()              {  return allocatorObject;     }
+    M&    SetAllocator( const M& m )  {  return allocatorObject = m; }
 
   public:     // members
     int   Append( const T& t )                    {  return Insert( size(), t );      }
@@ -422,6 +345,8 @@ namespace mtc
   template <class T, class M = def_alloc>
   class shared_array: public _base_array<T, shared_array<T, M>>
   {
+    M allocatorObject;
+
     struct array_data: public array<T, M>
     {
       std::atomic_int refcount;
@@ -431,15 +356,14 @@ namespace mtc
       array_data( int d ): array<T, M>( d ), refcount( 0 )  {}
     };
 
-    M           malloc;
     array_data* parray;
     int         ndelta;
 
   protected:  // helper
     bool  Ensure()
       {
-        if ( parray == nullptr && (parray = allocate_with<array_data>( malloc, ndelta )) != nullptr )
-          {  ++parray->refcount;  parray->SetAllocator( malloc );  }
+        if ( parray == nullptr && (parray = allocate_with<array_data>( GetAllocator(), ndelta )) != nullptr )
+          {  ++parray->refcount;  parray->SetAllocator( GetAllocator() );  }
         return parray != nullptr;
       }
   public:     // construction
@@ -450,8 +374,8 @@ namespace mtc
     shared_array& operator = ( const shared_array& );
 
   public:     // set allocator
-    M&    GetAllocator()              {  return malloc;     }
-    M&    SetAllocator( const M& m )  {  return malloc = m; }
+    M&    GetAllocator()              {  return allocatorObject;     }
+    M&    SetAllocator( const M& m )  {  return allocatorObject = m; }
 
   public:     // API
     int   Append( const T& t )  {  return Ensure() ? parray->Insert( size(), t ) : ENOMEM;  }
@@ -491,7 +415,7 @@ namespace mtc
           array_data* palloc;
 
           if ( (palloc = allocate_with<array_data>( GetAllocator(), parray->GetDelta() )) == nullptr )
-            return ENOMEM;  else parray->SetAllocator( malloc );
+            return ENOMEM;  else parray->SetAllocator( GetAllocator() );
 
           if ( palloc->Append( *parray ) != 0 )
           {
@@ -536,13 +460,13 @@ namespace mtc
 
   template <class T, class M>
   array<T, M>::array( M& m, int adelta ):
-    malloc( m ), pitems( nullptr ), ncount( 0 ), nlimit( 0 ), ndelta( adelta <= 0 ? 0x10 : adelta )
+    allocatorObject( m ), pitems( nullptr ), ncount( 0 ), nlimit( 0 ), ndelta( adelta <= 0 ? 0x10 : adelta )
   {
   }
 
   template <class T, class M>
   array<T, M>::array( const array<T, M>& r ):
-    malloc( r.malloc ), pitems( r.pitems ), ncount( r.ncount ),  nlimit( r.nlimit ), ndelta( r.ndelta )
+    allocatorObject( r.allocatorObject ), pitems( r.pitems ), ncount( r.ncount ),  nlimit( r.nlimit ), ndelta( r.ndelta )
   {
     ((array<T, M>&)r).pitems = nullptr;
     ((array<T, M>&)r).ncount = 0;
@@ -552,7 +476,7 @@ namespace mtc
   array<T, M>& array<T, M>::operator = ( const array<T, M>& r )
   {
     this->~array<T, M>();
-      malloc = r.malloc;
+      SetAllocator( r.allocatorObject );
       pitems = r.pitems;
       ncount = r.ncount;
       nlimit = r.nlimit;
@@ -914,7 +838,7 @@ namespace mtc
 // shared_array implementation
 
   template <class T, class M>
-  shared_array<T, M>::shared_array( const shared_array& a ): malloc( a.malloc ), ndelta( a.ndelta )
+  shared_array<T, M>::shared_array( const shared_array& a ): allocatorObject( a.allocatorObject ), ndelta( a.ndelta )
   {
     if ( (parray = a.parray) != nullptr )
       ++parray->refcount;
@@ -934,7 +858,7 @@ namespace mtc
       deallocate_with( GetAllocator(), parray );
     if ( (parray = a.parray) != nullptr )
       ++parray->refcount;
-    malloc = a.malloc;
+    SetAllocator( a.allocatorObject );
       return *this;
   }
 
