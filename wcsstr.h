@@ -95,7 +95,7 @@ namespace mtc
   // strdup() family
   //
 
-  template <class C>  C*  __impl_strdup( const C* s, size_t l )
+  template <class C, class M = def_alloc>  C* __impl_strdup( const C* s, size_t l, M& m = M() )
   {
     C*  o;
     C*  p;
@@ -103,17 +103,19 @@ namespace mtc
     if ( l == (size_t)-1 )
       for ( l = 0; s != nullptr && s[l] != (C)0; ++l )  (void)0;
 
-    if ( (o = p = (C*)malloc( sizeof(C) * (l + 1) )) != nullptr )
+    if ( (o = p = (C*)m.alloc( sizeof(C) * (l + 1) )) != nullptr )
       {  while ( l-- > 0 ) *p++ = *s++;  *p = (C)0;  }
 
     return o;
   }
 
-  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1 )
-    {  return s != nullptr ? __impl_strdup<widechar>( s, l ) : nullptr;  }
+  template <class M = def_alloc>
+  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1, M& m = M() )
+    {  return s != nullptr ? __impl_strdup<    char>( s, l, m ) : nullptr;  }
 
-  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1 )
-    {  return s != nullptr ? __impl_strdup<    char>( s, l ) : nullptr;  }
+  template <class M = def_alloc>
+  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1, M& m = M() )
+    {  return s != nullptr ? __impl_strdup<widechar>( s, l, m ) : nullptr;  }
 
   //
   // strcpy() family
@@ -260,6 +262,23 @@ namespace mtc
   template <class clower = __impl_default_tolower>
   inline  int   w_strcasecmp( const widechar* s, const widechar* m, clower l = __impl_default_tolower() )
     {  return __impl_strcasecmp( s, m, l );  }
+
+  template <class C, class L>  int __impl_strncasecmp( const C* s, const C* m, int n, L l )
+  {
+    int   rc = 0;
+
+    while ( n-- > 0 && (rc = l( *s++ ) - l( *m++ )) == 0 )
+      (void)0;
+    return rc;
+  }
+
+  template <class clower = __impl_default_tolower>
+  inline  int   w_strncasecmp( const char* s, const char* m, int n, clower l = __impl_default_tolower() )
+    {  return __impl_strncasecmp( s, m, n, l );  }
+
+  template <class clower = __impl_default_tolower>
+  inline  int   w_strncasecmp( const widechar* s, const widechar* m, int n, clower l = __impl_default_tolower() )
+    {  return __impl_strncasecmp( s, m, n, l );  }
 
   //
   // strchr() family
