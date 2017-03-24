@@ -310,8 +310,7 @@ namespace mtc
       if ( (ptr = Create( k, v, pos, pitems[pos] )) != nullptr ) pitems[pos] = ptr;
         else return nullptr;
 
-      ++ncount;
-        return 0;
+      return (++ncount, &ptr->val);
     }
 
   template <class K, class V, class M>
