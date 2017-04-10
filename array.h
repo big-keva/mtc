@@ -180,10 +180,12 @@ namespace mtc
     const this_type&  _this() const {  return *(const this_type*)this;  }
 
   public:     // searchers
-                        int   Lookup( const T& t ) const          {  return mtc::Lookup( _this().begin(), _this().end(), t );  }
-    template <class P>  int   Lookup( P p ) const                 {  return mtc::Lookup( _this().begin(), _this().end(), p );  }
-                        bool  Search( const T& t, int& p ) const  {  return mtc::Search( _this().begin(), _this().end(), t, p );  }
-    template <class C>  bool  Search( C c, int& p ) const         {  return mtc::Search( _this().begin(), _this().end(), c, p );  }
+                        const T*  Lookup( const T& t ) const          {  return mtc::Lookup( _this().begin(), _this().end(), t );  }
+                              T*  Lookup( const T& t )                {  return mtc::Lookup( _this().begin(), _this().end(), t );  }
+    template <class P>  const T*  Lookup( P p ) const                 {  return mtc::Lookup( _this().begin(), _this().end(), p );  }
+    template <class P>        T*  Lookup( P p )                       {  return mtc::Lookup( _this().begin(), _this().end(), p );  }
+                        bool      Search( const T& t, int& p ) const  {  return mtc::Search( _this().begin(), _this().end(), t, p );  }
+    template <class C>  bool      Search( C c, int& p ) const         {  return mtc::Search( _this().begin(), _this().end(), c, p );  }
 
   public:     // for_*
     template <class _func> int    for_each( _func func ) const  {  return mtc::for_each( _this().begin(), _this().end(), func );  }

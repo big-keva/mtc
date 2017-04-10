@@ -187,19 +187,19 @@ namespace mtc
 
 /* array searchers */
   template <class T>
-  int    Lookup( const T* begin, const T* end, const T& match )
+  T*  Lookup( T* begin, T* end, const T& match )
     {
-      for ( const T* start = begin; begin < end; ++begin )
-        if ( match == *begin )  return begin - start;
-      return -1;
+      while ( begin < end )
+        if ( match == *begin )  break;  else ++begin;
+      return begin;
     }
 
   template <class T, class _test>
-  int    Lookup( const T* begin, const T* end, _test test )
+  T*  Lookup( T* begin, T* end, _test test )
     {
-      for ( const T* start = begin; begin < end; ++begin )
-        if ( test( *begin ) ) return begin - start;
-      return -1;
+      while ( begin < end )
+        if ( test( *begin ) ) break;  else ++begin;
+      return begin;
     }
 
   template <class T>
