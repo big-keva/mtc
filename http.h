@@ -179,7 +179,7 @@ namespace mtc
       return ENOMEM;
     if ( keyset.Append( insert ) != 0 )
       return ENOMEM;
-    if ( (keypos = keymap.AddKey( k )) == nullptr )
+    if ( (keypos = keymap.Insert( k )) == nullptr )
     {
       keyset.SetLen( keyset.size() - 1 );
       return ENOMEM;
