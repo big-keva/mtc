@@ -370,7 +370,7 @@ namespace mtc
       }
   public:     // construction
     shared_array( int adelta = 0x10 ): parray( nullptr ), ndelta( adelta )  {}
-    shared_array( const M& ralloc, int adelta = 0x10 ): malloc( ralloc ), parray( nullptr ), ndelta( adelta ) {}
+    shared_array( const M& ralloc, int adelta = 0x10 ): allocatorObject( ralloc ), parray( nullptr ), ndelta( adelta ) {}
     shared_array( const shared_array& );
    ~shared_array();
     shared_array& operator = ( const shared_array& );
