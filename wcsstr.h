@@ -132,7 +132,7 @@ namespace mtc
   inline  widechar* w_strcpy( widechar* o, const char* s )      {  return __impl_strcpy( o, s );  }
   inline  char*     w_strcpy( char* o, const char* s )          {  return __impl_strcpy( o, s );  }
 
-  template <class O, class S> O*  __impl_strncpy( O* o, const S* s, int n )
+  template <class O, class S> O*  __impl_strncpy( O* o, const S* s, size_t n )
   {
     O*  p = o;
 
@@ -143,9 +143,9 @@ namespace mtc
     return o;
   }
 
-  inline  widechar* w_strncpy( widechar* o, const widechar* s, int n )  {  return __impl_strncpy( o, s, n );  }
-  inline  widechar* w_strncpy( widechar* o, const char* s, int n )      {  return __impl_strncpy( o, s, n );  }
-  inline  char*     w_strncpy( char* o, const char* s, int n )          {  return __impl_strncpy( o, s, n );  }
+  inline  widechar* w_strncpy( widechar* o, const widechar* s, size_t n )  {  return __impl_strncpy( o, s, n );  }
+  inline  widechar* w_strncpy( widechar* o, const char* s, size_t n )      {  return __impl_strncpy( o, s, n );  }
+  inline  char*     w_strncpy( char* o, const char* s, size_t n )          {  return __impl_strncpy( o, s, n );  }
 
   //
   // strcat() family
