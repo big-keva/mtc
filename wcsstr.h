@@ -95,7 +95,7 @@ namespace mtc
   // strdup() family
   //
 
-  template <class C, class M = def_alloc>  C* __impl_strdup( const C* s, size_t l, M& m = M() )
+  template <class C, class M>  C* __impl_strdup( const C* s, size_t l, M& m )
   {
     C*  o;
     C*  p;
@@ -109,13 +109,25 @@ namespace mtc
     return o;
   }
 
-  template <class M = def_alloc>
-  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1, M& m = M() )
+  template <class M>
+  inline  char*     w_strdup( const char* s, size_t l, M& m )
     {  return s != nullptr ? __impl_strdup<    char>( s, l, m ) : nullptr;  }
 
-  template <class M = def_alloc>
-  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1, M& m = M() )
+  template <class M>
+  inline  widechar* w_strdup( const widechar* s, size_t l, M& m )
     {  return s != nullptr ? __impl_strdup<widechar>( s, l, m ) : nullptr;  }
+
+  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1 )
+    {
+      def_alloc m;
+      return w_strdup( s, l, m );
+    }
+
+  inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1 )
+    {
+      def_alloc m;
+      return w_strdup( s, l, m );
+    }
 
   //
   // strcpy() family
