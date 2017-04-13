@@ -56,7 +56,7 @@ SOFTWARE.
 # include "wcsstr.h"
 # include <atomic>
 
-# if defined( WIN32 )
+# if defined( _WIN32 )
 #   include <io.h>
 # else
 #   include <dirent.h>
@@ -81,7 +81,7 @@ namespace mtc
       operator const char* () const   {  return strptr;  }
 
     public:
-      static char*  strdup( const char*, int l = -1 );
+      static char*  strdup( const char*, size_t l = -1 );
 
     private:
       std::atomic_int*  base();
@@ -139,7 +139,7 @@ namespace mtc
       char*           szname;     // pointer to string in system-specific struct
       dir_str         folder;     // current scanned folder
 
-# if defined( WIN32 )
+# if defined( _WIN32 )
       struct  _finddata_t fidata;
       intptr_t            handle;
 
@@ -279,11 +279,11 @@ namespace mtc
     }
 
   inline
-  char*   directory::dir_str::strdup( const char* s, int l )
+  char*   directory::dir_str::strdup( const char* s, size_t l )
     {
       std::atomic_int*  palloc;
 
-      if ( l == -1 )
+      if ( l == (size_t)-1 )
         l = w_strlen( s );
 
       if ( (palloc = (std::atomic_int*)malloc( sizeof(std::atomic_int) + l + 1 )) != nullptr )
@@ -327,7 +327,7 @@ namespace mtc
     if ( (thedir.didata = allocate<directory::dir_val>( uflags )) == nullptr )
       return directory();
 
-# if defined( WIN32 )
+# if defined( _WIN32 )
     char      altdir[1024];
 
   // check if a direct name is provided, else if the template has the wild card
