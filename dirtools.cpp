@@ -1,6 +1,6 @@
 # include "dirtools.hpp"
 
-# if defined( WIN32 )
+# if defined( _WIN32 )
 #   include <windows.h>
 # else
 #   include <sys/stat.h>
