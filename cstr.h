@@ -22,8 +22,8 @@ namespace mtc
     operator C* ();
 
   public:     // initialization
-    int   setstr( const C* s, size_t l = (size_t)-1 );
-    int   length() const {  return pszstr != nullptr ? w_strlen( pszstr ) : 0;  }
+    int     setstr( const C* s, size_t l = (size_t)-1 );
+    size_t  length() const {  return pszstr != nullptr ? w_strlen( pszstr ) : 0;  }
 
   protected:    // helpers
     const std::atomic_int*  getptr() const {  return pszstr != nullptr ? ((std::atomic_int*)pszstr) - 1 : nullptr;  }
@@ -122,8 +122,8 @@ namespace mtc
   template <class C>
   _base_cstr_<C>& w_strcat( _base_cstr_<C>& d, const C* s )
     {
-      _base_cstr_<C> oldstr = d;
-      int            newlen = oldstr.length() + w_strlen( s );
+      _base_cstr_<C>  oldstr = d;
+      size_t          newlen = oldstr.length() + w_strlen( s );
 
       if ( d.setstr( nullptr, newlen ) == 0 )
         w_strcat( w_strcpy( (C*)d, oldstr ), s );
