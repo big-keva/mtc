@@ -8,7 +8,7 @@
 # include <stdio.h>
 # include <errno.h>
 
-# if defined( WIN32 )
+# if defined( _WIN32 )
 #   include <WinSock2.h>
 # else
 #   include <netinet/tcp.h>
@@ -17,12 +17,12 @@
 #   include <unistd.h>
 #   include <netdb.h>
 #   include <fcntl.h>
-# endif   // WIN32
+# endif   // _WIN32
 
 namespace mtc
 {
 
-# if defined( WIN32 )
+# if defined( _WIN32 )
 # pragma comment( lib, "ws2_32.lib" )
 
   struct Sockets: private WSADATA
@@ -178,7 +178,7 @@ namespace mtc
         int   nerror;
 
       // try read data
-        if ( (cbread = recv( sockid, outptr, outend - outptr, 0 )) < 0 )
+        if ( (cbread = recv( sockid, outptr, (int)(outend - outptr), 0 )) < 0 )
         { 
           if ( (nerror = Sockets::GetError()) == Sockets::E_INPROGRESS )
             continue;
@@ -191,7 +191,7 @@ namespace mtc
           else break;
       }
 
-    return outptr - (char*)o;
+    return (word32_t)(outptr - (char*)o);
   }
 
   int   CNetStream::SetGetTimeout( word32_t msTimeout )
@@ -248,7 +248,7 @@ namespace mtc
     if ( (nerror = connect( sockid, (const sockaddr*)&scaddr, sizeof(scaddr) )) == 0 )
       return Sockets::NonDelay( sockid );
 
-  /*  на платформе WIN32 типичным возвратом функции является WSAEWOULDBLOCK,  */
+  /*  на платформе _WIN32 типичным возвратом функции является WSAEWOULDBLOCK, */
   /*  что означает, что коннект пошёл устанавливаться; следует подождать,     */
   /*  пока для select() с указанным таймаутом не будет выставлен writefds     */
   /*  как признак успешного завершения, или exceptfds как ошибка              */
@@ -266,7 +266,7 @@ namespace mtc
       tbreak.tv_usec  = (msconn % 1000) * 1000;
 
     /*  проверить статус сокета                                             */
-      do  nerror = select( sockid + 1, nullptr, &wr_fds, &ex_fds, &tbreak );
+      do  nerror = select( (int)(sockid + 1), nullptr, &wr_fds, &ex_fds, &tbreak );
         while ( nerror < 0 && Sockets::GetError() == Sockets::E_INTERRUPT );
   # else
       fd_set          rd_fds;
@@ -322,7 +322,7 @@ namespace mtc
     tv.tv_usec = (tmoGet - (tv.tv_sec = tmoGet / 1000) * 1000) * 1000;
 
   // check the data in buffer
-    return select( sockid + 1, &fd, nullptr, nullptr, tmoGet != (word32_t)-1 ? &tv : nullptr ) > 0;
+    return select( (int)(sockid + 1), &fd, nullptr, nullptr, tmoGet != (word32_t)-1 ? &tv : nullptr ) > 0;
   }
 
   int   CNetStream::SetGetTimeout() const noexcept
@@ -392,7 +392,7 @@ namespace mtc
     tlimit.tv_usec = (mswait - (tlimit.tv_sec = mswait / 1000) * 1000) * 1000;
 
   // check if the query present in queue
-    if ( select( 1 + Sockets::CastToSocket( listen ), &solist, nullptr, nullptr, mswait != (unsigned)-1 ? &tlimit : nullptr ) <= 0 )
+    if ( select( (int)(1 + Sockets::CastToSocket( listen )), &solist, nullptr, nullptr, mswait != (unsigned)-1 ? &tlimit : nullptr ) <= 0 )
       return EAGAIN;
 
     // get incoming socket
