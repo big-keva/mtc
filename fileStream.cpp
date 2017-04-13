@@ -57,21 +57,21 @@ SOFTWARE.
 # include <string.h>
 # include <fcntl.h>
 # include <errno.h>
-# if defined( WIN32 )
+# if defined( _WIN32 )
 #   include <Windows.h>
 # else
 #   include <unistd.h>
 #   include <sys/mman.h>
-# endif  // WIN32
+# endif  // _WIN32
 
 # if !defined( win32_decl )
-#   if defined( WIN32 )
+#   if defined( _WIN32 )
 #     define  win32_decl( expr )  expr
 #     define  posix_decl( expr )
 #   else
 #     define  win32_decl( expr )
 #     define  posix_decl( expr )  expr
-#   endif  // WIN32
+#   endif  // _WIN32
 # endif // !win32_decl
 
 # if defined( _MSC_VER )
@@ -171,7 +171,7 @@ namespace mtc
 
   unsigned  GetMemPageSize()
   {
-# if defined( WIN32 )
+# if defined( _WIN32 )
     SYSTEM_INFO syinfo;
 
     GetSystemInfo( &syinfo );
@@ -199,7 +199,7 @@ namespace mtc
 
   int   FileMemmap::Create( FileStream* stm, int64_t off, word32_t len )
   {
-# if defined( WIN32 )
+# if defined( _WIN32 )
     word32_t  offshi = (word32_t)(off >> 32);
     word32_t  offslo = (word32_t)(off);
     word32_t  oalign = offslo / dwgran * dwgran;
@@ -290,7 +290,7 @@ namespace mtc
       return 0;
   }
 
-# if defined( WIN32 )
+# if defined( _WIN32 )
 
   word32_t  FileStream::Get( void* out, word32_t len ) noexcept
   {
