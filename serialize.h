@@ -225,7 +225,7 @@ inline  O*  Serialize( O*  o, T t )
 
 template <class O>  inline  O* Serialize( O* o, const char* s )
   {
-    unsigned  length = strlen( s );
+    unsigned  length = (unsigned)strlen( s );
 
     return Serialize( Serialize( o, length ), (const void*)s, sizeof(*s) * length );
   }
