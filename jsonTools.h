@@ -106,9 +106,9 @@ namespace mtc
         return search( thekey, zarray_int_to_key( thekey, k ), z_word32 );
       }
     const  jsonRevive*  Search( const char* k ) const
-      {  return search( k, w_strlen( k ), z_charstr );  }
+      {  return search( k, (unsigned)w_strlen( k ), z_charstr );  }
     const  jsonRevive*  Search( const widechar* k ) const
-      {  return search( k, sizeof(widechar) * w_strlen( k ), z_widestr );  }
+      {  return search( k, (unsigned)(sizeof(widechar) * w_strlen( k )), z_widestr );  }
 
   protected:  // search helper
     const   jsonRevive* search( const void* k, unsigned l, unsigned t ) const
@@ -463,7 +463,7 @@ namespace mtc
     {
       if ( (reppos = strchr( repsrc, *s )) != nullptr )
         {
-          o = ::Serialize( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );
+          o = ::Serialize( o, repval[reppos - repsrc], (unsigned)strlen( repval[reppos - repsrc] ) );
           ++s;
         }
       else if ( (unsigned char)*s < 0x20 )
@@ -509,7 +509,7 @@ namespace mtc
     for ( o = ::Serialize( o, '\"' ); l-- > 0; ++s )
     {
       if ( (*s & ~0xff) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
-        o = ::Serialize( o, repval[reppos - repsrc], strlen( repval[reppos - repsrc] ) );
+        o = ::Serialize( o, repval[reppos - repsrc], (unsigned)strlen( repval[reppos - repsrc] ) );
       else if ( *s >= 0x80 || *s < 0x20 )
         o = ::Serialize( o, chnext, sprintf( chnext, "\\u%04x", *s ) );
       else
