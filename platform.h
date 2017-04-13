@@ -56,7 +56,7 @@ SOFTWARE.
 # include <new>
 
 # if !defined( win32_decl )
-#   if defined( WIN32 )
+#   if defined( _WIN32 )
 #     define win32_decl( expr ) expr
 #   else
 #     define win32_decl( expr )
@@ -64,7 +64,7 @@ SOFTWARE.
 # endif
 
 # if !defined( posix_decl )
-#   if defined( WIN32 )
+#   if defined( _WIN32 )
 #     define posix_decl( expr )
 #   else
 #     define posix_decl( expr ) expr
@@ -243,7 +243,7 @@ namespace mtc
             found |= rescmp == 0;
           }
         }
-      pos = begin - start;
+      pos = (int)(begin - start);
       return found;
     }
 
