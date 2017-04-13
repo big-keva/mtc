@@ -98,7 +98,7 @@ namespace mtc
                   }
                 }
       template <class _data_>
-      static  keyrec* Create( const Chr*  k, unsigned l, _data_& t,
+      static  keyrec* Create( const Chr*  k, size_t   l, _data_& t,
                               unsigned    p, keyrec*  n )
                 {
                   keyrec* newrec;
@@ -110,7 +110,7 @@ namespace mtc
                   }
                   return newrec;
                 }
-      static  keyrec* Create( const Chr*  k, unsigned l,
+      static  keyrec* Create( const Chr*  k, size_t   l,
                               unsigned    p, keyrec*  n )
                 {
                   keyrec* newrec;
@@ -135,16 +135,16 @@ namespace mtc
                   _base_stringmap_( unsigned tablen = 69959 );
                  ~_base_stringmap_();
   // Map work methods
-    int           Delete( const Chr*, unsigned l = (unsigned)-1 );
+    int           Delete( const Chr*, size_t l = (size_t)-1 );
     void          DelAll();
     unsigned      GetLen() const;
-    const Chr*    KeyStr( const Chr*, unsigned l = (unsigned)-1 ) const;
+    const Chr*    KeyStr( const Chr*, size_t l = (size_t)-1 ) const;
     unsigned      MapLen() const;
 
-          Val*    AddKey( const Chr*, unsigned l, const Val& v = Val() );
+          Val*    AddKey( const Chr*, size_t l, const Val& v = Val() );
           Val*    Insert( const Chr*, const Val& v = Val() );
-    const Val*    Search( const Chr*, unsigned l = (unsigned)-1 ) const;
-          Val*    Search( const Chr*, unsigned l = (unsigned)-1 );
+    const Val*    Search( const Chr*, size_t l = (size_t)-1 ) const;
+          Val*    Search( const Chr*, size_t l = (size_t)-1 );
 
   // Enumerator support methods
     void*               Enum( const void* );
@@ -221,9 +221,9 @@ namespace mtc
   }
 
   template <class Chr, class Val, class M>
-  inline  int   _base_stringmap_<Chr, Val, M>::Delete( const Chr* k, unsigned l )
+  inline  int   _base_stringmap_<Chr, Val, M>::Delete( const Chr* k, size_t l )
   {
-    if ( l == (unsigned)-1 )
+    if ( l == (size_t)-1 )
       for ( l = 0; k[l] != 0; ++l ) (void)0;
 
     if ( pitems != nullptr && ncount != 0 )
@@ -269,9 +269,9 @@ namespace mtc
   }
 
   template <class Chr, class Val, class M>
-  inline  const Chr* _base_stringmap_<Chr, Val, M>::KeyStr( const Chr* k, unsigned l ) const
+  inline  const Chr* _base_stringmap_<Chr, Val, M>::KeyStr( const Chr* k, size_t l ) const
   {
-    if ( l == (unsigned)-1 )
+    if ( l == (size_t)-1 )
       for ( l = 0; k[l] != 0; ++l ) (void)0;
 
     if ( pitems != nullptr )
@@ -296,12 +296,12 @@ namespace mtc
   }
 
   template <class Chr, class Val, class M>
-  inline  const Val*  _base_stringmap_<Chr, Val, M>::Search( const Chr* k, unsigned l ) const
+  inline  const Val*  _base_stringmap_<Chr, Val, M>::Search( const Chr* k, size_t l ) const
   {
-    if ( pitems == NULL )
+    if ( pitems == nullptr )
       return nullptr;
 
-    if ( l == (unsigned)-1 )
+    if ( l == (size_t)-1 )
       for ( l = 0; k[l] != 0; ++l ) (void)NULL;
 
     for ( auto p = pitems[gethash( k, l ) % maplen]; p != nullptr; p = p->lpn )
@@ -312,12 +312,12 @@ namespace mtc
   }
 
   template <class Chr, class Val, class M>
-  inline  Val*  _base_stringmap_<Chr, Val, M>::Search( const Chr* k, unsigned l )
+  inline  Val*  _base_stringmap_<Chr, Val, M>::Search( const Chr* k, size_t l )
   {
     if ( pitems == nullptr )
       return nullptr;
 
-    if ( l == (unsigned)-1 )
+    if ( l == (size_t)-1 )
       for ( l = 0; k[l] != 0; ++l ) (void)0;
 
     for ( auto p = pitems[gethash( k, l ) % maplen]; p != nullptr; p = p->lpn )
@@ -328,13 +328,13 @@ namespace mtc
   }
 
   template <class Chr, class Val, class M>
-  inline  Val*  _base_stringmap_<Chr, Val, M>::AddKey( const Chr* k, unsigned l, const Val& t )
+  inline  Val*  _base_stringmap_<Chr, Val, M>::AddKey( const Chr* k, size_t l, const Val& t )
   {
     keyrec*   newrec;
     unsigned  hindex;
 
   // ensure
-    if ( l == (unsigned)-1 )
+    if ( l == (size_t)-1 )
       for ( l = 0; k[l] != 0; ++l ) (void)0;
 
   // Ensure the map is allocated
@@ -355,7 +355,7 @@ namespace mtc
   template <class Chr, class Val, class M>
   inline  Val*  _base_stringmap_<Chr, Val, M>::Insert( const Chr* k, const Val& t )
   {
-    unsigned  cchstr = w_strlen( k );
+    size_t    cchstr = w_strlen( k );
     unsigned  nindex = gethash( k, w_strlen( k ) ) % maplen;
     keyrec*   newrec;
 
