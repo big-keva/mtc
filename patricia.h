@@ -360,7 +360,7 @@ namespace mtc
           {
             if ( (palloc = allocate( k, l )) == nullptr )
               return nullptr;
-            if ( (placed = this->InsertAt( ptrtop - aitems.begin(), palloc )) == nullptr )
+            if ( (placed = this->InsertAt( (int)(ptrtop - aitems.begin()), palloc )) == nullptr )
               return nullptr;
             return palloc.detach();
           }
@@ -701,7 +701,7 @@ namespace mtc
     int           nnodes;
     int           sublen;
     const byte_t* thekey = (const byte_t*)k;
-    int           cchkey = l;
+    size_t        cchkey = l;
 
     if ( (thedic = ::FetchFrom( ::FetchFrom( ::FetchFrom( serial, nchars ), nnodes ), sublen )) == nullptr )
       return nullptr;
@@ -714,7 +714,7 @@ namespace mtc
       --cchkey;
       --nchars;
     }
-    return nchars == 0 ? Search( thekey, cchkey, thedic, nnodes ) : nullptr;
+    return nchars == 0 ? Search( thekey, (int)cchkey, thedic, nnodes ) : nullptr;
   }
 
   template <class _func_>
