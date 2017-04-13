@@ -379,13 +379,11 @@ public:     // set_?? methods
   # undef derive_set
 
 /* regular strings  */
-    char*     set_charstr( const char*  pszstr, unsigned  cchstr = (unsigned)-1 )
+    char*     set_charstr( const char*  pszstr, size_t  cchstr = (size_t)-1 )
       {
-        if ( cchstr == (unsigned)-1 )
-          cchstr = pszstr != nullptr ? (unsigned)w_strlen( pszstr ) : 0;
+        if ( cchstr == (size_t)-1 )
+          cchstr = pszstr != nullptr ? w_strlen( pszstr ) : 0;
 
-        if ( cchstr == (unsigned)-1 )
-          cchstr = pszstr != nullptr ? (unsigned)w_strlen( pszstr ) : 0;
         delete_data();
 
         if ( (*(char**)&chdata = (char*)GetAllocator().alloc( cchstr + 1 )) == nullptr )
@@ -399,10 +397,10 @@ public:     // set_?? methods
 
         return *(char**)&chdata;
       }
-    widechar* set_widestr( const widechar*  pszstr, unsigned  cchstr = (unsigned)-1 )
+    widechar* set_widestr( const widechar*  pszstr, size_t  cchstr = (unsigned)-1 )
       {
-        if ( cchstr == (unsigned)-1 )
-          cchstr = pszstr != nullptr ? (unsigned)w_strlen( pszstr ) : 0;
+        if ( cchstr == (size_t)-1 )
+          cchstr = pszstr != nullptr ? w_strlen( pszstr ) : 0;
 
         delete_data();
 
@@ -577,6 +575,7 @@ public:     // set_?? methods
 
         a = a != nullptr ? a : &z;
         b = b != nullptr ? b : &z;
+
         if ( o.set_widestr( nullptr, w_strlen( a ) + w_strlen( b ) ) == nullptr )
           return xvalue();
         w_strcat( w_strcpy( o.get_widestr(), a ), b );
@@ -1341,7 +1340,7 @@ public:     // set_?? methods
   # undef derive_put_type
 
   # define  derive_put_string( k_type, t_name, v_type )                                           \
-    v_type* set_##t_name( k_type thekey, const v_type* pszstr, unsigned cchstr = (unsigned)-1 )   \
+    v_type* set_##t_name( k_type thekey, const v_type* pszstr, size_t cchstr = (size_t)-1 )       \
       {                                                                                           \
         xvalue<M>* zv;                                                                            \
         return (zv = put_xvalue( thekey )) != NULL ? zv->set_##t_name( pszstr, cchstr ) : nullptr;\
@@ -2529,7 +2528,10 @@ namespace mtc
       return serial_skip_zarray( s + (lfetch & 0x1ff) );
 
     for ( arrlen = lfetch & 0x1ff; arrlen-- > 0; )
-      s = ::FetchFrom( ++s, sublen ) + sublen;
+    {
+      s = ::FetchFrom( ++s, sublen );
+      s += sublen;
+    }
 
     return s;
   }
@@ -2600,7 +2602,7 @@ namespace mtc
   template <class M> template <class S>
   S*  zarray<M>::serial_get_untyped( S* s, const char* k )
   {
-    return serial_get_untyped( s, (const byte_t*)k, w_strlen( k ), 1 );
+    return serial_get_untyped( s, (const byte_t*)k, (int)w_strlen( k ), 1 );
   }
 
   template <class M> template <class S>
