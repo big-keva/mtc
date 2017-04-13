@@ -12,7 +12,7 @@ namespace mtc
 
   int64_t GetFileSize( const char* szpath )
   {
-# if defined( WIN32 )
+# if defined( _WIN32 )
     WIN32_FILE_ATTRIBUTE_DATA fiData;
 
     return GetFileAttributesEx( szpath, GetFileExInfoStandard, &fiData ) != 0 ?
