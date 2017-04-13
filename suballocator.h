@@ -9,7 +9,7 @@ namespace mtc
   template <class M = def_alloc>
   class PagedAllocator
   {
-    const unsigned  page_size_limit;
+    const size_t  page_size_limit;
 
     class MemSection
     {
@@ -17,10 +17,10 @@ namespace mtc
       char*   memLimit;
 
     public:     // creation
-      static MemSection* Create( const unsigned minlen, const unsigned alimit )
+      static MemSection* Create( const size_t minlen, const size_t alimit )
         {
           MemSection* palloc;
-          unsigned    nalloc = minlen < alimit - sizeof(*palloc) ? alimit - sizeof(*palloc) : minlen;
+          size_t      nalloc = minlen < alimit - sizeof(*palloc) ? alimit - sizeof(*palloc) : minlen;
 
           if ( (palloc = (MemSection*)M().alloc( nalloc + sizeof(*palloc) )) != nullptr )
             new( palloc ) MemSection( nalloc );
@@ -39,14 +39,14 @@ namespace mtc
         }
 
     private:    // construction
-      MemSection( unsigned l ): allocTop( (char*)(this + 1) ), memLimit( allocTop + l )  {}
+      MemSection( size_t l ): allocTop( (char*)(this + 1) ), memLimit( allocTop + l )  {}
       MemSection( const MemSection& );
       MemSection& operator = ( const MemSection& );
 
     };
 
   public:     // construction
-    PagedAllocator( unsigned memlimit = 16 * 1024 * 1024 ):
+    PagedAllocator( const size_t memlimit = 16 * 1024 * 1024 ):
       page_size_limit( (memlimit + 0x100000 - 1) & (0x100000 - 1) ) {  }
 
   public:     // malloc
