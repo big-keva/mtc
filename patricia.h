@@ -255,7 +255,7 @@ namespace mtc
      ~patnode()
         {
           getarray().for_each( []( patnode* p )
-            {  deallocate_with( M(), p );  } );
+            {  deallocate_with<M>( p );  } );
           delvalue();
         }
 
@@ -366,7 +366,9 @@ namespace mtc
           }
 
         // элемент с таким начальным символом уже есть; проверить, что точно совпадает
-          if ( (lmatch = getmatch( rescmp, (*ptrtop)->getString(), ccount = (*ptrtop)->getStrLen(), (const byte_t*)k, l )) == ccount )
+          ccount = (*ptrtop)->getStrLen();
+
+          if ( (lmatch = getmatch( rescmp, (*ptrtop)->getString(), ccount, (const byte_t*)k, l )) == ccount )
             return (*ptrtop)->Insert( *ptrtop, k + ccount, l - ccount );
 
         // иначе пилить элемент на два:
@@ -498,7 +500,7 @@ namespace mtc
               palloc->getarray().move( rnodes );
                 palloc->getarray().insert( n, p );
             }
-            deallocate_with( M(), this );
+            deallocate_with<M>( this );
 
             return palloc.detach();
           }
