@@ -90,7 +90,6 @@ namespace mtc
   inline  U     bitsetbits( const unsigned l, const unsigned h )
     {
       unsigned  lpos = l % (sizeof(U) * CHAR_BIT);
-      unsigned  hpos = h % (sizeof(U) * CHAR_BIT);
       U         bits = h < sizeof(U) * CHAR_BIT - 1 ? (1 << (h + 1)) - 1 : (U)-1;
       U         mask = l >= sizeof(U) * CHAR_BIT ? 0 : (lpos > 0 ? ~((1 << lpos) - 1) : (U)-1);
 
