@@ -84,7 +84,7 @@ namespace mtc
     }
 
   template <class C>
-  int   _base_cstr_<C>::setstr( const C* s, size_t l = (size_t)-1 )
+  int   _base_cstr_<C>::setstr( const C* s, size_t l )
     {
       if ( pszstr != nullptr && --*getptr() == 0 )
         delete getptr();
