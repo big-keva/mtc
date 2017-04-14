@@ -91,7 +91,7 @@ namespace mtc
     }
 
   public:     // creation
-    template <class M = def_alloc<>>
+    template <class M = def_alloc>
     static  jsonRevive* Create( unsigned k, unsigned v, const void* p, unsigned l, jsonRevive* n, jsonRevive* s )
       {
         jsonRevive* palloc;
@@ -268,8 +268,10 @@ namespace mtc
 
         // check regular char
           if ( chprev != '\\' )
+          {
             if ( append( refstr, (C)(byte_t)chnext, cchstr, climit ) != 0 ) return ENOMEM;
               else continue;
+          }
 
         // check long code: 4 symbols
           if ( chnext == 'u' )
@@ -646,7 +648,7 @@ namespace mtc
   {                                                                               \
     char  chnext;                                                                 \
     bool  is_neg;                                                                 \
-    if ( is_neg = ((chnext = s.nospace()) == '-') )                               \
+    if ( (is_neg = ((chnext = s.nospace()) == '-')) != false )                    \
       chnext = s.getnext();                                                       \
     if ( chnext < '0' || chnext > '9' )                                           \
       return nullptr;                                                             \
