@@ -85,7 +85,7 @@ namespace mtc
     if ( (palloc = allocate<ZipBuffer>()) == nullptr || palloc->setlen( len ) != 0 )
       return ENOMEM;
 
-    if ( PosGet( palloc->begin(), pos, palloc->size() ) != palloc->size() )
+    if ( PosGet( palloc->begin(), pos, palloc->size() ) != (word32_t)palloc->size() )
       return EACCES;
 
     return 0 * (*buf = palloc.detach())->Attach();
