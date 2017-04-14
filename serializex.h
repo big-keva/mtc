@@ -73,7 +73,7 @@ SOFTWARE.
 
       return Serialize( Serialize( o, l ), (const char*)s, l );
     }
-  template <class S, class M = mtc::def_alloc<>>
+  template <class S, class M = mtc::def_alloc>
   S*        FetchFrom( S* s, mtc::_auto_<char, M>& o )
     {
       unsigned  l;
@@ -100,7 +100,7 @@ SOFTWARE.
 
       return Serialize( Serialize( o, l ), (const widechar*)s, sizeof(widechar) * l );
     }
-  template <class S, class M = mtc::def_alloc<>>
+  template <class S, class M = mtc::def_alloc>
   S*        FetchFrom( S* s, mtc::_auto_<widechar, M>& o )
     {
       unsigned  l;
