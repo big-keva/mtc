@@ -372,10 +372,9 @@ namespace mtc
 
       if ( *s++ == l( c ) )
       {
-        const widechar* s1;
-        const char*     c1;
+        const char* c1;
 
-        for ( s1 = s; *c != '\0' && *s++ == l( c1 = c ); c = c1 )
+        for ( ; *c != '\0' && *s++ == l( c1 = c ); c = c1 )
           (void)0;
         if ( *c == '\0' )
           return o;
