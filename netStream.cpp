@@ -417,7 +417,7 @@ namespace mtc
     struct hostent* hoaddr;
     int             socopt = 1;
     Sockets::SOCKET sockid;
-    auto            eclose = [sockid]( int nerror ) {  Sockets::CloseSocket( sockid ); return nerror; };
+    auto            eclose = [&]( int nerror ) {  Sockets::CloseSocket( sockid ); return nerror; };
 
   // resolve host address
     if ( (hoaddr = gethostbyname( szhost )) == NULL )
