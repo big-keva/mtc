@@ -133,13 +133,16 @@ namespace mtc
 
 # define  implement_lifetime_control                                \
   protected:  reference_counter lifetime_counter;                   \
+    template <class T>                                              \
+    void delete_this( T* p )                                        \
+    {  p->~T();  free( p );  }                                      \
   public:     virtual long  Attach()  noexcept                      \
     {  return ++lifetime_counter;  }                                \
   public:     virtual long  Detach()  noexcept                      \
     {                                                               \
       long rcount;                                                  \
       if ( (rcount = --lifetime_counter) == 0 )                     \
-        delete this;                                                \
+        delete_this( this );                                        \
       return rcount;                                                \
     }
 # define  implement_lifetime_stub                                   \
