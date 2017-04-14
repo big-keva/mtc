@@ -2131,7 +2131,7 @@ namespace mtc
 // zarray::ztree implementation
 
   template <class M>
-  zarray<M>::ztree::ztree( M& memman, byte_t chinit = '\0' ):
+  zarray<M>::ztree::ztree( M& memman, byte_t chinit ):
     array<ztree, M>( memman ), chnode( chinit ), keyset( 0 ), avalue( memman )
   {
   }
