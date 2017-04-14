@@ -1,10 +1,12 @@
 # include "jsconfig.h"
 # include "jsonTools.h"
 # include "file.h"
-# if defined( _MSC_VER )
-#   include <direct.h>
+# if defined( _WIN32 )
+#   if defined( _MSC_VER )
+#     include <direct.h>
+#   endif
 # else
-#   include <dir.h>
+#   include <unistd.h>
 # endif  // _MSC_VER
 
 namespace mtc
