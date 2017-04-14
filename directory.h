@@ -157,7 +157,7 @@ namespace mtc
       _auto_<char>        filter;
 
     public:     // construction
-      dir_val( unsigned attr ): refcnt( 1 ), szname( nullptr ), dwattr( attr ), dirptr( nullptr ), pentry( nullptr )
+      dir_val( unsigned attr ): refcnt( 1 ), dwattr( attr ), szname( nullptr ), dirptr( nullptr ), pentry( nullptr )
         {
         }
      ~dir_val()
