@@ -176,6 +176,13 @@ namespace mtc
     }
 
   template <class M, class T>
+  void  deallocate_with( T* p ) noexcept
+    {
+      M m;
+      deallocate_with( m, p );
+    }
+
+  template <class M, class T>
   void  deallocate( T* p )
     {
       if ( p != nullptr )
