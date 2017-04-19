@@ -89,13 +89,10 @@ namespace mtc
     public:     // creation
               void    DelAll()
                 {
-                  if ( this != nullptr )
-                  {
-                    if ( lpn != nullptr )
-                      lpn->DelAll();
-                    this->~keyrec();
-                      M().free( this );
-                  }
+                  if ( lpn != nullptr )
+                    lpn->DelAll();
+                  this->~keyrec();
+                    M().free( this );
                 }
       template <class _data_>
       static  keyrec* Create( const Chr*  k, size_t   l, _data_& t,

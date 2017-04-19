@@ -53,6 +53,7 @@ SOFTWARE.
 # define __mtc_platform_h__
 # include <cstdlib>
 # include <stdint.h>
+# include <fcntl.h>
 # include <new>
 
 # if !defined( win32_decl )
@@ -99,6 +100,34 @@ SOFTWARE.
 #     define  fdopen      _fdopen
 #   endif
 # endif  // !fdopen
+
+# if defined( _WIN32 ) && __STDC__
+#   if !defined( O_RDONLY )
+#     define  O_RDONLY      _O_RDONLY
+#     define  O_WRONLY      _O_WRONLY
+#     define  O_APPEND      _O_APPEND
+#     define  O_RDWR        _O_RDWR
+#     define  O_CREAT       _O_CREAT
+#     define  O_EXCL        _O_EXCL
+#     define  O_TRUNC       _O_TRUNC
+#     define  O_RANDOM      _O_RANDOM
+#     define  O_SEQUENTIAL  _O_SEQUENTIAL
+#     define  O_TEMPORARY   _O_TEMPORARY
+#   endif
+
+#   if !defined( open )
+#     define  open  _open
+#   endif
+
+#   if !defined( close )
+#     define  close _close
+#   endif
+
+# endif
+
+# if !defined( O_BINARY )
+#   define O_BINARY 0
+# endif  // !O_BINARY
 
 namespace mtc
 {
@@ -188,14 +217,10 @@ namespace mtc
       deallocate_with( m, p );
     }
 
-  template <class M, class T>
+  template <class M = def_alloc, class T>
   void  deallocate( T* p )
     {
-      if ( p != nullptr )
-      {
-        p->~T();
-        def_alloc().free( (void*)p );
-      }
+      deallocate_with<M>( p );
     }
 
 /* array searchers */

@@ -2013,7 +2013,7 @@ namespace mtc
   inline  unsigned  zarray<M>::ztree::GetBufLen() const
   {
     int       branch = plain_branchlen();
-    word16_t  lstore = (branch > 0 ? 0x0400 + branch : size()) + (avalue.gettype() != 0xff ? 0x0400 : 0);
+    word16_t  lstore = (branch > 0 ? 0x0400 + branch : this->size()) + (avalue.gettype() != 0xff ? 0x0400 : 0);
     unsigned  buflen = ::GetBufLen( lstore );
 
     if ( avalue.gettype() != 0xff )
@@ -2088,7 +2088,7 @@ namespace mtc
 
       while ( size-- > 0 )
       {
-        ztree ztchar( GetAllocator() );
+        ztree ztchar( this->GetAllocator() );
 
         if ( (s = ::FetchFrom( s, (char&)ztchar.chnode )) == nullptr )
           return nullptr;
@@ -2104,7 +2104,7 @@ namespace mtc
      
       while ( s != nullptr && size-- > 0 )
       {
-        ztree     ztnext( GetAllocator() );
+        ztree     ztnext( this->GetAllocator() );
         unsigned  sublen;
 
         if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)ztnext.chnode ), sublen )) == nullptr )

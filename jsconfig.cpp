@@ -2,12 +2,14 @@
 # include "jsonTools.h"
 # include "file.h"
 # if defined( _WIN32 )
-#   if defined( _MSC_VER )
-#     include <direct.h>
+#   include <direct.h>
+#   if __STDC__
+#     define  getcwd  _getcwd
+#     define  chdir   _chdir
 #   endif
 # else
 #   include <unistd.h>
-# endif  // _MSC_VER
+# endif  // _WIN32
 
 namespace mtc
 {

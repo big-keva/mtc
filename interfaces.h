@@ -136,9 +136,9 @@ namespace mtc
     template <class T>                                              \
     void delete_this( T* p )                                        \
     {  p->~T();  free( p );  }                                      \
-  public:     virtual long  Attach()  noexcept                      \
+  public:     virtual long  Attach()  noexcept override             \
     {  return ++lifetime_counter;  }                                \
-  public:     virtual long  Detach()  noexcept                      \
+  public:     virtual long  Detach()  noexcept override             \
     {                                                               \
       long rcount;                                                  \
       if ( (rcount = --lifetime_counter) == 0 )                     \

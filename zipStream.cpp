@@ -19,10 +19,10 @@ namespace mtc
     implement_lifetime_control
 
   public:     // IByteBuffer overridables
-    virtual const char* GetPtr(                       ) {  return begin();  }
-    virtual word32_t    GetLen(                       ) {  return size();   }
-    virtual int         SetBuf( const void*, word32_t ) {  return EINVAL;   }
-    virtual int         SetLen( word32_t              ) {  return EINVAL;   }
+    virtual const char* GetPtr(                       ) noexcept override {  return begin();  }
+    virtual word32_t    GetLen(                       ) noexcept override {  return size();   }
+    virtual int         SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;   }
+    virtual int         SetLen( word32_t              ) noexcept override {  return EINVAL;   }
 
   protected:
             int         setlen( int newlen )  {  return array<char>::SetLen( newlen );  }
@@ -46,16 +46,16 @@ namespace mtc
       }
 
   public:     // from IByteStream
-    virtual word32_t  Get(       void*, word32_t );
-    virtual word32_t  Put( const void*, word32_t );
+    virtual word32_t  Get(       void*, word32_t ) override;
+    virtual word32_t  Put( const void*, word32_t ) override;
 
   public:     // from IFlatStream
-    virtual int       GetBuf( IByteBuffer**, int64_t, word32_t );
-    virtual word32_t  PosGet(       void*,   int64_t, word32_t );
-    virtual word32_t  PosPut( const void*,   int64_t, word32_t );
-    virtual int64_t   Seek  ( int64_t                          );
-    virtual int64_t   Size  (                                  );
-    virtual int64_t   Tell  (                                  );
+    virtual int       GetBuf( IByteBuffer**, int64_t, word32_t ) override;
+    virtual word32_t  PosGet(       void*,   int64_t, word32_t ) override;
+    virtual word32_t  PosPut( const void*,   int64_t, word32_t ) override;
+    virtual int64_t   Seek  ( int64_t                          ) override;
+    virtual int64_t   Size  (                                  ) override;
+    virtual int64_t   Tell  (                                  ) override;
 
   protected:  // variables
     std::mutex  gzlock;
@@ -95,17 +95,17 @@ namespace mtc
   {
     std::lock_guard<std::mutex> aulock( gzlock );
 
-    return gzseek( gzfile, (off_t)pos, SEEK_SET ) == pos ? (word32_t)gzread( gzfile, ptr, len ) : (word32_t)-1;
+    return gzseek( gzfile, (z_off_t)pos, SEEK_SET ) == pos ? (word32_t)gzread( gzfile, ptr, len ) : (word32_t)-1;
   }
 
   word32_t  ZipStream::PosPut( const void* ptr, int64_t pos, word32_t len )
   {
-    return gzseek( gzfile, (off_t)pos, SEEK_SET ) == pos ? (word32_t)gzwrite( gzfile, ptr, len ) : (word32_t)-1;
+    return gzseek( gzfile, (z_off_t)pos, SEEK_SET ) == pos ? (word32_t)gzwrite( gzfile, ptr, len ) : (word32_t)-1;
   }
 
   int64_t   ZipStream::Seek( int64_t pos )
   {
-    return gzseek( gzfile, (off_t)pos, SEEK_SET );
+    return gzseek( gzfile, (z_off_t)pos, SEEK_SET );
   }
 
   int64_t   ZipStream::Size()
