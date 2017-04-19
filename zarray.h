@@ -1055,7 +1055,7 @@ public:     // set_?? methods
     public:     // construction
       ztree( M& memman, byte_t chinit = '\0' );
       ztree( const ztree& );
-     ~ztree();
+     ~ztree() {}
 
     public:     // unserialized tree work
       ztree*        insert( const byte_t* ptrkey, unsigned cchkey )
@@ -1074,7 +1074,7 @@ public:     // set_?? methods
                 ++ptrtop;
               if ( ptrtop >= ptrend || ptrtop->chnode != chnext )
               {
-                ztree newchr( GetAllocator(), chnext );
+                ztree newchr( array<ztree, M>::GetAllocator(), chnext );
                 int   newpos;
 
                 if ( expand->Insert( newpos = (int)(ptrtop - *expand), newchr ) != 0 ) return nullptr;
@@ -2141,11 +2141,6 @@ namespace mtc
     array<ztree, M>( ((ztree&)z).GetAllocator() ), chnode( z.chnode ), keyset( z.keyset ), avalue( z.avalue )
   {
     assert( z.size() == 0 );
-  }
-
-  template <class M>
-  zarray<M>::ztree::~ztree()
-  {
   }
 
 // zarray implementation
