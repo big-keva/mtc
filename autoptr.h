@@ -102,7 +102,7 @@ namespace mtc
     T** pptr()              {  return &p; }
     const T** pptr() const  {  return &p; }
 
-    bool  operator == ( const void* v ) const {  return this == v || (this != nullptr && p == v);  }
+    bool  operator == ( const void* v ) const {  return this == v || p == v;  }
     bool  operator != ( const void* v ) const {  return (*this == v) == false;  }
         
     T*  operator -> ()              {  assert( p != nullptr );  return p;  }
