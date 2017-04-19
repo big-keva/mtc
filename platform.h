@@ -82,17 +82,23 @@ SOFTWARE.
 # define array_size( a ) ( sizeof(a) / sizeof((a)[0]) )
 # define array_end( a ) ((a) + sizeof(a) / sizeof((a)[0]))
 
-# if defined( _MSC_VER )
-#   if _MSC_VER >= 12
-#     define  strcasecmp      _strcmpi
-#     define  strncasecmp     strnicmp
-//#     define  open            _open
-#     define  fdopen          _fdopen
-# else
-#     define  strcasecmp  strcmpi
-#     define  strncasecmp strnicmp
-# endif  // >= 12
-#endif  // _MSC_VER
+# if !defined( strcasecmp )
+#   if defined( _WIN32 )
+#     define  strcasecmp  _strcmpi
+#   endif
+# endif  // !strcasecmp
+
+# if !defined( strncasecmp )
+#   if defined( _WIN32 )
+#     define  strncasecmp _strnicmp
+#   endif
+# endif  // !strncasecmp
+
+# if !defined( fdopen )
+#   if defined( _WIN32 )
+#     define  fdopen      _fdopen
+#   endif
+# endif  // !fdopen
 
 namespace mtc
 {
