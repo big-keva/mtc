@@ -68,15 +68,15 @@ namespace mtc
   /*
     compare two keys on limited length and return both match length and compare result
   */
-    static  int   getmatch( int& rescmp, const byte_t* p1, int l1, const byte_t* p2, int l2 )
+    static  size_t  getmatch( int& rescmp, const byte_t* p1, size_t l1, const byte_t* p2, size_t l2 )
       {
-        int   lmatch;
-        int   maxlen = min( l1, l2 );
+        size_t  lmatch;
+        size_t  maxlen = min( l1, l2 );
 
         for ( lmatch = 0; lmatch < maxlen && (rescmp = p1[lmatch] - p2[lmatch]) == 0; ++lmatch )
           (void)NULL;
         if ( rescmp == 0 )
-          rescmp = l1 - l2;
+          rescmp = (l1 > l2) - (l1 < l2);
         return lmatch;
       }
 
@@ -146,9 +146,9 @@ namespace mtc
         }
 
     public:     // serialization
-      unsigned  GetBufLen() const
+      size_t  GetBufLen() const
         {
-          unsigned l = 0;
+          size_t  l = 0;
 
           for ( auto p = begin(); p < end(); ++p )
             l += (*p)->GetBufLen();
@@ -186,13 +186,13 @@ namespace mtc
       int           getStrLim() const   {  return (uflags & ~0xc000ffff) >> 14;  }
       int           getStrLen() const   {  return (word16_t)uflags;  }
       const byte_t* getString() const   {  return sizeof(V) + (const byte_t*)(this + 1);  }
-      void          setStrLen( int n )
+      void          setStrLen( size_t n )
         {
           assert( n <= getStrLim() );
-          uflags = (uflags & 0xffff0000) | n;
+          uflags = (uflags & 0xffff0000) | (unsigned)n;
         }
       template <class chartype>
-      void          setString( const chartype* k, unsigned l )
+      void          setString( const chartype* k, size_t l )
         {
           if ( k != nullptr )
             memcpy( (void*)getString(), k, l );
@@ -249,7 +249,7 @@ namespace mtc
         }
 
     public:     // construction
-      patnode( int strlimit ): uflags( ((strlimit + 3) & ~3) << 14 )
+      patnode( size_t strlimit ): uflags( (unsigned)(((strlimit + 3) & ~3) << 14) )
         {
         }
      ~patnode()
@@ -305,7 +305,7 @@ namespace mtc
         }
 
     public:     // search & insert
-      patnode*  Search( const byte_t* k, unsigned l ) const
+      patnode*  Search( const byte_t* k, size_t l ) const
         {
           const patnode*  search = this;
 
@@ -340,7 +340,7 @@ namespace mtc
               l -= curlen;
           }
         }
-      patnode*  Insert( patnode*&  placed, const byte_t* k, unsigned l )
+      patnode*  Insert( patnode*&  placed, const byte_t* k, size_t l )
         {
           patarray&           aitems = getarray();
           patnode**           ptrtop = aitems.begin();
@@ -349,7 +349,7 @@ namespace mtc
           _auto_<patnode, M>  palloc;
           int                 ccount;
           int                 rescmp;
-          unsigned            lmatch;
+          size_t              lmatch;
 
         // найти вложенный элемент с совпадающим первым символом
           while ( ptrtop < ptrend && (chbyte = *(*ptrtop)->getString()) > *k )
@@ -410,12 +410,12 @@ namespace mtc
         }
 
     public:     // serialization
-      unsigned GetBufLen() const
+      size_t  GetBufLen() const
         {
           const patarray& patarr = getarray();
           const V*        pvalue = getvalue();
           word16_t        arsize = patarr.size() << 1;
-          unsigned        ccharr = patarr.GetBufLen();
+          size_t          ccharr = patarr.GetBufLen();
 
           if ( pvalue != nullptr )
             {  ccharr += ::GetBufLen( *pvalue );  arsize |= 1;  }
@@ -428,7 +428,7 @@ namespace mtc
           const patarray& patarr = getarray();
           const V*        pvalue = getvalue();
           word16_t        arsize = (patarr.size() << 1) | (pvalue != nullptr ? 0x01 : 0x00);
-          unsigned        nodlen;
+          size_t          nodlen;
 
         // store key size, array size and key
           o = ::Serialize( ::Serialize( ::Serialize( o, getStrLen() ), arsize ),
@@ -509,10 +509,10 @@ namespace mtc
 
     public:
       template <class chartype=char> static
-      patnode*   allocate( const chartype* k = nullptr, unsigned l = 0, unsigned a = 0x04 /* array size */ )
+      patnode*   allocate( const chartype* k = nullptr, size_t l = 0, unsigned a = 0x04 /* array size */ )
         {
-          int       lalign = (l + 3) & ~3;          // align length to 4 bytes
-          int       nalloc = sizeof(patnode)        // for runtime usage
+          size_t    lalign = (l + 3) & ~3;          // align length to 4 bytes
+          size_t    nalloc = sizeof(patnode)        // for runtime usage
                            + sizeof(V)              // value place
                            + lalign                 // key value
                            + sizeof(word16_t)       // array size and value flag
@@ -538,6 +538,11 @@ namespace mtc
 
   public:     // construction
     patricia()  {}
+    patricia( const patricia& p )
+      {
+        inplace_swap( patree, ((patricia*)&p)->patree );
+      }
+    patricia& operator = ( const patricia& ) = delete;
 
   public:     // helpers
     void    DelAll()
@@ -545,9 +550,9 @@ namespace mtc
         patree = nullptr;
       }
   public:     // API
-    template <class chartype = char> const V*  Search( const chartype* k, unsigned l ) const;
-    template <class chartype = char>       V*  Search( const chartype* k, unsigned l );
-    template <class chartype = char>       V*  Insert( const chartype* k, unsigned l, const V& v = V() );
+    template <class chartype = char> const V*  Search( const chartype* k, size_t l ) const;
+    template <class chartype = char>       V*  Search( const chartype* k, size_t l );
+    template <class chartype = char>       V*  Insert( const chartype* k, size_t l, const V& v = V() );
 
   public:     // iterator
     template <class action> int for_each( action _do_ )
@@ -556,7 +561,7 @@ namespace mtc
       }
 
   public:     // serialization
-    unsigned                GetBufLen() const
+    size_t  GetBufLen() const
       {
         return patree != nullptr ? patree->GetBufLen() : 1;
       }
@@ -598,10 +603,6 @@ namespace mtc
 
   protected:  // variables
     _auto_<patnode, M>  patree;
-
-  private:    // copy prevent
-    patricia( const patricia& );
-    patricia& operator = ( const patricia& );
 
   };
 
@@ -647,7 +648,7 @@ namespace mtc
   // patricia implementation
 
   template <class V, class M> template <class chartype>
-  V*  patricia<V, M>::Search( const chartype* k, unsigned l )
+  V*  patricia<V, M>::Search( const chartype* k, size_t l )
   {
     const patnode*  pfound;
 
@@ -656,13 +657,13 @@ namespace mtc
   }
 
   template <class V, class M> template <class chartype>
-  const V*  patricia<V, M>::Search( const chartype* k, unsigned l ) const
+  const V*  patricia<V, M>::Search( const chartype* k, size_t l ) const
   {
     return ((patricia<V, M>*)this)->Search( k, l );
   }
 
   template <class V, class M> template <class chartype>
-  V*  patricia<V, M>::Insert( const chartype* k, unsigned l, const V& v )
+  V*  patricia<V, M>::Insert( const chartype* k, size_t l, const V& v )
   {
     patnode*  pfound;
 
