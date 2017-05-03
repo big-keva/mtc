@@ -2042,7 +2042,7 @@ namespace mtc
   {
     int       branch = plain_branchlen();
       assert( branch <= 0x100 );
-      assert( size() <= 0x100 );
+      assert( zarray<M>::ztree::size() <= 0x100 );
     word16_t  lstore = (branch > 0 ? 0x0400 + branch : this->size()) + (avalue.gettype() != 0xff ? 0x0200 : 0);
 
     o = ::Serialize( o, lstore );
