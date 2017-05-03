@@ -436,19 +436,19 @@ namespace mtc
   template <class K, class V, class M>
   template <class ifcond>
   void      hashmap<K, V, M>::DeleteIf( ifcond _if_ )
-  {
-    for ( auto p = Enum( nullptr ); p != nullptr; )
-      if ( _if_( GetKey( p ), GetVal( p ) ) )
-      {
-        const K&  delkey = GetKey( p );
+    {
+      for ( auto p = Enum( nullptr ); p != nullptr; )
+        if ( _if_( GetKey( p ), GetVal( p ) ) )
+        {
+          const K&  delkey = GetKey( p );
 
-        p = Enum( p );  Delete( delkey );
-      }
-        else
-      {
-        p = Enum( p );
-      }
-  }
+          p = Enum( p );  Delete( delkey );
+        }
+          else
+        {
+          p = Enum( p );
+        }
+    }
 
 }  // mtc namespace
 
