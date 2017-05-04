@@ -200,7 +200,7 @@ namespace mtc
   template <class C, class V, class M>
   int   _base_stringmap_<C, V, M>::Append( const _base_stringmap_<C, V, M>& s )
     {
-      for ( const void* p = nullptr; (p = e.Enum( p )) != nullptr; )
+      for ( const void* p = nullptr; (p = s.Enum( p )) != nullptr; )
         if ( Insert( GetKey( p ), GetVal( p ) ) == nullptr )
           return ENOMEM;
 
