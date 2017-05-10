@@ -60,9 +60,9 @@ SOFTWARE.
 /* _auto_<char> */
 
   template <class M>
-  inline  unsigned  GetBufLen( const mtc::_auto_<char, M>& s )
+  inline  size_t  GetBufLen( const mtc::_auto_<char, M>& s )
     {
-      unsigned  l = (unsigned)w_strlen( s );
+      auto l = w_strlen( s );
 
       return GetBufLen( l ) + l;
     }
@@ -87,9 +87,9 @@ SOFTWARE.
 /* _auto_<widechar> */
 
   template <class M>
-  inline  unsigned  GetBufLen( const mtc::_auto_<widechar, M>& s )
+  inline  size_t  GetBufLen( const mtc::_auto_<widechar, M>& s )
     {
-      unsigned l = (unsigned)w_strlen( s );
+      auto l = w_strlen( s );
 
       return GetBufLen( l ) + sizeof(widechar) * l;
     }
@@ -114,9 +114,9 @@ SOFTWARE.
 /* array<T> */
 
   template <class T, class M>
-  unsigned  GetBufLen( const mtc::array<T, M>& a )
+  size_t  GetBufLen( const mtc::array<T, M>& a )
     {
-      unsigned  l = GetBufLen( a.size() );
+      auto l = GetBufLen( a.size() );
 
       for ( auto p = a.begin(); p < a.end(); )
         l += GetBufLen( *p++ );
@@ -144,7 +144,7 @@ SOFTWARE.
     }
 
 # define derive_ordinal_serialize( _type_ )                                         \
-  template <class M>  inline unsigned GetBufLen( const mtc::array<_type_, M>& a )   \
+  template <class M>  inline size_t  GetBufLen( const mtc::array<_type_, M>& a )    \
     {                                                                               \
       return GetBufLen( a.size() ) + sizeof(_type_) * a.size();                     \
     }                                                                               \
