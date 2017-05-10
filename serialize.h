@@ -109,10 +109,10 @@ inline  sourcebuf*  FetchFrom( sourcebuf* s, void* p, unsigned l )
 //[]=========================================================================[]
 
 template <class T>
-inline  unsigned  GetBufLen( T dwdata )
+inline  size_t  GetBufLen( T dwdata )
   {
-    T         bitest = 0x007f;
-    unsigned  ncount = 1;
+    T       bitest = 0x007f;
+    size_t  ncount = 1;
 
     while ( (dwdata & ~bitest) != 0 )
     {
@@ -122,39 +122,39 @@ inline  unsigned  GetBufLen( T dwdata )
     return ncount;
   }
 
-inline  unsigned  GetBufLen(  char  )
+inline  size_t  GetBufLen(  char  )
   {
     return 1;
   }
 
-inline  unsigned  GetBufLen( unsigned char )
+inline  size_t  GetBufLen( unsigned char )
   {
     return 1;
   }
 
-inline  unsigned  GetBufLen(  bool  )
+inline  size_t  GetBufLen(  bool  )
   {
     return 1;
   }
 
-inline  unsigned  GetBufLen( float )
+inline  size_t  GetBufLen( float )
   {
     return sizeof(float);
   }
 
-inline  unsigned  GetBufLen( double )
+inline  size_t  GetBufLen( double )
   {
     return sizeof(double);
   }
 
-inline  unsigned  GetBufLen( const char*  string )
+inline  size_t  GetBufLen( const char*  string )
   {
     auto length = strlen( string );
 
-    return (unsigned)(sizeof(*string) * length + GetBufLen( length ));
+    return sizeof(*string) * length + GetBufLen( length );
   }
 
-inline  unsigned  GetBufLen( char*        string )
+inline  size_t  GetBufLen( char*        string )
   {
     return GetBufLen( (const char*)string );
   }
