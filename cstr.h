@@ -95,12 +95,12 @@ namespace mtc
           else return 0;
       }
 
-      if ( (pszstr = (char*)malloc( sizeof(C) * (l + 1) + sizeof(std::atomic_int) )) == nullptr )
+      if ( (pszstr = (C*)malloc( sizeof(C) * (l + 1) + sizeof(std::atomic_int) )) == nullptr )
         return ENOMEM;
 
       new( (std::atomic_int*)pszstr ) std::atomic_int( 1 );
 
-      if ( s != nullptr ) pszstr = (char*)memcpy( pszstr + sizeof(std::atomic_int), s, l );
+      if ( s != nullptr ) pszstr = (C*)memcpy( pszstr + sizeof(std::atomic_int), s, l );
         else pszstr = pszstr + sizeof(std::atomic_int);
 
       pszstr[l] = 0;
