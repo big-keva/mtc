@@ -376,22 +376,22 @@ inline  S*  FetchFrom( S* s, T& t )
     return s;
   }
 
-template <class S> inline  S* FetchFrom( S* s, const char*& r )
+template <class S> inline  S* FetchFrom( S* s, char*&  r )
   {
     unsigned  length;
 
-    if ( (s = FetchFrom( s, length )) == NULL )
-      return NULL;
-    if ( (r = (char*)malloc( length + 1 )) == NULL )
-      return NULL;
-    if ( (s = FetchFrom( s, r, length )) == NULL ) free( r );
+    if ( (s = FetchFrom( s, length )) == nullptr )
+      return nullptr;
+    if ( (r = (char*)malloc( length + 1 )) == nullptr )
+      return nullptr;
+    if ( (s = FetchFrom( s, r, length )) == nullptr ) free( r );
       else  r[length] = '\0';
     return s;
   }
 
-template <class S> inline  S* FetchFrom( S* s, char*&  r )
+template <class S> inline  S* FetchFrom( S* s, const char*& r )
   {
-    return FetchFrom( s, (const char*&)r );
+    return FetchFrom( s, (char*&)r );
   }
 
 # endif  // __mtc_serialize_h__

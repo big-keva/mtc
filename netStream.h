@@ -32,11 +32,11 @@ namespace mtc
                                       sendingTimeout( nc.sendingTimeout ) {}
     NetStream& operator = ( const NetStream& nc )
       {
-        tryConnectHost = tryConnectHost;
-        tryConnectPort = tryConnectPort;
-        connectTimeout = connectTimeout;
-        receiveTimeout = receiveTimeout;
-        sendingTimeout = sendingTimeout;
+        tryConnectHost = nc.tryConnectHost;
+        tryConnectPort = nc.tryConnectPort;
+        connectTimeout = nc.connectTimeout;
+        receiveTimeout = nc.receiveTimeout;
+        sendingTimeout = nc.sendingTimeout;
         return *this;
       }
 

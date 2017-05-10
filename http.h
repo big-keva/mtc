@@ -127,9 +127,9 @@ namespace mtc
     const char* GetURI() const noexcept     {  return urlstr.size() > 0 && urlstr.first() != 0 ? urlstr.begin() : "/";   }
     const char* GetVersion() const noexcept {  return verstr.size() > 0 && verstr.first() != 0 ? verstr.begin() : "1.0"; }
 
-    int   SetMethod( const char* s ) noexcept   {  method.SetLen( 0 );  return method.Append( w_strlen( s ) + 1, s );  }
-    int   SetURI( const char* s ) noexcept      {  urlstr.SetLen( 0 );  return urlstr.Append( w_strlen( s ) + 1, s );  }
-    int   SetVersion( const char* s ) noexcept  {  verstr.SetLen( 0 );  return verstr.Append( w_strlen( s ) + 1, s );  }
+    int   SetMethod( const char* s ) noexcept   {  method.SetLen( 0 );  return method.Append( (int)w_strlen( s ) + 1, s );  }
+    int   SetURI( const char* s ) noexcept      {  urlstr.SetLen( 0 );  return urlstr.Append( (int)w_strlen( s ) + 1, s );  }
+    int   SetVersion( const char* s ) noexcept  {  verstr.SetLen( 0 );  return verstr.Append( (int)w_strlen( s ) + 1, s );  }
 
   public:     // serialization
     template <class S>  S*  Fetch( S* s ) noexcept;
@@ -154,8 +154,8 @@ namespace mtc
     const char* GetComment() const noexcept {  return comment.size() > 0 ? comment.begin() : "";  }
     unsigned    GetStatus() const noexcept  {  return hresult;  }
 
-    int   SetVersion( const char* s ) noexcept  {  version.SetLen( 0 );  return version.Append( w_strlen( s ) + 1, s );  }
-    int   SetComment( const char* s ) noexcept  {  comment.SetLen( 0 );  return comment.Append( w_strlen( s ) + 1, s );  }
+    int   SetVersion( const char* s ) noexcept  {  version.SetLen( 0 );  return version.Append( (int)w_strlen( s ) + 1, s );  }
+    int   SetComment( const char* s ) noexcept  {  comment.SetLen( 0 );  return comment.Append( (int)w_strlen( s ) + 1, s );  }
     void  SetStatus( unsigned u ) noexcept {  hresult = u;  }
 
   public:     // serialization
@@ -215,7 +215,7 @@ namespace mtc
         o = ::Serialize(
             ::Serialize(
             ::Serialize(
-            ::Serialize( o, l.key, w_strlen( l.key ) ), ": ", 2 ), (const char*)l.val, w_strlen( l.val ) ), "\r\n", 2 );
+            ::Serialize( o, l.key, (unsigned)w_strlen( l.key ) ), ": ", 2 ), (const char*)l.val, (unsigned)w_strlen( l.val ) ), "\r\n", 2 );
 
         return o != nullptr ? 0 : EFAULT;
       } ) == 0 ? ::Serialize( o, "\r\n", 2 ) : nullptr;
@@ -363,11 +363,11 @@ namespace mtc
     sprintf( resstr, "%d", hresult );
 
     o = ::Serialize( ::Serialize( ::Serialize( ::Serialize( o,
-      "HTTP/", 5 ), verstr, w_strlen( verstr ) ), ' ' ),
-                    resstr, w_strlen( resstr ) );
+      "HTTP/", 5 ), verstr, (unsigned)w_strlen( verstr ) ), ' ' ),
+                    resstr, (unsigned)w_strlen( resstr ) );
 
     if ( comment.size() > 0 && comment.first() != '\0' )
-      o = ::Serialize( o, comment.begin(), w_strlen( comment ) );
+      o = ::Serialize( o, comment.begin(), (unsigned)w_strlen( comment ) );
 
     return (o = ::Serialize( o, "\r\n", 2 )) != nullptr ? HTTPHeader::Store( o ) : nullptr;
   }

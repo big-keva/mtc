@@ -32,7 +32,11 @@ namespace mtc
     enum
     {
       E_INTERRUPT   = WSAEINTR,
-      E_INPROGRESS  = WSAEWOULDBLOCK,
+      E_INPROGRESS  = WSAEWOULDBLOCK
+    };
+
+    enum: SOCKET
+    {
       InvalidSocket = INVALID_SOCKET
     };
 

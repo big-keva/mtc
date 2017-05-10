@@ -67,126 +67,105 @@ SOFTWARE.
 namespace mtc
 {
 
-  template <class Chr, class Val, class M = def_alloc>
+  template <class C, class V, class M = def_alloc>
   class   _base_stringmap_
   {
+    M   allocator;
+
     struct  keyrec
     {
-      Val       val;
+      V         val;
       unsigned  pos;
       keyrec*   lpn;
 
-    protected:
-            keyrec( const Val&  t, unsigned p, keyrec*  n ): val( t ), pos( p ), lpn( n )
-              {}
-            keyrec( Val&  t, unsigned p, keyrec*  n ): val( t ), pos( p ), lpn( n )
-              {}
-            keyrec( unsigned p, keyrec* n ): pos( p ), lpn( n )
-              {}
-           ~keyrec()
-              {}
-
-    public:     // creation
-              void    DelAll()
-                {
-                  if ( this != nullptr )
-                  {
-                    if ( lpn != nullptr )
-                      lpn->DelAll();
-                    this->~keyrec();
-                      M().free( this );
-                  }
-                }
-      template <class _data_>
-      static  keyrec* Create( const Chr*  k, size_t   l, _data_& t,
-                              unsigned    p, keyrec*  n )
-                {
-                  keyrec* newrec;
-
-                  if ( (newrec = (keyrec*)M().alloc( sizeof(keyrec) + (l + 1) * sizeof(Chr) )) != nullptr )
-                  {
-                    new ( newrec ) keyrec( t, p, n );
-                      w_strncpy( (Chr*)(newrec + 1), k, l )[l] = 0;
-                  }
-                  return newrec;
-                }
-      static  keyrec* Create( const Chr*  k, size_t   l,
-                              unsigned    p, keyrec*  n )
-                {
-                  keyrec* newrec;
-
-                  if ( (newrec = (keyrec*)M().alloc( sizeof(keyrec) + (l + 1) * sizeof(Chr) )) != nullptr )
-                  {
-                    new ( newrec ) keyrec( p, n );
-                      w_strncpy( (Chr*)(newrec + 1), k, l )[l] = 0;
-                  }
-                  return newrec;
-                }
+    public:
+      keyrec( const V&  t, unsigned p, keyrec* n ): val( t ), pos( p ), lpn( n )  {}
+      keyrec(              unsigned p, keyrec* n ): pos( p ), lpn( n )  {}
     };
 
-  private:  // copy prevent section
-    _base_stringmap_( const _base_stringmap_<Chr, Val, M>& );
-    _base_stringmap_<Chr, Val, M>& operator = ( const _base_stringmap_<Chr, Val, M>& );
+  protected:  // allocation
+    template <class... constructor_args>
+    keyrec* Create( const C*  k, size_t l, constructor_args... a )
+      {
+        keyrec* palloc;
+
+        if ( (palloc = (keyrec*)allocator.alloc( sizeof(keyrec) + (l + 1) * sizeof(C) )) != nullptr )
+          w_strncpy( (C*)(1 + new( palloc ) keyrec( a... )), k, l )[l] = 0;
+
+        return palloc;
+      }
 
   public:   // typedef for abstract algorithm
-    typedef Val   DataType;
+    typedef V   DataType;
 
   public:
-                  _base_stringmap_( unsigned tablen = 69959 );
-                 ~_base_stringmap_();
-  // Map work methods
-    int           Delete( const Chr*, size_t l = (size_t)-1 );
-    void          DelAll();
-    unsigned      GetLen() const;
-    const Chr*    KeyStr( const Chr*, size_t l = (size_t)-1 ) const;
-    unsigned      MapLen() const;
+    _base_stringmap_( unsigned tablen = 69959 ): pitems( nullptr ), maplen( tablen ), ncount( 0 ) {}
+   ~_base_stringmap_();
+    _base_stringmap_( const _base_stringmap_& ) = delete;
+    _base_stringmap_& operator = ( const _base_stringmap_& ) = delete;
 
-          Val*    AddKey( const Chr*, size_t l, const Val& v = Val() );
-          Val*    Insert( const Chr*, const Val& v = Val() );
-    const Val*    Search( const Chr*, size_t l = (size_t)-1 ) const;
-          Val*    Search( const Chr*, size_t l = (size_t)-1 );
+  public:     // methods
+    int           Append( const _base_stringmap_& );
+    int           Delete( const C*, size_t l = (size_t)-1 );
+    void          DelAll();
+    unsigned      GetLen() const  {  return ncount;  }
+    unsigned      MapLen() const  {  return maplen;  }
+    const C*      KeyStr( const C*, size_t l = (size_t)-1 ) const;
+
+          V*      AddKey( const C*, size_t l, const V& v = V() );
+          V*      Insert( const C*,           const V& v = V() );
+    const V*      Search( const C*, size_t l = (size_t)-1 ) const;
+          V*      Search( const C*, size_t l = (size_t)-1 );
+
+  public:     // stl compat
+    int     size() const  {  return GetLen();  }
 
   // Enumerator support methods
-    void*               Enum( const void* );
-    static  const Chr*  GetKey( const void* );
-    static  Val&        GetVal( const void* );
+    const void*         Enum( const void* ) const;
+          void*         Enum( void* );
+    static  const C*    GetKey( const void* pvn ) {  assert( pvn != nullptr ); return (const C*)(1 + (keyrec*)pvn);  }
+    static  const V&    GetVal( const void* pvn ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->val;  }
+    static        V&    GetVal(       void* pvn ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->val;  }
+
     template <class action>
-    int                 for_each( action ) const;
+    int           for_each( action ) const;
     template <class action>
-    int                 for_each( action );
+    int           for_each( action );
     template <class ifcond>
-    void                DeleteIf( ifcond );
+    void          DeleteIf( ifcond _if_ );
 
   protected:  // helpers
-    int       Alloc()
-                {
-                  assert( pitems == nullptr );
-                  assert( maplen != 0 );
+    int     NewMap()
+      {
+        assert( pitems == nullptr && maplen != 0 );
 
-                  if ( pitems != nullptr || maplen == 0 )
-                    return EINVAL;
-                  if ( (pitems = (keyrec**)M().alloc( maplen * sizeof(keyrec*) )) == nullptr )
-                    return ENOMEM;
-                  else memset( pitems, 0, maplen * sizeof(keyrec*) );
-                    return 0;
-                }
-    unsigned  gethash( const Chr* pch, size_t  cch ) const
-                {
-                  unsigned  int nHash = 0;
+        if ( pitems != nullptr || maplen == 0 )
+          return EINVAL;
+        if ( (pitems = (keyrec**)allocator.alloc( maplen * sizeof(keyrec*) )) == nullptr )
+          return ENOMEM;
+        for ( auto p = pitems; p < pitems + maplen; )
+          *p++ = nullptr;
+        return 0;
+      }
 
-                  assert( cch != (size_t)-1 );
-                  while ( cch-- > 0 )
-                    nHash = (nHash << 5) + nHash + *pch++;
-                  return nHash;
-                }
-    bool      iseq( const Chr* p1, const Chr* p2, size_t  cc ) const
-                {
-                  assert( cc != (size_t)-1 );
+    unsigned  gethash( const C* pch, size_t  cch ) const
+      {
+        unsigned  int nHash = 0;
 
-                  while ( cc > 0 && *p1++ == *p2++ )
-                    --cc;
-                  return cc == 0 && *p1 == '\0';
-                }
+        assert( cch != (size_t)-1 );
+        while ( cch-- > 0 )
+          nHash = (nHash << 5) + nHash + *pch++;
+        return nHash;
+      }
+    bool      iseq( const C* p1, const C* p2, size_t  cc ) const
+      {
+        assert( cc != (size_t)-1 );
+
+        while ( cc > 0 && *p1++ == *p2++ )
+          --cc;
+        return cc == 0 && *p1 == 0;
+      }
+
   private:
     keyrec**  pitems;
     unsigned  maplen;
@@ -194,274 +173,261 @@ namespace mtc
 
   };
 
-  template <class Val, class allocator = def_alloc>
-  class stringmap: public _base_stringmap_<char, Val, allocator>
+  template <class V, class M = def_alloc>
+  class stringmap: public _base_stringmap_<char, V, M>
   {
-    public: stringmap( unsigned maplen = 69959 ): _base_stringmap_<char, Val, allocator>( maplen ) {}
+    public: stringmap( unsigned maplen = 69959 ): _base_stringmap_<char, V, M>( maplen ) {}
   };
 
-  template <class Val, class allocator = def_alloc>
-  class widestringmap: public _base_stringmap_<widechar, Val, allocator>
+  template <class V, class M = def_alloc>
+  class widestringmap: public _base_stringmap_<widechar, V, M>
   {
-    public: widestringmap( unsigned maplen = 69959 ): _base_stringmap_<widechar, Val, allocator>( maplen ) {}
+    public: widestringmap( unsigned maplen = 69959 ): _base_stringmap_<widechar, V, M>( maplen ) {}
   };
 
   // Map inline implementation
 
-  template <class Chr, class Val, class M>
-  inline  _base_stringmap_<Chr, Val, M>::_base_stringmap_( unsigned tablen ):
-    pitems( nullptr ), maplen( tablen ), ncount( 0 )
+  template <class C, class V, class M>
+  _base_stringmap_<C, V, M>::~_base_stringmap_()
   {
-  }
-
-  template <class Chr, class Val, class M>
-  inline  _base_stringmap_<Chr, Val, M>::~_base_stringmap_()
-  {
-    DelAll();
-  }
-
-  template <class Chr, class Val, class M>
-  inline  int   _base_stringmap_<Chr, Val, M>::Delete( const Chr* k, size_t l )
-  {
-    if ( l == (size_t)-1 )
-      for ( l = 0; k[l] != 0; ++l ) (void)0;
-
-    if ( pitems != nullptr && ncount != 0 )
+    if ( pitems != nullptr )
     {
-      unsigned  nhcode = gethash( k, l ) % maplen;
-      auto      ppitem = &pitems[nhcode];
-      keyrec*   lpfree;
+      DelAll();
+      allocator.free( pitems );
+    }
+  }
 
-      assert( *ppitem == nullptr || nhcode == (*ppitem)->pos );
+  template <class C, class V, class M>
+  int   _base_stringmap_<C, V, M>::Append( const _base_stringmap_<C, V, M>& s )
+    {
+      for ( const void* p = nullptr; (p = s.Enum( p )) != nullptr; )
+        if ( Insert( GetKey( p ), GetVal( p ) ) == nullptr )
+          return ENOMEM;
 
-      while ( *ppitem != nullptr && !iseq( (const Chr*)(1 + *ppitem), k, l ) )
-        ppitem = &(*ppitem)->lpn;
-      if ( *ppitem != nullptr )
-      {
-        lpfree = *ppitem;
-        *ppitem = lpfree->lpn;
-        lpfree->lpn = nullptr;
-        lpfree->DelAll();
-        --ncount;
-      }
       return 0;
     }
-    return EINVAL;
-  }
 
-  template <class Chr, class Val, class M>
-  inline  void  _base_stringmap_<Chr, Val, M>::DelAll( )
-  {
-    if ( pitems != nullptr )
+  template <class C, class V, class M>
+  int   _base_stringmap_<C, V, M>::Delete( const C* k, size_t l )
     {
-      for ( auto p = pitems; p < pitems + maplen; )
-        (*p++)->DelAll();
-      M().free( pitems );
-        pitems = nullptr;
-    }
-    ncount = 0;
-  }
+      if ( l == (size_t)-1 )
+        for ( l = 0; k[l] != 0; ++l ) (void)0;
 
-  template <class Chr, class Val, class M>
-  inline  unsigned  _base_stringmap_<Chr, Val, M>::GetLen() const
-  {
-    return ncount;
-  }
-
-  template <class Chr, class Val, class M>
-  inline  const Chr* _base_stringmap_<Chr, Val, M>::KeyStr( const Chr* k, size_t l ) const
-  {
-    if ( l == (size_t)-1 )
-      for ( l = 0; k[l] != 0; ++l ) (void)0;
-
-    if ( pitems != nullptr )
-    {
-      unsigned  nhcode = gethash( k, l ) % maplen;
-      keyrec*   lpitem = pitems[nhcode];
-
-      assert( lpitem == nullptr || nhcode == lpitem->pos );
-
-      while ( lpitem != nullptr && !iseq( (Chr*)(lpitem + 1), k, l ) )
-        lpitem = lpitem->lpn;
-      return ( lpitem != nullptr ? (Chr*)(lpitem + 1) : nullptr );
-    }
-      else
-    return nullptr;
-  }
-
-  template <class Chr, class Val, class M>
-  inline  unsigned  _base_stringmap_<Chr, Val, M>::MapLen() const
-  {
-    return maplen;
-  }
-
-  template <class Chr, class Val, class M>
-  inline  const Val*  _base_stringmap_<Chr, Val, M>::Search( const Chr* k, size_t l ) const
-  {
-    if ( pitems == nullptr )
-      return nullptr;
-
-    if ( l == (size_t)-1 )
-      for ( l = 0; k[l] != 0; ++l ) (void)NULL;
-
-    for ( auto p = pitems[gethash( k, l ) % maplen]; p != nullptr; p = p->lpn )
-      if ( iseq( (Chr*)(p + 1), k, l ) )
-        return &p->val;
-
-    return nullptr;
-  }
-
-  template <class Chr, class Val, class M>
-  inline  Val*  _base_stringmap_<Chr, Val, M>::Search( const Chr* k, size_t l )
-  {
-    if ( pitems == nullptr )
-      return nullptr;
-
-    if ( l == (size_t)-1 )
-      for ( l = 0; k[l] != 0; ++l ) (void)0;
-
-    for ( auto p = pitems[gethash( k, l ) % maplen]; p != nullptr; p = p->lpn )
-      if ( iseq( (Chr*)(p + 1), k, l ) )
-        return &p->val;
-
-    return nullptr;
-  }
-
-  template <class Chr, class Val, class M>
-  inline  Val*  _base_stringmap_<Chr, Val, M>::AddKey( const Chr* k, size_t l, const Val& t )
-  {
-    keyrec*   newrec;
-    unsigned  hindex;
-
-  // ensure
-    if ( l == (size_t)-1 )
-      for ( l = 0; k[l] != 0; ++l ) (void)0;
-
-  // Ensure the map is allocated
-    if ( pitems == nullptr && Alloc() != 0 )
-      return nullptr;
-
-  // Allocate the item
-    hindex = gethash( k, l ) % maplen;
-
-    if ( (newrec = keyrec::Create( k, l, t, hindex, pitems[hindex] )) == NULL )
-      return nullptr;
-    pitems[hindex] = newrec;
-      ++ncount;
-
-    return &newrec->val;
-  }
-
-  template <class Chr, class Val, class M>
-  inline  Val*  _base_stringmap_<Chr, Val, M>::Insert( const Chr* k, const Val& t )
-  {
-    size_t    cchstr = w_strlen( k );
-    unsigned  nindex = gethash( k, w_strlen( k ) ) % maplen;
-    keyrec*   newrec;
-
-  // Ensure the map is allocated
-    if ( pitems == nullptr && Alloc() != 0 )
-      return nullptr;
-
-  // Allocate the item
-    if ( (newrec = keyrec::Create( k, cchstr, t, nindex, pitems[nindex] )) == nullptr )
-      return nullptr;
-    pitems[nindex] = newrec;
-      ++ncount;
-
-    return &newrec->val;
-  }
-
-  template <class Chr, class Val, class M>
-  inline  void*     _base_stringmap_<Chr, Val, M>::Enum( const void* pvn )
-  {
-    keyrec*   curguy = (keyrec*)pvn;
-    unsigned  nindex;
-
-  // Check pitems initialized
-    if ( pitems == nullptr )
-      return nullptr;
-
-  // For the first call, make valid object pointer
-    if ( curguy == NULL )
-    {
-      for ( nindex = 0; nindex < maplen; nindex++ )
-        if ( (curguy = pitems[nindex]) != nullptr )
-          break;
-    }
-      else
-  // Get the next item for the selected one    
-    {
-      keyrec* lpcurr = curguy;
-
-      if ( (curguy = curguy->lpn) == nullptr )
+      if ( pitems != nullptr && ncount != 0 )
       {
-        for ( nindex = lpcurr->pos + 1; nindex < maplen; nindex++ )
-          if ( (curguy = pitems[nindex]) != nullptr )
-            break;
+        unsigned  pos = gethash( k, l ) % maplen;
+        auto      ptr = &pitems[pos];
+
+        assert( *ptr == nullptr || pos == (*ptr)->pos );
+
+        while ( *ptr != nullptr && !iseq( (const C*)(1 + *ptr), k, l ) )
+          ptr = &(*ptr)->lpn;
+
+        if ( *ptr != nullptr )
+        {
+          keyrec* del = *ptr;
+          
+          *ptr = del->lpn;
+            del->~keyrec();
+            allocator.free( del );
+          --ncount;
+        }
+        return 0;
       }
+      return EINVAL;
     }
-    return curguy;
-  }
 
-  template <class Chr, class Val, class M>
-  inline  const Chr* _base_stringmap_<Chr, Val, M>::GetKey( const void*  pvn )
-  {
-    assert( pvn != NULL );
+  template <class C, class V, class M>
+  void   _base_stringmap_<C, V, M>::DelAll()
+    {
+      keyrec* del;
 
-    return (Chr*)(1 + (keyrec*)pvn);
-  }
+      if ( pitems != nullptr )
+        for ( auto p = pitems; p < pitems + maplen; ++p )
+          while ( (del = *p) != nullptr )
+          {
+            *p = del->lpn;
+              del->~keyrec();
+            allocator.free( del );
+          }
+      ncount = 0;
+    }
 
-  template <class Chr, class Val, class M>
-  inline  Val&      _base_stringmap_<Chr, Val, M>::GetVal( const void*  pvn )
-  {
-    assert( pvn != NULL );
+  template <class C, class V, class M>
+  const C*  _base_stringmap_<C, V, M>::KeyStr( const C* k, size_t l ) const
+    {
+      if ( l == (size_t)-1 )
+        for ( l = 0; k[l] != 0; ++l ) (void)0;
 
-    return ((keyrec*)pvn)->val;
-  }
-
-  template <class Chr, class Val, class M>
-  template <class action>
-  inline  int       _base_stringmap_<Chr, Val, M>::for_each( action _do_ )
-  {
-    const void* p = nullptr;
-    int         e = 0;
-
-    while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
-      (void)0;
-
-    return e;
-  }
-
-  template <class Chr, class Val, class M>
-  template <class action>
-  inline  int       _base_stringmap_<Chr, Val, M>::for_each( action _do_ ) const
-  {
-    const void* p = nullptr;
-    int         e = 0;
-
-    while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
-      (void)0;
-
-    return e;
-  }
-
-  template <class Chr, class Val, class M>
-  template <class ifcond>
-  inline  void      _base_stringmap_<Chr, Val, M>::DeleteIf( ifcond _if_ )
-  {
-    for ( void* p = Enum( NULL ); p != NULL; )
-      if ( _if_( GetKey( p ), GetVal( p ) ) )
+      if ( pitems != nullptr )
       {
-        const char* delkey = GetKey( p );
+        unsigned  pos = gethash( k, l ) % maplen;
+        auto      ptr = pitems[pos];
 
-        p = Enum( p );  Delete( delkey );
+        assert( ptr == nullptr || pos == ptr->pos );
+
+        while ( ptr != nullptr && !iseq( (const C*)(ptr + 1), k, l ) )
+          ptr = ptr->lpn;
+
+        return ptr != nullptr ? (const C*)(ptr + 1) : nullptr;
+      }
+      return nullptr;
+    }
+
+  template <class C, class V, class M>
+  V*    _base_stringmap_<C, V, M>::Insert( const C* k, const V& v )
+    {
+      return AddKey( k, -1, v );
+    }
+
+  template <class C, class V, class M>
+  V*    _base_stringmap_<C, V, M>::AddKey( const C* k, size_t l, const V& v )
+    {
+      size_t    cch = l == (size_t)-1 ? w_strlen( k ) : l;
+      unsigned  pos = gethash( k, cch ) % maplen;
+      keyrec*   ptr;
+
+      if ( pitems == nullptr && NewMap() != 0 )
+        return nullptr;
+
+      if ( (ptr = Create( k, cch, v, pos, pitems[pos] )) != nullptr ) pitems[pos] = ptr;
+        else return nullptr;
+
+      return (++ncount, &ptr->val);
+    }
+
+  template <class C, class V, class M>
+  const V*  _base_stringmap_<C, V, M>::Search( const C* k, size_t l ) const
+    {
+      if ( pitems == nullptr )
+        return nullptr;
+
+      if ( l == (size_t)-1 )
+        for ( l = 0; k[l] != 0; ++l ) (void)NULL;
+
+      for ( auto p = pitems[gethash( k, l ) % maplen]; p != nullptr; p = p->lpn )
+        if ( iseq( (const C*)(p + 1), k, l ) )
+          return &p->val;
+
+      return nullptr;
+    }
+
+  template <class C, class V, class M>
+  V*        _base_stringmap_<C, V, M>::Search( const C* k, size_t l )
+    {
+      if ( pitems == nullptr )
+        return nullptr;
+
+      if ( l == (size_t)-1 )
+        for ( l = 0; k[l] != 0; ++l ) (void)NULL;
+
+      for ( auto p = pitems[gethash( k, l ) % maplen]; p != nullptr; p = p->lpn )
+        if ( iseq( (const C*)(p + 1), k, l ) )
+          return &p->val;
+
+      return nullptr;
+    }
+
+  template <class C, class V, class M>
+  const void* _base_stringmap_<C, V, M>::Enum( const void* pvn ) const
+    {
+      auto  ppktop = pitems;
+      auto  ppkend = pitems + maplen;
+
+    // Check pitems initialized
+      if ( pitems == nullptr )
+        return nullptr;
+
+    // For the first call, make valid object pointer
+      if ( pvn != nullptr )
+      {
+        const keyrec* lpnext;
+
+        if ( (lpnext = ((const keyrec*)pvn)->lpn) != nullptr )
+          return lpnext;
+
+        ppktop = pitems + ((const keyrec*)pvn)->pos + 1;
       }
         else
+      ppktop = pitems;
+
+      for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
+        (void)NULL;
+
+      return ppktop < ppkend ? *ppktop : nullptr;
+    }
+
+  template <class C, class V, class M>
+  void*       _base_stringmap_<C, V, M>::Enum( void* pvn )
+    {
+      keyrec**  ppktop;
+      keyrec**  ppkend;
+
+    // Check pitems initialized
+      if ( pitems == nullptr )
+        return nullptr;
+
+    // For the first call, make valid object pointer
+      if ( pvn != nullptr )
       {
-        p = Enum( p );
+        keyrec* lpnext;
+
+        if ( (lpnext = ((keyrec*)pvn)->lpn) != nullptr )
+          return lpnext;
+
+        ppktop = pitems + ((const keyrec*)pvn)->pos + 1;
       }
-  }
+        else
+      ppktop = pitems;
+
+      for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
+        (void)NULL;
+
+      return ppktop < ppkend ? *ppktop : nullptr;
+    }
+
+  template <class C, class V, class M>
+  template <class action>
+  int       _base_stringmap_<C, V, M>::for_each( action _do_ )
+    {
+      const void* p = nullptr;
+      int         e = 0;
+
+      while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
+        (void)0;
+
+      return e;
+    }
+
+  template <class C, class V, class M>
+  template <class action>
+  int       _base_stringmap_<C, V, M>::for_each( action _do_ ) const
+    {
+      const void* p = nullptr;
+      int         e = 0;
+
+      while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
+        (void)0;
+
+      return e;
+    }
+
+  template <class C, class V, class M>
+  template <class ifcond>
+  void      _base_stringmap_<C, V, M>::DeleteIf( ifcond _if_ )
+    {
+      for ( auto p = Enum( nullptr ); p != nullptr; )
+        if ( _if_( GetKey( p ), GetVal( p ) ) )
+        {
+          const C*  delkey = GetKey( p );
+
+          p = Enum( p );  Delete( delkey );
+        }
+          else
+        {
+          p = Enum( p );
+        }
+    }
 
 }  // mtc namespace
 

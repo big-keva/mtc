@@ -144,7 +144,7 @@ namespace mtc
       intptr_t            handle;
 
     public:     // construction
-      dir_val( unsigned attr ): refcnt( 1 ), szname( nullptr ), dwattr( attr ), handle( -1 )
+      dir_val( unsigned attr ): refcnt( 1 ), dwattr( attr ), szname( nullptr ), handle( -1 )
         {
         }
       
