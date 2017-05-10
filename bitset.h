@@ -86,34 +86,64 @@ namespace mtc
         && (s[b / (sizeof(s.last()) * CHAR_BIT)] & (1 << (b % (sizeof(s.last()) * CHAR_BIT)))) != 0;
     }
 
-  template <class U>
-  inline  U     bitsetbits( const unsigned l, const unsigned h )
+  template <class bitset>
+  inline  bool  bitset_get( const bitset& s, unsigned l, unsigned h )
     {
-      unsigned  lpos = l % (sizeof(U) * CHAR_BIT);
-      U         bits = h < sizeof(U) * CHAR_BIT - 1 ? (1 << (h + 1)) - 1 : (U)-1;
-      U         mask = l >= sizeof(U) * CHAR_BIT ? 0 : (lpos > 0 ? ~((1 << lpos) - 1) : (U)-1);
+      while ( l <= h )
+        if ( bitset_get( s, l++ ) ) return true;
+      return false;
+    }
+
+  template <class bitset>
+  inline  unsigned  bitset_first( const bitset& s )
+    {
+      for ( auto p = s.begin(); p < s.end(); ++p )
+        if ( *p != 0 )
+        {
+          auto      uvalue = *p;
+          unsigned  nshift = 0;
+
+          while ( (uvalue & 0x01) == 0 )
+            {  uvalue >>= 1;  ++nshift;  }
+
+          return nshift + sizeof(s.last()) * CHAR_BIT * (p - s.begin());
+        }
+      return (unsigned)-1;
+    }
+
+  template <class U>
+  inline  U     bitsetbits( unsigned l, unsigned h )
+    {
+      assert( l < sizeof(U) * CHAR_BIT );
+      assert( h < sizeof(U) * CHAR_BIT );
+
+      U     bits = ((U)-1) & ~((1 << l) - 1);
+      U     mask = ++h < sizeof(U) * CHAR_BIT ? (1 << h) - 1 : (U)-1;
 
       return bits & mask;
     }
 
   template <class U, class M>
-  inline  int   bitset_set( array<U, M>& s, const unsigned l, const unsigned h )
+  inline  int   bitset_set( array<U, M>& s, unsigned l, unsigned h )
     {
+      if ( l > h )
+        inplace_swap( l, h );
+
       if ( s.size() <= (int)(h / (sizeof(U) * CHAR_BIT)) && s.SetLen( h / (sizeof(U) * CHAR_BIT) + 1 ) != 0 )
         return ENOMEM;
 
     // set lower bits
       s[l / (sizeof(U) * CHAR_BIT)] |= bitsetbits<U>( l % (sizeof(U) * CHAR_BIT),
-        (h - l + 1) < (sizeof(U) * CHAR_BIT) ? h % (sizeof(U) * CHAR_BIT) : sizeof(U) * CHAR_BIT );
+        min( h - (l / (sizeof(U) * CHAR_BIT)) * sizeof(U) * CHAR_BIT, sizeof(U) * CHAR_BIT - 1 ) );
 
     // set sequence bits
-      for ( auto p = s.begin() + (l + (sizeof(U) * CHAR_BIT) - 1) / (sizeof(U) * CHAR_BIT);
+      for ( auto p = s.begin() + (l / (sizeof(U) * CHAR_BIT)) + 1;
                  p < s.begin() + (h / (sizeof(U) * CHAR_BIT)); )
         *p++ = (U)-1;
 
     // set upper bits
-      s[h / (sizeof(U) * CHAR_BIT)] |= bitsetbits<U>( (h - l + 1) < (sizeof(U) * CHAR_BIT) ? l : 0,
-        h % (sizeof(U) * CHAR_BIT) );
+      if ( h / (sizeof(U) * CHAR_BIT) > l / (sizeof(U) * CHAR_BIT))
+        s[h / (sizeof(U) * CHAR_BIT)] |= bitsetbits<U>( 0, h % (sizeof(U) * CHAR_BIT) );
 
       return 0;
     }
@@ -127,16 +157,16 @@ namespace mtc
 
       // del lower bits
         s[l / (sizeof(U) * CHAR_BIT)] &= ~bitsetbits<U>( l % (sizeof(U) * CHAR_BIT),
-          (h - l + 1) < (sizeof(U) * CHAR_BIT) ? h % (sizeof(U) * CHAR_BIT) : sizeof(U) * CHAR_BIT );
+          min( h - (l / (sizeof(U) * CHAR_BIT)) * sizeof(U) * CHAR_BIT, sizeof(U) * CHAR_BIT - 1 ) );
 
       // set sequence bits
-        for ( p = s.begin() + (l + (sizeof(U) * CHAR_BIT) - 1) / (sizeof(U) * CHAR_BIT);
+        for ( p = s.begin() + (l / (sizeof(U) * CHAR_BIT)) + 1;
               p < s.end() && p < s.begin() + (h / (sizeof(U) * CHAR_BIT)); )
-          *p++ = 0;
+          *p++ = (U)0;
 
       // set upper bits
-        if ( p < s.end() )
-          *p &= ~bitsetbits<U>( (h - l + 1) < (sizeof(U) * CHAR_BIT) ? l : 0, h % (sizeof(U) * CHAR_BIT) );
+        if ( p < s.end() && h / (sizeof(U) * CHAR_BIT) > l / (sizeof(U) * CHAR_BIT) )
+          *p &= ~bitsetbits<U>( 0, h % (sizeof(U) * CHAR_BIT) );
       }
     }
 
