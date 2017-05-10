@@ -302,8 +302,23 @@ namespace mtc
     return c == *s ? (C*)s : nullptr;
   }
 
+  template <class C>  C*  __impl_strrchr( const C* s, int c )
+  {
+    const C*  p;
+
+    for ( p = s; *p++ != (C)0; )  (void)0;
+
+    while ( p >= s && *p != c )
+      --p;
+
+    return p >= s ? (C*)p : nullptr;
+  }
+
   inline  char*     w_strchr( const char* s, int c )              {  return __impl_strchr( s, c );  }
   inline  widechar* w_strchr( const widechar* s, int c )          {  return __impl_strchr( s, c );  }
+
+  inline  char*     w_strrchr( const char* s, int c )              {  return __impl_strrchr( s, c );  }
+  inline  widechar* w_strrchr( const widechar* s, int c )          {  return __impl_strrchr( s, c );  }
 
   //
   // strstr family
