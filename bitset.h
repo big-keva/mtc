@@ -95,7 +95,7 @@ namespace mtc
     }
 
   template <class bitset>
-  inline  unsigned  bitset_first( const bitset& s )
+  inline  int   bitset_first( const bitset& s )
     {
       for ( auto p = s.begin(); p < s.end(); ++p )
         if ( *p != 0 )
@@ -108,7 +108,36 @@ namespace mtc
 
           return nshift + sizeof(s.last()) * CHAR_BIT * (p - s.begin());
         }
-      return (unsigned)-1;
+      return -1;
+    }
+
+  template <class bitset>
+  inline  int   bitset_last( const bitset& s )
+    {
+      for ( auto p = s.end(); p > s.begin(); --p )
+        if ( p[-1] != 0 )
+        {
+          auto      uvalue = p[-1];
+          unsigned  nshift = 0;
+
+          while ( uvalue != 0 )
+            {  uvalue >>= 1;  ++nshift;  }
+
+          return nshift - 1 + sizeof(s.last()) * CHAR_BIT * (p - s.begin() - 1);
+        }
+      return -1;
+    }
+
+  template <class bitset>
+  inline  int   bitset_next( const bitset& s, int p )
+    {
+      int   last = bitset_last( s );
+
+      if ( last == -1 || p >= last )
+        return -1;
+      do ++p;
+        while ( !bitset_get( s, p ) );
+      return p;
     }
 
   template <class U>
@@ -149,6 +178,9 @@ namespace mtc
     }
 
   template <class U, class M>
+  inline  int   bitset_set( array<U, M>& s, unsigned u )  {  return bitset_set( s, u, u );  }
+
+  template <class U, class M>
   inline  void  bitset_del( array<U, M>& s, const unsigned l, const unsigned h )
     {
       if ( h >= l && s.size() > (int)(l / (sizeof(U) * CHAR_BIT)) )
@@ -169,6 +201,9 @@ namespace mtc
           *p &= ~bitsetbits<U>( 0, h % (sizeof(U) * CHAR_BIT) );
       }
     }
+
+  template <class U, class M>
+  inline  void  bitset_del( array<U, M>& s, unsigned u )  {  return bitset_del( s, u );  }
 
 }
 
