@@ -106,7 +106,7 @@ namespace mtc
           while ( (uvalue & 0x01) == 0 )
             {  uvalue >>= 1;  ++nshift;  }
 
-          return nshift + sizeof(s.last()) * CHAR_BIT * (p - s.begin());
+          return (unsigned)(nshift + sizeof(s.last()) * CHAR_BIT * (p - s.begin()));
         }
       return -1;
     }
@@ -123,7 +123,7 @@ namespace mtc
           while ( uvalue != 0 )
             {  uvalue >>= 1;  ++nshift;  }
 
-          return nshift - 1 + sizeof(s.last()) * CHAR_BIT * (p - s.begin() - 1);
+          return (unsigned)(nshift - 1 + sizeof(s.last()) * CHAR_BIT * (p - s.begin() - 1));
         }
       return -1;
     }
@@ -162,8 +162,8 @@ namespace mtc
         return ENOMEM;
 
     // set lower bits
-      s[l / (sizeof(U) * CHAR_BIT)] |= bitsetbits<U>( l % (sizeof(U) * CHAR_BIT),
-        min( h - (l / (sizeof(U) * CHAR_BIT)) * sizeof(U) * CHAR_BIT, sizeof(U) * CHAR_BIT - 1 ) );
+      s[l / (sizeof(U) * CHAR_BIT)] |= bitsetbits<U>( (unsigned)(l % (sizeof(U) * CHAR_BIT)),
+        (unsigned)min( h - (l / (sizeof(U) * CHAR_BIT)) * sizeof(U) * CHAR_BIT, sizeof(U) * CHAR_BIT - 1 ) );
 
     // set sequence bits
       for ( auto p = s.begin() + (l / (sizeof(U) * CHAR_BIT)) + 1;
@@ -188,8 +188,8 @@ namespace mtc
         U*  p;
 
       // del lower bits
-        s[l / (sizeof(U) * CHAR_BIT)] &= ~bitsetbits<U>( l % (sizeof(U) * CHAR_BIT),
-          min( h - (l / (sizeof(U) * CHAR_BIT)) * sizeof(U) * CHAR_BIT, sizeof(U) * CHAR_BIT - 1 ) );
+        s[l / (sizeof(U) * CHAR_BIT)] &= ~bitsetbits<U>( (unsigned)(l % (sizeof(U) * CHAR_BIT)),
+          (unsigned)min( h - (l / (sizeof(U) * CHAR_BIT)) * sizeof(U) * CHAR_BIT, sizeof(U) * CHAR_BIT - 1 ) );
 
       // set sequence bits
         for ( p = s.begin() + (l / (sizeof(U) * CHAR_BIT)) + 1;
