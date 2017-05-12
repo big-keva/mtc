@@ -246,7 +246,7 @@ namespace mtc
             && (*p++ = this->getnext()) != '\0' && (*p++ = this->getnext()) != '\0';
       }
     template <class C, class M>
-    int   getstring( _auto_<C, M>&  refstr, const unsigned maxval = (1 << (sizeof(C) * CHAR_BIT)) - 1 )
+    int   getstring( _auto_<C, M>&  refstr )
       {
         char  chnext;
         char  chprev;
