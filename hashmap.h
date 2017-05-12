@@ -163,10 +163,10 @@ namespace mtc
   // enumerator support methods
     const void*         Enum( const void* ) const;
           void*         Enum( void* );
-    static const K&     GetKey( const void* p ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->key;  }
-    static       K&     GetKey(       void* p ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->key;  }
-    static const V&     GetVal( const void* p ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->val;  }
-    static       V&     GetVal(       void* p ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->val;  }
+    static const K&     GetKey( const void* pvn ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->key;  }
+    static       K&     GetKey(       void* pvn ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->key;  }
+    static const V&     GetVal( const void* pvn ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->val;  }
+    static       V&     GetVal(       void* pvn ) {  assert( pvn != nullptr ); return ((keyrec*)pvn)->val;  }
 
     template <class action>
     int           for_each( action ) const;
@@ -211,7 +211,7 @@ namespace mtc
   template <class K, class V, class M>
   int   hashmap<K, V, M>::Append( const hashmap<K, V, M>& s )
     {
-      for ( const void* p = nullptr; (p = e.Enum( p )) != nullptr; )
+      for ( const void* p = nullptr; (p = s.Enum( p )) != nullptr; )
         if ( Insert( GetKey( p ), GetVal( p ) ) == nullptr )
           return ENOMEM;
 
