@@ -548,15 +548,9 @@ public:     // set_?? methods
       специализация GetAdd с поддержкой суммирования однотипных строк
     */
     template <class A>
-    static  xvalue  StrCat( A a, const char* b )
-      {
-        return xvalue();
-      }
+    static  xvalue  StrCat( A, const char* )      {  return xvalue();  }
     template <class A>
-    static  xvalue  StrCat( A a, const widechar* b )
-      {
-        return xvalue();
-      }
+    static  xvalue  StrCat( A, const widechar* )  {  return xvalue();  }
     static  xvalue  StrCat( const char* a, const char* b )
       {
         xvalue  o;
