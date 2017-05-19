@@ -52,7 +52,8 @@ SOFTWARE.
 # if !defined( __mtc_platform_h__ )
 # define __mtc_platform_h__
 # include <cstdlib>
-# include <stdint.h>
+# include <cstdint>
+# include <climits>
 # include <fcntl.h>
 # include <new>
 
