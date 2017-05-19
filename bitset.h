@@ -80,6 +80,14 @@ namespace mtc
     }
 
   template <class bitset>
+  inline  bool  bitset_get( const bitset& s, const range& r )
+    {
+      for ( auto u = r.l; u <= r.h; )
+        if ( bitset_get( s, u++ ) ) return true;
+      return false;
+    }
+
+  template <class bitset>
   inline  bool  bitset_get( const bitset& s, unsigned b )
     {
       return s.size() > (int)(b / (sizeof(s.last()) * CHAR_BIT))
@@ -87,11 +95,12 @@ namespace mtc
     }
 
   template <class bitset>
-  inline  bool  bitset_get( const bitset& s, unsigned l, unsigned h )
+  inline  bool  bitset_get( const bitset& s, const bitset& m )
     {
-      while ( l <= h )
-        if ( bitset_get( s, l++ ) ) return true;
-      return false;
+      int   f = bitset_first( m );
+      int   l = bitset_last( m );
+
+      return f != -1 ? bitset_get( s, range( f, l ) ) : false;
     }
 
   template <class bitset>
@@ -153,8 +162,11 @@ namespace mtc
     }
 
   template <class U, class M>
-  inline  int   bitset_set( array<U, M>& s, unsigned l, unsigned h )
+  inline  int   bitset_set( array<U, M>& s, const range& r )
     {
+      int   l = r.l;
+      int   h = r.h;
+
       if ( l > h )
         inplace_swap( l, h );
 
@@ -178,11 +190,14 @@ namespace mtc
     }
 
   template <class U, class M>
-  inline  int   bitset_set( array<U, M>& s, unsigned u )  {  return bitset_set( s, u, u );  }
+  inline  int   bitset_set( array<U, M>& s, int u )  {  return bitset_set( s, range( u ) );  }
 
   template <class U, class M>
-  inline  void  bitset_del( array<U, M>& s, const unsigned l, const unsigned h )
+  inline  int   bitset_del( array<U, M>& s, const range& r )
     {
+      int   l = r.l;
+      int   h = r.h;
+
       if ( h >= l && s.size() > (int)(l / (sizeof(U) * CHAR_BIT)) )
       {
         U*  p;
@@ -200,10 +215,11 @@ namespace mtc
         if ( p < s.end() && h / (sizeof(U) * CHAR_BIT) > l / (sizeof(U) * CHAR_BIT) )
           *p &= ~bitsetbits<U>( 0, h % (sizeof(U) * CHAR_BIT) );
       }
+      return 0;
     }
 
   template <class U, class M>
-  inline  void  bitset_del( array<U, M>& s, unsigned u )  {  return bitset_del( s, u );  }
+  inline  int   bitset_del( array<U, M>& s, int u )  {  return bitset_del( s, range( u ) );  }
 
 }
 
