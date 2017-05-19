@@ -260,7 +260,7 @@ namespace mtc
         {
         // check for end of identifier
           if ( chnext == '\"' && chprev != '\\' )
-            return 0;
+            return refstr.ptr() == nullptr ? append( refstr, (C)'\0', cchstr, climit ) : 0;
 
         // check for '\\'
           if ( chnext == '\\' && chprev != '\\' )
