@@ -9,7 +9,7 @@ else()
   add_compile_options(-W -Wall -Wextra)
 endif()
 
-add_library(mtc STATIC
+add_library(big_keva_mtc STATIC
   byteBuffer.cpp
   dirtools.cpp
   fileStream.cpp
@@ -17,3 +17,5 @@ add_library(mtc STATIC
   netStream.cpp
   zipStream.cpp
 )
+
+install(TARGETS big_keva_mtc DESTINATION lib)
