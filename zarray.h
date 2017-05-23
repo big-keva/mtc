@@ -289,9 +289,9 @@ namespace mtc
     xvalue( const zarray<M>& z ): vxtype( undefined_type )  {  set_zarray( z ); }
 
   public:     // serialization
-                        unsigned  GetBufLen(    ) const;
-    template <class O>  O*        Serialize( O* ) const;
-    template <class S>  S*        FetchFrom( S* );
+                        size_t  GetBufLen(    ) const;
+    template <class O>  O*      Serialize( O* ) const;
+    template <class S>  S*      FetchFrom( S* );
 
   public:     // get_? methods
 /* ordinal types */
@@ -1099,13 +1099,13 @@ public:     // set_?? methods
       int           lookup( byte_t* keybuf, int keylen, int buflen ) const;
 
       public:     // enumeration
-        template <class A>  int       Enumerate( array<byte_t, M>&, int, A );
-        template <class A>  int       Enumerate( A a );
+        template <class A>  int     Enumerate( array<byte_t, M>&, int, A );
+        template <class A>  int     Enumerate( A a );
 
       public:     // serialization
-                            unsigned  GetBufLen(    ) const;
-        template <class O>  O*        Serialize( O* ) const;
-        template <class S>  S*        FetchFrom( S* );
+                            size_t  GetBufLen(    ) const;
+        template <class O>  O*      Serialize( O* ) const;
+        template <class S>  S*      FetchFrom( S* );
 
       protected:  // helpers
         int       plain_branchlen() const;
@@ -1528,9 +1528,9 @@ public:     // set_?? methods
   # undef derive_TypeOfData
 
   public:     // serialization
-                        unsigned  GetBufLen(            ) const;
-    template <class O>  O*        Serialize( O*  output ) const;
-    template <class S>  S*        FetchFrom( S*  source );
+                        size_t  GetBufLen(            ) const;
+    template <class O>  O*      Serialize( O*  output ) const;
+    template <class S>  S*      FetchFrom( S*  source );
 
   /*
     serial_get_*() methods
@@ -1618,32 +1618,32 @@ public:     // set_?? methods
 // serialization helpers
 
 template <class M>
-inline  unsigned  GetBufLen( const mtc::zarray<M>& z )
+inline  size_t  GetBufLen( const mtc::zarray<M>& z )
   {
     return z.GetBufLen();
   }
 template <class O, class M>
-inline  O*        Serialize( O* o, const mtc::zarray<M>& z )
+inline  O*      Serialize( O* o, const mtc::zarray<M>& z )
   {
     return z.Serialize( o );
   }
 template <class S, class M>
-inline  S*        FetchFrom( S* s,       mtc::zarray<M>& z )
+inline  S*      FetchFrom( S* s,       mtc::zarray<M>& z )
   {
     return z.FetchFrom( s );
   }
 
 template <class M>
-inline unsigned   GetBufLen( const mtc::array<mtc::zarray<M>, M>& a )
+inline size_t GetBufLen( const mtc::array<mtc::zarray<M>, M>& a )
   {
-    unsigned  length = ::GetBufLen( a.size() );
+    size_t  length = ::GetBufLen( a.size() );
 
     for ( auto p = a.begin(); p < a.end(); ++p )
       length += p->GetBufLen();
     return length;
   }
 template <class O, class M>
-inline  O*        Serialize( O* o, const mtc::array<mtc::zarray<M>, M>& a )
+inline  O*    Serialize( O* o, const mtc::array<mtc::zarray<M>, M>& a )
   {
     if ( (o = ::Serialize( o, a.size() )) != nullptr )
       for ( auto p = a.begin(); p < a.end() && o != nullptr; ++p )
@@ -1651,7 +1651,7 @@ inline  O*        Serialize( O* o, const mtc::array<mtc::zarray<M>, M>& a )
     return o;
   }
 template <class S, class M>
-inline  S*        FetchFrom( S* s, mtc::array<mtc::zarray<M>, M>& a )
+inline  S*    FetchFrom( S* s, mtc::array<mtc::zarray<M>, M>& a )
   {
     int   arsize;
 
@@ -1665,32 +1665,32 @@ inline  S*        FetchFrom( S* s, mtc::array<mtc::zarray<M>, M>& a )
   }
 
 template <class M>
-inline  unsigned  GetBufLen( const mtc::xvalue<M>& x )
+inline  size_t  GetBufLen( const mtc::xvalue<M>& x )
   {
     return x.GetBufLen();
   }
 template <class M, class O>
-inline  O*        Serialize( O* o, const mtc::xvalue<M>& x )
+inline  O*      Serialize( O* o, const mtc::xvalue<M>& x )
   {
     return x.Serialize( o );
   }
 template <class M, class S>
-inline  S*        FetchFrom( S* s, mtc::xvalue<M>& x )
+inline  S*      FetchFrom( S* s, mtc::xvalue<M>& x )
   {
     return x.FetchFrom( s );
   }
 
 template <class M>
-inline  unsigned  GetBufLen( const mtc::array<mtc::xvalue<M>, M>& a )
+inline  size_t  GetBufLen( const mtc::array<mtc::xvalue<M>, M>& a )
   {
-    unsigned  length = ::GetBufLen( a.size() );
+    size_t  length = ::GetBufLen( a.size() );
 
     for ( auto p = a.begin(); p < a.end(); ++p )
       length += p->GetBufLen();
     return length;
   }
 template <class O, class M>
-inline  O*        Serialize( O* o, const mtc::array<mtc::xvalue<M>, M>& a )
+inline  O*      Serialize( O* o, const mtc::array<mtc::xvalue<M>, M>& a )
   {
     if ( (o = ::Serialize( o, a.size() )) != nullptr )
       for ( auto p = a.begin(); p < a.end() && o != nullptr; ++p )
@@ -1698,7 +1698,7 @@ inline  O*        Serialize( O* o, const mtc::array<mtc::xvalue<M>, M>& a )
     return o;
   }
 template <class S, class M>
-inline  S*        FetchFrom( S* s, mtc::array<mtc::xvalue<M>, M>& a )
+inline  S*      FetchFrom( S* s, mtc::array<mtc::xvalue<M>, M>& a )
   {
     int   arsize;
 
@@ -1755,7 +1755,7 @@ namespace mtc
   }
 
   template <class M>
-  inline  unsigned  xvalue<M>::GetBufLen() const
+  inline  size_t  xvalue<M>::GetBufLen() const
   {
     switch ( vxtype )
     {
@@ -2004,11 +2004,11 @@ namespace mtc
   }
 
   template <class M>
-  inline  unsigned  zarray<M>::ztree::GetBufLen() const
+  inline  size_t  zarray<M>::ztree::GetBufLen() const
   {
     int       branch = plain_branchlen();
     word16_t  lstore = (branch > 0 ? 0x0400 + branch : this->size()) + (avalue.gettype() != 0xff ? 0x0400 : 0);
-    unsigned  buflen = ::GetBufLen( lstore );
+    size_t    buflen = ::GetBufLen( lstore );
 
     if ( avalue.gettype() != 0xff )
       buflen += 1 + avalue.GetBufLen();
@@ -2024,7 +2024,7 @@ namespace mtc
       else
     for ( auto p = this->begin(); p < this->end(); ++p, ++buflen )
     {
-      unsigned  sublen = p->GetBufLen();
+      size_t  sublen = p->GetBufLen();
       buflen += ::GetBufLen( sublen ) + sublen;
     }
 
@@ -2057,7 +2057,7 @@ namespace mtc
       else
     for ( auto p = this->begin(); p < this->end(); ++p )
     {
-      unsigned  sublen = p->GetBufLen();
+      size_t  sublen = p->GetBufLen();
 
       o = p->Serialize( ::Serialize( ::Serialize( o, p->chnode ), sublen ) );
     }
@@ -2201,19 +2201,19 @@ namespace mtc
   }
 
   template <class M>
-  inline  unsigned  zarray<M>::GetBufLen() const
+  inline  size_t  zarray<M>::GetBufLen() const
   {
     return zhandler != NULL ? zhandler->GetBufLen() : 1;
   }
 
   template <class M>  template <class O>
-  inline  O*        zarray<M>::Serialize( O* o ) const
+  inline  O*      zarray<M>::Serialize( O* o ) const
   {
     return zhandler != nullptr ? zhandler->Serialize( o ) : ::Serialize( o, (char)0 );
   }
 
   template <class M>  template <class S>
-  inline  S*        zarray<M>::FetchFrom( S*  s )
+  inline  S*      zarray<M>::FetchFrom( S*  s )
   {
     if ( zhandler != nullptr && --zhandler->rcount == 0 )
       deallocate_with( GetAllocator(), zhandler );
