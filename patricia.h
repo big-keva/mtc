@@ -188,7 +188,7 @@ namespace mtc
       const byte_t* getString() const   {  return sizeof(V) + (const byte_t*)(this + 1);  }
       void          setStrLen( size_t n )
         {
-          assert( n <= getStrLim() );
+          assert( n <= (size_t)getStrLim() );
           uflags = (uflags & 0xffff0000) | (unsigned)n;
         }
       template <class chartype>
