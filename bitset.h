@@ -127,12 +127,12 @@ namespace mtc
         if ( p[-1] != 0 )
         {
           auto      uvalue = p[-1];
-          unsigned  nshift = 0;
+          unsigned  nshift = sizeof(uvalue) * CHAR_BIT - 1;
 
-          while ( uvalue != 0 )
-            {  uvalue >>= 1;  ++nshift;  }
+          while ( (uvalue & (1 << nshift)) == 0 )
+            --nshift;
 
-          return (unsigned)(nshift - 1 + sizeof(s.last()) * CHAR_BIT * (p - s.begin() - 1));
+          return (unsigned)(nshift + sizeof(s.last()) * CHAR_BIT * (p - s.begin() - 1));
         }
       return -1;
     }
