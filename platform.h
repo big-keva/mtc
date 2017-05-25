@@ -52,7 +52,8 @@ SOFTWARE.
 # if !defined( __mtc_platform_h__ )
 # define __mtc_platform_h__
 # include <cstdlib>
-# include <stdint.h>
+# include <cstdint>
+# include <climits>
 # include <fcntl.h>
 # include <new>
 
@@ -301,6 +302,50 @@ namespace mtc
       for ( auto next = begin; next < end; )
         func( *next++ );
     }
+
+//
+// range - работа с интервалами
+//
+  class range
+  {
+  public:
+    range(): l( 0 ), h( INT_MAX ) {}
+    range( int lo, int up ): l( lo ), h( up ) {}
+    range( int lh ): l( lh ), h( lh ) {}
+
+  public:     // operators
+    range&  operator &= ( const range& r )
+      {
+        l = max( l, r.l );  
+        h = min( h, r.h );
+        return *this;
+      }
+    range&  operator |= ( const range& ct )
+      {
+        l = min( l, ct.l );
+        h = max( h, ct.h );
+        return *this;
+      }
+    range operator & ( const range& r ) const
+      {
+        range x( *this );
+        return x &= r;
+      }
+    range operator | ( const range& r ) const
+      {
+        range x( *this );
+        return x |= r;
+      }
+    bool  operator == ( const range& r ) const {  return l == r.l && h == r.h;  }
+    bool  operator != ( const range& r ) const {  return l != r.l || h != r.h;  }
+
+  public:
+    int   size() const  {  return h - l + 1;  }
+    
+  public:
+    int       l;   // левая
+    int       h;   // правая
+  };
 
 }
 

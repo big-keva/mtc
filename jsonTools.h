@@ -246,7 +246,7 @@ namespace mtc
             && (*p++ = this->getnext()) != '\0' && (*p++ = this->getnext()) != '\0';
       }
     template <class C, class M>
-    int   getstring( _auto_<C, M>&  refstr, const unsigned maxval = (1 << (sizeof(C) * CHAR_BIT)) - 1 )
+    int   getstring( _auto_<C, M>&  refstr )
       {
         char  chnext;
         char  chprev;
@@ -260,7 +260,7 @@ namespace mtc
         {
         // check for end of identifier
           if ( chnext == '\"' && chprev != '\\' )
-            return 0;
+            return refstr.ptr() == nullptr ? append( refstr, (C)'\0', cchstr, climit ) : 0;
 
         // check for '\\'
           if ( chnext == '\\' && chprev != '\\' )
