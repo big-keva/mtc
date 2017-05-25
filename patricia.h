@@ -90,13 +90,17 @@ namespace mtc
 
     public:     // array immitation
       int   size() const
-        {  return uflags & 0x1ff;  }
-      int   limit() const
-        {  return (uflags >> 8) & ~0x01;  }
+        {
+          return uflags & 0x1ff;
+        }
+      int   getlimit() const
+        {
+          return (uflags >> 7) & ~0x03;
+        }
       void  setlimit( int n )
         {
-          assert( (n & 0x01) == 0 );
-          uflags = (uflags & 0x1ff) | (n << 8);
+          assert( (n & 0x03) == 0 );
+          uflags = (uflags & 0x1ff) | (n << 7);
         }
       patnode*& operator [] ( int i )
         {
@@ -125,7 +129,7 @@ namespace mtc
         {
           int   thelen;
 
-          if ( (thelen = size()) >= limit() )
+          if ( (thelen = size()) >= getlimit() )
             return false;
           memmove( begin() + n + 1, begin() + n, (thelen - n) * sizeof(patricia*) );
             begin()[n] = p;
@@ -133,7 +137,7 @@ namespace mtc
         }
       bool  move( patarray& r )
         {
-          if ( limit() >= r.size() )  {  setlen( r.size() );  r.setlen( 0 );  }
+          if ( getlimit() >= r.size() )  {  setlen( r.size() );  r.setlen( 0 );  }
             else return false;
           memmove( begin(), r.begin(), size() * sizeof(patricia*) );
             return true;
@@ -188,7 +192,7 @@ namespace mtc
       const byte_t* getString() const   {  return sizeof(V) + (const byte_t*)(this + 1);  }
       void          setStrLen( size_t n )
         {
-          assert( n <= getStrLim() );
+          assert( n <= (size_t)getStrLim() );
           uflags = (uflags & 0xffff0000) | (unsigned)n;
         }
       template <class chartype>
@@ -231,7 +235,7 @@ namespace mtc
       void  movarray( patnode* p )
         {
           assert( getarray().size() == 0 );
-          assert( getarray().limit() >= p->getarray().size() );
+          assert( getarray().getlimit() >= p->getarray().size() );
 
           getarray().setlen( p->getarray().size() );
             memmove( getarray().begin(), p->getarray().begin(), getarray().size() * sizeof(patnode*) );
@@ -351,6 +355,10 @@ namespace mtc
           int                 rescmp;
           size_t              lmatch;
 
+        // уже нашли
+          if ( l == 0 )
+            return this;
+
         // найти вложенный элемент с совпадающим первым символом
           while ( ptrtop < ptrend && (chbyte = *(*ptrtop)->getString()) > *k )
             ++ptrtop;
@@ -375,7 +383,7 @@ namespace mtc
         //    - элемент с хвостом от себя, вместе с массивом вложений;
         //    - элемент с хвостом от добавляемого,
         // и укорачивать собственную строку
-          if ( (palloc = allocate( (*ptrtop)->getString() + lmatch, ccount - lmatch, (*ptrtop)->getarray().limit() )) != nullptr )
+          if ( (palloc = allocate( (*ptrtop)->getString() + lmatch, ccount - lmatch, (*ptrtop)->getarray().getlimit() )) != nullptr )
           {
             _auto_<patnode, M>  aptail;
 
@@ -493,7 +501,7 @@ namespace mtc
           {
             _auto_<patnode, M>  palloc;
 
-            if ( (palloc = allocate( (char*)getString(), getStrLen(), rnodes.limit() + 4 )) != nullptr )
+            if ( (palloc = allocate( (char*)getString(), getStrLen(), rnodes.getlimit() + 4 )) != nullptr )
             {
               if ( (pvalue = getvalue()) != nullptr )
                 palloc->setvalue( *getvalue() );
