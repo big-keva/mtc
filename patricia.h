@@ -121,7 +121,7 @@ namespace mtc
         {
           int   curlen;
 
-          assert( size() < limit() );
+          assert( size() < getlimit() );
           setlen( 1 + (curlen = size()) );
             (*this)[curlen] = p;
         }
