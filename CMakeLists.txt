@@ -17,3 +17,5 @@ add_library(mtc STATIC
   netStream.cpp
   zipStream.cpp
 )
+
+install(TARGETS mtc DESTINATION lib)
