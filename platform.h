@@ -340,6 +340,7 @@ namespace mtc
     bool  operator != ( const range& r ) const {  return l != r.l || h != r.h;  }
 
   public:
+    range move( int i ) {  return range( i + l, i + h );  }
     int   size() const  {  return h - l + 1;  }
     
   public:
