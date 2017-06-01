@@ -187,10 +187,9 @@ namespace mtc
       patnode*  patarr[];    patnode* array itself */
 
     public:     // accessor functions - pseudo-fields
-      typedef word16_t size_t;
 
-      patnode::size_t getStrLim() const   {  return (uflags & ~0xc000ffff) >> 14;  }
-      patnode::size_t getStrLen() const   {  return (patnode::size_t)uflags;  }
+      size_t          getStrLim() const   {  return (uflags & ~0xc000ffff) >> 14;  }
+      size_t          getStrLen() const   {  return (patnode::size_t)uflags;  }
       const byte_t*   getString() const   {  return sizeof(V) + (const byte_t*)(this + 1);  }
       void            setStrLen( size_t n )
         {
