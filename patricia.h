@@ -188,10 +188,10 @@ namespace mtc
 
     public:     // accessor functions - pseudo-fields
 
-      size_t          getStrLim() const   {  return (uflags & ~0xc000ffff) >> 14;  }
-      size_t          getStrLen() const   {  return (patnode::size_t)uflags;  }
+      word16_t        getStrLim() const   {  return (uflags & ~0xc000ffff) >> 14;  }
+      word16_t        getStrLen() const   {  return (word16_t)uflags;  }
       const byte_t*   getString() const   {  return sizeof(V) + (const byte_t*)(this + 1);  }
-      void            setStrLen( size_t n )
+      void            setStrLen( word16_t n )
         {
           assert( n <= (size_t)getStrLim() );
           uflags = (uflags & 0xffff0000) | (unsigned)n;
