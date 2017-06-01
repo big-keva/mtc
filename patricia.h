@@ -352,7 +352,6 @@ namespace mtc
           patnode**           ptrend = aitems.end();
           byte_t              chbyte;
           _auto_<patnode, M>  palloc;
-          int                 ccount;
           int                 rescmp;
           size_t              lmatch;
 
@@ -375,7 +374,7 @@ namespace mtc
           }
 
         // элемент с таким начальным символом уже есть; проверить, что точно совпадает
-          ccount = (*ptrtop)->getStrLen();
+          const word16_t ccount = (*ptrtop)->getStrLen();
 
           if ( (lmatch = getmatch( rescmp, (*ptrtop)->getString(), ccount, (const byte_t*)k, l )) == ccount )
             return (*ptrtop)->Insert( *ptrtop, k + ccount, l - ccount );
