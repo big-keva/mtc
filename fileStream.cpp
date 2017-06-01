@@ -271,7 +271,7 @@ namespace mtc
     _auto_<filebuffer>  buf;
     int64_t             len = Size();
 
-    if ( len > std::numeric_limits<decltype(len)>::max() )
+    if ( len > std::numeric_limits<int64_t>::max() )
       return nullptr;
 
     if ( (buf = (filebuffer*)malloc( (size_t)(sizeof(filebuffer) + len - 1) )) == nullptr )
