@@ -523,16 +523,28 @@ namespace mtc
 
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const char* s, const D& decorate = D() )
-    {  return PrintText( o, s, w_strlen( s ) );  }
+    {
+      (void)decorate;
+      return PrintText( o, s, w_strlen( s ) );
+    }
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const widechar* s, const D& decorate = D() )
-    {  return PrintText( o, s, w_strlen( s ) );  }
+    {
+      (void)decorate;
+      return PrintText( o, s, w_strlen( s ) );
+    }
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const _auto_<char>& s, const D& decorate = D() )
-    {  return PrintText( o, (const char*)s, w_strlen( s ) );  }
+    {
+      (void)decorate;
+      return PrintText( o, (const char*)s, w_strlen( s ) );
+    }
   template <class O, class D = json_compact>
   inline  O*  PrintJson( O* o, const _auto_<widechar>& s, const D& decorate = D() )
-    {  return PrintText( o, (const widechar*)s, w_strlen( s ) );  }
+    {
+      (void)decorate;
+      return PrintText( o, (const widechar*)s, w_strlen( s ) );
+    }
 
   template <class O, class M, class D = json_compact>  O*  PrintJson( O*, const xvalue<M>&, const D& decorate = D() );
   template <class O, class M, class D = json_compact>  O*  PrintJson( O*, const zarray<M>&, const D& decorate = D() );

@@ -979,7 +979,7 @@ public:     // set_?? methods
   # define derive_access_operator( _key_type_ )                               \
     auto operator [] ( _key_type_ k )                      \
       {  return zval<zval, _key_type_>( *this, k );  }                        \
-    const auto operator [] ( _key_type_ k ) const          \
+    auto operator [] ( _key_type_ k ) const          \
       {  return zval<const zval, _key_type_>( *this, k );  }
 
     derive_access_operator( int )
