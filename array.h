@@ -180,12 +180,49 @@ namespace mtc
     const this_type&  _this() const {  return *(const this_type*)this;  }
 
   public:     // searchers
-                        const T*  Lookup( const T& t ) const          {  return mtc::Lookup( _this().begin(), _this().end(), t );  }
-                              T*  Lookup( const T& t )                {  return mtc::Lookup( _this().begin(), _this().end(), t );  }
-    template <class P>  const T*  Lookup( P p ) const                 {  return mtc::Lookup( _this().begin(), _this().end(), p );  }
-    template <class P>        T*  Lookup( P p )                       {  return mtc::Lookup( _this().begin(), _this().end(), p );  }
-                        bool      Search( const T& t, int& p ) const  {  return mtc::Search( _this().begin(), _this().end(), t, p );  }
-    template <class C>  bool      Search( C c, int& p ) const         {  return mtc::Search( _this().begin(), _this().end(), c, p );  }
+    template <class P>
+    const T*  Lookup( P p ) const
+      {
+        auto test = _this().begin();
+
+        while ( test < _this().end() )
+          if ( p( *test ) ) break;  else  ++test;
+        return test;
+      }
+    template <class P>
+    T*  Lookup( P p )
+      {
+        auto test = _this().begin();
+
+        while ( test < _this().end() )
+          if ( p( *test ) ) break;  else  ++test;
+        return test;
+      }
+    const T*  Lookup( const T& t ) const
+      {
+        auto test = _this().begin();
+
+        while ( test < _this().end() )
+          if ( *test == t ) break;  else  ++test;
+        return test;
+      }
+    T*  Lookup( const T& t )
+      {
+        auto test = _this().begin();
+
+        while ( test < _this().end() )
+          if ( *test == t ) break;  else  ++test;
+        return test;
+      }
+    template <class C>
+    bool      Search( C c, int& p ) const
+      {
+        return mtc::Search( _this().begin(), _this().end(), c, p );
+      }
+    bool      Search( const T& t, int& p ) const
+      {
+        return mtc::Search( _this().begin(), _this().end(), t, p );
+      }
 
   public:     // for_*
     template <class _func> int    for_each( _func func ) const  {  return mtc::for_each( _this().begin(), _this().end(), func );  }
