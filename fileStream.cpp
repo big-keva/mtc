@@ -58,6 +58,7 @@ SOFTWARE.
 # include <fcntl.h>
 # include <errno.h>
 # if defined( _WIN32 )
+#   define  NOMINMAX
 #   include <Windows.h>
 # else
 #   include <unistd.h>
@@ -78,7 +79,7 @@ SOFTWARE.
 #   pragma warning( disable: 4291 )
 # endif  // _MSC_VER
 
-#include <limits>
+# include <limits>
 
 namespace mtc
 {
