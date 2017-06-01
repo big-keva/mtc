@@ -358,9 +358,15 @@ namespace mtc
   }
 
   template <class C = __impl_default_getwidechar>  inline  const char*     w_strstr( const char* s, const char* m, C l = __impl_default_getwidechar() )
-    {  return __impl_strstr( s, m );  }
+    {
+      (void)l;
+      return __impl_strstr( s, m );
+    }
   template <class C = __impl_default_getwidechar>  inline  const widechar* w_strstr( const widechar* s, const widechar* m, C l = __impl_default_getwidechar() )
-    {  return __impl_strstr( s, m );  }
+    {
+      (void)l;
+      return __impl_strstr( s, m );
+    }
 
   template <class ucload = __impl_default_getwidechar>
   inline  const char*     w_strstr( const char* s, const widechar* m, ucload l = __impl_default_getwidechar() )
@@ -538,6 +544,8 @@ namespace mtc
 
   template <class C>  C*  __impl_dbltostr( C* store, double value )
   {
+    (void)store;
+    (void)value;
   }
 
 /*

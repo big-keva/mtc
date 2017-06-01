@@ -78,6 +78,8 @@ SOFTWARE.
 #   pragma warning( disable: 4291 )
 # endif  // _MSC_VER
 
+#include <limits>
+
 namespace mtc
 {
   class FileStream;
@@ -267,9 +269,9 @@ namespace mtc
   IByteBuffer*  FileStream::Load()
   {
     _auto_<filebuffer>  buf;
-    int64_t             len = (long)Size();
+    int64_t             len = Size();
 
-    if ( len > SIZE_MAX )
+    if ( len > std::numeric_limits<int64_t>::max() )
       return nullptr;
 
     if ( (buf = (filebuffer*)malloc( (size_t)(sizeof(filebuffer) + len - 1) )) == nullptr )
