@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.2)
 project(mtc)
 
 
@@ -10,6 +10,8 @@ else()
   add_compile_options(-W -Wall -Wextra)
 endif()
 
+include_directories(.)
+
 add_library(mtc STATIC
   byteBuffer.cpp
   dirtools.cpp
@@ -20,3 +22,5 @@ add_library(mtc STATIC
 )
 
 install(TARGETS mtc DESTINATION lib)
+
+add_subdirectory(tests)
