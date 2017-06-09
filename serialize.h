@@ -70,8 +70,7 @@ class sourcebuf
   friend sourcebuf* ::FetchFrom( sourcebuf*, void*, unsigned );
 
 public:     // construction
-  template <class T>
-  sourcebuf( const T* t = nullptr, unsigned l = 0 ): p( t ), e( t + l ) {}
+  sourcebuf( const void* t = nullptr, unsigned l = 0 ): p( t ), e( l + (char*)t ) {}
   sourcebuf( const sourcebuf& s ): p( s.p ), e( s.e ) {}
   sourcebuf&  operator = ( const sourcebuf& s )
     {
@@ -79,6 +78,8 @@ public:     // construction
       e = s.e;
       return *this;
     }
+  sourcebuf* ptr() const {  return (sourcebuf*)this;  }
+  operator sourcebuf* () const {  return ptr();  }
   const char* getptr() const
     {
       return (const char*)p < (const char*)e ? (const char*)p : nullptr;
