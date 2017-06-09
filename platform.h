@@ -259,7 +259,7 @@ namespace mtc
             found |= *median == match;
           }
         }
-      pos = begin - start;
+      pos = (int)(begin - start);
       return found;
     }
 
