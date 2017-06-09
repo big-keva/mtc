@@ -91,7 +91,7 @@ public:     // construction
 
 inline  sourcebuf*  FetchFrom( sourcebuf* s, char& c )
   {
-    if ( s == nullptr || s->p >= s->e )
+    if ( s == nullptr || s->p > s->e )
       return nullptr;
     c = *(char*)s->p;  s->p = 1 + (char*)s->p;
       return s;
@@ -99,7 +99,7 @@ inline  sourcebuf*  FetchFrom( sourcebuf* s, char& c )
 
 inline  sourcebuf*  FetchFrom( sourcebuf* s, void* p, unsigned l )
   {
-    if ( s == nullptr || l + (char*)s->p >= s->e )
+    if ( s == nullptr || l + (char*)s->p > s->e )
       return nullptr;
     memcpy( p, s->p, l );
       s->p = l + (char*)s->p;
