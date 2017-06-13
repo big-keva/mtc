@@ -352,7 +352,7 @@ namespace mtc
           patnode**           ptrend = aitems.end();
           byte_t              chbyte;
           _auto_<patnode, M>  palloc;
-          int                 ccount;
+          word16_t            ccount;
           int                 rescmp;
           size_t              lmatch;
 
