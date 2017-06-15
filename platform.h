@@ -275,7 +275,7 @@ namespace mtc
           const T*  median = begin + ((end - begin) >> 1);
           int       rescmp = comp( *median );
 
-          if ( rescmp < 0 ) begin = median + 1;
+          if ( rescmp > 0 ) begin = median + 1;
             else
           {
             end = median - 1;
