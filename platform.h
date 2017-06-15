@@ -81,8 +81,17 @@ SOFTWARE.
 #   endif
 # endif
 
-# define array_size( a ) ( sizeof(a) / sizeof((a)[0]) )
-# define array_end( a ) ((a) + sizeof(a) / sizeof((a)[0]))
+# if defined( __cplusplus )
+  template <class T, size_t N>
+  constexpr size_t  array_size( T (&)[N] )  {  return (size_t)N;  }
+
+  template <class T, size_t N>
+  constexpr T*      array_end ( T (&p)[N] )  {  return N + p;  }
+
+# else
+#   define array_size( a ) ( sizeof(a) / sizeof((a)[0]) )
+#   define array_end( a ) ((a) + sizeof(a) / sizeof((a)[0]))
+# endif
 
 # if !defined( strcasecmp )
 #   if defined( _WIN32 )
