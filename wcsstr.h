@@ -588,6 +588,24 @@ namespace mtc
     return output;
   }
 
+// ltrim
+  inline  bool        isspace( char c )
+  {
+    return c != '\0' && (unsigned char)c <= 0x20;
+  }
+
+  inline  const char* ltrim( const char* s )
+  {
+    while ( *s != '\0' && isspace( (unsigned char)*s ) ) ++s;
+    return s;
+  }
+
+  inline  char*       ltrim( char* s )
+  {
+    while ( *s != '\0' && isspace( (unsigned char)*s ) ) ++s;
+    return s;
+  }
+
 }  // mtc namespace
 
 # if defined( _MSC_VER )
