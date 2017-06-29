@@ -81,17 +81,8 @@ SOFTWARE.
 #   endif
 # endif
 
-# if defined( __cplusplus )
-  template <class T, size_t N>
-  constexpr size_t  array_size( T (&)[N] )  {  return (size_t)N;  }
-
-  template <class T, size_t N>
-  constexpr T*      array_end ( T (&p)[N] )  {  return N + p;  }
-
-# else
-#   define array_size( a ) ( sizeof(a) / sizeof((a)[0]) )
-#   define array_end( a ) ((a) + sizeof(a) / sizeof((a)[0]))
-# endif
+# define array_size( a )  (size_t)(sizeof(a) / sizeof(0[(a)]))
+# define array_end( a )           (sizeof(a) / sizeof(0[(a)]) + (a))
 
 # if !defined( strcasecmp )
 #   if defined( _WIN32 )
@@ -188,11 +179,23 @@ namespace mtc
 /*
   plain memory allocation interface class
 */
-  struct def_alloc
+  struct nothrow_allocator
   {
-    static  void*   alloc( size_t n ) noexcept  {  return ::malloc( n );  }
-    static  void    free( void*  p ) noexcept   {  if ( p ) ::free( p );  }
+    static  void*   alloc( size_t n ) noexcept  {  return ::new( std::nothrow ) char[n];  }
+    static  void    free( void*  p ) noexcept   {  if ( p ) ::delete[]( (char*)p );       }
   };
+
+  struct std_cxx_allocator
+  {
+    static  void*   alloc( size_t n )           {  return ::new char[n];                  }
+    static  void    free( void*  p )            {  if ( p ) ::delete[]( (char*)p );       }
+  };
+
+# if defined( MTC_NO_EXCEPTIONS )
+  using  def_alloc = nothrow_allocator;
+# else
+  using  def_alloc = std_cxx_allocator;
+# endif   // MTC_NO_EXCEPTIONS
 
   template <class T, class M, class... constructor_args>
   T*    allocate_with( M& m, constructor_args... args ) noexcept
