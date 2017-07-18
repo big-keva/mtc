@@ -1,6 +1,7 @@
 # include "zipStream.h"
 # include "autoptr.h"
 # include "array.h"
+# define ZLIB_WINAPI
 # include <zlib.h>
 # include <fcntl.h>
 # include <mutex>
@@ -30,7 +31,7 @@ namespace mtc
 
   class ZipStream: public IFlatStream
   {
-    friend IFlatStream*  OpenZipStream( const char* sz, unsigned dwmode );
+    friend IFlatStream*  OpenZipStream( const char* sz, unsigned dwmode, unsigned buflen );
     friend IByteBuffer*  LoadZipBuffer( const char* sz );
 
     implement_lifetime_control
@@ -67,11 +68,17 @@ namespace mtc
 
   word32_t  ZipStream::Get( void* p, word32_t l )
   {
+    std::lock_guard<std::mutex> locker( gzlock );
+      assert( gzfile != nullptr );
+
     return (word32_t)gzread( gzfile, p, l );
   }
 
   word32_t  ZipStream::Put( const void* p, word32_t l )
   {
+    std::lock_guard<std::mutex> locker( gzlock );
+      assert( gzfile != nullptr );
+
     return (word32_t)gzwrite( gzfile, p, l );
   }
 
@@ -88,23 +95,30 @@ namespace mtc
     if ( PosGet( palloc->begin(), pos, palloc->size() ) != (word32_t)palloc->size() )
       return EACCES;
 
-    return 0 * (*buf = palloc.detach())->Attach();
+    return ((*buf = palloc.detach())->Attach(), 0);
   }
 
   word32_t  ZipStream::PosGet( void* ptr, int64_t pos, word32_t len )
   {
-    std::lock_guard<std::mutex> aulock( gzlock );
+    std::lock_guard<std::mutex> locker( gzlock );
+      assert( gzfile != nullptr );
 
     return gzseek( gzfile, (z_off_t)pos, SEEK_SET ) == pos ? (word32_t)gzread( gzfile, ptr, len ) : (word32_t)-1;
   }
 
   word32_t  ZipStream::PosPut( const void* ptr, int64_t pos, word32_t len )
   {
+    std::lock_guard<std::mutex> locker( gzlock );
+      assert( gzfile != nullptr );
+
     return gzseek( gzfile, (z_off_t)pos, SEEK_SET ) == pos ? (word32_t)gzwrite( gzfile, ptr, len ) : (word32_t)-1;
   }
 
   int64_t   ZipStream::Seek( int64_t pos )
   {
+    std::lock_guard<std::mutex> locker( gzlock );
+      assert( gzfile != nullptr );
+
     return gzseek( gzfile, (z_off_t)pos, SEEK_SET );
   }
 
@@ -115,10 +129,13 @@ namespace mtc
 
   int64_t   ZipStream::Tell()
   {
+    std::lock_guard<std::mutex> locker( gzlock );
+      assert( gzfile != nullptr );
+
     return gztell( gzfile );
   }
 
-  IFlatStream*  OpenZipStream( const char* szpath, unsigned dwmode )
+  IFlatStream*  OpenZipStream( const char* szpath, unsigned dwmode, unsigned buflen )
   {
     _auto_<ZipStream> palloc;
     gzFile            thezip;
@@ -133,13 +150,13 @@ namespace mtc
       default:        return nullptr;
     }
 
-    *pszmod = '\0';
+    *pszmod++ = 'b';  *pszmod++ = '\0';
 
     if ( (thezip = gzopen( szpath, szmode )) == nullptr )
       return nullptr;
 
-    if ( (palloc = allocate<ZipStream>( thezip )) == nullptr )
-      gzclose( thezip );
+    if ( (palloc = allocate<ZipStream>( thezip )) == nullptr )  gzclose( thezip );
+      else  gzbuffer( thezip, buflen <= 0x400 ? 0x400 : buflen );
 
     return palloc.detach();
   }

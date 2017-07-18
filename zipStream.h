@@ -5,7 +5,7 @@
 
 namespace mtc
 {
-  IFlatStream*  OpenZipStream( const char* sz, unsigned dwmode = 0 );
+  IFlatStream*  OpenZipStream( const char* sz, unsigned dwmode = 0, unsigned buflen = 0x400 * 0x400 );
   IByteBuffer*  LoadZipBuffer( const char* sz );
 }
 
