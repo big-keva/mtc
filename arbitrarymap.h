@@ -184,7 +184,7 @@ namespace mtc
   template <class V, class M>
   int   arbitrarymap<V, M>::Append( const arbitrarymap<V, M>& s )
     {
-      for ( const void* p = nullptr; (p = e.Enum( p )) != nullptr; )
+      for ( const void* p = nullptr; (p = s.Enum( p )) != nullptr; )
         if ( Insert( GetKey( p ), KeyLen( p ), GetVal( p ) ) == nullptr )
           return ENOMEM;
 
@@ -253,12 +253,12 @@ namespace mtc
   template <class V, class M>
   const V*  arbitrarymap<V, M>::Search( const void* k, unsigned l ) const
     {
-      if ( pitems != NULL )
+      if ( pitems != nullptr )
       {
         unsigned      pos = gethash( (const unsigned char*)k, l ) % maplen;
-        const keyrec* ptr = pitems[nhcode];
+        const keyrec* ptr = pitems[pos];
 
-        assert( ptr == NULL || pos == lpitem->pos );
+        assert( ptr == nullptr || pos == ptr->pos );
 
         while ( ptr != nullptr && !isequal( ptr->key, ptr->len, k, l ) )
           ptr = ptr->lpn;
@@ -271,12 +271,12 @@ namespace mtc
   template <class V, class M>
   V*      arbitrarymap<V, M>::Search( const void* k, unsigned l )
     {
-      if ( pitems != NULL )
+      if ( pitems != nullptr )
       {
         unsigned  pos = gethash( (const unsigned char*)k, l ) % maplen;
-        keyrec*   ptr = pitems[nhcode];
+        keyrec*   ptr = pitems[pos];
 
-        assert( ptr == NULL || pos == lpitem->pos );
+        assert( ptr == nullptr || pos == ptr->pos );
 
         while ( ptr != nullptr && !isequal( ptr->key, ptr->len, k, l ) )
           ptr = ptr->lpn;
