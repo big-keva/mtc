@@ -416,6 +416,26 @@ namespace mtc
 
 // JSON serialization
 
+  # if !defined( PRId64 )
+  #   if __WORDSIZE == 64
+  #     define PRId64 "l"
+  #   elif __WORDSIZE == 32
+  #     define PRId64 "lld"
+  #   else
+  #     error Strange int64_t type!
+  #   endif
+  # endif
+
+  # if !defined( PRIu64 )
+  #   if __WORDSIZE == 64
+  #     define PRIu64 "u"
+  #   elif __WORDSIZE == 32
+  #     define PRIu64 "llu"
+  #   else
+  #     error Strange int64_t type!
+  #   endif
+  # endif
+
   # define  derive_printjson_dec( _type_, _tmpl_ )                                      \
   template <class O, class D = json_compact>                                            \
   inline  O*  PrintJson( O* o, _type_ t, const D& decorate = D() )                      \
@@ -433,8 +453,8 @@ namespace mtc
     derive_printjson_dec( int64_t,  "%I64d" )
     derive_printjson_dec( word64_t, "%I64u" )
   # else
-    derive_printjson_dec( int64_t,  "%lld" )
-    derive_printjson_dec( word64_t, "%llu" )
+    derive_printjson_dec( int64_t,  "%" PRId64 )
+    derive_printjson_dec( word64_t, "%" PRIu64 )
   # endif  // _MSC_VER
   # undef derive_printjson_dec
 
