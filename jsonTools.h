@@ -419,7 +419,7 @@ namespace mtc
   # if !defined( _MSC_VER )
   #   if !defined( PRId64 )
   #     if __WORDSIZE == 64
-  #       define PRId64 "l"
+  #       define PRId64 "ld"
   #     elif __WORDSIZE == 32
   #       define PRId64 "lld"
   #     else
@@ -429,7 +429,7 @@ namespace mtc
 
   #   if !defined( PRIu64 )
   #     if __WORDSIZE == 64
-  #       define PRIu64 "u"
+  #       define PRIu64 "lu"
   #     elif __WORDSIZE == 32
   #       define PRIu64 "llu"
   #     else
