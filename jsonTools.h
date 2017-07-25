@@ -416,23 +416,25 @@ namespace mtc
 
 // JSON serialization
 
-  # if !defined( PRId64 )
-  #   if __WORDSIZE == 64
-  #     define PRId64 "l"
-  #   elif __WORDSIZE == 32
-  #     define PRId64 "lld"
-  #   else
-  #     error Strange int64_t type!
+  # if !defined( _MSC_VER )
+  #   if !defined( PRId64 )
+  #     if __WORDSIZE == 64
+  #       define PRId64 "l"
+  #     elif __WORDSIZE == 32
+  #       define PRId64 "lld"
+  #     else
+  #       error Strange int64_t type!
+  #     endif
   #   endif
-  # endif
 
-  # if !defined( PRIu64 )
-  #   if __WORDSIZE == 64
-  #     define PRIu64 "u"
-  #   elif __WORDSIZE == 32
-  #     define PRIu64 "llu"
-  #   else
-  #     error Strange int64_t type!
+  #   if !defined( PRIu64 )
+  #     if __WORDSIZE == 64
+  #       define PRIu64 "u"
+  #     elif __WORDSIZE == 32
+  #       define PRIu64 "llu"
+  #     else
+  #       error Strange int64_t type!
+  #     endif
   #   endif
   # endif
 
