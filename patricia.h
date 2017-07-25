@@ -201,7 +201,7 @@ namespace mtc
         {
           if ( k != nullptr )
             memcpy( (void*)getString(), k, l );
-          setStrLen( l );
+          setStrLen( (word16_t)l );
         }
     
     public:     // accessor functions - array and value
@@ -411,7 +411,7 @@ namespace mtc
             }
 
           // сбросить собственную строку
-            (*ptrtop)->setStrLen( lmatch );
+            (*ptrtop)->setStrLen( (word16_t)lmatch );
               return aptail.detach();
           }
 
