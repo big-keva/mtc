@@ -442,7 +442,7 @@ namespace mtc
   template <class O, class D = json_compact>                                            \
   inline  O*  PrintJson( O* o, _type_ t, const D& decorate = D() )                      \
     {                                                                                   \
-      char  decval[0x10];                                                               \
+      char  decval[0x40];                                                               \
       return ::Serialize( decorate.Shift( o ), decval, sprintf( decval, _tmpl_, t ) );  \
     }
     derive_printjson_dec( char,   "%d" )
@@ -471,48 +471,57 @@ namespace mtc
     derive_printjson_flo( double )
   # undef derive_printjson_flo
 
+  /*
+    Строка - либо utf-8, либо "мы не знаем, что за строка". В обоих случаях делаются замены экранируемых символов,
+    а всё остальное сериализуется либо как есть, либо в виде шестнадцатеричного кода, если не укладывается в utf8
+  */
   template <class O>
   inline  O*  PrintText( O* o, const char* s, size_t l )
   {
     static char         repsrc[] = "\b\t\n\f\r\"/\\";
     static const char*  repval[] = { "\\b", "\\t", "\\n", "\\f", "\\r", "\\\"", "\\/", "\\\\" };
     char*               reppos;
-    char                chbuff[0x10];
     const char*         endptr;
+    char                chbuff[0x10];
+    size_t              nstore;
 
     if ( s == nullptr )
       return ::Serialize( o, "null", 4 );
 
     for ( endptr = s + l, o = ::Serialize( o, '\"' ); s < endptr; )
     {
-      if ( (reppos = strchr( repsrc, *s )) != nullptr )
-        {
-          o = ::Serialize( o, repval[reppos - repsrc], (unsigned)strlen( repval[reppos - repsrc] ) );
-          ++s;
-        }
-      else if ( (unsigned char)*s < 0x20 )
-        o = ::Serialize( o, chbuff, sprintf( chbuff, "\\u%04x", *s++ ) );
-      else if ( (unsigned char)*s < 0x80 )
-        o = ::Serialize( o, (char)*s++ );
+      unsigned char chnext;
+
+      if ( (reppos = strchr( repsrc, chnext = (unsigned char)*s++ )) != nullptr )
+        o = ::Serialize( o, repval[reppos - repsrc], nstore = strlen( repval[reppos - repsrc] ) );
+      else if ( chnext < 0x20 )
+        o = ::Serialize( o, chbuff, nstore = sprintf( chbuff, "\\u%04x", chnext ) );
+      else if ( chnext < 0x80 )
+        o = ::Serialize( o, chnext );
       else
         {
-          widechar      ucchar = 0;
-          unsigned char chnext = (unsigned char)*s++;
-          int           nleast = 0;
+          int   cbchar;
+          int   nleast;
 
-          assert( (unsigned char)*s >= 0x80 );
+        /* detect the utf-8 unicode char byte count */
+          if ( (chnext & 0xe0) == 0xc0 )  {  nleast = 1;  }  else
+          if ( (chnext & 0xf0) == 0xe0 )  {  nleast = 2;  }  else
+          if ( (chnext & 0xf8) == 0xf0 )  {  nleast = 3;  }  else
+          if ( (chnext & 0xfc) == 0xf8 )  {  nleast = 4;  }  else
+          if ( (chnext & 0xfe) == 0xfc )  {  nleast = 5;  }  else nleast = 0;
 
-        /* decode utf-8 sequence to unicode character */
-          if ( (chnext & 0xe0) == 0xc0 )  {  ucchar = (chnext & 0x1f);  nleast = 1;  }  else
-          if ( (chnext & 0xf0) == 0xe0 )  {  ucchar = (chnext & 0x0f);  nleast = 2;  }  else
-          if ( (chnext & 0xf8) == 0xf0 )  {  ucchar = (chnext & 0x07);  nleast = 3;  }  else
-          if ( (chnext & 0xfc) == 0xf8 )  {  ucchar = (chnext & 0x03);  nleast = 4;  }  else
-          if ( (chnext & 0xfe) == 0xfc )  {  ucchar = (chnext & 0x01);  nleast = 5;  };
+          for ( cbchar = 0; cbchar < nleast && s + cbchar < endptr && (s[cbchar] & 0xc0) == 0x80; ++cbchar )
+            (void)NULL;
 
-          while ( nleast-- > 0 && s < endptr && (*s & 0xc0) == 0x80 )
-            ucchar = (ucchar << 6) | (*s++ & 0x3f);
-
-          o = ::Serialize( o, chbuff, sprintf( chbuff, "\\u%04x", ucchar ) );         
+          if ( nleast == 0 || cbchar < nleast )
+            {
+              o = ::Serialize( o, chbuff, nstore = sprintf( chbuff, "\\u%04x", chnext ) );
+            }
+          else
+            {
+              o = ::Serialize( o, s - 1, cbchar + 1 );
+              s += cbchar;
+            }
         }
     }
 
