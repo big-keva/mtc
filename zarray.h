@@ -397,7 +397,7 @@ public:     // set_?? methods
 
         return *(char**)&chdata;
       }
-    widechar* set_widestr( const widechar*  pszstr, size_t  cchstr = (unsigned)-1 )
+    widechar* set_widestr( const widechar*  pszstr, size_t  cchstr = (size_t)-1 )
       {
         if ( cchstr == (size_t)-1 )
           cchstr = pszstr != nullptr ? w_strlen( pszstr ) : 0;
