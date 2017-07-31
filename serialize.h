@@ -86,7 +86,7 @@ public:     // construction
     }
   sourcebuf*  skipto( unsigned l )
     {
-      return (p = l + (char*)p) < e ? this : nullptr;
+      return (p = l + (char*)p) <= e ? this : nullptr;
     }
 };
 
