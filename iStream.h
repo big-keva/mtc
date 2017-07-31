@@ -81,29 +81,29 @@ inline  mtc::IByteStream* Serialize( mtc::IByteStream* s, char c )
   {
     return s != nullptr && s->Put( &c, sizeof(c) ) == sizeof(c) ? s : nullptr;
   }
-inline  mtc::IByteStream* Serialize( mtc::IByteStream* s, const void* p, unsigned l )
+inline  mtc::IByteStream* Serialize( mtc::IByteStream* s, const void* p, size_t l )
   {
-    return s != nullptr && s->Put( p, l ) == l ? s : nullptr;
+    return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
   }
 
 inline  mtc::IFlatStream* Serialize( mtc::IFlatStream* s, char c )
   {
     return s != nullptr && s->Put( &c, sizeof(c) ) == sizeof(c) ? s : nullptr;
   }
-inline  mtc::IFlatStream* Serialize( mtc::IFlatStream* s, const void* p, unsigned l )
+inline  mtc::IFlatStream* Serialize( mtc::IFlatStream* s, const void* p, size_t l )
   {
-    return s != nullptr && s->Put( p, l ) == l ? s : nullptr;
+    return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
   }
 
 inline  mtc::IByteStream* FetchFrom( mtc::IByteStream* s, char& c )
   {  return s != nullptr && s->Get( &c, sizeof(c) ) == sizeof(c) ? s : nullptr;  }
-inline  mtc::IByteStream* FetchFrom( mtc::IByteStream* s, void* p, unsigned l )
-  {  return s != nullptr && s->Get( p, l ) == l ? s : nullptr;  }
+inline  mtc::IByteStream* FetchFrom( mtc::IByteStream* s, void* p, size_t l )
+  {  return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
 
 inline  mtc::IFlatStream* FetchFrom( mtc::IFlatStream* s, char& c )
   {  return s != nullptr && s->Get( &c, sizeof(c) ) == sizeof(c) ? s : nullptr;  }
-inline  mtc::IFlatStream* FetchFrom( mtc::IFlatStream* s, void* p, unsigned l )
-  {  return s != nullptr && s->Get( p, l ) == l ? s : nullptr;  }
+inline  mtc::IFlatStream* FetchFrom( mtc::IFlatStream* s, void* p, size_t l )
+  {  return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
 
 inline  int64_t           GetCurPos( mtc::IFlatStream* s )
   {  return s != nullptr ? s->Tell() : -1;  }

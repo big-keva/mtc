@@ -56,56 +56,45 @@ SOFTWARE.
 # include <stdio.h>
 # include <errno.h>
 
-class sourcebuf;
-
-sourcebuf*  FetchFrom( sourcebuf*, char& );
-sourcebuf*  FetchFrom( sourcebuf*, void*, unsigned );
-
-class sourcebuf
+namespace mtc
 {
-  const void* p;
-  const void* e;
 
-  friend sourcebuf* ::FetchFrom( sourcebuf*, char& );
-  friend sourcebuf* ::FetchFrom( sourcebuf*, void*, unsigned );
-
-public:     // construction
-  sourcebuf( const void* t = nullptr, unsigned l = 0 ): p( t ), e( l + (char*)t ) {}
-  sourcebuf( const sourcebuf& s ): p( s.p ), e( s.e ) {}
-  sourcebuf&  operator = ( const sourcebuf& s )
-    {
-      p = s.p;
-      e = s.e;
-      return *this;
-    }
-  sourcebuf* ptr() const {  return (sourcebuf*)this;  }
-  operator sourcebuf* () const {  return ptr();  }
-  const char* getptr() const
-    {
-      return (const char*)p < (const char*)e ? (const char*)p : nullptr;
-    }
-  sourcebuf*  skipto( unsigned l )
-    {
-      return (p = l + (char*)p) <= e ? this : nullptr;
-    }
-};
-
-inline  sourcebuf*  FetchFrom( sourcebuf* s, char& c )
+  class sourcebuf
   {
-    if ( s == nullptr || s->p > s->e )
-      return nullptr;
-    c = *(char*)s->p;  s->p = 1 + (char*)s->p;
-      return s;
-  }
+    const char* p;
+    const char* e;
 
-inline  sourcebuf*  FetchFrom( sourcebuf* s, void* p, unsigned l )
-  {
-    if ( s == nullptr || l + (char*)s->p > s->e )
-      return nullptr;
-    memcpy( p, s->p, l );
-      s->p = l + (char*)s->p;
-    return s;
-  }
+  public:     // construction
+    sourcebuf( const void* t = nullptr, size_t l = 0 ): p( (char*)t ), e( l + (char*)t ) {}
+    sourcebuf( const sourcebuf& s ): p( s.p ), e( s.e ) {}
+    sourcebuf&  operator = ( const sourcebuf& s )
+      {
+        p = s.p;
+        e = s.e;
+        return *this;
+      }
+    sourcebuf* ptr() const {  return (sourcebuf*)this;  }
+    operator sourcebuf* () const    {  return ptr();  }
+    const char* getptr() const      {  return p < e ? p : nullptr;  }
+    sourcebuf*  skipto( size_t l )  {  return (p = l + p) <= e ? this : nullptr;  }
+
+  public:     // fetch
+    sourcebuf*  FetchFrom( char& c )
+      {
+        return p < e ? (c = *p++, this) : nullptr;
+      }
+    sourcebuf*  FetchFrom( void* o, size_t l )
+      {
+        return p + l <= e ? (memcpy( o, p, l ), p += l, this) : nullptr;
+      }
+  };
+
+}
+
+inline  mtc::sourcebuf*  FetchFrom( mtc::sourcebuf* s, char& c )
+  {  return s != nullptr ? s->FetchFrom( c ) : nullptr;  }
+inline  mtc::sourcebuf*  FetchFrom( mtc::sourcebuf* s, void* p, size_t l )
+  {  return s != nullptr ? s->FetchFrom( p, l ) : nullptr;  }
 
 //[]=========================================================================[]
 
@@ -169,7 +158,7 @@ inline  char* Serialize( char* o, char c )
     return o;
   }
 
-inline  char* Serialize( char* o, const void* p, unsigned l )
+inline  char* Serialize( char* o, const void* p, size_t l )
   {
     return o != NULL ? l + (char*)memcpy( o, p, l ) : NULL;
   }
@@ -179,7 +168,7 @@ inline  FILE* Serialize( FILE* o, char c )
     return o != NULL && fwrite( &c, sizeof(char), 1, o ) == 1 ? o : NULL;
   }
 
-inline  FILE* Serialize( FILE* o, const void* p, unsigned l )
+inline  FILE* Serialize( FILE* o, const void* p, size_t l )
   {
     return o != NULL && fwrite( p, sizeof(char), l, o ) == l ? o : NULL;
   }
@@ -310,7 +299,7 @@ inline  const char* FetchFrom( const char* s, char& c )
     return s;
   }
 
-inline  const char* FetchFrom( const char* s, void* p, unsigned l )
+inline  const char* FetchFrom( const char* s, void* p, size_t l )
   {
     if ( s == NULL )
       return NULL;
@@ -323,7 +312,7 @@ inline  const unsigned char* FetchFrom( const unsigned char* s, char& c )
     return (const unsigned char*)FetchFrom( (const char*)s, c );
   }
 
-inline  const unsigned char* FetchFrom( const unsigned char* s, void* p, unsigned l )
+inline  const unsigned char* FetchFrom( const unsigned char* s, void* p, size_t l )
   {
     return (const unsigned char*)FetchFrom( (const char*)s, p, l );
   }
@@ -333,7 +322,7 @@ inline  FILE*       FetchFrom( FILE* s, char& c )
     return s != NULL && fread( &c, sizeof(char), 1, s ) == 1 ? s : NULL;
   }
 
-inline  FILE* FetchFrom( FILE* s, void* p, unsigned l )
+inline  FILE* FetchFrom( FILE* s, void* p, size_t l )
   {
     return s != NULL && fread( p, sizeof(char), l, s ) == l ? s : NULL;
   }
