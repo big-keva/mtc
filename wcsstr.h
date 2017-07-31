@@ -563,12 +563,13 @@ namespace mtc
   //
   inline  char* vstrduprintf( const char* format, va_list vaargs )
   {
-    va_list v;
-    char*   p;
-    int     l;
+    nothrow_allocator m;
+    va_list           v;
+    char*             p;
+    int               l;
 
     va_copy( v, vaargs );
-      p = (char*)malloc( l = vsnprintf( nullptr, 0, format, v ) + 1 );
+      p = (char*)m.alloc( l = vsnprintf( nullptr, 0, format, v ) + 1 );
     va_end( v );
 
     if ( p != nullptr )
@@ -579,8 +580,8 @@ namespace mtc
 
   inline  char* strduprintf( const char* format, ... )
   {
-    va_list vaargs;
-    char*   output;
+    va_list   vaargs;
+    char*     output;
 
     va_start( vaargs, format );
       output = vstrduprintf( format, vaargs );
