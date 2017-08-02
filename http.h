@@ -285,9 +285,9 @@ namespace mtc
   template <class O>
   O*    HTTPRequest::Store( O* o ) noexcept
   {
-    const char* metstr = method.size() > 0 && method.first() != 0 ? method : "GET";
-    const char* pszurl = urlstr.size() > 0 && urlstr.first() != 0 ? urlstr : "/";
-    const char* pszver = verstr.size() > 0 && verstr.first() != 0 ? verstr : "1.0";
+    const char* metstr = method.size() > 0 && method.first() != 0 ? method.begin() : "GET";
+    const char* pszurl = urlstr.size() > 0 && urlstr.first() != 0 ? urlstr.begin() : "/";
+    const char* pszver = verstr.size() > 0 && verstr.first() != 0 ? verstr.begin() : "1.0";
 
     o = ::Serialize( ::Serialize( ::Serialize( ::Serialize( ::Serialize( o,
                     metstr, w_strlen( metstr ) ), ' ' ),
