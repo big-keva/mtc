@@ -563,10 +563,10 @@ namespace mtc
   //
   inline  char* vstrduprintf( const char* format, va_list vaargs )
   {
-    nothrow_allocator m;
-    va_list           v;
-    char*             p;
-    int               l;
+    def_alloc m;
+    va_list   v;
+    char*     p;
+    int       l;
 
     va_copy( v, vaargs );
       p = (char*)m.alloc( l = vsnprintf( nullptr, 0, format, v ) + 1 );
