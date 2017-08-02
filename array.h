@@ -256,6 +256,7 @@ namespace mtc
           array( int adelta = 0x10 );
           array( M& m, int adelta = 0x10 );
           array( const array<T, M>& );
+          array( array<T, M>&& );
          ~array();
     array<T, M>& operator =( const array<T, M>& );
 
@@ -498,17 +499,24 @@ namespace mtc
   }
 
   template <class T, class M>
-  array<T, M>::array( M& m, int adelta ):
-    allocatorObject( m ), pitems( nullptr ), ncount( 0 ), nlimit( 0 ), ndelta( adelta <= 0 ? 0x10 : adelta )
+  array<T, M>::array( M& m, int adelta ): allocatorObject( m ),
+    pitems( nullptr ), ncount( 0 ), nlimit( 0 ), ndelta( adelta <= 0 ? 0x10 : adelta )
   {
   }
 
   template <class T, class M>
-  array<T, M>::array( const array<T, M>& r ):
+  array<T, M>::array( const array<T, M>& r ): allocatorObject( r.allocatorObject ),
+    pitems( nullptr ), ncount( 0 ), nlimit( 0 ), ndelta( r.ndelta )
+  {
+    Append( r.ncount, r.begin() );
+  }
+
+  template <class T, class M>
+  array<T, M>::array( array<T, M>&& r ):
     allocatorObject( r.allocatorObject ), pitems( r.pitems ), ncount( r.ncount ),  nlimit( r.nlimit ), ndelta( r.ndelta )
   {
-    ((array<T, M>&)r).pitems = nullptr;
-    ((array<T, M>&)r).ncount = 0;
+    r.pitems = nullptr;
+    r.ncount = 0;
   }
 
   template <class T, class M>
