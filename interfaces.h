@@ -53,6 +53,7 @@ SOFTWARE.
 # define  __interfaces_h__
 # include <cassert>
 # include <atomic>
+# include <mutex>
 
 namespace mtc
 {
@@ -63,76 +64,113 @@ namespace mtc
     virtual long  Detach() = 0;
   };
 
-  template <class iface>
+  template <class T>  class default_API_attach
+    {  public: auto operator ()( T* p ){  return ((Iface*)p)->Attach();  }  };
+  template <class T>  class default_API_detach
+    {  public: auto operator ()( T* p ){  return ((Iface*)p)->Detach();  }  };
+
+  template <class iface, class attach = default_API_attach<iface>, class detach = default_API_detach<iface>>
   class API
   {
-    iface*    piface;
+    using usemutex = std::recursive_mutex;
+    using autolock = std::lock_guard<usemutex>;
+
+    mutable usemutex  locked;
+    mutable iface*    piface;
+
+    template <class _do>  auto interlocked( _do do_ )
+      {  autolock  aulock( locked );  return do_();  }
+    template <class _do>  auto interlocked( _do do_ ) const
+      {  autolock  aulock( locked );  return do_();  }
+
+  protected:
+    class pvalue
+    {
+      API&  riface;
+
+    public:
+      pvalue( API& a ): riface( a ) {  riface.locked.lock();  }
+      pvalue( const API& a ): riface( (API&)a ) {  riface.locked.lock();  }
+     ~pvalue()  {  riface.locked.unlock();  }
+      pvalue& operator = ( const pvalue& ) = delete;
+
+    public:
+      operator iface** ()               {  return &riface.piface;  }
+      operator void** ()                {  return (void**)&riface.piface;  }
+      operator iface* ()                {  return riface.piface;  }
+      operator const iface* () const    {  return riface.piface;  }
+      iface*  operator -> ()            {  return riface.piface;  }
+      const iface* operator -> () const {  return riface.piface;  }
+
+    };
 
   public:       // construction/destruction
     API( iface* p = nullptr )
       {
+        autolock  aulock( locked );
+
         if ( (piface = p) != nullptr )
-          piface->Attach();
+          attach()( p );
       }
     API( const API& a )
       {
-        if ( (piface = a.piface) != nullptr )
-          piface->Attach();
+        autolock  aulock( locked );
+        auto      avalue = a.ptr();
+
+        if ( (piface = (iface*)(const iface*)avalue) != nullptr )
+          attach()( piface );
       }
    ~API()
       {
+        autolock  aulock( locked );
+
         if ( piface != nullptr )
-          piface->Detach();
+          detach()( piface );
       }
 
   public:     // operators
     API& operator = ( iface* p )
       {
+        autolock  aulock( locked );
+
         if ( piface != nullptr )
-          piface->Detach();
+          detach()( piface );
         if ( (piface = p) != nullptr )
-          piface->Attach();
+          attach()( piface );
         return *this;
       }
     API& operator = ( const API& a )
       {
+        autolock  aulock( locked );
+        auto      avalue = a.ptr();
+
         if ( piface != nullptr )
-          piface->Detach();
-        if ( (piface = a.piface) != nullptr )
-          piface->Attach();
+          detach()( piface );
+        if ( (piface = (iface*)(const iface*)avalue) != nullptr )
+          attach()( piface );
         return *this;
       }
-    operator iface** ()             {  return &piface;  }
-    operator void** ()              {  return (void**)&piface;  }
-    operator iface* ()              {  return piface;  }
-    operator const iface* () const  {  return piface;  }
-    iface*  ptr()                   {  return piface;  }
-    const iface*  ptr() const       {  return piface;  }
-    iface*  operator -> ()
-      {
-        assert( piface != nullptr );
-        return piface;
-      }
-    const iface* operator -> () const
-      {
-        assert( piface != nullptr );
-        return piface;
-      }
-    bool  operator == ( const void* p )
-      {  return (const void*)piface == p;  }
-    bool  operator != ( const void* p )
-      {  return (const void*)piface != p;  }
-  };
 
-}  // mtc namespace
+  public:     // conversions
+          pvalue operator -> ()       {  return pvalue( *this );  }
+    const pvalue operator -> () const {  return pvalue( *this );  }
+          pvalue ptr()                {  return pvalue( *this );  }
+    const pvalue ptr() const          {  return pvalue( *this );  }
+
+    bool  operator == ( const void* p ) const {  return interlocked( [&](){  return (const void*)piface == p;  } );  }
+    bool  operator != ( const void* p ) const {  return interlocked( [&](){  return (const void*)piface != p;  } );  }
+
+  };
 
   struct reference_counter: public std::atomic_int
   {
     reference_counter(): std::atomic_int( 0 ) {}
   };
 
+}  // mtc namespace
+
 # define  implement_lifetime_control                                \
-  protected:  reference_counter lifetime_counter;                   \
+  protected:  mtc::reference_counter lifetime_counter;              \
     template <class T>                                              \
     void delete_this( T* p )                                        \
     {  p->~T();  free( p );  }                                      \
@@ -150,6 +188,5 @@ namespace mtc
     {  return 1;  }                                                 \
   public:     virtual long  Detach()  noexcept override             \
     {  return 1;  }
-
 
 # endif  // __interfaces_h__
