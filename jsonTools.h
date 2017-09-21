@@ -57,6 +57,37 @@ SOFTWARE.
 
 namespace mtc
 {
+  struct ParseJsonError: public std::runtime_error
+    {
+      ParseJsonError( const char* msg ): std::runtime_error( msg )  {}
+    };
+
+  struct json_use_exceptions_t
+    {
+      void* operator ()( const char* msg, ... ) const
+        {
+          _auto_<char>  msgstr;
+          va_list       vaargs;
+
+          va_start( vaargs, msg );
+            msgstr = vstrduprintf( msg, vaargs );
+          va_end  ( vaargs );
+
+          throw ParseJsonError( msgstr );
+            return nullptr;
+        }
+    };
+  struct json_no_exceptions_t
+    {
+      void* operator ()( const char*, ... ) const
+        {
+          return nullptr;
+        }
+    };
+
+  constexpr json_use_exceptions_t json_use_exceptions{};
+  constexpr json_no_exceptions_t  json_no_exceptions{};
+
   /*
     revive - декларации типов для вычитывания, подсказки алгоритму для строгой типизации;
     оно работает и без них, но использует тогда ограниченный набор типов
@@ -245,8 +276,8 @@ namespace mtc
         return (*p++ = nospace()) != '\0' && (*p++ = this->getnext()) != '\0'
             && (*p++ = this->getnext()) != '\0' && (*p++ = this->getnext()) != '\0';
       }
-    template <class C, class M>
-    int   getstring( _auto_<C, M>&  refstr )
+    template <class C, class M, class X = json_use_exceptions_t>
+    int   getstring( _auto_<C, M>&  refstr, const X& except = X() )
       {
         char  chnext;
         char  chprev;
@@ -254,7 +285,10 @@ namespace mtc
         int   climit = 0;
 
         if ( (chnext = nospace()) != '\"' )
+        {
+          except( "'\"' expected" );
           return EINVAL;
+        }
 
         for ( chprev = '\0'; (chnext = this->getnext()) != '\0'; chprev = chnext )
         {
@@ -280,10 +314,20 @@ namespace mtc
             widechar  uvalue;
             char*     endptr;
 
-            if ( getfour( hexchr ) )  uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
-              else  return EINVAL;
-            if ( endptr - hexchr != 4 )
+            if ( getfour( hexchr ) )
+            {
+              uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
+            }
+              else
+            {
+              except( "4-digit hexadecimal character code expected" );
               return EINVAL;
+            }
+            if ( endptr - hexchr != 4 )
+            {
+              except( "4-digit hexadecimal character code expected" );
+              return EINVAL;
+            }
               
             if ( sizeof(C) == sizeof(char) && uvalue > 127 )
             {
@@ -317,10 +361,12 @@ namespace mtc
             case '/':   if ( append( refstr, (C)'/' , cchstr, climit ) == 0 )  break;  else return ENOMEM;
             case '\\':  if ( append( refstr, (C)'\\', cchstr, climit ) == 0 )
               {  chnext = '\0';  break;  }  else return ENOMEM;
-            default:    return EINVAL;
+            default:    except( "invalid escape sequence" );
+                        return EINVAL;
           }
           chprev = '\0';
         }
+        except( "unexpected end of stream" );
         return EINVAL;
       }
 
@@ -668,16 +714,22 @@ namespace mtc
       - ordinal values;
   */
 
+  inline  bool  json_is_num_char( char ch ) {  return ch >= '0' && ch <= '9';  }
+  inline  bool  json_is_int_char( char ch ) {  return json_is_num_char( ch ) || ch == '-';  }
+  inline  bool  json_is_flo_char( char ch ) {  return json_is_int_char( ch ) || ch == '.' || ch == 'e' || ch == 'E';  }
+
   // unsigned integers
-  # define  derive_parse( _type_ )                                                \
-    template <class S>  S*  ParseJson( jsonstream<S>& s, _type_& v )              \
-    {                                                                             \
-      char  chnext;                                                               \
-      if ( (chnext = s.nospace()) < '0' || chnext > '9' )                         \
-        return nullptr;                                                           \
-      for ( v = (byte_t)chnext - '0'; (chnext = s.getnext()) >= '0' && chnext <= '9'; )  \
-        v = v * 10 + (byte_t)chnext - '0';                                        \
-      return s.putback( chnext );                                                 \
+  # define  derive_parse( _type_ )                                                      \
+    template <class S, class X = json_use_exceptions_t>                                 \
+    S*  ParseJson( jsonstream<S>& s, _type_& v, const X& x = X() )                      \
+    {                                                                                   \
+      char  chnext;                                                                     \
+                                                                                        \
+      if ( !json_is_num_char( chnext = s.nospace() ) )                                  \
+        return (S*)x( "0..9 expected" );                                                \
+      for ( v = (byte_t)chnext - '0'; json_is_num_char( chnext = s.getnext() ); )       \
+        v = v * 10 + (byte_t)chnext - '0';                                              \
+      return s.putback( chnext );                                                       \
     }
     derive_parse( byte_t )
     derive_parse( word16_t )
@@ -686,19 +738,21 @@ namespace mtc
   # undef derive_parse
 
   // signed integers
-  # define  derive_parse( _type_ )                                                \
-  template <class S>  S*  ParseJson( jsonstream<S>& s, _type_& v )                \
-  {                                                                               \
-    char  chnext;                                                                 \
-    bool  is_neg;                                                                 \
-    if ( (is_neg = ((chnext = s.nospace()) == '-')) != false )                    \
-      chnext = s.getnext();                                                       \
-    if ( chnext < '0' || chnext > '9' )                                           \
-      return nullptr;                                                             \
-    for ( v = (byte_t)chnext - '0'; (chnext = s.getnext()) >= '0' && chnext <= '9'; )  \
-      v = v * 10 + (byte_t)chnext - '0';                                          \
-    if ( is_neg ) v = -v;                                                         \
-      return s.putback( chnext );                                                 \
+  # define  derive_parse( _type_ )                                                      \
+  template <class S, class X = json_use_exceptions_t>                                   \
+  S*  ParseJson( jsonstream<S>& s, _type_& v, const X& x = X() )                        \
+  {                                                                                     \
+    char  chnext;                                                                       \
+    bool  is_neg;                                                                       \
+                                                                                        \
+    if ( (is_neg = ((chnext = s.nospace()) == '-')) != false )                          \
+      chnext = s.getnext();                                                             \
+    if ( !json_is_num_char( chnext ) )                                                  \
+      return (S*)x( "0..9 expected" );                                                  \
+    for ( v = (byte_t)chnext - '0'; json_is_num_char( chnext = s.getnext() ); )         \
+      v = v * 10 + (byte_t)chnext - '0';                                                \
+    if ( is_neg ) v = -v;                                                               \
+      return s.putback( chnext );                                                       \
   }
     derive_parse( char )
     derive_parse( int16_t )
@@ -707,16 +761,26 @@ namespace mtc
   # undef derive_parse
 
   // floating
-  # define  derive_parse( _type_ )                                                \
-    template <class S>  S*  ParseJson( jsonstream<S>& s, _type_&  v )             \
-    {                                                                             \
-      char  flobuf[0x40];                                                         \
-      char* floptr;                                                               \
-      char* endptr;                                                               \
-      for ( *(floptr = flobuf) = s.nospace(); floptr < flobuf + 0x40 && *floptr != '\0'        \
-        && strchr( "0123456789.-eE", *floptr ) != nullptr; *++floptr = s.getnext() )  (void)NULL; \
-      v = (_type_)strtod( flobuf, &endptr );                                                    \
-      return endptr == floptr && floptr < array_end( flobuf ) ? s.putback( *floptr ) : nullptr; \
+  # define  derive_parse( _type_ )                                                                \
+    template <class S, class X = json_use_exceptions_t>                                           \
+    S*  ParseJson( jsonstream<S>& s, _type_&  v, const X& x = X() )                               \
+    {                                                                                             \
+      char  flobuf[0x40];                                                                         \
+      char* floptr;                                                                               \
+      char* endptr;                                                                               \
+                                                                                                  \
+      for ( *(floptr = flobuf) = s.nospace();                                                     \
+        floptr < flobuf + 0x40 && json_is_flo_char( *floptr ); *++floptr = s.getnext() )  (void)0;\
+                                                                                                  \
+      v = (_type_)strtod( flobuf, &endptr );                                                      \
+                                                                                                  \
+      if ( floptr >= array_end(flobuf) )                                                          \
+        return (S*)x( "sequence too long to be float" );                                          \
+                                                                                                  \
+      if ( endptr != floptr )                                                                     \
+        return (S*)x( "invalid floating point value" );                                           \
+                                                                                                  \
+      return s.putback( *floptr );                                                                \
     }
     derive_parse( float )
     derive_parse( double )
@@ -724,25 +788,28 @@ namespace mtc
 
   // arrays
   # define  derive_fetch_array( _type_ )                                              \
-    template <class S, class M> S*  ParseJson( jsonstream<S>& s, array<_type_, M>& a ) \
+    template <class S, class M, class X = json_use_exceptions_t>                      \
+    S*  ParseJson( jsonstream<S>& s, array<_type_, M>& a, const X& x = X() )          \
     {                                                                                 \
       char  chnext;                                                                   \
+                                                                                      \
       if ( (chnext = s.nospace()) != '[' )                                            \
-        return nullptr;                                                               \
+        return (S*)x( "'[' expected" );                                               \
+                                                                                      \
       while ( (chnext = s.nospace()) != '\0' && chnext != ']' )                       \
       {                                                                               \
         _type_  avalue;                                                               \
                                                                                       \
-        if ( ParseJson( s.putback( chnext ), avalue ) == nullptr )                    \
+        if ( ParseJson( s.putback( chnext ), avalue, x ) == nullptr )                 \
           return nullptr;                                                             \
         if ( a.Append( avalue ) != 0 )                                                \
           return nullptr;                                                             \
         if ( (chnext = s.nospace()) == ',' )                                          \
           continue;                                                                   \
         if ( chnext == ']' )  s.putback( chnext );                                    \
-          else return nullptr;                                                        \
+          else return (S*)x( "',' or ']' expected" );                                 \
       }                                                                               \
-      return chnext == ']' ? s : nullptr;                                             \
+      return chnext == ']' ? s : (S*)x( "']' expected" );                             \
     }
     derive_fetch_array( char )
     derive_fetch_array( byte_t )
@@ -757,39 +824,45 @@ namespace mtc
     derive_fetch_array( zarray<M> )
   # undef derive_fetch_array
 
-  template <class S, class C, class M>
-  S*  ParseJson( jsonstream<S>& s, array<_auto_<C, M>, M>& a )
+  template <class S, class C, class M, class X = json_use_exceptions_t>
+  S*  ParseJson( jsonstream<S>& s, array<_auto_<C, M>, M>& a, const X& x = X() )
   {
     char  chnext;
 
     if ( (chnext = s.nospace()) != '[' )
       return nullptr;
+
     while ( (chnext = s.nospace()) != '\0' && chnext != ']' )
     {
       _auto_<C, M>  sznext;
 
-      if ( chnext != '\"' || s.putback( chnext ).getstring( sznext ) != 0 || a.Append( sznext ) != 0 )
+      if ( chnext != '\"' )
+        return (S*)x( "string value must start with '\"'" );
+
+      if ( s.putback( chnext ).getstring( sznext, x ) != 0 || a.Append( sznext ) != 0 )
         return nullptr;
+
       if ( (chnext = s.nospace()) == ',' )
         continue;
       if ( chnext == ']' )  s.putback( chnext );
-        else return nullptr;
+        else return (S*)x( "']' expected" );
     }
-    return chnext == ']' ? s : nullptr;
+    return chnext == ']' ? s : (S*)x( "']' expected" );
   }
 
-  template <class S, class T, class M>
-  S*  ParseJson( jsonstream<S>& s, array<T, M>& a, const jsonRevive* p = nullptr )
+  template <class S, class T, class M, class X = json_use_exceptions_t>
+  S*  ParseJson( jsonstream<S>& s, array<T, M>& a, const jsonRevive* p = nullptr, const X& x = X() )
   {
     char  chnext;
 
     if ( (chnext = s.nospace()) != '[' )
-      return nullptr;
+      return (S*)x( "'[' expected" );
+
     while ( (chnext = s.nospace()) != '\0' && chnext != ']' )
     {
       T t;
 
-      if ( (S*)(s = ParseJson( s.putback( chnext ), t, p )) == nullptr )
+      if ( (S*)(s = ParseJson( s.putback( chnext ), t, p, x )) == nullptr )
         return nullptr;
       if ( a.Append( t ) != 0 )
         return nullptr;
@@ -797,47 +870,47 @@ namespace mtc
       if ( (chnext = s.nospace()) == ',' )
         continue;
       if ( chnext == ']' )  s.putback( chnext );
-        else return nullptr;
+        else return (S*)x( "']' expected" );
     }
-    return chnext == ']' ? s : nullptr;
+    return chnext == ']' ? s : (S*)x( "']' expected" );
   }
 
-  template <class S, class M>
-  S*  ParseJson( jsonstream<S>& s, xvalue<M>& x, const jsonRevive* p )
+  template <class S, class M, class X = json_use_exceptions_t>
+  S*  ParseJson( jsonstream<S>& s, xvalue<M>& x, const jsonRevive* p, const X& e = X()  )
   {
     const byte_t  vatype = p != nullptr ? p->v_type : 0xff;
     char          chnext;
 
     switch ( vatype )
     {
-      case z_char:     return ParseJson( s, *x.set_char() );
-      case z_int16:    return ParseJson( s, *x.set_int16() );
-      case z_int32:    return ParseJson( s, *x.set_int32() );
-      case z_int64:    return ParseJson( s, *x.set_int64() );
-      case z_byte:     return ParseJson( s, *x.set_byte() );
-      case z_word16:   return ParseJson( s, *x.set_word16() );
-      case z_word32:   return ParseJson( s, *x.set_word32() );
-      case z_word64:   return ParseJson( s, *x.set_word64() );
-      case z_float:    return ParseJson( s, *x.set_float() );
-      case z_double:   return ParseJson( s, *x.set_double() );
-      case z_charstr:  return s.getstring( *(_auto_<char, M>*)&x.set_charstr() ) == 0 ? s : nullptr;
-      case z_widestr:  return s.getstring( *(_auto_<widechar, M>*)&x.set_widestr() ) == 0 ? s : nullptr;
+      case z_char:     return ParseJson( s, *x.set_char(), e );
+      case z_int16:    return ParseJson( s, *x.set_int16(), e );
+      case z_int32:    return ParseJson( s, *x.set_int32(), e );
+      case z_int64:    return ParseJson( s, *x.set_int64(), e );
+      case z_byte:     return ParseJson( s, *x.set_byte(), e );
+      case z_word16:   return ParseJson( s, *x.set_word16(), e );
+      case z_word32:   return ParseJson( s, *x.set_word32(), e );
+      case z_word64:   return ParseJson( s, *x.set_word64(), e );
+      case z_float:    return ParseJson( s, *x.set_float(), e );
+      case z_double:   return ParseJson( s, *x.set_double(), e );
+      case z_charstr:  return s.getstring( *(_auto_<char, M>*)&x.set_charstr(), e ) == 0 ? s : nullptr;
+      case z_widestr:  return s.getstring( *(_auto_<widechar, M>*)&x.set_widestr(), e ) == 0 ? s : nullptr;
 //      case z_buffer:   return ParseJsonStore( o, *(_freebuffer_*)&chdata );
-      case z_zarray:   return ParseJson( s, *x.set_zarray() );
+      case z_zarray:   return ParseJson( s, *x.set_zarray(), p, e );
 
-      case z_array_char:   return ParseJson( s, *x.set_array_char() );
-      case z_array_byte:   return ParseJson( s, *x.set_array_byte() );
-      case z_array_int16:  return ParseJson( s, *x.set_array_int16() );
-      case z_array_int32:  return ParseJson( s, *x.set_array_int32() );
-      case z_array_int64:  return ParseJson( s, *x.set_array_int64() );
-      case z_array_word16: return ParseJson( s, *x.set_array_word16() );
-      case z_array_word32: return ParseJson( s, *x.set_array_word32() );
-      case z_array_word64: return ParseJson( s, *x.set_array_word64() );
-      case z_array_float:  return ParseJson( s, *x.set_array_float() );
-      case z_array_double: return ParseJson( s, *x.set_array_double() );
-      case z_array_zarray: return ParseJson( s, *x.set_array_zarray(), p != nullptr ? p->nested : nullptr );
-      case z_array_charstr: return ParseJson( s, *x.set_array_charstr() );
-      case z_array_widestr: return ParseJson( s, *x.set_array_widestr() );
+      case z_array_char:   return ParseJson( s, *x.set_array_char(), e );
+      case z_array_byte:   return ParseJson( s, *x.set_array_byte(), e );
+      case z_array_int16:  return ParseJson( s, *x.set_array_int16(), e );
+      case z_array_int32:  return ParseJson( s, *x.set_array_int32(), e );
+      case z_array_int64:  return ParseJson( s, *x.set_array_int64(), e );
+      case z_array_word16: return ParseJson( s, *x.set_array_word16(), e );
+      case z_array_word32: return ParseJson( s, *x.set_array_word32(), e );
+      case z_array_word64: return ParseJson( s, *x.set_array_word64(), e );
+      case z_array_float:  return ParseJson( s, *x.set_array_float(), e );
+      case z_array_double: return ParseJson( s, *x.set_array_double(), e );
+      case z_array_zarray: return ParseJson( s, *x.set_array_zarray(), p != nullptr ? p->nested : nullptr, e );
+      case z_array_charstr: return ParseJson( s, *x.set_array_charstr(), e );
+      case z_array_widestr: return ParseJson( s, *x.set_array_widestr(), e );
 /*      case z_array_buffer: return ::JsonStore( o, *(array_buffer*)&chdata );
       case z_array_xvalue: return ::JsonStore( o, *(array_xvalue*)&chdata );
   */
@@ -847,10 +920,10 @@ namespace mtc
   // untyped xvalue load: object zarray {...}, untyped array [...], string "...", integer -?[0-9]+ or float -?[0-9]+\.?[0-9]*([Ee]-?[0-9]+)?
     switch ( chnext = s.nospace() )
     {
-      case '{':   return ParseJson( s.putback( chnext ), *x.set_zarray(), p );
+      case '{':   return ParseJson( s.putback( chnext ), *x.set_zarray(), p, e );
       case '[':
         {
-          if ( (s = ParseJson( s.putback( chnext ), *x.set_array_xvalue(), p )) != nullptr && p == nullptr && x.get_array_xvalue()->size() > 0 )
+          if ( (s = ParseJson( s.putback( chnext ), *x.set_array_xvalue(), p, e )) != nullptr && p == nullptr && x.get_array_xvalue()->size() > 0 )
           {
             array<xvalue<M>, M>*  parray = x.get_array_xvalue();
             xvalue<M>             newval;
@@ -927,7 +1000,7 @@ namespace mtc
           unsigned            intval;
 
         // get next string
-          if ( s.putback( chnext ).getstring( wcsstr ) != 0 )
+          if ( s.putback( chnext ).getstring( wcsstr, e ) != 0 )
             return nullptr;
 
         // check if charstr or widestr
@@ -939,7 +1012,7 @@ namespace mtc
         }
       default:  break;
     }
-    if ( (chnext >= '0' && chnext <= '9') || chnext == '-' )
+    if ( json_is_int_char( chnext ) )
     {
       array<char, M>  cvalue;
       bool            bpoint;
@@ -950,7 +1023,7 @@ namespace mtc
         return nullptr;
       for ( chprev = '\0', bexpon = bpoint = false; ; )
       {
-        if ( (chnext = s.getnext()) >= '0' && chnext <= '9' )
+        if ( json_is_num_char( chnext = s.getnext() ) )
         {
           if ( cvalue.Append( chprev = chnext ) != 0 )
             return nullptr;
@@ -970,7 +1043,7 @@ namespace mtc
           else
         if ( chnext == '-' )
         {
-          if ( ( chprev != 'e' && chprev != 'E' ) || cvalue.Append( chprev = chnext ) != 0 )
+          if ( (chprev != 'e' && chprev != 'E') || cvalue.Append( chprev = chnext ) != 0 )
             return nullptr;
         }
           else
@@ -999,11 +1072,32 @@ namespace mtc
       }
       return s;
     }
-    return nullptr;
+
+  // check for boolean represented as byte
+    if ( chnext == 't' )
+    {
+      if ( (chnext = s.getnext()) != 'r'
+        || (chnext = s.getnext()) != 'u'
+        || (chnext = s.getnext()) != 'e' )  return (S*)e( "unexpected character '%c'", chnext );
+      x.set_byte( 1 );
+        return s;
+    }
+      else
+    if ( chnext == 'f' )
+    {
+      if ( (chnext = s.getnext()) != 'a'
+        || (chnext = s.getnext()) != 'l'
+        || (chnext = s.getnext()) != 's'
+        || (chnext = s.getnext()) != 'e' )  return (S*)e( "unexpected character '%c'", chnext );
+      x.set_byte( 0 );
+        return s;
+    }
+      else
+    return (S*)e( "unexpected character '%c'", chnext );
   }
 
-  template <class S, class M>
-  S*  ParseJson( jsonstream<S>& s, zarray<M>& z, const jsonRevive* p = nullptr )
+  template <class S, class M, class X = json_use_exceptions_t>
+  S*  ParseJson( jsonstream<S>& s, zarray<M>& z, const jsonRevive* p = nullptr, const X& x = X() )
   {
     char  chnext;
 
@@ -1012,7 +1106,7 @@ namespace mtc
 
   // open object
     if ( (chnext = s.nospace()) != '{' )
-      return nullptr;
+      return (S*)x( "'{' expected" );
 
   // char by char until end or '}'
     while ( (chnext = s.nospace()) != '\0' && chnext != '}' )
@@ -1024,8 +1118,15 @@ namespace mtc
       const jsonRevive*   ptypes = nullptr;
 
     // get variable name as widestring
-      if ( chnext != '\"' || s.putback( chnext ).getstring( wcskey ) != 0 )
-        return nullptr;
+      try
+      {
+        if ( s.putback( chnext ).getstring( wcskey, x ) != 0 )
+          return nullptr;
+      }
+      catch ( const ParseJsonError& jx )
+      {
+        x( "%s while parsing variable name", jx.what() );
+      }
 
     // check variable name type (if defined); create key type and value type for the key
       if ( p != nullptr )
@@ -1047,37 +1148,44 @@ namespace mtc
 
     // check for colon
       if ( (chnext = s.nospace()) != ':' )
-        return nullptr;
+        return (S*)x( "':' expected" );
 
     // get the value
-      if ( (S*)(s = ParseJson( s, *newval, ptypes )) == nullptr )
-        return nullptr;
+      try
+      {
+        if ( (S*)(s = ParseJson( s, *newval, ptypes, x )) == nullptr )
+          return nullptr;
+      }
+      catch ( const ParseJsonError& jx )
+      {
+        x( "%s while parsing variable value", jx.what() );
+      }
 
     // check for comma
       if ( (chnext = s.nospace()) == ',' )
         continue;
       if ( chnext == '}' )  s.putback( chnext );
-        else return nullptr;
+        else return (S*)x( "'}' or ',' expected" );
     }
 
   // check valid script
-    return chnext == '}' ? s : nullptr;
+    return chnext == '}' ? s : (S*)x( "'}' expected" );
   }
 
-  template <class S, class M>
-  S*  ParseJson( S* s, xvalue<M>& x, const jsonRevive* p = nullptr )
+  template <class S, class M, class X = json_use_exceptions_t>
+  S*  ParseJson( S* s, xvalue<M>& x, const jsonRevive* p = nullptr, const X& e = X() )
   {
     jsonstream<S> source( s );
 
-    return ParseJson( source, x, p );
+    return ParseJson( source, x, p, e );
   }
 
-  template <class S, class M>
-  S*  ParseJson( S* s, zarray<M>& z, const jsonRevive* p = nullptr )
+  template <class S, class M, class X = json_use_exceptions_t>
+  S*  ParseJson( S* s, zarray<M>& z, const jsonRevive* p = nullptr, const X& x = X() )
   {
     jsonstream<S> source( s );
 
-    return ParseJson( source, z, p );
+    return ParseJson( source, z, p, x );
   }
 
 }
