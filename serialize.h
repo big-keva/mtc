@@ -51,10 +51,11 @@ SOFTWARE.
 */
 # if !defined( __mtc_serialize_h__ )
 # define  __mtc_serialize_h__
-# include <string.h>
 # include <stdlib.h>
 # include <stdio.h>
 # include <errno.h>
+# include <vector>
+# include <string>
 
 namespace mtc
 {
@@ -366,7 +367,8 @@ inline  S*  FetchFrom( S* s, T& t )
     return s;
   }
 
-template <class S> inline  S* FetchFrom( S* s, char*&  r )
+template <class S>
+inline  S* FetchFrom( S* s, char*&  r )
   {
     unsigned  length;
 
@@ -379,9 +381,75 @@ template <class S> inline  S* FetchFrom( S* s, char*&  r )
     return s;
   }
 
-template <class S> inline  S* FetchFrom( S* s, const char*& r )
+template <class S>
+inline  S* FetchFrom( S* s, const char*& r )
   {
     return FetchFrom( s, (char*&)r );
+  }
+
+/*
+  vectors serialization/deserialization
+*/
+
+template <class O, class T>
+inline  O*  Serialize( O* o, const std::vector<T>& a )
+  {
+    if ( (o = ::Serialize( o, a.size() )) != nullptr )
+    {
+      for ( auto p = a.begin(); p < a.end() && o != nullptr; ++p )
+        o = ::Serialize( o, *p );
+    }
+
+    return o;
+  }
+
+template <class S, class T>
+inline  S*  FetchFrom( S* s, std::vector<T>& a )
+  {
+    int   length;
+
+    a.clear();
+
+    if ( (s = ::FetchFrom( s, length )) == nullptr )
+      return s;
+
+    a.reserve( (length + 0x0f) & ~0x0f );
+    a.resize( length );
+
+    for ( auto i = 0; i < length && s != nullptr; ++i )
+      s = ::FetchFrom( s, a.at( i ) );
+
+    return s;
+  }
+
+/*
+  strings serialization/deserialization
+*/
+
+template <class O, class C>
+inline  O*  Serialize( O* o, const std::basic_string<C>& s )
+  {
+    return ::Serialize( ::Serialize( o, s.length() ), s.c_str(), sizeof(C) * s.length() );
+  }
+
+template <class S, class C>
+inline  S*  FetchFrom( S* s, std::basic_string<C>& o )
+  {
+    int   l;
+
+    o.clear();
+
+    if ( (s = ::FetchFrom( s, l )) == nullptr )
+      return nullptr;
+
+    o.reserve( (l + 0x10) & ~0x0f );
+    o.resize( l + 1 );
+    o[l] = (C)0;
+
+    if ( (s = ::FetchFrom( s, (C*)o.c_str(), l * sizeof(C) )) == nullptr )
+      o.clear();
+
+    return s;
   }
 
 # endif  // __mtc_serialize_h__
