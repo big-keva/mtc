@@ -86,11 +86,16 @@ namespace mtc
       }
   
   public:     // construction
-              prefixtree( unsigned char c = '\0' );
-             ~prefixtree();
+                prefixtree( unsigned char c = '\0' );
+                prefixtree( const prefixtree& );
+                prefixtree( prefixtree&& );
+    prefixtree& operator = ( prefixtree&& );
+               ~prefixtree();
 
   public:     // expand
-          V*        Insert( const char*, size_t, const V& e = 0 );
+          V*        Insert( const char*, size_t, const V& );
+          V*        Insert( const char*, size_t, V&& );
+          V*        Insert( const char*, size_t );
           V*        Search( const char*, size_t );
     const V*        Search( const char*, size_t ) const;
           void      DelAll();
@@ -109,9 +114,30 @@ namespace mtc
   // prefixtree inline implementation
   
   template <class V, class counter, class M>
-  inline  prefixtree<V, counter, M>::prefixtree( unsigned char c ):
-    array<prefixtree<V, counter, M>, M>( 0x2 ), chnode( c ), hasval( false )
+  inline  prefixtree<V, counter, M>::prefixtree( unsigned char c ): nested( 0x2 ), chnode( c ), hasval( false )
   {
+  }
+  
+  template <class V, class counter, class M>
+  inline  prefixtree<V, counter, M>::prefixtree( const prefixtree& p ): nested( p ), chnode( p.chnode ), hasval( p.hasval ), avalue( p.avalue )
+  {
+  }
+  
+  template <class V, class counter, class M>
+  inline  prefixtree<V, counter, M>::prefixtree( prefixtree&& p ): nested( static_cast<nested&&>( p ) ),
+    chnode( p.chnode ), hasval( p.hasval ), avalue( static_cast<V&&>( p.avalue ) )
+  {
+    p.hasval = false;
+  }
+  
+  template <class V, class counter, class M>
+  inline  prefixtree<V, counter, M>& prefixtree<V, counter, M>::operator = ( prefixtree&& p )
+  {
+    nested::operator = ( static_cast<nested&&>( p ) );
+    chnode = p.chnode;  p.chnode = 0;
+    hasval = p.hasval;  p.hasval = false;
+    avalue.operator = ( static_cast<V&&>( p.avalue ) );
+    return *this;
   }
   
   template <class V, class counter, class M>
@@ -121,6 +147,28 @@ namespace mtc
   
   template <class V, class counter, class M>
   inline  V*  prefixtree<V, counter, M>::Insert( const char* pszstr, size_t cchstr, const V& object )
+  {
+    V*  pvalue;
+
+    if ( (pvalue = Insert( pszstr, cchstr )) != nullptr )
+      *pvalue = object;
+
+    return pvalue;
+  }
+  
+  template <class V, class counter, class M>
+  inline  V*  prefixtree<V, counter, M>::Insert( const char* pszstr, size_t cchstr, V&& object )
+  {
+    V*  pvalue;
+
+    if ( (pvalue = Insert( pszstr, cchstr )) != nullptr )
+      *pvalue = static_cast<V&&>( object );
+
+    return pvalue;
+  }
+  
+  template <class V, class counter, class M>
+  inline  V*  prefixtree<V, counter, M>::Insert( const char* pszstr, size_t cchstr )
   {
     auto  expand = this;
 
@@ -147,7 +195,8 @@ namespace mtc
     }
 
     if ( !expand->hasval )
-      {  expand->avalue = object;  expand->hasval = true;  }
+      expand->hasval = true;
+
     return &expand->avalue;
   }
   
