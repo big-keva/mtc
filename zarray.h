@@ -170,12 +170,12 @@ namespace mtc
   template <class M>
   class xvalue
   {
-    M       malloc;
-    byte_t  vxtype;
-    char    chdata[sizeof(array<char, M>)];
+    mutable M malloc;
+    byte_t    vxtype;
+    char      chdata[sizeof(array<char, M>)];
 
   public:             // allocator
-    M&    GetAllocator()              {  return malloc;     }
+    M&    GetAllocator() const        {  return malloc;     }
     M&    SetAllocator( const M& m )  {  return malloc = m; }
 
   public:     // untyped constant
@@ -844,10 +844,10 @@ public:     // set_?? methods
   template <class M>
   class zarray
   {
-    M     malloc;     // used memory allocator
+    mutable M malloc; // used memory allocator
 
   public:             // allocator
-    M&    GetAllocator()              {  return malloc;     }
+    M&    GetAllocator() const        {  return malloc;     }
     M&    SetAllocator( const M& m )  {  return malloc = m; }
 
   private:    // internal classes
@@ -1134,6 +1134,8 @@ public:     // set_?? methods
     zarray( const zarray& );
    ~zarray();
     zarray& operator = ( const zarray& z );
+
+    zarray  copy() const;
 
   protected:  // helpers
     static  byte_t* inc_assign( byte_t* p, byte_t c )
@@ -2181,6 +2183,23 @@ namespace mtc
     malloc = z.malloc;
       zhandler = phandler;
     return *this;
+  }
+
+  template <class M>
+  zarray<M> zarray<M>::copy() const
+  {
+    zarray<M> newone( GetAllocator() );
+
+    for_each( [&]( const zkey& k, const xvalue<M>& v )
+      {
+        xvalue<M>*  p;
+
+        if ( (p = newone.put_xvalue( (const byte_t*)k.keybuf, k.keylen, k.keyset )) != nullptr )
+          *p = v.copy();
+        return p != nullptr ? 0 : ENOMEM;
+      } );
+
+    return newone;
   }
 
   template <class M>
