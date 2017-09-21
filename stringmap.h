@@ -101,6 +101,8 @@ namespace mtc
   public:
     _base_stringmap_( unsigned tablen = 69959 ): pitems( nullptr ), maplen( tablen ), ncount( 0 ) {}
    ~_base_stringmap_();
+    _base_stringmap_( _base_stringmap_&& );
+    _base_stringmap_& operator = ( _base_stringmap_&& );
     _base_stringmap_( const _base_stringmap_& ) = delete;
     _base_stringmap_& operator = ( const _base_stringmap_& ) = delete;
 
@@ -186,6 +188,30 @@ namespace mtc
   };
 
   // Map inline implementation
+
+  template <class C, class V, class M>
+  _base_stringmap_<C, V, M>::_base_stringmap_( _base_stringmap_&& s ):
+    allocator( s.allocator ), pitems( s.pitems ), maplen( s.maplen ), ncount( s.ncount )
+  {
+    s.pitems = nullptr;
+    s.ncount = 0;
+  }
+
+  template <class C, class V, class M>
+  _base_stringmap_<C, V, M>& _base_stringmap_<C, V, M>::operator = ( _base_stringmap_&& s )
+  {
+    if ( pitems != nullptr )
+    {
+      DelAll();
+      allocator.free( pitems );
+    }
+    allocator = s.allocator;
+    pitems = s.pitems;  s.pitems = nullptr;
+    maplen = s.maplen;
+    ncount = s.ncount;  s.ncount = 0;
+
+    return *this;
+  }
 
   template <class C, class V, class M>
   _base_stringmap_<C, V, M>::~_base_stringmap_()
