@@ -547,10 +547,17 @@ namespace mtc
 
   public:     // construction
     patricia()  {}
-    patricia( const patricia& p )
+    patricia( patricia&& p )
       {
-        inplace_swap( patree, ((patricia*)&p)->patree );
+        inplace_swap( patree, p.patree );
       }
+    patricia& operator = ( patricia&& p )
+      {
+        patree = nullptr;
+        inplace_swap( patree, p.patree );
+        return *this;
+      }
+    patricia( const patricia& ) = delete;
     patricia& operator = ( const patricia& ) = delete;
 
   public:     // helpers
