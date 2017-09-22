@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __mtc_serialize_h__ )
 # define  __mtc_serialize_h__
 # include <stdlib.h>
+# include <string.h>
 # include <stdio.h>
 # include <errno.h>
 # include <vector>
