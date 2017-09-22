@@ -26,9 +26,9 @@ namespace mtc
         }
 
     protected:  // helpers
-      static  int   Accept( void**, void*, unsigned );
-      static  int   Attach( void**, const char*, unsigned, unsigned );
-      static  void  Detach( void* );
+      static  API<INetStream> Accept( void* listenSocket, unsigned msWaitListen );
+      static  void            Detach( void*listenSocket );
+      static  int             Attach( void**, const char*, unsigned, unsigned );
 
     protected:  // variables
       void*             socketid;
@@ -104,9 +104,9 @@ namespace mtc
           
         return socketError;
       }
-    int   Accept( void** ppvout )
+    API<INetStream> Accept()
       {
-        return listenSocket != nullptr ? ListenSocket::Accept( ppvout, listenSocket->socketid, msWaitAccept ) : EINVAL;
+        return listenSocket != nullptr ? ListenSocket::Accept( listenSocket->socketid, msWaitAccept ) : nullptr;
       }
     void  Detach()
       {
