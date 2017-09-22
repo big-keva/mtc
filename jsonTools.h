@@ -54,6 +54,7 @@ SOFTWARE.
 # include "charstream.h"
 # include "zarray.h"
 # include <string.h>
+# include <stdexcept>
 
 namespace mtc
 {
