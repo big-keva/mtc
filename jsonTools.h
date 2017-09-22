@@ -848,7 +848,7 @@ namespace mtc
       if ( chnext == ']' )  s.putback( chnext );
         else return (S*)x( "']' expected" );
     }
-    return chnext == ']' ? s : (S*)x( "']' expected" );
+    return chnext == ']' ? (S*)s : (S*)x( "']' expected" );
   }
 
   template <class S, class T, class M, class X = json_use_exceptions_t>
@@ -873,7 +873,7 @@ namespace mtc
       if ( chnext == ']' )  s.putback( chnext );
         else return (S*)x( "']' expected" );
     }
-    return chnext == ']' ? s : (S*)x( "']' expected" );
+    return chnext == ']' ? (S*)s : (S*)x( "']' expected" );
   }
 
   template <class S, class M, class X = json_use_exceptions_t>
