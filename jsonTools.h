@@ -810,7 +810,7 @@ namespace mtc
         if ( chnext == ']' )  s.putback( chnext );                                    \
           else return (S*)x( "',' or ']' expected" );                                 \
       }                                                                               \
-      return chnext == ']' ? s : (S*)x( "']' expected" );                             \
+      return chnext == ']' ? (S*)s : (S*)x( "']' expected" );                         \
     }
     derive_fetch_array( char )
     derive_fetch_array( byte_t )
