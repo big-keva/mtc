@@ -1170,7 +1170,7 @@ namespace mtc
     }
 
   // check valid script
-    return chnext == '}' ? s : (S*)x( "'}' expected" );
+    return chnext == '}' ? (S*)s : (S*)x( "'}' expected" );
   }
 
   template <class S, class M, class X = json_use_exceptions_t>
