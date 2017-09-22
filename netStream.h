@@ -48,22 +48,19 @@ namespace mtc
     NetStream& SetConnectTimeout( word32_t tout ) {  connectTimeout = tout;    return *this;  }
 
   public:     // simple connect
-    static  int   Attach( void** ppvout, const char* szhost, unsigned dwport, unsigned msconn = 0 );
+    API<INetStream> Attach( const char* szhost, unsigned dwport, unsigned msconn = 0 );
 
   public:     // connect
-    int   Attach( void** ppvout )
+    API<INetStream> Attach()
       {
-        API<INetStream> netstm;
-        int             nerror;
+        API<INetStream> netstm = Attach( tryConnectHost, tryConnectPort, connectTimeout );
 
-        if ( (nerror = Attach( netstm, tryConnectHost, tryConnectPort, connectTimeout )) != 0 )
-          return nerror;
         if ( receiveTimeout != (word32_t)-1 )
           netstm->SetGetTimeout( receiveTimeout );
         if ( sendingTimeout != (word32_t)-1 )
           netstm->SetPutTimeout( sendingTimeout );
-        ((INetStream*)(*ppvout = (INetStream*)netstm))->Attach();
-          return 0;
+
+        return netstm;
       }
   };
 

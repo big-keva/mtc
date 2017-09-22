@@ -124,12 +124,53 @@ namespace mtc
 # endif   //
   Sockets socketsAPI;
 
+  class SocketHandle
+  {
+    Sockets::SOCKET socket;
+
+  public:
+    SocketHandle( Sockets::SOCKET s = Sockets::InvalidSocket ): socket( s )
+      {
+      }
+    SocketHandle( SocketHandle&& s ): socket( s.socket )
+      {
+        s.socket = Sockets::InvalidSocket;
+      }
+    SocketHandle& operator = ( Sockets::SOCKET s )
+      {
+        if ( socket != Sockets::InvalidSocket )
+          Sockets::CloseSocket( socket );
+        socket = s;
+          return *this;
+      }
+    SocketHandle& operator = ( SocketHandle&& s )
+      {
+        if ( socket != Sockets::InvalidSocket )
+          Sockets::CloseSocket( socket );
+        socket = s.socket;
+          s.socket = Sockets::InvalidSocket;
+        return *this;
+      }
+    SocketHandle( const SocketHandle& ) = delete;
+    SocketHandle& operator = ( const SocketHandle& ) = delete;
+   ~SocketHandle()
+      {
+        if ( socket != Sockets::InvalidSocket )
+          Sockets::CloseSocket( socket );
+      }
+    operator Sockets::SOCKET() const
+      {
+        return socket;
+      }
+  };
+
   class CNetStream: public INetStream
   {
     implement_lifetime_control
 
   public:     // construction
-	  CNetStream( Sockets::SOCKET sockid = Sockets::InvalidSocket );
+	  CNetStream();
+	  CNetStream( SocketHandle&& );
 	  CNetStream( const CNetStream& ) = delete;
     CNetStream& operator = ( const CNetStream& ) = delete;
    ~CNetStream();
@@ -151,7 +192,7 @@ namespace mtc
     int   SetPutTimeout() const noexcept;
 
   protected:  // variables
-    Sockets::SOCKET sockid;
+    SocketHandle    sockid;
     word32_t        tmoGet;
     word32_t        tmoPut;
 
@@ -159,7 +200,11 @@ namespace mtc
 
   // CNetStream implementation
 
-	CNetStream::CNetStream( Sockets::SOCKET idsock ): sockid( idsock ), tmoGet( -1 ), tmoPut( -1 )
+	CNetStream::CNetStream(): sockid(), tmoGet( -1 ), tmoPut( -1 )
+    {
+    }
+
+	CNetStream::CNetStream( SocketHandle&& s ): sockid( static_cast<SocketHandle&&>( s ) ), tmoGet( -1 ), tmoPut( -1 )
     {
     }
 
@@ -362,32 +407,31 @@ namespace mtc
   /*
     real connect wrapper
   */
-  int   NetStream::Attach( void** ppvout, const char* szhost, unsigned dwport, unsigned msconn )
+  API<INetStream> NetStream::Attach( const char* szhost, unsigned dwport, unsigned msconn )
   {
     _auto_<CNetStream>  palloc;
     int                 nerror;
 
-    if ( (palloc = allocate<CNetStream>()) == nullptr )
-      return ENOMEM;
-    if ( (nerror = palloc->ConnectSocket( szhost, dwport, msconn )) != 0 )
-      return nerror;
-    ((Iface*)(*ppvout = (INetStream*)palloc.detach()))->Attach();
-      return 0;
+    if ( (palloc = allocate<CNetStream>()) != nullptr )
+    {
+      if ( (nerror = palloc->ConnectSocket( szhost, dwport, msconn )) != 0 )
+        return nullptr;
+    }
+    return palloc.detach();
   }
 
   /*
     listen conn functions
   */
 
-  int   NetListen::ListenSocket::Accept( void** ppvout, void* listen, unsigned mswait )
+  API<INetStream> NetListen::ListenSocket::Accept( void* listen, unsigned mswait )
   {
-    fd_set          solist;
-    struct timeval  tlimit;
-    Sockets::SOCKET getone;
-    int             nerror;
+    fd_set              solist;
+    struct timeval      tlimit;
+    Sockets::SOCKET     getone = Sockets::InvalidSocket;
 
     if ( listen == nullptr )
-      return EINVAL;
+      return nullptr;
 
   // begin listen socket - check if there are incoming connection
     FD_ZERO( &solist );
@@ -397,22 +441,13 @@ namespace mtc
 
   // check if the query present in queue
     if ( select( (int)(1 + Sockets::CastToSocket( listen )), &solist, nullptr, nullptr, mswait != (unsigned)-1 ? &tlimit : nullptr ) <= 0 )
-      return EAGAIN;
+      return nullptr;
 
     // get incoming socket
-    if ( (getone = accept( Sockets::CastToSocket( listen ), nullptr, nullptr )) != Sockets::InvalidSocket )
-    {
-      _auto_<CNetStream>  palloc;
+    if ( (getone = accept( Sockets::CastToSocket( listen ), nullptr, nullptr )) == Sockets::InvalidSocket )
+      return nullptr;
 
-      if ( (palloc = allocate<CNetStream>( getone )) == nullptr )
-      {
-        Sockets::CloseSocket( getone );
-        return ENOMEM;
-      }
-      ((INetStream*)(*ppvout = (void*)palloc.detach()))->Attach();
-        return 0;
-    }
-    return (nerror = Sockets::GetError()) == Sockets::E_INPROGRESS ? EAGAIN : nerror;
+    return allocate<CNetStream>( getone );
   }
 
   int   NetListen::ListenSocket::Attach( void** ppvout, const char* szhost, unsigned dwport, unsigned mswait )
