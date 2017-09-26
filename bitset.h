@@ -54,6 +54,7 @@ SOFTWARE.
 # include "array.h"
 # include <vector>
 # include <limits>
+# include <type_traits>
 
 namespace mtc
 {
@@ -96,7 +97,7 @@ namespace mtc
   template <class Vector>
   inline  bool  bitset_get( const Vector& s, unsigned b )
     {
-      using             element_type = std::remove_reference_t<decltype(s.at( 0 ))>;
+      using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
 
       return (b / element_size) < (size_t)s.size() && (s[b / element_size] & (1 << (b % element_size))) != 0;
@@ -172,7 +173,7 @@ namespace mtc
   template <class Vector>
   inline  int   bitset_set( Vector& s, const range& r )
     {
-      using             element_type = std::remove_reference_t<decltype(s.at( 0 ))>;
+      using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
       int               l = r.l;
       int               h = r.h;
@@ -204,7 +205,7 @@ namespace mtc
   template <class Vector>
   inline  int   bitset_del( Vector& s, const range& r )
     {
-      using             element_type = std::remove_reference_t<decltype(s.at( 0 ))>;
+      using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
       int               l = r.l;
       int               h = r.h;
