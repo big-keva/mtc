@@ -33,6 +33,63 @@ namespace mtc
 
   };
 
+  template <class Mtx>
+  class shared_lock
+  {
+  public:
+    shared_lock(): pmtx( nullptr ), owns( false )
+      {
+      }
+    shared_lock( Mtx& mtx ): pmtx( &mtx ), owns( true )
+      {
+        mtx.lock_shared();
+      }
+    shared_lock( shared_lock&& s ): pmtx( s.pmtx ), owns( s.owns )
+      {
+        s.pmtx = nullptr;
+        s.owns = false;
+      }
+   ~shared_lock()
+      {
+        if ( pmtx != nullptr && owns )
+          pmtx->unlock_shared();
+      }
+    shared_lock& operator = ( shared_lock&& s )
+      {
+        if ( pmtx != nullptr && owns )
+          pmtx->unlock_shared();
+        pmtx = s.pmtx;  s.pmtx = nullptr;
+        owns = s.owns;  s.owns = false;
+          return *this;
+      }
+    void  lock()
+      {
+        if ( pmtx == nullptr )
+          throw std::runtime_error( "shared_lock::lock is not properly initialized" );
+        if ( owns )
+          throw std::runtime_error( "shared_lock::lock is already locked" );
+        pmtx->lock_shared();
+          owns = true;
+      }
+    void  unlock()
+      {
+        if ( pmtx == nullptr )
+          throw std::runtime_error( "shared_lock::lock is not properly initialized" );
+        if ( !owns )
+          throw std::runtime_error( "shared_lock::lock is not locked" );
+        pmtx->unlock_shared();
+          owns = false;
+      }
+    bool  owns_lock() const
+      {
+        return owns;
+      }
+  protected:
+    Mtx*  pmtx;
+    bool  owns;
+
+  };
+
 // recursive_shared_mutex implementation
 
   inline
