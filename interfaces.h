@@ -66,9 +66,9 @@ namespace mtc
   };
 
   template <class T>  class default_API_attach
-    {  public: auto operator ()( T* p ){  return ((std::remove_cv<T>::type*)p)->Attach();  }  };
+    {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Attach();  }  };
   template <class T>  class default_API_detach
-    {  public: auto operator ()( T* p ){  return ((std::remove_cv<T>::type*)p)->Detach();  }  };
+    {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Detach();  }  };
 
   template <class iface, class attach = default_API_attach<iface>, class detach = default_API_detach<iface>>
   class API
@@ -144,7 +144,7 @@ namespace mtc
       bool  operator != ( const void* p ) const {  return !(*this == p);  }
 
     protected:
-      auto    getptr()  {  return (std::remove_const<iface>::type*)piface;  }
+      auto    getptr()  {  return (typename std::remove_const<iface>::type*)piface;  }
 
     protected:
       mutable iface*  piface;
