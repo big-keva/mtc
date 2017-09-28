@@ -54,6 +54,7 @@ SOFTWARE.
 # include <cassert>
 # include <atomic>
 # include <mutex>
+# include <type_traits>
 
 namespace mtc
 {
@@ -65,9 +66,9 @@ namespace mtc
   };
 
   template <class T>  class default_API_attach
-    {  public: auto operator ()( T* p ){  return ((Iface*)p)->Attach();  }  };
+    {  public: auto operator ()( T* p ){  return ((std::remove_cv<T>::type*)p)->Attach();  }  };
   template <class T>  class default_API_detach
-    {  public: auto operator ()( T* p ){  return ((Iface*)p)->Detach();  }  };
+    {  public: auto operator ()( T* p ){  return ((std::remove_cv<T>::type*)p)->Detach();  }  };
 
   template <class iface, class attach = default_API_attach<iface>, class detach = default_API_detach<iface>>
   class API
@@ -75,46 +76,92 @@ namespace mtc
     using usemutex = std::recursive_mutex;
     using autolock = std::lock_guard<usemutex>;
 
-    mutable usemutex  locked;
+    mutable usemutex  locker;
     mutable iface*    piface;
 
     template <class _do>  auto interlocked( _do do_ )
-      {  autolock  aulock( locked );  return do_();  }
+      {  autolock  aulock( locker );  return do_();  }
     template <class _do>  auto interlocked( _do do_ ) const
-      {  autolock  aulock( locked );  return do_();  }
+      {  autolock  aulock( locker );  return do_();  }
 
   protected:
+    class ppvoid
+    {
+      friend class API;
+
+    protected:
+      ppvoid( API& a ): papi( &a )          {  papi->locker.lock();  }
+      ppvoid( ppvoid&& p ): papi( p.papi )  {  p.papi = nullptr;  }
+     ~ppvoid()                              {  if ( papi != nullptr ) papi->locker.unlock();  }
+      ppvoid( const ppvoid& ) = delete;
+      ppvoid& operator = ( const ppvoid& ) = delete;
+
+    public:
+      operator iface**  ()  {  assert( papi != nullptr );  return &papi->piface;  }
+      operator  void**  ()  {  return (void**)(iface**)*this;  }
+
+    protected:
+      API*  papi;
+
+    };
+
     class pvalue
     {
-      API&  riface;
+      friend class API;
+
+    protected:
+      pvalue( iface* p )
+        {
+          if ( (piface = p) != nullptr )
+            getptr()->Attach();
+        }
+      
+    public:
+      pvalue( const pvalue& p )
+        {
+          if ( (piface = p.piface) != nullptr )
+            getptr()->Attach();
+        }
+     ~pvalue()
+        {
+          if ( piface != nullptr )
+            getptr()->Detach();
+        }
+      pvalue& operator = ( const pvalue& p )
+        {
+          if ( piface != nullptr )
+            getptr()->Detach();
+          if ( (piface = p.piface) != nullptr )
+            getptr()->Attach();
+        }
 
     public:
-      pvalue( API& a ): riface( a ) {  riface.locked.lock();  }
-      pvalue( const API& a ): riface( (API&)a ) {  riface.locked.lock();  }
-     ~pvalue()  {  riface.locked.unlock();  }
-      pvalue& operator = ( const pvalue& ) = delete;
+      operator iface* ()                {  return piface;  }
+      operator const iface* () const    {  return piface;  }
+      iface*  operator -> ()            {  assert( piface != nullptr );  return piface;  }
+      const iface* operator -> () const {  assert( piface != nullptr );  return piface;  }
+      bool  operator == ( const void* p ) const {  return piface == p;  }
+      bool  operator != ( const void* p ) const {  return !(*this == p);  }
 
-    public:
-      operator iface** ()               {  return &riface.piface;  }
-      operator void** ()                {  return (void**)&riface.piface;  }
-      operator iface* ()                {  return riface.piface;  }
-      operator const iface* () const    {  return riface.piface;  }
-      iface*  operator -> ()            {  return riface.piface;  }
-      const iface* operator -> () const {  return riface.piface;  }
+    protected:
+      auto    getptr()  {  return (std::remove_const<iface>::type*)piface;  }
+
+    protected:
+      mutable iface*  piface;
 
     };
 
   public:       // construction/destruction
     API( iface* p = nullptr )
       {
-        autolock  aulock( locked );
+        autolock  aulock( locker );
 
         if ( (piface = p) != nullptr )
           attach()( p );
       }
     API( const API& a )
       {
-        autolock  aulock( locked );
+        autolock  aulock( locker );
         auto      avalue = a.ptr();
 
         if ( (piface = (iface*)(const iface*)avalue) != nullptr )
@@ -122,7 +169,7 @@ namespace mtc
       }
    ~API()
       {
-        autolock  aulock( locked );
+        autolock  aulock( locker );
 
         if ( piface != nullptr )
           detach()( piface );
@@ -131,7 +178,7 @@ namespace mtc
   public:     // operators
     API& operator = ( iface* p )
       {
-        autolock  aulock( locked );
+        autolock  aulock( locker );
 
         if ( piface != nullptr )
           detach()( piface );
@@ -141,24 +188,26 @@ namespace mtc
       }
     API& operator = ( const API& a )
       {
-        autolock  aulock( locked );
-        auto      avalue = a.ptr();
+        autolock  aulock( locker );
 
         if ( piface != nullptr )
           detach()( piface );
-        if ( (piface = (iface*)(const iface*)avalue) != nullptr )
+        if ( (piface = (iface*)(const iface*)a.ptr()) != nullptr )
           attach()( piface );
         return *this;
       }
 
   public:     // conversions
-          pvalue operator -> ()       {  return pvalue( *this );  }
-    const pvalue operator -> () const {  return pvalue( *this );  }
-          pvalue ptr()                {  return pvalue( *this );  }
-    const pvalue ptr() const          {  return pvalue( *this );  }
+          pvalue operator -> ()       {  return interlocked( [&]{  return pvalue( piface );  } );  }
+    const pvalue operator -> () const {  return interlocked( [&]{  return pvalue( piface );  } );  }
+          pvalue ptr()                {  return interlocked( [&]{  return pvalue( piface );  } );  }
+    const pvalue ptr() const          {  return interlocked( [&]{  return pvalue( piface );  } );  }
 
     bool  operator == ( const void* p ) const {  return interlocked( [&](){  return (const void*)piface == p;  } );  }
-    bool  operator != ( const void* p ) const {  return interlocked( [&](){  return (const void*)piface != p;  } );  }
+    bool  operator != ( const void* p ) const {  return !(*this == p);  }
+
+    operator void**() {  return ppvoid( *this );  }
+    operator iface**()  {  return ppvoid( *this );  }
 
   };
 
