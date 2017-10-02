@@ -59,8 +59,8 @@ namespace mtc
 
   struct IByteBuffer: public Iface
   {
-    virtual const char* GetPtr(                       ) = 0;
-    virtual word32_t    GetLen(                       ) = 0;
+    virtual const char* GetPtr(                       ) const = 0;
+    virtual word32_t    GetLen(                       ) const = 0;
     virtual int         SetBuf( const void*, word32_t ) = 0;
     virtual int         SetLen( word32_t              ) = 0;
   };

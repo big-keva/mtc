@@ -98,10 +98,10 @@ namespace mtc
     FileMemmap& operator = ( const FileMemmap& ) = delete;
 
   public:     // overridables
-    virtual const char* GetPtr(                       ) noexcept override {  return nshift + (char*)ptrmap;  }
-    virtual word32_t    GetLen(                       ) noexcept override {  return cchmem;  }
-    virtual int         SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
-    virtual int         SetLen( word32_t              ) noexcept override {  return EINVAL;  }
+    virtual const char* GetPtr(                       ) const noexcept override {  return nshift + (char*)ptrmap;  }
+    virtual word32_t    GetLen(                       ) const noexcept override {  return cchmem;  }
+    virtual int         SetBuf( const void*, word32_t )       noexcept override {  return EINVAL;  }
+    virtual int         SetLen( word32_t              )       noexcept override {  return EINVAL;  }
 
   public:     // helpers
     int   Create( FileStream*, int64_t, word32_t );
@@ -130,8 +130,8 @@ namespace mtc
       filebuffer( word32_t l ): length( l ) {}
           
     public:     // overridables
-      virtual const char* GetPtr() noexcept override {  return buffer;  }
-      virtual word32_t    GetLen() noexcept override {  return length;  }
+      virtual const char* GetPtr() const noexcept override {  return buffer;  }
+      virtual word32_t    GetLen() const noexcept override {  return length;  }
       virtual int         SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
       virtual int         SetLen( word32_t ) noexcept override {  return EINVAL;  }
     

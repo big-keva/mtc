@@ -20,8 +20,8 @@ namespace mtc
     implement_lifetime_control
 
   public:     // IByteBuffer overridables
-    virtual const char* GetPtr(                       ) noexcept override {  return begin();  }
-    virtual word32_t    GetLen(                       ) noexcept override {  return size();   }
+    virtual const char* GetPtr(                       ) const noexcept override {  return begin();  }
+    virtual word32_t    GetLen(                       ) const noexcept override {  return size();   }
     virtual int         SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;   }
     virtual int         SetLen( word32_t              ) noexcept override {  return EINVAL;   }
 
