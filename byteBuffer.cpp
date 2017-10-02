@@ -60,11 +60,11 @@ namespace mtc
     implement_lifetime_control
 
   public:
-    virtual const char* GetPtr() override
+    virtual const char* GetPtr() const override
       {
         return begin();
       }
-    virtual word32_t    GetLen() override
+    virtual word32_t    GetLen() const override
       {
         return size();
       }
