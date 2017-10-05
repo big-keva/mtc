@@ -320,7 +320,7 @@ namespace mtc
             const patnode** ptrtop = anodes.begin();
             const patnode** ptrend = anodes.end();
             byte_t          chfind = *(byte_t*)k;
-            const byte_t*   sznext;
+            const byte_t*   sznext = nullptr;
             byte_t          chnext;
             unsigned        curlen;
 
