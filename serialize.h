@@ -147,50 +147,35 @@ inline  size_t  GetBufLen( char*        string )
 
 //[]=========================================================================[]
 
-inline  char* Serialize( char* o, char c )
+inline  char*       Serialize( char* o, const void* p, size_t l )
   {
-    if ( o != NULL )
-      *o++ = c;
-    return o;
+    return o != nullptr ? l + (char*)memcpy( o, p, l ) : nullptr;
+  }
+inline  const char* FetchFrom( const char* s, void* p, size_t l )
+  {
+    return s != nullptr ? (memcpy( p, s, l ), l + s) : nullptr;
+  }
+inline  const unsigned char* FetchFrom( const unsigned char* s, void* p, size_t l )
+  {
+    return s != nullptr ? (memcpy( p, s, l ), l + s) : nullptr;
+  }
+inline  FILE*       Serialize( FILE* o, const void* p, size_t l )
+  {
+    return o != nullptr && fwrite( p, sizeof(char), l, o ) == l ? o : NULL;
+  }
+inline  FILE*       FetchFrom( FILE* s, void* p, size_t l )
+  {
+    return s != nullptr && fread( p, sizeof(char), l, s ) == l ? s : nullptr;
   }
 
-inline  char* Serialize( char* o, const void* p, size_t l )
-  {
-    return o != NULL ? l + (char*)memcpy( o, p, l ) : NULL;
-  }
-
-inline  FILE* Serialize( FILE* o, char c )
-  {
-    return o != NULL && fwrite( &c, sizeof(char), 1, o ) == 1 ? o : NULL;
-  }
-
-inline  FILE* Serialize( FILE* o, const void* p, size_t l )
-  {
-    return o != NULL && fwrite( p, sizeof(char), l, o ) == l ? o : NULL;
-  }
-
-template <class O>  inline  O* Serialize( O* o, unsigned char b )
-  {
-    return Serialize( o, (char)b );
-  }
-
-template <class O>  inline  O* Serialize( O* o, bool    b )
-  {
-    return Serialize( o, (char)(b ? 1 : 0) );
-  }
-
-template <class O>  inline  O* Serialize( O* o, float   f )
-  {
-    return Serialize( o, &f, sizeof(f) );
-  }
-
-template <class O>  inline  O* Serialize( O* o, double  d )
-  {
-    return Serialize( o, &d, sizeof(d) );
-  }
+template <class O>  O*  Serialize( O* o, char c )                         {  return Serialize( o, &c, sizeof(c) );  }
+template <class O>  O*  Serialize( O* o, unsigned char c )                {  return Serialize( o, &c, sizeof(c) );  }
+template <class O>  O*  Serialize( O* o, float  f )                       {  return Serialize( o, &f, sizeof(f) );  }
+template <class O>  O*  Serialize( O* o, double d )                       {  return Serialize( o, &d, sizeof(d) );  }
+template <class O>  O*  Serialize( O* o, bool b )                         {  return Serialize( o, (char)(b ? 1 : 0) );  }
 
 template <class O, class T>
-inline  O*  Serialize( O*  o, T t )
+O*  Serialize( O*  o, T t )
   {
     int   nshift = 0;
     char  bstore;
@@ -203,159 +188,47 @@ inline  O*  Serialize( O*  o, T t )
         t &= ~(((T)0x7f) << ushift);
       if ( t != 0 )
         bstore |= 0x80;
-      o = Serialize( o, bstore );
+      o = Serialize( o, &bstore, sizeof(bstore) );
     } while ( o != NULL && (bstore & 0x80) != 0 );
 
     return o;
   }
 
-template <class O>  inline  O* Serialize( O* o, const char* s )
+template <class O>
+O*  Serialize( O* o, const char* s )
   {
     auto  length = strlen( s );
 
-    return Serialize( Serialize( o, (unsigned)length ), (const void*)s, (unsigned)(sizeof(*s) * length) );
+    return Serialize( Serialize( o, length ), (const void*)s, sizeof(*s) * length );
   }
 
-template <class O>  inline  O*  Serialize( O* o, char* s )
-  {
-    return Serialize( o, (const char*)s );
-  }
+template <class O>
+O*  Serialize( O* o, char* s )      {  return Serialize( o, (const char*)s );  }
 
 //[]=========================================================================[]
 
-template <class T>
-inline  int       FetchData( const char*& buffer, T& rfitem )
-  {
-    int   nshift = 0;
-    char  bfetch;
-
-    rfitem = 0;
-    do  rfitem |= (((T)(bfetch = *buffer++) & 0x7f)) << (nshift++ * 7);
-      while ( bfetch & 0x80 );
-    return 0;
-  }
-
-inline  int       FetchData( const char*& buffer, char&   rfitem )
-  {
-    rfitem = *buffer++;
-      return 0;
-  }
-
-inline  int       FetchData( const char*& buffer, unsigned char& rfitem )
-  {
-    rfitem = (unsigned char)*buffer++;
-      return 0;
-  }
-
-inline  int       FetchData( const char*& buffer, bool&   rfitem )
-  {
-    rfitem = *buffer++ != 0;
-      return 0;
-  }
-
-inline  int       FetchData( const char*& buffer, float&  rvalue )
-  {
-    memcpy( &rvalue, buffer, sizeof(rvalue) );
-      buffer += sizeof(rvalue);
-    return 0;
-  }
-
-inline  int       FetchData( const char*& buffer, double& rvalue )
-  {
-    memcpy( &rvalue, buffer, sizeof(rvalue) );
-      buffer += sizeof(rvalue);
-    return 0;
-  }
-
-inline  int       FetchData( const char*& buffer, const char*&  string )
-  {
-    unsigned  length;
-
-    if ( (length = (unsigned)*buffer++) & 0x80 )
-      length = (length & 0x7f) | ((unsigned)*buffer++ << 7);
-    if ( (string = (char*)malloc( length + 1 )) == NULL )
-      return ENOMEM;
-    memcpy( (char*)string, buffer, length );
-      buffer += length;
-    ((char*)string)[length] = '\0';
-      return 0;
-  }
-
-inline  int       FetchData( const char*& buffer, char*&  string )
-  {
-    return FetchData( buffer, (const char*&)string );
-  }
-
-//[]=========================================================================[]
-
-inline  const char* FetchFrom( const char* s, char& c )
-  {
-    if ( s != NULL )
-      c = *s++;
-    return s;
-  }
-
-inline  const char* FetchFrom( const char* s, void* p, size_t l )
-  {
-    if ( s == NULL )
-      return NULL;
-    memcpy( p, s, l );
-      return s + l;
-  }
-
-inline  const unsigned char* FetchFrom( const unsigned char* s, char& c )
-  {
-    return (const unsigned char*)FetchFrom( (const char*)s, c );
-  }
-
-inline  const unsigned char* FetchFrom( const unsigned char* s, void* p, size_t l )
-  {
-    return (const unsigned char*)FetchFrom( (const char*)s, p, l );
-  }
-
-inline  FILE*       FetchFrom( FILE* s, char& c )
-  {
-    return s != NULL && fread( &c, sizeof(char), 1, s ) == 1 ? s : NULL;
-  }
-
-inline  FILE* FetchFrom( FILE* s, void* p, size_t l )
-  {
-    return s != NULL && fread( p, sizeof(char), l, s ) == l ? s : NULL;
-  }
-
-template <class S> inline  S* FetchFrom( S* s, unsigned char& b )
-  {
-    return FetchFrom( s, (char&)b );
-  }
-
-template <class S> inline  S* FetchFrom( S* s, bool& b )
+template <class S>  S*  FetchFrom( S* s, char& c )                        {  return FetchFrom( s, &c, sizeof(c) );  }
+template <class S>  S*  FetchFrom( S* s, unsigned char& c )               {  return FetchFrom( s, &c, sizeof(c) );  }
+template <class S>  S*  FetchFrom( S* s, float&  f )                      {  return FetchFrom( s, &f, sizeof(f) );  }
+template <class S>  S*  FetchFrom( S* s, double& d )                      {  return FetchFrom( s, &d, sizeof(d) );  }
+template <class S>  S*  FetchFrom( S* s, bool& b )
   {
     char  c;
 
-    if ( (s = FetchFrom( s, c )) != NULL )
-      b = c != 0;
+    s = FetchFrom( s, c );
+    b = s != nullptr && c != 0;
     return s;
   }
 
-template <class S> inline  S* FetchFrom( S* s, float& f )
-  {
-    return FetchFrom( s, &f, sizeof(f) );
-  }
-
-template <class S> inline  S* FetchFrom( S* s, double& d )
-  {
-    return FetchFrom( s, &d, sizeof(d) );
-  }
-
 template <class S, class T>
-inline  S*  FetchFrom( S* s, T& t )
+S*  FetchFrom( S* s, T& t )
   {
     int   nshift = 0;
     char  bfetch;
 
     t = 0;
     do  {
-      if ( (s = FetchFrom( s, bfetch )) == NULL ) return NULL;
+      if ( (s = FetchFrom( s, &bfetch, sizeof(bfetch) )) == nullptr ) return nullptr;
         else  t |= (((T)bfetch & 0x7f)) << (nshift++ * 7);
     } while ( bfetch & 0x80 );
 
@@ -363,7 +236,7 @@ inline  S*  FetchFrom( S* s, T& t )
   }
 
 template <class S>
-inline  S* FetchFrom( S* s, char*&  r )
+S*  FetchFrom( S* s, char*&  r )
   {
     unsigned  length;
 
@@ -377,7 +250,7 @@ inline  S* FetchFrom( S* s, char*&  r )
   }
 
 template <class S>
-inline  S* FetchFrom( S* s, const char*& r )
+S*  FetchFrom( S* s, const char*& r )
   {
     return FetchFrom( s, (char*&)r );
   }
@@ -387,7 +260,7 @@ inline  S* FetchFrom( S* s, const char*& r )
 */
 
 template <class O, class T>
-inline  O*  Serialize( O* o, const std::vector<T>& a )
+O*  Serialize( O* o, const std::vector<T>& a )
   {
     if ( (o = ::Serialize( o, a.size() )) != nullptr )
     {
@@ -422,13 +295,13 @@ inline  S*  FetchFrom( S* s, std::vector<T>& a )
 */
 
 template <class O, class C>
-inline  O*  Serialize( O* o, const std::basic_string<C>& s )
+O*  Serialize( O* o, const std::basic_string<C>& s )
   {
     return ::Serialize( ::Serialize( o, s.length() ), s.c_str(), sizeof(C) * s.length() );
   }
 
 template <class S, class C>
-inline  S*  FetchFrom( S* s, std::basic_string<C>& o )
+S*  FetchFrom( S* s, std::basic_string<C>& o )
   {
     int   l;
 
