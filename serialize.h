@@ -81,14 +81,8 @@ namespace mtc
     sourcebuf*  skipto( size_t l )  {  return (p = l + p) <= e ? this : nullptr;  }
 
   public:     // fetch
-    sourcebuf*  FetchFrom( char& c )
-      {
-        return p < e ? (c = *p++, this) : nullptr;
-      }
-    sourcebuf*  FetchFrom( void* o, size_t l )
-      {
-        return p + l <= e ? (memcpy( o, p, l ), p += l, this) : nullptr;
-      }
+    sourcebuf*  FetchFrom( char& c )  {  return p < e ? (c = *p++, this) : nullptr;  }
+    sourcebuf*  FetchFrom( void* o, size_t l )  {  return p + l <= e ? (memcpy( o, p, l ), p += l, this) : nullptr;  }
   };
 
 }
