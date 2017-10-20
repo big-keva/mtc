@@ -133,11 +133,11 @@ namespace mtc
             getptr()->Detach();
           if ( (piface = p.piface) != nullptr )
             getptr()->Attach();
+          return *this;
         }
 
     public:
-      operator iface* ()                {  return piface;  }
-      operator const iface* () const    {  return piface;  }
+      operator iface* () const          {  return piface;  }
       iface*  operator -> ()            {  assert( piface != nullptr );  return piface;  }
       const iface* operator -> () const {  assert( piface != nullptr );  return piface;  }
       bool  operator == ( const void* p ) const {  return piface == p;  }
