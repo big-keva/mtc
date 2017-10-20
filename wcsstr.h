@@ -64,7 +64,9 @@ SOFTWARE.
 # include <stdarg.h>
 # include <stdio.h>
 # include <assert.h>
+# include <string>
 # include "platform.h"
+# include "autoptr.h"
 
 # if !defined( __widechar_defined__ )
 # define  __widechar_defined__
@@ -587,6 +589,17 @@ namespace mtc
       output = vstrduprintf( format, vaargs );
     va_end( vaargs );
     return output;
+  }
+
+  inline  std::string strprintf( const char* format, ... )
+  {
+    _auto_<char>  output;
+    va_list       vaargs;
+
+    va_start( vaargs, format );
+      output = vstrduprintf( format, vaargs );
+    va_end( vaargs );
+    return std::string( output );
   }
 
 // ltrim
