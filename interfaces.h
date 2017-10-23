@@ -65,12 +65,16 @@ namespace mtc
     virtual long  Detach() = 0;
   };
 
-  template <class T>  class default_API_attach
-    {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Attach();  }  };
-  template <class T>  class default_API_detach
-    {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Detach();  }  };
+  namespace api
+  {
+    template <class T>  class attach
+      {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Attach();  }  };
+    template <class T>  class detach
+      {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Detach();  }  };
 
-  template <class iface, class attach = default_API_attach<iface>, class detach = default_API_detach<iface>>
+  }
+
+  template <class iface, class attach = api::attach<iface>, class detach = api::detach<iface>>
   class API
   {
     using usemutex = std::recursive_mutex;
