@@ -65,7 +65,7 @@ namespace mtc
     virtual long  Detach() = 0;
   };
 
-  namespace api
+  namespace impl
   {
     template <class T>  class attach
       {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Attach();  }  };
@@ -74,7 +74,64 @@ namespace mtc
 
   }
 
-  template <class iface, class attach = api::attach<iface>, class detach = api::detach<iface>>
+  /*
+    non-thread-safe api pointer; is faster but may not be used for pointers can be modified while working
+  */
+  template <class iface, class attach = impl::attach<iface>, class detach = impl::detach<iface>>
+  class api
+  {
+    mutable iface*  piface;
+
+  public:       // construction/destruction
+    api( iface* p = nullptr )
+      {
+        if ( (piface = p) != nullptr )
+          attach()( p );
+      }
+    api( const api& a )
+      {
+        if ( (piface = a.piface) != nullptr )
+          attach()( piface );
+      }
+   ~api()
+      {
+        if ( piface != nullptr )
+          detach()( piface );
+      }
+
+  public:     // operators
+    api& operator = ( iface* p )
+      {
+        if ( piface != nullptr )
+          detach()( piface );
+        if ( (piface = p) != nullptr )
+          attach()( piface );
+        return *this;
+      }
+    api& operator = ( const api& a )
+      {
+        if ( piface != nullptr )
+          detach()( piface );
+        if ( (piface = a.piface) != nullptr )
+          attach()( piface );
+        return *this;
+      }
+
+  public:     // conversions
+          iface*  operator -> ()       {  assert( piface != nullptr );  return piface;  }
+    const iface*  operator -> () const {  assert( piface != nullptr );  return piface;  }
+          iface*  ptr()                {  return piface;  }
+    const iface*  ptr() const          {  return piface;  }
+
+    bool  operator == ( const void* p ) const {  (const void*)piface == p;  }
+    bool  operator != ( const void* p ) const {  return !(*this == p);  }
+
+    operator void**() {  return &piface;  }
+    operator iface**()  {  return &piface;  }
+
+  };
+
+  template <class iface, class attach = impl::attach<iface>, class detach = impl::detach<iface>>
   class API
   {
     using usemutex = std::recursive_mutex;
