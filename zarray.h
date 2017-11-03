@@ -287,6 +287,8 @@ namespace mtc
     xvalue( float   f ):  vxtype( undefined_type )          {  set_float( f );  }
     xvalue( double d ):   vxtype( undefined_type )          {  set_double( d ); }
     xvalue( const zarray<M>& z ): vxtype( undefined_type )  {  set_zarray( z ); }
+    xvalue( const char* s, size_t l ): vxtype( undefined_type ) {  set_charstr( s, l ); }
+    xvalue( const widechar* s, size_t l ): vxtype( undefined_type ) {  set_widestr( s, l ); }
 
   public:     // serialization
                         size_t  GetBufLen(    ) const;
