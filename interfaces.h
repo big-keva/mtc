@@ -123,7 +123,7 @@ namespace mtc
           iface*  ptr()                {  return piface;  }
     const iface*  ptr() const          {  return piface;  }
 
-    bool  operator == ( const void* p ) const {  (const void*)piface == p;  }
+    bool  operator == ( const void* p ) const {  return (const void*)piface == p;  }
     bool  operator != ( const void* p ) const {  return !(*this == p);  }
 
     operator void**() {  return &piface;  }
