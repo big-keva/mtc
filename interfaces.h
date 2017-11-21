@@ -67,9 +67,9 @@ namespace mtc
 
   namespace impl
   {
-    template <class T>  class attach
+    template <class T>  class att
       {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Attach();  }  };
-    template <class T>  class detach
+    template <class T>  class det
       {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Detach();  }  };
 
   }
@@ -77,7 +77,7 @@ namespace mtc
   /*
     non-thread-safe api pointer; is faster but may not be used for pointers can be modified while working
   */
-  template <class iface, class attach = impl::attach<iface>, class detach = impl::detach<iface>>
+  template <class iface, class attach = impl::att<iface>, class detach = impl::det<iface>>
   class api
   {
     mutable iface*  piface;
@@ -131,7 +131,7 @@ namespace mtc
 
   };
 
-  template <class iface, class attach = impl::attach<iface>, class detach = impl::detach<iface>>
+  template <class iface, class attach = impl::att<iface>, class detach = impl::det<iface>>
   class API
   {
     using usemutex = std::recursive_mutex;
