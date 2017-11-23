@@ -74,10 +74,13 @@ namespace mtc
 
   }
 
+  template <class iface, class attach = impl::att<iface>, class detach = impl::det<iface>>  class api;
+  template <class iface, class attach = impl::att<iface>, class detach = impl::det<iface>>  class API;
+
   /*
     non-thread-safe api pointer; is faster but may not be used for pointers can be modified while working
   */
-  template <class iface, class attach = impl::att<iface>, class detach = impl::det<iface>>
+  template <class iface, class attach, class detach>
   class api
   {
     mutable iface*  piface;
@@ -91,6 +94,11 @@ namespace mtc
     api( const api& a )
       {
         if ( (piface = a.piface) != nullptr )
+          attach()( piface );
+      }
+    api( const API<iface, attach, detach>& a )
+      {
+        if ( (piface = a.ptr()) != nullptr )
           attach()( piface );
       }
    ~api()
@@ -116,6 +124,14 @@ namespace mtc
           attach()( piface );
         return *this;
       }
+    api& operator = ( const API<iface, attach, detach>& a )
+      {
+        if ( piface != nullptr )
+          detach()( piface );
+        if ( (piface = a.ptr()) != nullptr )
+          attach()( piface );
+        return *this;
+      }
 
   public:     // conversions
           iface*  operator -> ()       {  assert( piface != nullptr );  return piface;  }
@@ -131,7 +147,7 @@ namespace mtc
 
   };
 
-  template <class iface, class attach = impl::att<iface>, class detach = impl::det<iface>>
+  template <class iface, class attach, class detach>
   class API
   {
     using usemutex = std::recursive_mutex;
@@ -228,6 +244,13 @@ namespace mtc
         if ( (piface = (iface*)(const iface*)avalue) != nullptr )
           attach()( piface );
       }
+    API( const api<iface, attach, detach>& a )
+      {
+        autolock  aulock( locker );
+
+        if ( (piface = a.ptr()) != nullptr )
+          attach()( piface );
+      }
    ~API()
       {
         autolock  aulock( locker );
@@ -257,6 +280,16 @@ namespace mtc
           attach()( piface );
         return *this;
       }
+    API& operator = ( const api<iface, attach, detach>& a )
+      {
+        autolock  aulock( locker );
+
+        if ( piface != nullptr )
+          detach()( piface );
+        if ( (piface = (iface*)(const iface*)a.ptr()) != nullptr )
+          attach()( piface );
+        return *this;
+      }
 
   public:     // conversions
           pvalue operator -> ()       {  return interlocked( [&]{  return pvalue( piface );  } );  }
@@ -266,6 +299,8 @@ namespace mtc
 
     bool  operator == ( const void* p ) const {  return interlocked( [&](){  return (const void*)piface == p;  } );  }
     bool  operator != ( const void* p ) const {  return !(*this == p);  }
+
+    operator iface*() {  return interlocked( [&]{  return pvalue( piface );  } );  }
 
     operator void**() {  return ppvoid( *this );  }
     operator iface**()  {  return ppvoid( *this );  }
