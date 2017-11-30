@@ -198,30 +198,10 @@ namespace mtc
           if ( p( *test ) ) break;  else  ++test;
         return test;
       }
-    const T*  Lookup( const T& t ) const
-      {
-        auto test = _this().begin();
-
-        while ( test < _this().end() )
-          if ( *test == t ) break;  else  ++test;
-        return test;
-      }
-    T*  Lookup( const T& t )
-      {
-        auto test = _this().begin();
-
-        while ( test < _this().end() )
-          if ( *test == t ) break;  else  ++test;
-        return test;
-      }
     template <class C>
     bool      Search( C c, int& p ) const
       {
         return mtc::Search( _this().begin(), _this().end(), c, p );
-      }
-    bool      Search( const T& t, int& p ) const
-      {
-        return mtc::Search( _this().begin(), _this().end(), t, p );
       }
 
   public:     // for_*
@@ -296,7 +276,6 @@ namespace mtc
 
   public:     // delete
     template <class _test>  void  DeleteIf( _test );
-                            void  DeleteIf( const T& );
 
   protected:  // helpers
     int       GrowTo( int newlen );
@@ -371,7 +350,6 @@ namespace mtc
 
   public:     // delete
     template <class _test> void   DeleteIf( _test );
-                            void  DeleteIf( const T& );
 
   public:     // stl compatibility
     int       size() const  {  return ncount;  }
@@ -479,7 +457,6 @@ namespace mtc
 
   public:     // delete
     template <class _func_> void  DeleteIf( _func_ func ) {  if ( parray != nullptr ) parray->DeleteIf( func );  }
-                            void  DeleteIf( const T& t )  {  if ( parray != nullptr ) parray->DeleteIf( t );  }
 
   public:     // stl compatibility
     int       size() const  {  return parray != nullptr ? parray->size() : 0;  }
@@ -715,14 +692,6 @@ namespace mtc
   }
 
   template <class T, class M>
-  inline  void  array<T, M>::DeleteIf( const T& t )
-  {
-    for ( int i = 0; i < size(); ++i )
-      if ( t == (*this)[i] )
-        Delete( i-- );
-  }
-
-  template <class T, class M>
   inline  int   array<T, M>::GrowTo( int newlen )
   {
     int   newlimit = ((newlen + ndelta - 1) / ndelta) * ndelta;
@@ -871,15 +840,6 @@ namespace mtc
 
     for ( p = begin(); p < end(); ++p )
       if ( test( *p ) ) Delete( (p--) - begin() );
-  }
-
-  template <class T, int L>
-  void  static_array<T, L>::DeleteIf( const T& t )
-  {
-    T*  p;
-
-    for ( p = begin(); p < end(); ++p )
-      if ( *p == t ) Delete( (p--) - begin() );
   }
 
 // shared_array implementation
