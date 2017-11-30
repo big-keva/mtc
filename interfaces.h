@@ -142,6 +142,9 @@ namespace mtc
     bool  operator == ( const void* p ) const {  return (const void*)piface == p;  }
     bool  operator != ( const void* p ) const {  return !(*this == p);  }
 
+    operator const iface*() const {  return piface;  }
+    operator iface*() {  return piface;  }
+
     operator void**() {  return &piface;  }
     operator iface**()  {  return &piface;  }
 
@@ -300,6 +303,7 @@ namespace mtc
     bool  operator == ( const void* p ) const {  return interlocked( [&](){  return (const void*)piface == p;  } );  }
     bool  operator != ( const void* p ) const {  return !(*this == p);  }
 
+    operator const iface* () const {  return interlocked( [&]{  return pvalue( piface );  } );  }
     operator iface*() {  return interlocked( [&]{  return pvalue( piface );  } );  }
 
     operator void**() {  return ppvoid( *this );  }
