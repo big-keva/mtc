@@ -52,17 +52,39 @@ SOFTWARE.
 # if !defined( __mtc_fileStream_h__ )
 # define  __mtc_fileStream_h__
 # include "iStream.h"
+# include <stdexcept>
 
 namespace mtc
 {
 
-  struct  IFileStream: public IFlatStream
+  class file_error: public std::runtime_error
   {
-    virtual int   MemMap( IByteBuffer**, int64_t, word32_t ) = 0;
+    using std::runtime_error::runtime_error;
   };
 
-  IFileStream*  OpenFileStream( const char* sz, unsigned dwmode = 0 );
-  IByteBuffer*  LoadFileBuffer( const char* sz );
+  struct  IFileStream: public IFlatStream
+  {
+    virtual api<IByteBuffer>  MemMap( int64_t pos, uint32_t len ) = 0;
+  };
+
+  /*
+    api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode = 0, const enable_exceptions_t& use_except = no_exceptions );
+
+    Возвращает интерфейс открытого файла IFileStream с возможным режимом MemMap.
+
+    В режиме с поддержкой исключений:
+      может выбросить mtc::file_error, если файл не удаётся открыть, или std::bad_alloc.
+    В режиме без исключений:
+      может вернуть nullptr.
+
+  */
+  api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode, const enable_exceptions_t& );
+  api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode, const disable_exceptions_t& );
+  api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode = 0 );
+
+  api<IByteBuffer>  LoadFileBuffer( const char* sz, const enable_exceptions_t& );
+  api<IByteBuffer>  LoadFileBuffer( const char* sz, const disable_exceptions_t& );
+  api<IByteBuffer>  LoadFileBuffer( const char* sz );
 
 }
 
