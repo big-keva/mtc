@@ -52,6 +52,7 @@ SOFTWARE.
 # include "fileStream.h"
 # include "stdlog.h"
 # include "autoptr.h"
+# include "wcsstr.h"
 # include <assert.h>
 # include <stdlib.h>
 # include <string.h>
@@ -83,13 +84,15 @@ SOFTWARE.
 
 namespace mtc
 {
+  template <class error>
   class FileStream;
 
+  template <class error>
   class FileMemmap: public IByteBuffer
   {
     implement_lifetime_control
 
-    friend class  FileStream;
+    friend class  FileStream<error>;
 
   public:     // construction
     FileMemmap();
@@ -104,7 +107,7 @@ namespace mtc
     virtual int         SetLen( word32_t              )       noexcept override {  return EINVAL;  }
 
   public:     // helpers
-    int   Create( FileStream*, int64_t, word32_t );
+    int   Create( FileStream<error>*, int64_t, word32_t );
 
   protected:  // variables
     word32_t                cchmem;
@@ -116,11 +119,12 @@ namespace mtc
 
   };
 
+  template <class error>
   class FileStream: public IFileStream
   {
     implement_lifetime_control
 
-    friend class  FileMemmap;
+    friend class FileMemmap<error>;
 
     struct  filebuffer: public IByteBuffer
     {
@@ -157,11 +161,11 @@ namespace mtc
     virtual int64_t   Tell  (                                  ) noexcept override;       
 
   public:     // overridables from IFileStream
-    virtual int       MemMap( IByteBuffer**, int64_t, word32_t ) noexcept override;
+    virtual api<IByteBuffer>  MemMap( int64_t, uint32_t ) noexcept override;
 
   public:     // creation
     int               Open( const char*, unsigned );
-    IByteBuffer*      Load();
+    api<IByteBuffer>  Load();
 
   protected:  // helpers
     void              Close();
@@ -183,14 +187,17 @@ namespace mtc
     return getpagesize();
 # endif
   }
+
   // FileMemmap implementation
 
-  FileMemmap::FileMemmap(): cchmem( 0 ), dwgran( GetMemPageSize() ), nshift( 0 ), maplen( 0 ), ptrmap( 0 )
+  template <class error>
+  FileMemmap<error>::FileMemmap(): cchmem( 0 ), dwgran( GetMemPageSize() ), nshift( 0 ), maplen( 0 ), ptrmap( 0 )
   {
     win32_decl( handle = INVALID_HANDLE_VALUE );
   }
 
-  FileMemmap::~FileMemmap()
+  template <class error>
+  FileMemmap<error>::~FileMemmap()
   {
     if ( ptrmap != nullptr )
     {
@@ -200,7 +207,8 @@ namespace mtc
     }
   }
 
-  int   FileMemmap::Create( FileStream* stm, int64_t off, word32_t len )
+  template <class error>
+  int   FileMemmap<error>::Create( FileStream<error>* stm, int64_t off, word32_t len )
   {
 # if defined( _WIN32 )
     word32_t  offshi = (word32_t)(off >> 32);
@@ -218,8 +226,10 @@ namespace mtc
   // create mapping pointer
     if ( (ptrmap = MapViewOfFile( handle, FILE_MAP_READ, offshi, oalign, (unsigned)maplen )) == nullptr )
     {
-      CloseHandle( handle );  handle = INVALID_HANDLE_VALUE;
-      return log_error( EFAULT, "Could not MapViewOfFile() for the requested block, error code %u!", GetLastError() );
+      CloseHandle( handle );
+        handle = INVALID_HANDLE_VALUE;
+      error()( file_error( strprintf( "Could not MapViewOfFile() for the requested block, error code %u!", GetLastError() ) ) );
+        return EFAULT;
     }
 
     return 0;
@@ -238,36 +248,36 @@ namespace mtc
 
   // CFileStream implementation
 
-  FileStream::FileStream()
+  template <class error>
+  FileStream<error>::FileStream()
   {
     win32_decl( handle = INVALID_HANDLE_VALUE );
     posix_decl( handle = -1 );
   }
 
-  FileStream::~FileStream()
+  template <class error>
+  FileStream<error>::~FileStream()
   {
     Close();
   }
 
-  int   FileStream::MemMap( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
+  template <class error>
+  api<IByteBuffer>  FileStream<error>::MemMap( int64_t off, word32_t len ) noexcept
   {
-    _auto_<FileMemmap>  memmap;
-    int                 nerror;
+    _auto_<FileMemmap<error>> memmap;
+    int                       nerror;
 
-    if ( ppi == nullptr )
-      return EINVAL;
-
-    if ( (memmap = allocate<FileMemmap>()) == nullptr )
-      return ENOMEM;
+    if ( (memmap = allocate<FileMemmap<error>>()) == nullptr )
+      return nullptr;
 
     if ( (nerror = memmap->Create( this, off, len )) != 0 )
-      return nerror;
+      return nullptr;
 
-    (*ppi = memmap.detach())->Attach();
-      return 0;
+    return memmap.detach();
   }
 
-  IByteBuffer*  FileStream::Load()
+  template <class error>
+  api<IByteBuffer>  FileStream<error>::Load()
   {
     _auto_<filebuffer>  buf;
     int64_t             len = Size();
@@ -275,13 +285,14 @@ namespace mtc
     if ( len > std::numeric_limits<int64_t>::max() )
       return nullptr;
 
-    if ( (buf = (filebuffer*)malloc( (size_t)(sizeof(filebuffer) + len - 1) )) == nullptr )
+    if ( (buf = (filebuffer*)def_alloc().alloc( (size_t)(sizeof(filebuffer) + len - 1) )) == nullptr )
       return nullptr;
 
     return PosGet( (char*)(new( buf.ptr() ) filebuffer( (word32_t)len ))->GetPtr(), 0, (word32_t)len ) == len ? buf.detach() : nullptr;
   }
 
-  int       FileStream::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
+  template <class error>
+  int       FileStream<error>::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
   {
     _auto_<filebuffer>  buffer;
 
@@ -295,7 +306,8 @@ namespace mtc
 
 # if defined( _WIN32 )
 
-  word32_t  FileStream::Get( void* out, word32_t len ) noexcept
+  template <class error>
+  word32_t  FileStream<error>::Get( void* out, word32_t len ) noexcept
   {
     DWORD     cbread;
     word32_t  dwread = ReadFile( handle, out, len, &cbread, nullptr ) ? cbread : 0;
@@ -305,14 +317,16 @@ namespace mtc
     return dwread;
   }
 
-  word32_t  FileStream::Put( const void* src, word32_t len ) noexcept
+  template <class error>
+  word32_t  FileStream<error>::Put( const void* src, word32_t len ) noexcept
   {
     DWORD nwrite;
 
     return WriteFile( handle, src, len, &nwrite, nullptr ) ? nwrite : 0;
   }
 
-  unsigned  FileStream::PosGet( void* out, int64_t off, word32_t len ) noexcept
+  template <class error>
+  unsigned  FileStream<error>::PosGet( void* out, int64_t off, word32_t len ) noexcept
   {
     DWORD       cbread;
     OVERLAPPED  reinfo;
@@ -327,7 +341,8 @@ namespace mtc
     return ReadFile( handle, out, len, &cbread, &reinfo ) ? cbread : 0;
   }
 
-  unsigned  FileStream::PosPut( const void* src, int64_t off, word32_t len ) noexcept
+  template <class error>
+  unsigned  FileStream<error>::PosPut( const void* src, int64_t off, word32_t len ) noexcept
   {
     DWORD       nwrite;
     OVERLAPPED  reinfo;
@@ -341,7 +356,8 @@ namespace mtc
     return WriteFile( handle, src, len, &nwrite, &reinfo ) ? nwrite : 0;
   }
 
-  int64_t   FileStream::Seek( int64_t off ) noexcept
+  template <class error>
+  int64_t   FileStream<error>::Seek( int64_t off ) noexcept
   {
     LONG    hioffs = (LONG)(off >> 32);
     LONG    looffs = (LONG)(off);
@@ -350,7 +366,8 @@ namespace mtc
     return (dwmove = SetFilePointer( handle, looffs, &hioffs, FILE_BEGIN )) == INVALID_SET_FILE_POINTER ? (int64_t)-1 : off;
   }
 
-  int64_t   FileStream::Size() noexcept
+  template <class error>
+  int64_t   FileStream<error>::Size() noexcept
   {
     DWORD   looffs;
     DWORD   hioffs;
@@ -358,7 +375,8 @@ namespace mtc
     return (looffs = GetFileSize( handle, &hioffs )) == INVALID_FILE_SIZE ? (int64_t)-1 : looffs | (((int64_t)hioffs) << 32);
   }
 
-  int64_t FileStream::Tell() noexcept
+  template <class error>
+  int64_t FileStream<error>::Tell() noexcept
   {
     LONG    hioffs = 0;
     DWORD   dwmove;
@@ -366,7 +384,8 @@ namespace mtc
     return (dwmove = SetFilePointer( handle, 0, &hioffs, FILE_CURRENT )) == INVALID_SET_FILE_POINTER ? (int64_t)-1 : dwmove | (((int64_t)hioffs) << 32);
   }
 
-  int     FileStream::Open( const char* szname, unsigned dwmode )
+  template <class error>
+  int     FileStream<error>::Open( const char* szname, unsigned dwmode )
   {
     DWORD     dwAccess;
     DWORD     dwDispos;
@@ -426,7 +445,8 @@ namespace mtc
     return handle == INVALID_HANDLE_VALUE ? ENOENT : 0;
   }
 
-  void  FileStream::Close()
+  template <class error>
+  void  FileStream<error>::Close()
   {
     if ( handle != INVALID_HANDLE_VALUE )
       CloseHandle( handle );
@@ -491,34 +511,69 @@ namespace mtc
 
 # endif
 
-  FileStream*   openFileStream( const char* lpname, unsigned dwmode )
+  /*
+    Два варианта реакции на ошибку
+  */
+  struct report_error_no_except
   {
-    _auto_<FileStream>  stream;
+    template <class except>
+    void* operator ()( const except& x )  {   return (log_error( EFAULT, x.what() ), nullptr);  }
+  };
+
+  struct report_error_exception
+  {
+    template <class except>
+    void* operator ()( const except& x )  {  throw x;  }
+  };
+
+  template <class error>
+  _auto_<FileStream<error>> openFileObject( const char* lpname, unsigned dwmode )
+  {
+    _auto_<FileStream<error>> stream;
+    int                       nerror;
 
     if ( lpname == nullptr || *lpname == '\0' )
-      return nullptr;
+      return (FileStream<error>*)error()( std::invalid_argument( strprintf( "invalid argument: empty file name @" __FILE__ ":%u", __LINE__ ) ) );
 
-    if ( (stream = allocate<FileStream>()) == nullptr )
-      return nullptr;
+    if ( (stream = allocate<FileStream<error>>()) == nullptr )
+      return (FileStream<error>*)error()( std::bad_alloc() );
 
-    if ( stream->Open( lpname, dwmode ) != 0 )
-      return nullptr;
+    if ( (nerror = stream->Open( lpname, dwmode )) != 0 )
+      return (FileStream<error>*)error()( file_error( strprintf( "could not open file '%s' @" __FILE__ ":%u, error code %d", lpname, __LINE__, nerror ) ) );
 
-    return stream.detach();
+    return stream;
   }
 
-  IFileStream*  OpenFileStream( const char* lpname, unsigned dwmode )
-  {
-    return openFileStream( lpname, dwmode );
-  }
+  api<IFileStream>  OpenFileStream( const char* szname, unsigned dwmode, const enable_exceptions_t& )
+    {
+      return openFileObject<report_error_exception>( szname, dwmode ).detach();
+    }
 
-  IByteBuffer*  LoadFileBuffer( const char* szname )
-  {
-    API<FileStream> lpfile;
+  api<IFileStream>  OpenFileStream( const char* szname, unsigned dwmode, const disable_exceptions_t& )
+    {
+      return openFileObject<report_error_no_except>( szname, dwmode ).detach();
+    }
 
-    if ( (lpfile = openFileStream( szname, O_RDONLY )) == nullptr )
-      return nullptr;
-    return lpfile->Load();
-  }
+  api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode )
+    {
+      return OpenFileStream( sz, dwmode, disable_exceptions );
+    }
+
+  api<IByteBuffer>  LoadFileBuffer( const char* szname, const enable_exceptions_t& )
+    {
+      return openFileObject<report_error_exception>( szname, O_RDONLY )->Load();
+    }
+
+  api<IByteBuffer>  LoadFileBuffer( const char* szname, const disable_exceptions_t& )
+    {
+      auto  lpfile = openFileObject<report_error_no_except>( szname, O_RDONLY );
+
+      return lpfile != nullptr ? lpfile->Load() : nullptr;
+    }
+
+  api<IByteBuffer>  LoadFileBuffer( const char* sz )
+    {
+      return LoadFileBuffer( sz, disable_exceptions );
+    }
 
 }  // mtc namespace
