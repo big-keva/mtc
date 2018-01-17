@@ -44,6 +44,12 @@ namespace mtc
       {
         mtx.lock_shared();
       }
+	  shared_lock( Mtx& mtx, std::defer_lock_t ): pmtx( &mtx ), owns( false )
+		  {
+		  }
+	  shared_lock( Mtx& mtx, std::adopt_lock_t ): pmtx( &mtx ), owns( true )
+		  {
+		  }
     shared_lock( shared_lock&& s ): pmtx( s.pmtx ), owns( s.owns )
       {
         s.pmtx = nullptr;
