@@ -177,6 +177,15 @@ namespace mtc
     }
 
 /*
+  exceptions switch
+*/
+  class enable_exceptions_t {};
+  class disable_exceptions_t{};
+
+  constexpr enable_exceptions_t   enable_exceptions {};
+  constexpr disable_exceptions_t  disable_exceptions{};
+
+/*
   plain memory allocation interface class
 */
   struct nothrow_allocator
