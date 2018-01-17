@@ -241,7 +241,12 @@ namespace mtc
     maplen = ((len + nshift + dwgran) / dwgran) * dwgran;
 
     if ( (ptrmap = mmap( NULL, maplen, PROT_READ, MAP_SHARED, stm->handle, oalign )) == MAP_FAILED )
-      return errno;
+    {
+      int   nerror = errno;
+
+      error()( file_error( strprintf( "Could not MapViewOfFile() for the requested block, error code %u!", nerror ) ) );
+      return nerror;
+    }
     return 0;
 # endif
   }
@@ -455,14 +460,16 @@ namespace mtc
 
 # else
 
-  void  FileStream::Close()
+  template <class error>
+  void  FileStream<error>::Close()
   {
     if ( handle != -1 )
       ::close( handle );
     handle = -1;
   }
 
-  int   FileStream::Open( const char* szname, unsigned dwmode )
+  template <class error>
+  int   FileStream<error>::Open( const char* szname, unsigned dwmode )
   {
   // check if stream is open; close it
     Close();
@@ -470,32 +477,38 @@ namespace mtc
     return (handle = ::open( szname, dwmode, 0666 )) != -1 ? 0 : errno;
   }
 
-  word32_t  FileStream::Get( void* lpdata, word32_t cbdata ) noexcept
+  template <class error>
+  word32_t  FileStream<error>::Get( void* lpdata, word32_t cbdata ) noexcept
   {
     return ::read( handle, lpdata, cbdata );
   }
 
-  word32_t  FileStream::Put( const void* lpdata, word32_t cbdata ) noexcept
+  template <class error>
+  word32_t  FileStream<error>::Put( const void* lpdata, word32_t cbdata ) noexcept
   {
     return ::write( handle, lpdata, cbdata );
   }
 
-  word32_t  FileStream::PosGet( void* lpdata, int64_t offset, word32_t length ) noexcept
+  template <class error>
+  word32_t  FileStream<error>::PosGet( void* lpdata, int64_t offset, word32_t length ) noexcept
   {
     return ::pread( handle, lpdata, length, offset );
   }
 
-  word32_t  FileStream::PosPut( const void* pvdata, int64_t offset, word32_t length ) noexcept
+  template <class error>
+  word32_t  FileStream<error>::PosPut( const void* pvdata, int64_t offset, word32_t length ) noexcept
   {
     return ::pwrite( handle, pvdata, length, offset );
   }
 
-  int64_t   FileStream::Seek( int64_t     offset ) noexcept
+  template <class error>
+  int64_t   FileStream<error>::Seek( int64_t     offset ) noexcept
   {
     return ::lseek( handle, offset, SEEK_SET );
   }
 
-  int64_t   FileStream::Size() noexcept
+  template <class error>
+  int64_t   FileStream<error>::Size() noexcept
   {
     int64_t curpos = ::lseek( handle, 0, SEEK_CUR );
     int64_t curlen = ::lseek( handle, 0, SEEK_END );
@@ -504,7 +517,8 @@ namespace mtc
     return curlen;
   }
 
-  int64_t   FileStream::Tell() noexcept
+  template <class error>
+  int64_t   FileStream<error>::Tell() noexcept
   {
     return ::lseek( handle, 0, SEEK_CUR );
   }
