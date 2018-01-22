@@ -57,7 +57,8 @@ SOFTWARE.
 # include "autoptr.h"
 # include "wcsstr.h"
 # include "array.h"
-# include <assert.h>
+# include <cassert>
+# include <atomic>
 
 # if defined( _MSC_VER )
 #   pragma warning( push )
@@ -1020,17 +1021,11 @@ public:     // set_?? methods
       unsigned    keyset;
 
     public:     // constructors
-      zkey(): keybuf( nullptr ), keylen( 0 ), keyset( -1 )
-        {
-        }
-      zkey( const zkey& z ): keybuf( z.keybuf ), keylen( z.keylen ), keyset( z.keyset )
-        {
-        }
+      zkey(): keybuf( nullptr ), keylen( 0 ), keyset( -1 )  {}
+      zkey( const zkey& z ): keybuf( z.keybuf ), keylen( z.keylen ), keyset( z.keyset ) {}
 
     private:    // real initialization constructor
-      zkey( const byte_t* k, unsigned l, unsigned t ): keybuf( (const char*)k ), keylen( l ), keyset( t )
-        {
-        }
+      zkey( const byte_t* k, unsigned l, unsigned t ): keybuf( (const char*)k ), keylen( l ), keyset( t ) {}
 
     public:     // types
       operator unsigned() const
@@ -1115,19 +1110,12 @@ public:     // set_?? methods
 
     struct  zdata: public ztree
     {
-      int     nitems;
-      int     rcount;
+      std::atomic_long  rcount;
+      int               nitems;
 
     public:     // construction
-      zdata( M& memman ):
-        ztree( memman ), nitems( 0 ), rcount( 1 ) {}
+      zdata( M& memman ): ztree( memman ), rcount( 1 ), nitems( 0 ) {}
 
-    };
-
-    struct  zstate
-    {
-      const ztree*  object;
-      const ztree*  ptrtop;
     };
 
   public:     // construction
