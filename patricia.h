@@ -630,20 +630,142 @@ namespace mtc
       question = 0x0100 + '?'
     };
 
+  public:     // iterator
+    class iterator;
+
+    class plainkey
+    {
+      friend class iterator;
+
+    public:
+      plainkey( const char* ke = nullptr, size_t le = 0 ): key( ke ), len( le ) {}
+      plainkey( const plainkey& k ): key( k.key ), len( k.len ) {}
+      plainkey& operator = ( const plainkey& k )
+        {  key = k.key;  len = k.len;  return *this;  }
+
+    public:
+      const char* Key() const {  return key;  }
+      size_t      Len() const {  return len;  }
+
+    protected:
+      const char* key;
+      size_t      len;
+
+    };
+
+    class iterator
+    {
+      friend class patriciaSearch;
+
+      struct  patpos
+      {
+        const byte_t* dicptr;
+        int           keylen;
+        int           nnodes;
+        bool          bvalue;
+        const byte_t* endptr;
+
+      public:     // init
+        patpos( const byte_t* serial, array<char>& keybuf, int curlen )
+          {
+            unsigned  sublen;
+
+            assert( serial != nullptr );
+
+            dicptr = ::FetchFrom( ::FetchFrom( serial, keylen ), nnodes );
+
+            if ( keybuf.size() < curlen + keylen )
+              keybuf.SetLen( curlen + keylen );
+            dicptr = ::FetchFrom( dicptr, keybuf.begin() + curlen, keylen );
+              keylen += curlen;
+            bvalue = (nnodes & 0x01) != 0;
+              nnodes >>= 1;
+            endptr = (dicptr = ::FetchFrom( dicptr, sublen )) + sublen;
+          }
+      };
+
+      array<char>   keybuf;
+      array<patpos> patbuf;
+      int           patlen;
+
+    protected:  // first initialization constructor
+      iterator( const byte_t* serial )
+        {
+          if ( serial != nullptr )
+            patbuf.Append( patpos( serial, keybuf, 0 ) );
+          patlen = patbuf.size();
+        }
+
+    public:     // construction
+      iterator()  {}
+      iterator( iterator&& it ):
+          keybuf( static_cast<decltype(keybuf)&&>( it.keybuf ) ),
+          patbuf( static_cast<decltype(patbuf)&&>( it.patbuf ) ), patlen( it.patlen )  {  it.patlen = 0;  }
+      iterator& operator = ( iterator&& it )
+        {
+          keybuf.operator = ( static_cast<decltype(keybuf)&&>( it.keybuf ) );
+          patbuf.operator = ( static_cast<decltype(patbuf)&&>( it.patbuf ) );  patlen = it.patlen;  it.patlen = 0;
+          return *this;
+        }
+      iterator( const iterator& ) = delete;
+      iterator& operator = ( const iterator& ) = delete;
+
+    public:     // API
+      const plainkey& Curr()
+        {
+          return patlen == 0 || patbuf[patlen - 1].bvalue ? thekey : Next();
+        }
+      const plainkey& Move( const char* key, size_t len );
+      const plainkey& Next()
+        {
+          while ( patlen > 0 )
+          {
+            patpos& thepos = patbuf[patlen - 1];
+
+            if ( thepos.nnodes != 0 )
+            {
+              --thepos.nnodes;
+
+              PatAdd( patpos( thepos.dicptr, keybuf, thepos.keylen ) );
+                thepos.dicptr = patbuf[patlen - 1].endptr;
+
+              if ( patbuf[patlen - 1].bvalue )
+                return thekey = plainkey( keybuf, patbuf[patlen - 1].keylen );
+            }
+              else
+            --patlen;
+          }
+          return thekey = plainkey();
+        }
+      const plainkey& Prev();
+
+    protected:  // helpers
+      void    PatAdd( const patpos& p )
+        {
+          if ( patlen == patbuf.size() )  {  patbuf.Append( p );  ++patlen;  }
+            else patbuf[patlen++] = p;
+        }
+    protected:  // key
+      plainkey    thekey;
+
+    };
+
   public:     // construction
-    patriciaSearch( const void* p ): serial( (const byte_t*)p )
-      {}
+    patriciaSearch( const void* p ): serial( (const byte_t*)p ) {}
       
   public:     // search
     const byte_t* Search( const void*, size_t ) const;
     template <class _func_>
     int           Select( const void*, size_t, _func_ ) const;
 
+  public:     // iterator
+    iterator  NewIterator() const {  return iterator( serial );  }
+
   protected:  // helpers
     const byte_t* Search( const byte_t* keystr,
-                          int           keylen,
+                          size_t        keylen,
                           const byte_t* thedic,
-                          int           nnodes ) const;
+                          size_t        nnodes ) const;
     template <class _func_>
     int           Select( const byte_t* dicstr, int           diclen,
                           const byte_t* keystr, const byte_t* keyend,
@@ -713,27 +835,31 @@ namespace mtc
   }
 
   inline
-  const byte_t* patriciaSearch::Search( const void* k, size_t l ) const
+  const byte_t* patriciaSearch::Search( const void* k, size_t cchkey ) const
   {
     const byte_t* thedic;
-    int           nchars;
-    int           nnodes;
-    int           sublen;
+    size_t        nchars;
+    size_t        nnodes;
+    size_t        sublen;
     const byte_t* thekey = (const byte_t*)k;
-    size_t        cchkey = l;
 
-    if ( (thedic = ::FetchFrom( ::FetchFrom( ::FetchFrom( serial, nchars ), nnodes ), sublen )) == nullptr )
+    if ( (thedic = ::FetchFrom( ::FetchFrom( serial, nchars ), nnodes )) == nullptr )
       return nullptr;
 
     assert( nnodes <= 513 );
     assert( nchars <= 256 * 4 );
 
-    while ( cchkey > 0 && nchars > 0 && *thekey++ == *thedic++ )
-    {
-      --cchkey;
-      --nchars;
-    }
-    return nchars == 0 ? Search( thekey, (int)cchkey, thedic, nnodes ) : nullptr;
+    if ( cchkey < nchars )
+      return nullptr;
+
+    while ( nchars-- > 0 )
+      if ( *thekey++ == *thedic++ ) --cchkey;
+        else return nullptr;
+
+    if ( (thedic = ::FetchFrom( thedic, sublen )) == nullptr )
+      return nullptr;
+
+    return Search( thekey, (int)cchkey, thedic, nnodes );
   }
 
   template <class _func_>
@@ -821,9 +947,9 @@ namespace mtc
 
   inline
   const byte_t* patriciaSearch::Search( const byte_t* thekey,
-                                        int           cchkey,
+                                        size_t        cchkey,
                                         const byte_t* thedic,
-                                        int           nnodes ) const
+                                        size_t        nnodes ) const
   {
     bool    bvalue = (nnodes & 1) != 0;
     byte_t  chfind;
@@ -838,10 +964,10 @@ namespace mtc
 
     for ( chfind = *thekey, nnodes >>= 1; nnodes-- > 0; )
     {
-      int   cchars;
-      int   cnodes;
-      int   curlen;
-      int   rescmp;
+      size_t  cchars;
+      size_t  cnodes;
+      size_t  curlen;
+      int     rescmp;
 
     // извлечь характеристики очередного узла
       thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
@@ -850,18 +976,16 @@ namespace mtc
       if ( (rescmp = chfind - *thedic) > 0 )
         return nullptr;
 
+    // сравнить строку с текущим элементом; если не совпадает, завершить поиск
       if ( rescmp == 0 )
       {
-      // сравнить строку с текущим элементом; если не совпадает, завершить поиск
         if ( cchkey < cchars )
           return nullptr;
         while ( cchars > 0 && *thedic++ == *thekey++ )
           {  --cchars;  --cchkey;  }
-        if ( cchars > 0 )
-          return nullptr;
 
       // есть совпадение, извлечь размер вложенного массива и значения
-        return Search( thekey, cchkey, ::FetchFrom( thedic, curlen ), cnodes );
+        return cchars == 0 ? Search( thekey, cchkey, ::FetchFrom( thedic, curlen ), cnodes ) : nullptr;
       }
 
     // извлечь вложенный размер
