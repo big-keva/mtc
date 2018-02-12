@@ -325,7 +325,7 @@ namespace mtc
             unsigned        curlen;
 
           // найти вложенный элемент с совпадающим первым символом
-            while ( ptrtop < ptrend && (chnext = *(sznext = (*ptrtop)->getString())) > chfind )
+            while ( ptrtop < ptrend && (chnext = *(sznext = (*ptrtop)->getString())) < chfind )
               ++ptrtop;
             if ( ptrtop >= ptrend || chnext != chfind )
               return nullptr;
@@ -361,7 +361,7 @@ namespace mtc
             return this;
 
         // найти вложенный элемент с совпадающим первым символом
-          while ( ptrtop < ptrend && (chbyte = *(*ptrtop)->getString()) > *k )
+          while ( ptrtop < ptrend && (chbyte = *(*ptrtop)->getString()) < *k )
             ++ptrtop;
 
         // проверить, что элемент найден; если нет, создать и вставить новый элемент
@@ -399,8 +399,8 @@ namespace mtc
 
             // сбросить собственный массив и заполнить двумя элементами
               (*ptrtop)->getarray().setlen( 2 );
-                (*ptrtop)->getarray()[rescmp <= 0 ? 1 : 0] = palloc.detach();
-                (*ptrtop)->getarray()[rescmp <= 0 ? 0 : 1] = aptail;
+                (*ptrtop)->getarray()[rescmp <= 0 ? 1 : 0] = aptail;
+                (*ptrtop)->getarray()[rescmp <= 0 ? 0 : 1] = palloc.detach();
 
             }
               else
@@ -973,7 +973,7 @@ namespace mtc
       thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
 
     // проверить на совпадение
-      if ( (rescmp = chfind - *thedic) > 0 )
+      if ( (rescmp = chfind - *thedic) < 0 )
         return nullptr;
 
     // сравнить строку с текущим элементом; если не совпадает, завершить поиск
