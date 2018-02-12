@@ -954,13 +954,11 @@ namespace mtc
     bool    bvalue = (nnodes & 1) != 0;
     byte_t  chfind;
 
-    assert( cchkey >= 0 );
-
   // если строка кончилась, то узел должен иметь значение
     if ( cchkey == 0 )
       return bvalue ? JumpOver( nnodes >> 1, thedic ) : nullptr;
 
-    assert( cchkey > 0 );
+    assert( cchkey > (size_t)0 );
 
     for ( chfind = *thekey, nnodes >>= 1; nnodes-- > 0; )
     {
