@@ -1,5 +1,7 @@
 # if !defined( __mtc_barrier_h__ )
 # define __mtc_barrier_h__
+# include <condition_variable>
+# include <atomic>
 # include <mutex>
 
 namespace mtc
