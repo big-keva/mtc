@@ -84,7 +84,7 @@ namespace mtc
   template<class _iterator, class T>
   void  __inplace_sort__( _iterator first, _iterator last, const T& pv )
   {
-      const T*  m = first + (last - first)/2;
+      _iterator m = first + (last - first)/2;
       _iterator f = first;
       _iterator l = last;
 
