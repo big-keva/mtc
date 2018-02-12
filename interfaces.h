@@ -96,6 +96,10 @@ namespace mtc
         if ( (piface = a.piface) != nullptr )
           attach()( piface );
       }
+    api( api&& a ): piface( a.piface )
+      {
+        a.piface = nullptr;
+      }
     api( const API<iface, attach, detach>& a )
       {
         if ( (piface = a.ptr()) != nullptr )
@@ -122,6 +126,14 @@ namespace mtc
           detach()( piface );
         if ( (piface = a.piface) != nullptr )
           attach()( piface );
+        return *this;
+      }
+    api& operator = ( api&& a )
+      {
+        if ( piface != nullptr )
+          detach()( piface );
+        if ( (piface = a.piface) != nullptr )
+          a.piface = nullptr;
         return *this;
       }
     api& operator = ( const API<iface, attach, detach>& a )
