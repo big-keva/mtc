@@ -55,8 +55,14 @@ SOFTWARE.
 
 namespace mtc
 {
+// no-exception methods
   int   CreateByteBuffer( IByteBuffer** );
-  int   CreateByteBuffer( IByteBuffer**, const void*, word32_t );
+  int   CreateByteBuffer( IByteBuffer**, const void*, uint32_t );
+
+// exception throw
+  api<IByteBuffer>  CreateByteBuffer( uint32_t cch = 0 ); 
+  api<IByteBuffer>  CreateByteBuffer( const void*, uint32_t );
+  
 }
 
 # endif  // __byteBuffer_h__

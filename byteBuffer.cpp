@@ -93,7 +93,7 @@ namespace mtc
         return 0;
     }
 
-  int   CreateByteBuffer( IByteBuffer** ppi, const void* memptr, word32_t length )
+  int   CreateByteBuffer( IByteBuffer** ppi, const void* memptr, uint32_t length )
     {
       _auto_<ByteBuffer>  palloc;
 
@@ -106,4 +106,23 @@ namespace mtc
       (*ppi = palloc.detach())->Attach();
         return 0;
     }
+
+  api<IByteBuffer>  CreateByteBuffer( uint32_t cch )
+    {
+      _auto_<ByteBuffer>  palloc;
+
+      if ( (palloc = allocate<ByteBuffer>()) != nullptr )
+        palloc->SetLen( cch );
+      return palloc.detach();
+    }
+
+  api<IByteBuffer>  CreateByteBuffer( const void* ptr, uint32_t cch )
+    {
+      _auto_<ByteBuffer>  palloc;
+
+      if ( (palloc = allocate<ByteBuffer>()) != nullptr )
+        palloc->Append( cch, (const char*)ptr );
+      return palloc.detach();
+    }
+
 }
