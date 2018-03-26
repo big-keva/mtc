@@ -18,7 +18,11 @@ namespace mtc
     barrier( const barrier& ) = delete;
     barrier& operator = ( const barrier& ) = delete;
 
-    int   SetCount( int n ) {  threadCount = n;  }
+    int   SetCount( int n )
+      {
+        threadCount = n;
+        waitThreads.notify_all();
+      }
 
   public:     // waiting
     void  wait()
