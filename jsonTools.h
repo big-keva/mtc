@@ -385,7 +385,7 @@ namespace mtc
           if ( refstr != nullptr )
             memcpy( (C*)newstr, (C*)refstr, sizeof(C) * (cchstr + 1) );
           climit = newlim;
-          refstr = newstr;
+          refstr = static_cast<_auto_<C, M>&&>( newstr );
         }
 
         refstr[cchstr++] = c;
@@ -423,7 +423,7 @@ namespace mtc
     while ( *s != 0 && *s < 0x100 )
       *p++ = (char)*s++;
 
-    if ( *s == 0 )  {  *p = '\0';  o = a;  return true;  }
+    if ( *s == 0 )  {  *p = '\0';  o = static_cast<_auto_<char, M>&&>( a );  return true;  }
       else return false;
   }
 
