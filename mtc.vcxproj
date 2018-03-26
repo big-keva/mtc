@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="byteBuffer.cpp" />
     <ClCompile Include="dirtools.cpp" />
     <ClCompile Include="fileStream.cpp" />
     <ClCompile Include="jsconfig.cpp" />
@@ -26,6 +27,7 @@
     <ClCompile Include="zipStream.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="byteBuffer.h" />
     <ClInclude Include="fileStream.h" />
     <ClInclude Include="jsconfig.h" />
     <ClInclude Include="netStream.h" />
