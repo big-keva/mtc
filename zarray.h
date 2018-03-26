@@ -243,7 +243,7 @@ namespace mtc
                 {
                   _auto_<char, M> p;
 
-                  return (p = w_strdup( s, -1, a.GetAllocator() )) != nullptr ? a.Append( p ) : ENOMEM;
+                  return (p = w_strdup( s, -1, a.GetAllocator() )) != nullptr ? a.Append( static_cast<_auto_<char, M>&&>( p ) ) : ENOMEM;
                 } ) == 0 ? o : xvalue();
             }
           case z_array_widestr:
