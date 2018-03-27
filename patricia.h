@@ -91,8 +91,41 @@ namespace mtc
   template <class V = patricia::key, class M = mtc::def_alloc>
   class patriciaTree: public patricia
   {
-  public:   //
-    class iterator;
+    class pat_node;
+
+  public:     // key iterator
+    class iterator: protected key
+    {
+      friend class patriciaTree;
+
+    protected:
+      iterator( const pat_node* );
+      iterator( const iterator& ) = delete;
+      iterator& operator = ( const iterator& ) = delete;
+
+      iterator& setkey();
+
+    public:
+      iterator();
+      iterator( iterator&& );
+      iterator& operator = ( iterator&& );
+
+    public:
+      iterator  operator ++ ( int ) = delete;
+      iterator& operator ++ ();
+      operator const key* () const  {  return this;  }
+      const key* operator -> () const {  return this;  }
+      bool  operator == ( const iterator& ) const;
+      bool  operator != ( const iterator& it ) const  {  return !operator == ( it );  }
+
+    protected:
+      using pattrace = array<const pat_node*>;
+      using pastring = array<char>;
+      
+      pattrace  atrace;
+      pastring  keybuf;
+
+    };
 
   private:  // hidden implementation
     class pat_node
@@ -177,40 +210,6 @@ namespace mtc
             ptr->delmem( mem );
           return ptr = with;
         }
-
-    };
-
-  public:     // key iterator
-    class iterator: protected key
-    {
-      friend class patriciaTree;
-
-    protected:
-      iterator( const pat_node* );
-      iterator( const iterator& ) = delete;
-      iterator& operator = ( const iterator& ) = delete;
-
-      iterator& setkey();
-
-    public:
-      iterator();
-      iterator( iterator&& );
-      iterator& operator = ( iterator&& );
-
-    public:
-      iterator  operator ++ ( int ) = delete;
-      iterator& operator ++ ();
-      operator const key* () const  {  return this;  }
-      const key* operator -> () const {  return this;  }
-      bool  operator == ( const iterator& ) const;
-      bool  operator != ( const iterator& it ) const  {  return !operator == ( it );  }
-
-    protected:
-      using pattrace = array<const pat_node*>;
-      using pastring = array<char>;
-      
-      pattrace  atrace;
-      pastring  keybuf;
 
     };
 
