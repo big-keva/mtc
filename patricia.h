@@ -91,8 +91,10 @@ namespace mtc
   template <class V = patricia::key, class M = mtc::def_alloc>
   class patriciaTree: public patricia
   {
+  public:   //
     class iterator;
 
+  private:  // hidden implementation
     class pat_node
     {
       friend class iterator;
@@ -362,7 +364,7 @@ namespace mtc
   // patricia implementation
 
   template <class V, class M>
-  patriciaTree<V, M>::pat_node::pat_node( const char* key, size_t len, pat_node* nex ): uflags( len ), p_next( nex )
+  patriciaTree<V, M>::pat_node::pat_node( const char* key, size_t len, pat_node* nex ): p_next( nex ), uflags( len )
     {
       if ( key != nullptr )
         memcpy( strkey, key, len );
@@ -782,7 +784,7 @@ namespace mtc
   template <class V, class M>
   typename patriciaTree<V, M>::iterator& patriciaTree<V, M>::iterator::operator = ( iterator&& it )
     {
-      artace.operator = ( static_cast<pattrace&&>( it.atrace ) );
+      atrace.operator = ( static_cast<pattrace&&>( it.atrace ) );
       keybuf.operator = ( static_cast<pastring&&>( it.keybuf ) ); it.setkey();
       return *this;
     }
