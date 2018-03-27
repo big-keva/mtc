@@ -317,6 +317,7 @@ namespace mtc
     };
 
   public:     // construction
+    patriciaDump(): serial( nullptr ) {}
     patriciaDump( const void* p ): serial( (const char*)p ) {}
       
   public:     // search
@@ -951,9 +952,12 @@ namespace mtc
   patriciaDump::iterator::iterator( const char* stored ): key()
     {
       if ( stored != nullptr )
+      {
         atrace.Append( GetPat( stored ) );
-      if ( !atrace.last().bvalue )
-        Tonext();
+
+        if ( !atrace.last().bvalue )
+          Tonext();
+      }
     }
 
   inline
