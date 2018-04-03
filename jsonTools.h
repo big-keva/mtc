@@ -60,7 +60,7 @@ namespace mtc
 {
   struct ParseJsonError: public std::runtime_error
     {
-      ParseJsonError( const char* msg ): std::runtime_error( msg )  {}
+      using std::runtime_error::runtime_error;
     };
 
   struct json_use_exceptions_t
