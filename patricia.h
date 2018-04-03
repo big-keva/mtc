@@ -239,8 +239,8 @@ namespace mtc
     iterator  end() const {  return iterator();  }
 
   public:     // iterator
-    template <class A>  int     for_each( A action )        {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
     template <class A>  int     for_each( A action ) const  {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
+    template <class A>  int     for_each( A action )        {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
 
   public:     // serialization
                         size_t  GetBufLen(    ) const;
@@ -363,7 +363,7 @@ namespace mtc
   // patricia implementation
 
   template <class V, class M>
-  patriciaTree<V, M>::pat_node::pat_node( const char* key, size_t len, pat_node* nex ): p_next( nex ), uflags( len )
+  patriciaTree<V, M>::pat_node::pat_node( const char* key, size_t len, pat_node* nex ): p_next( nex ), uflags( (uint32_t)len )
     {
       if ( key != nullptr )
         memcpy( strkey, key, len );
@@ -372,7 +372,7 @@ namespace mtc
   template <class V, class M>
   patriciaTree<V, M>::pat_node::~pat_node()
     {
-      if ( uflags & 0x80000000 )
+      if ( hasval() )
         ((V*)cvalue)->~V();
     }
 
@@ -586,7 +586,7 @@ namespace mtc
       size_t  minlen = (uflags & ~0x80000000) != 0 ? uflags & ~0x80000000 : 1;
       size_t  maxlen = (minlen + 0x0f) & ~0x0f;   assert( l <= maxlen );
 
-      uflags = (uflags & 0x80000000) | l;
+      uflags = (uflags & 0x80000000) | (uint32_t)l;
     }
 
   template <class V, class M>
@@ -753,7 +753,7 @@ namespace mtc
       for ( ; p != nullptr && (atrace.size() == 0 || !atrace.last()->hasval()); p = p->p_list )
       {
         atrace.Append( p );
-        keybuf.Append( p->keylen(), p->strkey );
+        keybuf.Append( (int)p->keylen(), p->strkey );
       }
       ptr = (const char*)keybuf;
       len = (size_t)keybuf.size();
@@ -802,7 +802,7 @@ namespace mtc
           do
           {
             atrace.Append( p_node );
-            keybuf.Append( p_node->keylen(), p_node->strkey );
+            keybuf.Append( (int)p_node->keylen(), p_node->strkey );
           } while ( !p_node->hasval() && (p_node = p_node->p_list) != nullptr );
         }
           else
@@ -810,8 +810,8 @@ namespace mtc
       // того же горизонтального уровня
         if ( (p_node = atrace.last()->p_next) != nullptr )
         {
-          keybuf.SetLen( keybuf.GetLen() - atrace.last()->keylen() );
-          keybuf.Append( p_node->keylen(), p_node->strkey );
+          keybuf.SetLen( (int)(keybuf.GetLen() - atrace.last()->keylen()) );
+          keybuf.Append( (int)p_node->keylen(), p_node->strkey );
           atrace.last() = p_node;
         }
           else
@@ -819,17 +819,17 @@ namespace mtc
         {
           do
           {
-            keybuf.SetLen( keybuf.GetLen() - atrace.last()->keylen() );
-            atrace.SetLen( atrace.GetLen() - 1 );
+            keybuf.SetLen( (int)(keybuf.GetLen() - atrace.last()->keylen()) );
+            atrace.SetLen( (int)atrace.GetLen() - 1 );
           } while ( atrace.size() != 0 && atrace.last()->p_next == nullptr );
 
           if ( atrace.size() != 0 )
           {
             assert( atrace.last() != nullptr );
 
-            keybuf.SetLen( keybuf.GetLen() - atrace.last()->keylen() );
+            keybuf.SetLen( (int)(keybuf.GetLen() - atrace.last()->keylen()) );
             atrace.last() = atrace.last()->p_next;
-            keybuf.Append( atrace.last()->keylen(), atrace.last()->strkey );
+            keybuf.Append( (int)atrace.last()->keylen(), atrace.last()->strkey );
           }
             else
           continue;
@@ -1001,7 +1001,7 @@ namespace mtc
 
       if ( thepat.keylen != 0 )
       {
-        keybuf.SetLen( keybuf.GetLen() + thepat.keylen );
+        keybuf.SetLen( (int)(keybuf.GetLen() + thepat.keylen) );
         thepat.dicptr = ::FetchFrom( thepat.dicptr, (char*)keybuf + keybuf.size() - thepat.keylen, thepat.keylen );
       }
 
@@ -1035,8 +1035,9 @@ namespace mtc
         }
           else
         {
-          atrace[atrace.size() - 2].dicptr = atrace.last().endptr;
-          keybuf.SetLen( keybuf.GetLen() - thepos.keylen );
+          if ( atrace.size() > 1 )
+            atrace[atrace.size() - 2].dicptr = thepos.endptr;
+          keybuf.SetLen( (int)(keybuf.GetLen() - thepos.keylen) );
           atrace.SetLen( atrace.GetLen() - 1 );
         }
       }
