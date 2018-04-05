@@ -74,7 +74,7 @@ namespace mtc
             msgstr = vstrduprintf( msg, vaargs );
           va_end  ( vaargs );
 
-          throw ParseJsonError( msgstr );
+          throw ParseJsonError( msgstr.ptr() );
             return nullptr;
         }
     };
