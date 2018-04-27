@@ -80,12 +80,26 @@ namespace mtc
   */
   api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode, const enable_exceptions_t& );
   api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode, const disable_exceptions_t& );
-  api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode = 0 );
+
+  inline
+  api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode = 0 )  {  return OpenFileStream( sz, dwmode, disable_exceptions );  }
 
   api<IByteBuffer>  LoadFileBuffer( const char* sz, const enable_exceptions_t& );
   api<IByteBuffer>  LoadFileBuffer( const char* sz, const disable_exceptions_t& );
-  api<IByteBuffer>  LoadFileBuffer( const char* sz );
+
+  inline
+  api<IByteBuffer>  LoadFileBuffer( const char* sz )  {  return LoadFileBuffer( sz, disable_exceptions );  }
 
 }
+
+inline  mtc::IFileStream* Serialize( mtc::IFileStream* s, const void* p, size_t l )
+  {
+    return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
+  }
+
+inline  mtc::IFileStream* FetchFrom( mtc::IFileStream* s, void* p, size_t l )
+  {
+    return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
+  }
 
 # endif  // __mtc_fileStream_h__

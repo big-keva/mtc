@@ -568,11 +568,6 @@ namespace mtc
       return openFileObject<report_error_no_except>( szname, dwmode ).detach();
     }
 
-  api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode )
-    {
-      return OpenFileStream( sz, dwmode, disable_exceptions );
-    }
-
   api<IByteBuffer>  LoadFileBuffer( const char* szname, const enable_exceptions_t& )
     {
       return openFileObject<report_error_exception>( szname, O_RDONLY )->Load();
@@ -583,11 +578,6 @@ namespace mtc
       auto  lpfile = openFileObject<report_error_no_except>( szname, O_RDONLY );
 
       return lpfile != nullptr ? lpfile->Load() : nullptr;
-    }
-
-  api<IByteBuffer>  LoadFileBuffer( const char* sz )
-    {
-      return LoadFileBuffer( sz, disable_exceptions );
     }
 
 }  // mtc namespace
