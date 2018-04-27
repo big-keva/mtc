@@ -418,37 +418,71 @@ namespace mtc
     return nullptr;
   }
 
+  namespace impl
+  {
+  
+    template <class chartype>
+    inline  bool  w_in_lim( chartype ch, chartype lo, chartype hi )
+    {
+      return ch >= lo && ch <= hi;
+    }
+
+    template <class chartype, class compchar, class... charlist>
+    inline  bool  w_is_chr( chartype ch, compchar cn, charlist... cl )
+    {
+      return ch == (chartype)cn || w_is_chr( ch, cl... );
+    }
+
+    template <class chartype>
+    inline  bool  w_is_num( chartype ch )
+    {
+      return w_in_lim( ch, (chartype)'0', (chartype)'9' );
+    }
+
+    template <class chartype, class compchar>
+    inline  bool  w_is_chr( chartype ch, compchar cn )
+    {
+      return ch == (chartype)cn;
+    }
+
+  }
+
   //
   // strtod family
   //
-  inline  double  w_strtod( const widechar* pwsstr, widechar**  pwsend )
+  template <class chartype>
+  inline  double  w_strtod( const chartype* str, chartype** end )
   {
-    double          bigger = 0.0;
-    double          decone;
-    double          decpow;
+    double  bigger = 0.0;
+    double  decone;
+    double  decpow;
 
-    while ( *pwsstr >= widechar('0') && *pwsstr <= widechar('9') )
-      bigger = (bigger * 10) + *pwsstr++ - widechar('0');
-    if ( *pwsstr++ != '.' )
+    while ( impl::w_is_num( *str ) )
+      bigger = (bigger * 10) + *str++ - chartype('0');
+
+    if ( *str++ != '.' )
     {
-      if ( pwsend != NULL )
-        *pwsend = (widechar*)pwsstr - 1;
+      if ( end != NULL )
+        *end = (chartype*)str - 1;
       return bigger;
     }
 
     decpow = 1.0;
     decone = 0.0;
 
-    while ( *pwsstr >= widechar('0') && *pwsstr <= widechar('9') )
+    while ( impl::w_is_num( *str ) )
     {
-      decone = (decone * 10) + *pwsstr++ - widechar('0');
+      decone = (decone * 10) + *str++ - chartype('0');
       decpow *= 10.0;
     }
 
-    if ( pwsend != NULL )
-      *pwsend = (widechar*)pwsstr;
+    if ( end != NULL )
+      *end = (chartype*)str;
     return bigger + decone / decpow;
   }
+
+  inline  double  w_strtod( const char*     str, char**     end ) {  return w_strtod<char>( str, end );  }
+  inline  double  w_strtod( const widechar* str, widechar** end ) {  return w_strtod<widechar>( str, end );  }
 
   //
   // strtoup family
@@ -523,6 +557,52 @@ namespace mtc
   }
 
   //
+  // strtoll family
+  //
+  template <class chartype>
+  unsigned long long __impl_strtoull( const chartype* str, chartype**  end, int dwbase )
+  {
+    long long result = 0;
+
+    if ( dwbase == 0 || dwbase == 16 )
+    {
+      if ( str[0] == (chartype)'0' && impl::w_is_chr( str[1], 'x', 'X' ) )
+      {
+        dwbase = 16;
+        str += 2;
+      }
+      if ( dwbase == 0 )
+        dwbase = 10;
+    }
+
+    if ( dwbase == 10 )
+    {
+      while ( impl::w_is_num( *str ) )
+        result = result * 10 + *str++ - '0';
+    }
+      else
+    if ( dwbase == 16 )
+    {
+      for ( ; ; )
+      {
+        if ( impl::w_in_lim( *str, (chartype)'0', (chartype)'9' ) ) result = result * 16 + *str++ - '0';
+          else
+        if ( impl::w_in_lim( *str, (chartype)'A', (chartype)'F' ) ) result = result * 16 + *str++ - 'A' + 10;
+          else
+        if ( impl::w_in_lim( *str, (chartype)'a', (chartype)'f' ) ) result = result * 16 + *str++ - 'a' + 10;
+          else
+        break;
+      }
+    }
+    if ( end != NULL )
+      *end = (chartype*)str;
+    return result;
+  }
+
+  inline  unsigned long long w_strtoull( const widechar* s, widechar** e, int base )  {  return __impl_strtoull( s, e, base );  }
+  inline  unsigned long long w_strtoull( const char* s, char** e, int base )  {  return __impl_strtoull( s, e, base );  }
+
+  //
   // sprintf family
   //
   template <class C, class I> C   __impl_inttochr( I value, int radix, bool lower )
@@ -591,6 +671,17 @@ namespace mtc
     return output;
   }
 
+  inline  std::string vstrprintf( const char* format, va_list vaargs )
+  {
+    _auto_<char>  output;
+
+    va_start( vaargs, format );
+      output = vstrduprintf( format, vaargs );
+    va_end( vaargs );
+
+    return std::string( output.ptr() );
+  }
+
   inline  std::string strprintf( const char* format, ... )
   {
     _auto_<char>  output;
@@ -599,7 +690,7 @@ namespace mtc
     va_start( vaargs, format );
       output = vstrduprintf( format, vaargs );
     va_end( vaargs );
-    return std::string( output );
+    return std::string( output.ptr() );
   }
 
 // ltrim
