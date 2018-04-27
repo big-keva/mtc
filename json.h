@@ -431,7 +431,7 @@ namespace mtc
         if ( (p = a = (char*)M().alloc( sizeof(char) * (1 + w_strlen( s )))) == nullptr )
           return false;
 
-        while ( *s != 0 && *s < 0x100 )
+        while ( *s != 0 && (*s & ~0x7f) == 0 )
           *p++ = (char)*s++;
 
         if ( *s == 0 )  {  *p = '\0';  o = static_cast<_auto_<char, M>&&>( a );  return true;  }
@@ -611,7 +611,7 @@ namespace mtc
 
       for ( o = ::Serialize( o, '\"' ); l-- > 0; ++s )
       {
-        if ( (*s & ~0xff) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
+        if ( (*s & ~0x7f) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
           o = ::Serialize( o, repval[reppos - repsrc], (unsigned)strlen( repval[reppos - repsrc] ) );
         else if ( *s >= 0x80 || *s < 0x20 )
           o = ::Serialize( o, chnext, sprintf( chnext, "\\u%04x", *s ) );
@@ -1016,16 +1016,12 @@ namespace mtc
           {
             _auto_<widechar, M> wcsstr;
             _auto_<char, M>     chrstr;
-            double              dblval;
-            unsigned            intval;
 
           // get next string
             if ( s.putback( chnext ).getstring( wcsstr, e ) != 0 )
               return nullptr;
 
           // check if charstr or widestr
-            if ( intl::wstrtodbl( dblval, wcsstr ) )  x.set_double( dblval );   else
-            if ( intl::wstrtoint( intval, wcsstr ) )  x.set_word32( intval );   else
             if ( intl::wstrtostr( chrstr, wcsstr ) )  x.set_charstr( chrstr );  else                              
                                                       x.set_widestr( wcsstr );
             return s;
