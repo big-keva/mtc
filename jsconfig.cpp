@@ -1,6 +1,6 @@
 # include "jsconfig.h"
-# include "jsonTools.h"
-# include "file.h"
+# include "wcsstr.h"
+
 # if defined( _WIN32 )
 #   include <direct.h>
 #   if __STDC__
@@ -14,87 +14,162 @@
 namespace mtc
 {
 
-  const char* configuration::ExpandPath( char* psz, unsigned cch, const char* str ) const
+  namespace configuration
   {
-    char  orgdir[0x400];
-    char  curdir[0x400];
-    char  getdir[0x400];
-    char  newdir[0x400];
-    char* pslash;
-  
-    if ( str == nullptr )
-      return nullptr;
 
-  // get config dir
-    if ( szpath != nullptr )
+    namespace __impl__
     {
-      for ( pslash = strcpy( orgdir, szpath ) + szpath.length(); pslash > orgdir
-        && *pslash != '/' && *pslash != '\\'; --pslash ) ;
-      if ( pslash == orgdir ) strcpy( orgdir, "." );
-        else *pslash = '\0';
-    } else strcpy( orgdir, "." );
 
-  // get argument dir
-    for ( pslash = strcpy( getdir, str ) + strlen( str ); pslash > getdir
-      && *pslash != '/' && *pslash != '\\'; --pslash ) ;
-    *pslash = '\0';
+      inline
+      bool  is_slash( char ch )
+        {
+          return ch == '/' || ch == '\\';
+        }
 
-  // save current 
-    getcwd( curdir, sizeof(curdir) );
-    chdir ( orgdir );
-    chdir ( getdir );
-    getcwd( newdir, sizeof(newdir) );
-    chdir ( curdir );
-
-    for ( pslash = (char*)str + strlen( str ); pslash > str
-      && *pslash != '/' && *pslash != '\\'; --pslash ) ;
-    while ( *pslash == '/' || *pslash == '\\' ) ++pslash;
+      char* fullpath( char* out, size_t cch, const char* psz )
+      {
+        char    curdir[0x400];
+        char    newdir[0x400];
+        size_t  srclen = psz != nullptr ? w_strlen( psz ) : 0;
+        char*   pslash;
   
-    return strlen( strcat( strcat( newdir, "/" ), pslash ) ) >= cch ? nullptr : strcpy( psz, newdir );
-  }
+        if ( psz == nullptr || srclen >= sizeof(newdir) )
+          return nullptr;
 
-  cstr  configuration::ExpandPath( const char* relativePath ) const
-  {
-    char  szpath[0x400];
-    cstr  thestr;
+        for ( pslash = w_strcpy( newdir, psz ) + w_strlen( psz ); pslash > newdir && !is_slash( *pslash ); --pslash )
+          (void)NULL;
+        *pslash = 0;
 
-    return ExpandPath( szpath, sizeof(szpath), relativePath ) != nullptr ?
-      w_strcpy( thestr, szpath ) : thestr;
-  }
+        getcwd( curdir, sizeof(curdir) );
+        chdir ( newdir );
+        getcwd( newdir, sizeof(newdir) );
+        chdir ( curdir );
 
-  int         configuration::SetCfgPath( const char* psz )
-  {
-    char  curdir[0x400];
-    char  newdir[0x400];
-    char* pslash;
+        for ( pslash = (char*)psz + w_strlen( psz ); pslash > psz && !is_slash( pslash[-1] ); --pslash )
+          (void)NULL;
+
+        if ( cch < w_strlen( newdir ) + 1 + w_strlen( pslash ) + 1 )
+          return nullptr;
   
-    for ( pslash = strcpy( newdir, psz ) + strlen( psz ); pslash > newdir
-      && *pslash != '/' && *pslash != '\\'; --pslash ) ;
-    *pslash = 0;
+        return w_strcat( w_strcat( w_strcpy( out, newdir ), "/" ), pslash );
+      }
 
-    getcwd( curdir, sizeof(curdir) );
-    chdir ( newdir );
-    getcwd( newdir, sizeof(newdir) );
-    chdir ( curdir );
-
-    for ( pslash = (char*)psz + strlen( psz ); pslash > psz
-      && pslash[-1] != '/' && pslash[-1] != '\\'; --pslash ) ;
+      char* fullpath( char* out, size_t cch, const char* psz, const char* org )
+      {
+        char    orgdir[0x400];
+        char    curdir[0x400];
+        char    getdir[0x400];
+        char    newdir[0x400];
+        size_t  srclen = psz != nullptr ? w_strlen( psz ) : 0;
+        size_t  orglen = org != nullptr ? w_strlen( org ) : 0;
+        char*   pslash;
   
-    return w_strcat( w_strcat( w_strcpy( szpath, newdir ), "/" ), pslash ) != nullptr ? 0 : ENOMEM;
-  }
+        if ( psz == nullptr || orglen >= sizeof(orgdir) || srclen >= sizeof(getdir) )
+          return nullptr;
 
-  configuration OpenConfig( const char* szpath )
-  {
-    configuration config;
-    file          infile;
+      // get config dir
+        if ( orglen != 0 )
+        {
+          for ( pslash = w_strcpy( orgdir, org ) + orglen; pslash > orgdir && !is_slash( *pslash ); --pslash )
+            (void)NULL;
+          if ( pslash == orgdir ) strcpy( orgdir, "." );
+            else *pslash = '\0';
+        } else strcpy( orgdir, "." );
 
-    if ( (infile = fopen( szpath, "rb" )) == nullptr )
-      return config;
+      // get argument dir
+        for ( pslash = w_strcpy( getdir, psz ) + srclen; pslash > getdir && !is_slash( *pslash ); --pslash )
+          (void)NULL;
+        *pslash = '\0';
 
-    if ( ParseJson( (FILE*)infile, config ) == nullptr )
-      return configuration();
+      // save current 
+        getcwd( curdir, sizeof(curdir) );
+        chdir ( orgdir );
+        chdir ( getdir );
+        getcwd( newdir, sizeof(newdir) );
+        chdir ( curdir );
 
-    return config.SetCfgPath( szpath ) == 0 ? config : configuration();
+        for ( pslash = (char*)psz + srclen; pslash > psz && !is_slash( *pslash ); --pslash )
+          (void)NULL;
+        while ( !is_slash( *pslash ) )
+          ++pslash;
+
+        if ( w_strlen( newdir ) + 2 + w_strlen( pslash ) > cch )
+          return nullptr;
+  
+        return w_strcat( w_strcat( w_strcpy( out, newdir ), "/" ), pslash );
+      }
+
+      template <class K>
+      config  open( const config& cfg, K key )
+        {
+          const char* substr = cfg.get_charstr( key );
+          auto        zvconf = cfg.get_zarray( configGUID );
+
+          if ( substr != nullptr && zvconf != nullptr )
+          {
+            auto  szroot = zvconf->get_charstr( 0U );
+            auto  except = zvconf->get_int32( 1U, 0 ) != 0;
+            char  szpath[0x400];
+
+            if ( __impl__::fullpath( szpath, sizeof(szpath), substr, szroot ) != nullptr )
+            {
+              if ( except )
+                return Open( szpath, enable_exceptions );
+              else
+                return Open( szpath, disable_exceptions );
+            }
+          }
+
+          return config();
+        }
+
+      template <class K>
+      config  section( const config& cfg, K key )
+        {
+          const zarray<>* pzsect = cfg.get_zarray( key );
+          auto            zvconf = cfg.get_zarray( configGUID );
+
+          if ( pzsect != nullptr && zvconf != nullptr )
+          {
+            config  newcfg( *pzsect );
+
+            return (newcfg.set_zarray( configGUID, *zvconf ), newcfg);
+          }
+
+          return config();
+        }
+
+      template <class K>
+      std::string path( const config& cfg, K key )
+        {
+          const char* szpath = cfg.get_charstr( key );
+          auto        zvconf = cfg.get_zarray( configGUID );
+
+          if ( szpath != nullptr && zvconf != nullptr )
+          {
+            char  expand[0x400];
+
+            if ( __impl__::fullpath( expand, sizeof(expand), szpath, zvconf->get_charstr( 0U ) ) != nullptr )
+              return std::string( expand );
+          }
+
+          return std::string();
+        }
+
+    }
+
+    config  Open( const config& cfg, unsigned key )  {  return __impl__::open( cfg, key );  }
+    config  Open( const config& cfg, const char* key )  {  return __impl__::open( cfg, key );  }
+    config  Open( const config& cfg, const widechar* key )  {  return __impl__::open( cfg, key );  }
+
+    config  Section( const config& cfg, unsigned key )  {  return __impl__::section( cfg, key );  }
+    config  Section( const config& cfg, const char* key )  {  return __impl__::section( cfg, key );  }
+    config  Section( const config& cfg, const widechar* key )  {  return __impl__::section( cfg, key );  }
+
+    std::string  Path( const config& cfg, unsigned key )  {  return __impl__::path( cfg, key );  }
+    std::string  Path( const config& cfg, const char* key )  {  return __impl__::path( cfg, key );  }
+    std::string  Path( const config& cfg, const widechar* key )  {  return __impl__::path( cfg, key );  }
+
   }
 
 }
