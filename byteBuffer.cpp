@@ -55,7 +55,7 @@ SOFTWARE.
 
 namespace mtc
 {
-  class ByteBuffer: public array<char>, public IByteBuffer
+  class ByteBuffer final: public array<char>, public IByteBuffer
   {
     implement_lifetime_control
 
