@@ -1,7 +1,0 @@
-/Users/user/mtc/build/CMakeFiles/install/local.dir
-/Users/user/mtc/build/CMakeFiles/install/strip.dir
-/Users/user/mtc/build/CMakeFiles/install.dir
-/Users/user/mtc/build/CMakeFiles/list_install_components.dir
-/Users/user/mtc/build/CMakeFiles/rebuild_cache.dir
-/Users/user/mtc/build/CMakeFiles/edit_cache.dir
-/Users/user/mtc/build/CMakeFiles/mtc.dir
