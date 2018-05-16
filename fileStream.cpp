@@ -88,7 +88,7 @@ namespace mtc
   class FileStream;
 
   template <class error>
-  class FileMemmap: public IByteBuffer
+  class FileMemmap final: public IByteBuffer
   {
     implement_lifetime_control
 
@@ -120,13 +120,13 @@ namespace mtc
   };
 
   template <class error>
-  class FileStream: public IFileStream
+  class FileStream final: public IFileStream
   {
     implement_lifetime_control
 
     friend class FileMemmap<error>;
 
-    struct  filebuffer: public IByteBuffer
+    struct  filebuffer final: public IByteBuffer
     {
       implement_lifetime_control
 

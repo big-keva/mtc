@@ -1,0 +1,2 @@
+/Library/Developer/CommandLineTools/usr/bin/ar qc libmtc.a  CMakeFiles/mtc.dir/byteBuffer.cpp.o CMakeFiles/mtc.dir/dirtools.cpp.o CMakeFiles/mtc.dir/fileStream.cpp.o CMakeFiles/mtc.dir/jsconfig.cpp.o CMakeFiles/mtc.dir/netStream.cpp.o CMakeFiles/mtc.dir/zipStream.cpp.o
+/Library/Developer/CommandLineTools/usr/bin/ranlib libmtc.a

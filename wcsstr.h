@@ -427,6 +427,12 @@ namespace mtc
       return ch >= lo && ch <= hi;
     }
 
+    template <class chartype, class compchar>
+    inline  bool  w_is_chr( chartype ch, compchar cn )
+    {
+      return ch == (chartype)cn;
+    }
+
     template <class chartype, class compchar, class... charlist>
     inline  bool  w_is_chr( chartype ch, compchar cn, charlist... cl )
     {
@@ -437,12 +443,6 @@ namespace mtc
     inline  bool  w_is_num( chartype ch )
     {
       return w_in_lim( ch, (chartype)'0', (chartype)'9' );
-    }
-
-    template <class chartype, class compchar>
-    inline  bool  w_is_chr( chartype ch, compchar cn )
-    {
-      return ch == (chartype)cn;
     }
 
   }
@@ -663,34 +663,30 @@ namespace mtc
   inline  char* strduprintf( const char* format, ... )
   {
     va_list   vaargs;
-    char*     output;
 
     va_start( vaargs, format );
-      output = vstrduprintf( format, vaargs );
+      auto output = vstrduprintf( format, vaargs );
     va_end( vaargs );
+
     return output;
   }
 
   inline  std::string vstrprintf( const char* format, va_list vaargs )
   {
-    _auto_<char>  output;
+    _auto_<char>  output = vstrduprintf( format, vaargs );
 
-    va_start( vaargs, format );
-      output = vstrduprintf( format, vaargs );
-    va_end( vaargs );
-
-    return std::string( output.ptr() );
+    return output != nullptr ? std::string( output.ptr() ) : "";
   }
 
   inline  std::string strprintf( const char* format, ... )
   {
-    _auto_<char>  output;
-    va_list       vaargs;
+    va_list   vaargs;
 
     va_start( vaargs, format );
-      output = vstrduprintf( format, vaargs );
+      auto output = vstrduprintf( format, vaargs );
     va_end( vaargs );
-    return std::string( output.ptr() );
+
+    return output;
   }
 
 // ltrim

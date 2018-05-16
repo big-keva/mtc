@@ -12,7 +12,7 @@ namespace mtc
   class ZipBuffer;
   class ZipStream;
 
-  class ZipBuffer: public IByteBuffer, protected array<char>
+  class ZipBuffer final: public IByteBuffer, protected array<char>
   {
     friend IByteBuffer*  LoadZipBuffer( const char* sz );
     friend class ZipStream;
@@ -29,7 +29,7 @@ namespace mtc
             int         setlen( int newlen )  {  return array<char>::SetLen( newlen );  }
   };
 
-  class ZipStream: public IFlatStream
+  class ZipStream final: public IFlatStream
   {
     friend IFlatStream*  OpenZipStream( const char* sz, unsigned dwmode, unsigned buflen );
     friend IByteBuffer*  LoadZipBuffer( const char* sz );

@@ -22,6 +22,10 @@
 namespace mtc
 {
 
+# if !defined( MSG_NOSIGNAL )
+#  define MSG_NOSIGNAL 0
+# endif
+
 # if defined( _WIN32 )
 # pragma comment( lib, "ws2_32.lib" )
 
@@ -164,7 +168,7 @@ namespace mtc
       }
   };
 
-  class CNetStream: public INetStream
+  class CNetStream final: public INetStream
   {
     implement_lifetime_control
 
@@ -356,7 +360,7 @@ namespace mtc
     for ( ncbput = 0; ncbput < l; ncbput += cbpart )
       if ( (cbpart = send( sockid, ncbput + (const char*)p, l - ncbput, win32_decl( 0 ) posix_decl( MSG_NOSIGNAL ) )) < 0 )
         break;
-	  return ncbput;
+    return ncbput;
   }
 
   bool  CNetStream::HasDataToRead() const noexcept
