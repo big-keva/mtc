@@ -30,6 +30,7 @@
     <ClInclude Include="byteBuffer.h" />
     <ClInclude Include="fileStream.h" />
     <ClInclude Include="jsconfig.h" />
+    <ClInclude Include="json.h" />
     <ClInclude Include="netStream.h" />
     <ClInclude Include="zipStream.h" />
   </ItemGroup>
