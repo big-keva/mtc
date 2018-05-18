@@ -109,10 +109,32 @@ namespace mtc
 
     struct getwidechar
     {
-      widechar  operator ()( const char*& s )
+      widechar  operator ()( const char*& s ) const
         {  return (widechar)(unsigned char)*s++;  }
-      widechar  operator ()( const widechar*& s )
+      widechar  operator ()( const widechar*& s ) const
         {  return *s++;  }
+    };
+
+
+    template <class getchar>
+    class to_low_case
+    {
+      getchar&  getc;
+
+    public:
+      to_low_case( getchar& get ): getc( get )
+        {}
+
+    public:
+      widechar  operator ()( const char*& s ) const {  return to_lower( getc( s ) );  }
+      widechar  operator ()( const widechar*& s ) const {  return to_lower( getc( s ) );  }
+
+    protected:
+      widechar  to_lower( widechar ch ) const
+        {
+          return w_in_lim( ch, (widechar)'A',   (widechar)'Z'   ) ? ch + ('a' - 'A'):
+                 w_in_lim( ch, (widechar)0x401, (widechar)0x42F ) ? ch + (0x430 - 0x401) : ch;
+        }
     };
 
     //
@@ -128,7 +150,7 @@ namespace mtc
     //
     // strdup() family
     //
-    template <class C, class M>  C* strdup( const C* s, size_t l, M& m )
+    template <class C, class M>  C* strdup( M& m, const C* s, size_t l )
     {
       C*  o;
       C*  p;
@@ -145,42 +167,70 @@ namespace mtc
     //
     // strcpy() family
     //
-    template <class O, class S> O*  strcpy( O* o, const S* s )
+    template <class C>  C*  strcpy( C* o, const C* s )
     {
-      for ( auto p = o; (*p++ = *s++) != (O)0; )
+      for ( auto p = o; (*p++ = *s++) != (C)0; )
         (void)0;
       return o;
     }
 
-    template <class O, class S> O*  strncpy( O* o, const S* s, size_t n )
+    template <class C, class L> widechar* strcpy( widechar* o, const C* s, L l )
     {
-      O*  p = o;
-
-      while ( n-- > 0 && (*p++ = *s++) != (O)0 )
+      for ( auto p = o; (*p++ = l( s )) != (widechar)0; )
         (void)0;
-      if ( n > 0 )
-        *p = (O)0;
+      return o;
+    }
+
+    //
+    // strncpy() family
+    //
+    template <class C> C* strncpy( C* o, const C* s, size_t n )
+    {
+      auto p = o;
+
+      while ( n > 0 && (*p++ = *s++) != (C)0 )
+        --n;
+      for ( ; n > 0; --n )
+        *p++ = (C)0;
+      return o;
+    }
+
+    template <class C, class L> widechar* strncpy( widechar* o, const C* s, size_t n, L l )
+    {
+      auto p = o;
+
+      while ( n > 0 && (*p++ = l( s )) != (widechar)0 )
+        --n;
+      for ( ; n > 0; --n )
+        *p = (widechar)0;
       return o;
     }
 
     //
     // strcat() family
     //
-
-    template <class O, class S> O*  strcat( O* o, const S* s )
+    template <class C> C*  strcat( C* o, const C* s )
     {
-      O*  p = o;
+      auto  p = o;
 
-      while ( *p++ != (O)0 )
-        (void)0;
-      w_strcpy( p - 1, s );
-        return o;
+      while ( *p != (C)0 )
+        ++p;
+      return strcpy( p, s ), o;
+    }
+
+    template <class C, class L> widechar* strcat( widechar* o, const C* s, L l )
+    {
+      auto  p = o;
+
+      while ( *p != (widechar)0 )
+        ++p;
+      return strcpy( p, s, l ), o;
     }
 
     //
-    // strcasecmp() family
+    // strcmp() family
     //
-    template <class A, class B, class L>  int strcasecmp( const A* s, const B* m, L l )
+    template <class A, class B, class L = getwidechar>  int strcmp( const A* s, const B* m, L l = L() )
     {
       int       rc;
       widechar  lc;
@@ -190,13 +240,13 @@ namespace mtc
       return rc;
     }
 
-    template <class A, class B, class L>  int strncasecmp( const A* s, const B* m, size_t n, L l )
+    template <class A, class B, class L = getwidechar>  int strncmp( const A* s, const B* m, size_t n, L l = L() )
     {
       int       rc = 0;
       widechar  lc;
 
-      while ( n-- > 0 && (rc = (lc = l( s )) - l( m )) == 0 && lc != 0 )
-        (void)0;
+      while ( n > 0 && (rc = (lc = l( s )) - l( m )) == 0 && lc != 0 )
+        --n;
       return rc;
     }
 
@@ -212,20 +262,19 @@ namespace mtc
 
     template <class C>  C*  strrchr( const C* s, int c )
     {
-      const C*  p;
+      auto  p = s;
 
-      for ( p = s; *p++ != (C)0; )  (void)0;
-
+      while ( *p != (C)0 )
+        ++p;
       while ( p >= s && *p != c )
         --p;
-
       return p >= s ? (C*)p : nullptr;
     }
 
     //
     // strstr family
     //
-    template <class S, class M, class L>  const S*  strstr( const S* s, const M* m, L l )
+    template <class S, class M, class L = getwidechar>  const S*  strstr( const S* s, const M* m, L l = L() )
     {
       const S*  s1;
       const M*  m1;
@@ -303,125 +352,127 @@ namespace mtc
   // strdup() family
   //
   template <class M>
-  inline  widechar* w_strdup( const widechar* s, size_t l, M& m )
+  inline  widechar* w_strdup( M& m, const widechar* s, size_t l = (size_t)-1 )
     {
-      return s != nullptr ? impl::strdup( s, l, m ) : nullptr;
+      return s != nullptr ? impl::strdup( m, s, l ) : nullptr;
     }
 
   template <class M>
-  inline  char*     w_strdup( const char* s, size_t l, M& m )
+  inline  char*     w_strdup( M& m, const char* s, size_t l = (size_t)-1 )
     {
-      return s != nullptr ? impl::strdup( s, l, m ) : nullptr;
+      return s != nullptr ? impl::strdup( m, s, l ) : nullptr;
     }
 
   inline  char*     w_strdup( const char* s, size_t l = (size_t)-1 )  
     {
       def_alloc m;
-      return w_strdup( s, l, m );
+      return w_strdup( m, s, l );
     }
 
   inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1 )
     {
       def_alloc m;
-      return w_strdup( s, l, m );
+      return w_strdup( m, s, l );
     }
 
   //
   // strcpy() family
   //
   inline  widechar* w_strcpy( widechar* o, const widechar* s )  {  return impl::strcpy( o, s );  }
-  inline  widechar* w_strcpy( widechar* o, const char* s )      {  return impl::strcpy( o, s );  }
   inline  char*     w_strcpy( char* o, const char* s )          {  return impl::strcpy( o, s );  }
 
+  template <class getchr = impl::getwidechar>
+  inline  widechar* w_strcpy( widechar* o, const char* s, getchr l = getchr() ) {  return impl::strcpy( o, s, l );  }
+
   inline  widechar* w_strncpy( widechar* o, const widechar* s, size_t n )  {  return impl::strncpy( o, s, n );  }
-  inline  widechar* w_strncpy( widechar* o, const char* s, size_t n )      {  return impl::strncpy( o, s, n );  }
   inline  char*     w_strncpy( char* o, const char* s, size_t n )          {  return impl::strncpy( o, s, n );  }
+
+  template <class getchr = impl::getwidechar>
+  inline  widechar* w_strncpy( widechar* o, const char* s, size_t n, getchr l = getchr() ) {  return impl::strncpy( o, s, n, l );  }
 
   //
   // strcat() family
   //
   inline  widechar* w_strcat( widechar* o, const widechar* s )    {  return impl::strcat( o, s );  }
-  inline  widechar* w_strcat( widechar* o, const char* s )        {  return impl::strcat( o, s );  }
   inline  char*     w_strcat( char* o, const char* s )            {  return impl::strcat( o, s );  }
+
+  template <class getchr = impl::getwidechar>
+  inline  widechar* w_strcat( widechar* o, const char* s, getchr l = getchr() ) {  return impl::strcat( o, s, l );  }
 
   //
   // strcmp() family
   //
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strcmp( const char* s, const char* m, getchr l = getchr() )           {  return impl::strcasecmp( s, m, l );  }
+  inline  int   w_strcmp( const char* s, const char* m )  {  return impl::strcmp( s, m, impl::getwidechar() );  }
+  inline  int   w_strcmp( const widechar* s, const widechar* m )  {  return impl::strcmp( s, m, impl::getwidechar() );  }
 
   template <class getchr = impl::getwidechar>
-  inline  int   w_strcmp( const widechar* s, const widechar* m, getchr l = getchr() )   {  return impl::strcasecmp( s, m, l );  }
-
+  inline  int   w_strcmp( const char* s, const widechar* m, getchr l = getchr() )       {  return impl::strcmp( s, m, l );  }
   template <class getchr = impl::getwidechar>
-  inline  int   w_strcmp( const char* s, const widechar* m, getchr l = getchr() )       {  return impl::strcasecmp( s, m, l );  }
-
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strcmp( const widechar* s, const char* m, getchr l = getchr() )       {  return impl::strcasecmp( s, m, l );  }
+  inline  int   w_strcmp( const widechar* s, const char* m, getchr l = getchr() )       {  return impl::strcmp( s, m, l );  }
 
   //
   // strncmp() family
   //
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncmp( const char* s, const char* m, size_t n, getchr l = getchr() )          {  return impl::strncasecmp( s, m, n, l );  }
+  inline  int   w_strncmp( const char* s, const char* m, size_t n ) {  return impl::strncmp( s, m, n, impl::getwidechar() );  }
+  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n ) {  return impl::strncmp( s, m, n, impl::getwidechar() );  }
 
   template <class getchr = impl::getwidechar>
-  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n, getchr l = getchr() )  {  return impl::strncasecmp( s, m, n, l );  }
-
+  inline  int   w_strncmp( const char* s, const widechar* m, size_t n, getchr l = getchr() )      {  return impl::strncmp( s, m, n, l );  }
   template <class getchr = impl::getwidechar>
-  inline  int   w_strncmp( const char* s, const widechar* m, size_t n, getchr l = getchr() )      {  return impl::strncasecmp( s, m, n, l );  }
-
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncmp( const widechar* s, const char* m, size_t n, getchr l = getchr() )      {  return impl::strncasecmp( s, m, n, l );  }
+  inline  int   w_strncmp( const widechar* s, const char* m, size_t n, getchr l = getchr() )      {  return impl::strncmp( s, m, n, l );  }
 
   //
   // strcasecmp() family
   //
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strcasecmp( const char* s, const char* m, getchr l = getchr() )           {  return impl::strcasecmp( s, m, l );  }
+  inline  int   w_strcasecmp( const char* s, const char* m )
+    {
+      impl::getwidechar getter;
+      return impl::strcmp( s, m, impl::to_low_case<impl::getwidechar>( getter ) );
+    }
+  inline  int   w_strcasecmp( const widechar* s, const widechar* m )
+    {
+      impl::getwidechar getter;
+      return impl::strcmp( s, m, impl::to_low_case<impl::getwidechar>( getter ) );
+    }
 
   template <class getchr = impl::getwidechar>
-  inline  int   w_strcasecmp( const widechar* s, const widechar* m, getchr l = getchr() )   {  return impl::strcasecmp( s, m, l );  }
+  inline  int   w_strcasecmp( const widechar* s, const char* m, getchr l = getchr() ) {  return impl::strcmp( s, m, impl::to_low_case<getchr>( l ) ); }
+  template <class getchr = impl::getwidechar>
+  inline  int   w_strcasecmp( const char* s, const widechar* m, getchr l = getchr() ) {  return impl::strcmp( s, m, impl::to_low_case<getchr>( l ) ); }
+
+  inline  int   w_strncasecmp( const char* s, const char* m, size_t n )
+    {
+      impl::getwidechar getter;
+      return impl::strncmp( s, m, n, impl::to_low_case<impl::getwidechar>( getter ) );
+    }
+  inline  int   w_strncasecmp( const widechar* s, const widechar* m, size_t n ) 
+    {
+      impl::getwidechar getter;
+      return impl::strncmp( s, m, n, impl::to_low_case<impl::getwidechar>( getter ) );
+    }
 
   template <class getchr = impl::getwidechar>
-  inline  int   w_strcasecmp( const widechar* s, const char* m, getchr l = getchr() )       {  return impl::strcasecmp( s, m, l );  }
-
+  inline  int   w_strncasecmp( const char* s, const widechar* m, size_t n, getchr l = getchr() )  {  return impl::strncmp( s, m, n, impl::to_low_case<getchr>( l ) ); }
   template <class getchr = impl::getwidechar>
-  inline  int   w_strcasecmp( const char* s, const widechar* m, getchr l = getchr() )       {  return impl::strcasecmp( s, m, l );  }
-
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncasecmp( const char* s, const char* m, int n, getchr l = getchr() )         {  return impl::strncasecmp( s, m, n, l );  }
-
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncasecmp( const widechar* s, const widechar* m, int n, getchr l = getchr() ) {  return impl::strncasecmp( s, m, n, l );  }
-
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncasecmp( const char* s, const widechar* m, int n, getchr l = getchr() )     {  return impl::strncasecmp( s, m, n, l );  }
-
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncasecmp( const widechar* s, const char* m, int n, getchr l = getchr() )     {  return impl::strncasecmp( s, m, n, l );  }
+  inline  int   w_strncasecmp( const widechar* s, const char* m, size_t n, getchr l = getchr() )  {  return impl::strncmp( s, m, n, impl::to_low_case<getchr>( l ) ); }
 
   //
   // strchr() family
   //
-  inline  char*     w_strchr( const char* s, int c )              {  return impl::strchr( s, c );  }
-  inline  widechar* w_strchr( const widechar* s, int c )          {  return impl::strchr( s, c );  }
+  inline  char*     w_strchr( const char* s, int c )      {  return impl::strchr( s, c ); }
+  inline  widechar* w_strchr( const widechar* s, int c )  {  return impl::strchr( s, c ); }
 
-  inline  char*     w_strrchr( const char* s, int c )              {  return impl::strrchr( s, c );  }
-  inline  widechar* w_strrchr( const widechar* s, int c )          {  return impl::strrchr( s, c );  }
+  inline  char*     w_strrchr( const char* s, int c )     {  return impl::strrchr( s, c ); }
+  inline  widechar* w_strrchr( const widechar* s, int c ) {  return impl::strrchr( s, c ); }
 
   //
   // strstr family
   //
-  template <class getchr = impl::getwidechar>
-  inline  const char*     w_strstr( const char* s, const char* m, getchr l = getchr() )         {  return impl::strstr( s, m, l );  }
-
-  template <class getchr = impl::getwidechar>
-  inline  const widechar* w_strstr( const widechar* s, const widechar* m, getchr l = getchr() ) {  return impl::strstr( s, m, l );  }
+  inline  const char*     w_strstr( const char* s, const char* m )  {  return impl::strstr( s, m ); }
+  inline  const widechar* w_strstr( const widechar* s, const widechar* m )  {  return impl::strstr( s, m ); }
 
   template <class getchr = impl::getwidechar>
   inline  const char*     w_strstr( const char* s, const widechar* m, getchr l = getchr() )     {  return impl::strstr( s, m, l );  }
-
   template <class getchr = impl::getwidechar>
   inline  const widechar* w_strstr( const widechar* s, const char* m, getchr l = getchr() )     {  return impl::strstr( s, m, l );  }
 
@@ -539,44 +590,6 @@ namespace mtc
   //
   inline  unsigned long long w_strtoull( const widechar* s, widechar** e, int base )  {  return impl::strtoull( s, e, base );  }
   inline  unsigned long long w_strtoull( const char* s, char** e, int base )          {  return impl::strtoull( s, e, base );  }
-
-  //
-  // sprintf family
-  //
-  template <class C, class I> C   __impl_inttochr( I value, int radix, bool lower )
-  {
-    int   n = value % radix;
-    return n < 10 ? n + '0' : n + 'A' + (lower ? 'a' - 'A' : 0);
-  }
-
-  template <class C, class I> C*  __impl_inttostr( C* store, I value, int radix = 10, bool lower = true )
-  {
-    C*  stptr = store;
-
-    assert( radix == 10 || radix == 16 );
-
-    do  *stptr++ = __impl_inttochr<C>( value, radix, lower );
-      while ( (value /= radix) != 0 );
-    for ( auto t = store, e = stptr - 1; t < e; ++t, --e )
-      {  C c = *t;  *t = *e;  *e = c;  }
-    *stptr = 0;  return store;
-  }
-
-  template <class C>  C*  __impl_dbltostr( C* store, double value )
-  {
-    (void)store;
-    (void)value;
-  }
-
-/*
-  inline  widechar*   w_vsnprintf( widechar* o, size_t l, const widechar* t, va_list v )
-  {
-  }
-
-  inline  widechar*   w_snprintf( widechar* o, size_t l, const widechar* t, ... )
-  {
-  }
-*/
 
   //
   // char* strduprintf( format, ... ) family
