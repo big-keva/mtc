@@ -41,6 +41,9 @@ namespace mtc
       constexpr inline  int32_t derive_exception_flag( const disable_exceptions_t& )
         {  return 0;  }
 
+      char*   fullpath( char* out, size_t cch, const char* str );
+      char*   fullpath( char* out, size_t cch, const char* str, const char* base );
+
       template <class S, class X>
       config  parsesrc( S* s, X& x )
         {
@@ -71,9 +74,6 @@ namespace mtc
 
           return getcfg;
         }
-
-      char*   fullpath( char* out, size_t cch, const char* str );
-      char*   fullpath( char* out, size_t cch, const char* str, const char* base );
 
     }
 
