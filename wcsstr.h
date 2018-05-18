@@ -601,34 +601,30 @@ namespace mtc
   inline  char* strduprintf( const char* format, ... )
   {
     va_list   vaargs;
-    char*     output;
 
     va_start( vaargs, format );
-      output = vstrduprintf( format, vaargs );
+      auto output = vstrduprintf( format, vaargs );
     va_end( vaargs );
+
     return output;
   }
 
   inline  std::string vstrprintf( const char* format, va_list vaargs )
   {
-    _auto_<char>  output;
+    _auto_<char>  output = vstrduprintf( format, vaargs );
 
-    va_start( vaargs, format );
-      output = vstrduprintf( format, vaargs );
-    va_end( vaargs );
-
-    return std::string( output.ptr() );
+    return output != nullptr ? std::string( output.ptr() ) : "";
   }
 
   inline  std::string strprintf( const char* format, ... )
   {
-    _auto_<char>  output;
-    va_list       vaargs;
+    va_list   vaargs;
 
     va_start( vaargs, format );
-      output = vstrduprintf( format, vaargs );
+      auto output = vstrduprintf( format, vaargs );
     va_end( vaargs );
-    return std::string( output.ptr() );
+
+    return output;
   }
 
 // ltrim

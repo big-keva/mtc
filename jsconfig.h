@@ -23,6 +23,9 @@ namespace mtc
     namespace __impl__
     {
 
+      char*   fullpath( char* out, size_t cch, const char* str );
+      char*   fullpath( char* out, size_t cch, const char* str, const char* base );
+
       inline  config  fault( const char* err, const enable_exceptions_t& )
         {
           throw configuration::error( err );
