@@ -27,10 +27,14 @@ namespace mtc
   public:     // waiting
     void  wait()
       {
-        if ( --threadCount == 0 )
-          waitThreads.notify_all();
+        if ( --threadCount != 0 )
+          {
+            std::unique_lock<std::mutex>  brlock( lockThreads );
+
+            waitThreads.wait( brlock, [&](){  return threadCount == 0;  } );
+          }
         else
-          waitThreads.wait( std::unique_lock<std::mutex>( lockThreads ), [&](){  return threadCount == 0;  } );
+          waitThreads.notify_all();
       }
   };
 
