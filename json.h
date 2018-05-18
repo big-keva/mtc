@@ -172,10 +172,10 @@ namespace mtc
     };
 
   # define  derive_revive( _type_ )                                                                                           \
-    template <class M = def_alloc>  Revive* add_##_type_( unsigned thekey, Revive* fsnext = nullptr )                 \
+    template <class M = def_alloc>  Revive* add_##_type_( unsigned thekey, Revive* fsnext = nullptr )                         \
     {                                                                                                                         \
       byte_t  strkey[4];                                                                                                      \
-      return Revive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nullptr );     \
+      return Revive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nullptr );         \
     }                                                                                                                         \
     template <class M = def_alloc>  Revive* add_##_type_( const char* thekey, Revive* fsnext = nullptr )              \
     {                                                                                                                         \
