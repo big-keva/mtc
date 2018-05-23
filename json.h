@@ -55,6 +55,7 @@ SOFTWARE.
 # include "zarray.h"
 # include <string.h>
 # include <stdexcept>
+# include <memory>
 
 namespace mtc
 {

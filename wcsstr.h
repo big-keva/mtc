@@ -282,7 +282,7 @@ namespace mtc
 
       for ( auto  m_ = l( m1 = m ); *s != (S)0; l( s ) )
       {
-        while ( *s != (S)0 && l( s1 = s ) != l( m1 = m ) )
+        while ( *s != (S)0 && l( s1 = s ) != m_ )
           s = s1;
 
         if ( *s == (S)0 )
