@@ -132,34 +132,13 @@ SOFTWARE.
 
 namespace mtc
 {
-# if !defined( __char_t_defined__ )
-#   define  __char_t_defined__
-    typedef char                char_t;
-# endif
-# if !defined( __byte_t_defined__ )
-#   define  __byte_t_defined__
-    typedef uint8_t byte_t;
-# endif
-# if !defined( __word16_t_defined__ )
-#   define  __word16_t_defined__
-    typedef uint16_t  word16_t;
-# endif
-# if !defined( __word32_t_defined__ )
-#   define  __word32_t_defined__
-    typedef uint32_t  word32_t;
-# endif
-# if !defined( __word64_t_defined__ )
-#   define  __word64_t_defined__
-    typedef uint64_t  word64_t;
-# endif
-# if !defined( __float_t_defined__ )
-#   define  __float_t_defined__
-    typedef float               float_t;
-# endif
-# if !defined( __double_t_defined__ )
-#   define  __double_t_defined__
-    typedef double              double_t;
-# endif
+  using char_t = char;
+  using byte_t = uint8_t;
+  using word16_t = uint16_t;
+  using word32_t = uint32_t;
+  using word64_t = uint64_t;
+  using float_t = float;
+  using double_t = double;
 
   template <class T>  inline  T max( const T& t1, const T& t2 )
     {  return t1 >= t2 ? t1 : t2;  }
