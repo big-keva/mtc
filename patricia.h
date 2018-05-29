@@ -235,8 +235,8 @@ namespace mtc
     template <class chartype = char>        V*    Search( const chartype* k, size_t l )                   {  return search<      V>( make_key( k, l ), *this );  }
 
   public:     // iterator
-    iterator  begin() const {  return iterator( (const pat_node*)p_tree );  }
-    iterator  end() const {  return iterator();  }
+            iterator  begin() const {  return iterator( (const pat_node*)p_tree );  }
+    static  iterator  end()         {  return iterator();  }
 
   public:     // iterator
     template <class A>  int     for_each( A action ) const  {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
@@ -302,14 +302,6 @@ namespace mtc
       bool  operator == ( const iterator& it ) const;
       bool  operator != ( const iterator& it ) const  {  return !operator == ( it );  }
 
-    public:     // API
-      key   Move( const key& );
-      template <class chartype>
-      key   Move( const chartype* k, size_t l )
-        {
-          return Move( make_key( k, l ) );
-        }
-
     protected:
       patpos    GetPat( const char* );
       iterator& setkey()  {  ptr = (const char*)keybuf; len = (size_t)keybuf.size();  return *this;  }
@@ -328,8 +320,8 @@ namespace mtc
     template <class _func_>   int         Select( const void*, size_t, _func_ ) const;
 
   public:     // iterator
-    iterator  begin() const {  return iterator( serial );  }
-    iterator  end() const {  return iterator();  }
+            iterator  begin() const {  return iterator( serial );  }
+    static  iterator  end()         {  return iterator();  }
 
   public:     // iterator
     template <class A>  int     for_each( A action ) const;
@@ -768,7 +760,7 @@ namespace mtc
     }
 
   template <class V, class M>
-  patriciaTree<V, M>::iterator::iterator(): key()
+  patriciaTree<V, M>::iterator::iterator():key()
     {
     }
 
