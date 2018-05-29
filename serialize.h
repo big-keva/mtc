@@ -256,14 +256,24 @@ S*  FetchFrom( S* s, const char*& r )
   vectors serialization/deserialization
 */
 
+template <class T>
+size_t  GetBufLen( const std::vector<T>& a )
+  {
+    size_t  cc = ::GetBufLen( a.size() );
+
+    for ( auto& t: a )
+      cc += ::GetBufLen( t );
+
+    return cc;
+  }
+
 template <class O, class T>
 O*  Serialize( O* o, const std::vector<T>& a )
   {
-    if ( (o = ::Serialize( o, a.size() )) != nullptr )
-    {
-      for ( auto p = a.begin(); p < a.end() && o != nullptr; ++p )
-        o = ::Serialize( o, *p );
-    }
+    o = ::Serialize( o, a.size() );
+
+    for ( auto p = a.begin(); p != a.end() && o != nullptr; ++p )
+      o = ::Serialize( o, *p );
 
     return o;
   }
