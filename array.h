@@ -185,7 +185,7 @@ namespace mtc
       {
         auto test = _this().begin();
 
-        while ( test < _this().end() )
+        while ( test != _this().end() )
           if ( p( *test ) ) break;  else  ++test;
         return test;
       }
@@ -194,7 +194,7 @@ namespace mtc
       {
         auto test = _this().begin();
 
-        while ( test < _this().end() )
+        while ( test != _this().end() )
           if ( p( *test ) ) break;  else  ++test;
         return test;
       }
