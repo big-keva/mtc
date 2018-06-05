@@ -275,6 +275,7 @@ namespace mtc
       struct  patpos
       {
         const char* dicptr;
+        const char* keyptr;
         const char* endptr;
         size_t      keylen;
         size_t      nnodes;
@@ -282,7 +283,7 @@ namespace mtc
       };
 
       array<patpos> atrace;
-      array<char>   keybuf;
+      array<char>   achars;
 
     protected:  // first initialization constructor
       iterator( const char* );
@@ -302,9 +303,14 @@ namespace mtc
       bool  operator == ( const iterator& it ) const;
       bool  operator != ( const iterator& it ) const  {  return !operator == ( it );  }
 
+    public:
+      iterator& MoveTo( const uint8_t* key, size_t len );
+
     protected:
+      static
+      int       CmpKey( const void*, size_t, const void*, size_t );
       patpos    GetPat( const char* );
-      iterator& setkey()  {  ptr = (const char*)keybuf; len = (size_t)keybuf.size();  return *this;  }
+      iterator& SetKey();
       iterator& Tonext();
 
     };
@@ -960,26 +966,36 @@ namespace mtc
 
   inline
   patriciaDump::iterator::iterator( iterator&& it ): key( it ),
-      atrace( static_cast<decltype(atrace)&&>( it.atrace ) ),
-      keybuf( static_cast<decltype(keybuf)&&>( it.keybuf ) )
+      atrace( static_cast<decltype(atrace)&&>( it.atrace ) )
     {
-      it.setkey();
+      it.SetKey();
     }
 
   inline
   typename patriciaDump::iterator&  patriciaDump::iterator::operator = ( iterator&& it )
     {
       atrace.operator = ( static_cast<decltype(atrace)&&>( it.atrace ) );
-      keybuf.operator = ( static_cast<decltype(keybuf)&&>( it.keybuf ) ); it.setkey();
-      return *this;
+      return (it.SetKey(), *this);
     }
 
   inline
   bool  patriciaDump::iterator::operator == ( const iterator& it ) const
     {
-      return atrace.size() == it.atrace.size()
-          && keybuf.size() == it.keybuf.size()
-          && memcmp( (const char*)keybuf, (const char*)it.keybuf, keybuf.size() ) == 0;
+      if ( atrace.size() != it.atrace.size() )
+        return false;
+      for ( auto i = 0; i != atrace.size(); ++i )
+        if ( atrace[i].dicptr != it.atrace[i].dicptr )
+          return false;
+      return true;
+    }
+
+  inline
+  int   patriciaDump::iterator::CmpKey( const void* k1, size_t c1, const void* k2, size_t c2 )
+    {
+      size_t  cc = c1 <= c2 ? c1 : c2;
+      int     rc = memcmp( k1, k2, cc );
+
+      return rc != 0 ? rc : c1 - cc;
     }
 
   inline
@@ -989,20 +1005,108 @@ namespace mtc
       size_t  sublen;
 
     // вычитать первый из вложенных узлов
-      thepat.dicptr = ::FetchFrom( ::FetchFrom( stored, thepat.keylen ), thepat.nnodes );
-
-      if ( thepat.keylen != 0 )
-      {
-        keybuf.SetLen( (int)(keybuf.GetLen() + thepat.keylen) );
-        thepat.dicptr = ::FetchFrom( thepat.dicptr, (char*)keybuf + keybuf.size() - thepat.keylen, thepat.keylen );
-      }
-
+      thepat.keyptr = ::FetchFrom( ::FetchFrom( stored, thepat.keylen ), thepat.nnodes );
+      thepat.dicptr = thepat.keyptr + thepat.keylen;
       thepat.bvalue = (thepat.nnodes & 0x01) != 0;
       thepat.nnodes >>= 1;
       thepat.dicptr = ::FetchFrom( thepat.dicptr, sublen );
       thepat.endptr = thepat.dicptr + sublen;
 
       return thepat;
+    }
+
+  inline
+  typename patriciaDump::iterator&  patriciaDump::iterator::MoveTo( const uint8_t* key, size_t len )
+    {
+      const uint8_t*  keyptr = key;
+      const uint8_t*  keyend = key + len;
+      size_t          ntrace;
+
+    // пропустить уже совпадающую часть текущего ключа в итераторе с искомой последовательностью
+      for ( ntrace = 0; ntrace != atrace.size() && keyptr != keyend; keyptr += atrace[ntrace++].keylen )
+      {
+        if ( keyptr + atrace[ntrace].keylen > keyend )
+          break;
+        if ( memcmp( atrace[ntrace].keyptr, keyptr, atrace[ntrace].keylen ) != 0 )
+          break;
+      }
+
+    // укоротить текущий ключ в итераторе и трассу к нему до текущей совпадающей последовательности
+      while ( atrace.size() != ntrace )
+      {
+        patpos& thepos = atrace.last();
+
+        if ( atrace.size() > 1 )
+          atrace[atrace.size() - 2].dicptr = thepos.endptr;
+        atrace.SetLen( atrace.GetLen() - 1 );
+      }
+
+    // итеративно сместить позицию сканирования дерева на первый ключ, больше либо равный искомому
+      while ( atrace.size() != 0 )
+      {
+        patpos& thepos = atrace.last();
+
+      // если узел - последний, проверить остаток ключа и, если нашли, вернуть его
+        if ( thepos.bvalue )
+        {
+          if ( keyptr == keyend ) thepos.bvalue = false;
+            else atrace.SetLen( 0 );
+          break;
+        }
+
+      // если узел имеет вложенные узлы, вычитать очередной вложенный узел и сравнить его ключ с искомым
+        if ( thepos.nnodes != 0 )
+        {
+          assert( keyptr >= key );
+          assert( thepos.keylen <= (size_t)(keyptr - key) );
+          assert( memcmp( keyptr - thepos.keylen, thepos.keyptr, thepos.keylen ) == 0 );
+
+          patpos  patnew = GetPat( thepos.dicptr );
+          int     rescmp = CmpKey( patnew.keyptr, patnew.keylen, keyptr, keyend - keyptr );
+
+          --thepos.nnodes;
+            thepos.dicptr = patnew.endptr;
+
+        // если ключ на следующем уровне меньше минимального искомого ключа, пропустить его
+        // и перейти к следующему ключу этого уровня
+          if ( rescmp >= 0 )  atrace.Append( patnew );
+            else continue;
+
+        // если ключ следующего уровня больше искомого ключа, завершить поиск, перейдя на ветку
+        // простого вычитывания пеового ключа (Tonext)
+        // иначе ключи равны; перейти на следующий уровень вложенности поиска по дереву
+          if ( rescmp > 0 ) return Tonext();
+            else  keyptr += patnew.keylen;
+        }
+          else
+        break;
+      }
+
+      return SetKey();
+    }
+
+  inline
+  typename patriciaDump::iterator&  patriciaDump::iterator::SetKey()
+    {
+      char* chrtop = achars;
+      char* chrend = achars + achars.size();
+
+      for ( const auto& t: atrace )
+        {
+          if ( chrtop + t.keylen > chrend )
+          {
+            auto  ofbase = chrtop - achars;
+
+            achars.SetLen( ((chrtop - achars) + t.keylen + 0xff) & ~0xff );
+
+            chrtop = achars + ofbase;
+            chrend = achars + achars.size();
+          }
+          chrtop = t.keylen + (char*)memcpy( chrtop, t.keyptr, t.keylen );
+        }
+
+      len = chrtop - (ptr = (const char*)achars);
+      return *this;
     }
 
   inline
@@ -1015,7 +1119,7 @@ namespace mtc
         if ( thepos.bvalue )
         {
           thepos.bvalue = false;
-          return setkey();
+          return SetKey();
         }
         if ( thepos.nnodes != 0 )
         {
@@ -1029,11 +1133,10 @@ namespace mtc
         {
           if ( atrace.size() > 1 )
             atrace[atrace.size() - 2].dicptr = thepos.endptr;
-          keybuf.SetLen( (int)(keybuf.GetLen() - thepos.keylen) );
           atrace.SetLen( atrace.GetLen() - 1 );
         }
       }
-      return setkey();
+      return SetKey();
     }
 
   template <class A>
