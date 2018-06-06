@@ -120,18 +120,6 @@ namespace mtc
   typedef xvalue<>  XValue;
   typedef zarray<>  ZArray;
 
-  struct zarray_exception
-  {
-    zarray_exception( int err, const char* msg = nullptr, const char* szfile = nullptr, int lineid = 0 ):
-      nerror( err ), message( msg ), file( szfile ), line( lineid ) {}
-
-  protected:  // variables
-    int         nerror;
-    const char* message;
-    const char* file;
-    int         line;
-  };
-
   /*
     xvalue handles any data in local buffer; data may be accessed by accessor methods
   */
@@ -827,10 +815,23 @@ public:     // set_?? methods
   {
     mutable M malloc; // used memory allocator
 
-  public:
-    /*  integer key to string value conversion                  */
+  public:     /*  integer key to string and reverse value conversion  */
     static  size_t    int_to_key( byte_t* out, unsigned key );
     static  unsigned  key_to_int( const char* src, size_t len );
+
+  public:     /* special exceptions */
+    class error
+    {
+      int         nerror;
+      const char* message;
+      const char* file;
+      int         line;
+
+    public:     // construction
+      error( int err, const char* msg = nullptr, const char* szfile = nullptr, int lineid = 0 ):
+        nerror( err ), message( msg ), file( szfile ), line( lineid ) {}
+
+    };
 
   public:             // allocator
     M&    GetAllocator() const        {  return malloc;     }
@@ -849,9 +850,9 @@ public:     // set_?? methods
         xvalue<M>*  pv;
 
         if ( (za = xv->get_zarray()) == nullptr
-          && (za = xv->set_zarray()) == nullptr )  throw zarray_exception( ENOMEM, "Out of memory", __FILE__, __LINE__ );
+          && (za = xv->set_zarray()) == nullptr )  throw error( ENOMEM, "Out of memory", __FILE__, __LINE__ );
         if ( (pv = za->get_xvalue( r.thekey )) == nullptr
-          && (pv = za->put_xvalue( r.thekey )) == nullptr ) throw zarray_exception( ENOMEM, "Out of memory", __FILE__, __LINE__ );
+          && (pv = za->put_xvalue( r.thekey )) == nullptr ) throw error( ENOMEM, "Out of memory", __FILE__, __LINE__ );
         return pv;
       }
     template <class K>
@@ -859,7 +860,7 @@ public:     // set_?? methods
       {
         xvalue<M>*  pv;
         if ( (pv = ((zarray<M>*)&r.parent)->get_xvalue( r.thekey )) == nullptr
-          && (pv = ((zarray<M>*)&r.parent)->put_xvalue( r.thekey )) == nullptr ) throw zarray_exception( ENOMEM, "Out of memory", __FILE__, __LINE__ );
+          && (pv = ((zarray<M>*)&r.parent)->put_xvalue( r.thekey )) == nullptr ) throw error( ENOMEM, "Out of memory", __FILE__, __LINE__ );
         return pv;
       }
     template <class R, class K>
