@@ -67,7 +67,7 @@ namespace mtc
     const char* e;
 
   public:     // construction
-    sourcebuf( const void* t = nullptr, size_t l = 0 ): p( (char*)t ), e( l + (char*)t ) {}
+    sourcebuf( const void* t = nullptr, size_t l = 0 ) noexcept: p( (char*)t ), e( l + (char*)t ) {}
     sourcebuf( const sourcebuf& s ): p( s.p ), e( s.e ) {}
     sourcebuf&  operator = ( const sourcebuf& s )
       {

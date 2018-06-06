@@ -233,7 +233,7 @@ namespace mtc
     M     allocatorObject;
 
   public:     // construction
-          array( int adelta = 0x10 );
+          array( int adelta = 0x10 ) noexcept;
           array( M& m, int adelta = 0x10 );
           array( const array<T, M>& );
           array( array<T, M>&& );
@@ -470,7 +470,7 @@ namespace mtc
 // array inline implementation
 
   template <class T, class M>
-  array<T, M>::array( int adelta ):
+  array<T, M>::array( int adelta ) noexcept:
     pitems( nullptr ), ncount( 0 ), nlimit( 0 ), ndelta( adelta <= 0 ? 0x10 : adelta )
   {
   }

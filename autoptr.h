@@ -64,10 +64,10 @@ namespace mtc
     T*  p;
 
   public:
-    _auto_( T* v = nullptr ): p( v )
+    _auto_( T* v = nullptr ) noexcept: p( v )
       {
       }
-    _auto_( const _auto_& a ): p( a.p )
+    _auto_( const _auto_& a ) noexcept: p( a.p )
       {
         ((_auto_<T, M>&)a).p = nullptr;
       }
