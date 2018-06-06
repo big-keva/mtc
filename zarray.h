@@ -114,39 +114,6 @@ namespace mtc
   inline  bool  z_is_float_type( const unsigned zt )    {  return zt == z_float || zt == z_double;  }
   inline  bool  z_is_string_type( const unsigned zt )   {  return zt == z_charstr || zt == z_widestr;   }
 
-  /*  integer key to string value conversion                  */
-  inline  int       zarray_int_to_key( byte_t* outkey, unsigned  ndwkey )
-  {
-    if ( (*outkey = (ndwkey >> 0x18)) != 0 )
-    {
-      *++outkey = (ndwkey >> 0x10);
-      *++outkey = (ndwkey >> 0x08);
-      *++outkey = (ndwkey >> 0x00);
-      return 4;
-    }
-    if ( (*outkey = (ndwkey >> 0x10)) != 0 )
-    {
-      *++outkey = (ndwkey >> 0x08);
-      *++outkey = (ndwkey >> 0x00);
-      return 3;
-    }
-    if ( (*outkey = (ndwkey >> 0x08)) != 0 )
-    {
-      *++outkey = (ndwkey >> 0x00);
-      return 2;
-    }
-    return (*outkey = (ndwkey >> 0x00)) != 0 ? 1 : 0;
-  }
-
-  inline  unsigned  zarray_key_to_int( const char* srckey, int ntrace )
-  {
-    unsigned  intkey = 0;
-
-    for ( auto i = 0; i < ntrace; ++i )
-      intkey = (intkey << 8) + (unsigned char)*srckey++;
-    return intkey;
-  }
-
   template <class M = def_alloc>  class zarray;
   template <class M = def_alloc>  class xvalue;
 
@@ -860,6 +827,11 @@ public:     // set_?? methods
   {
     mutable M malloc; // used memory allocator
 
+  public:
+    /*  integer key to string value conversion                  */
+    static  size_t    int_to_key( byte_t* out, unsigned key );
+    static  unsigned  key_to_int( const char* src, size_t len );
+
   public:             // allocator
     M&    GetAllocator() const        {  return malloc;     }
     M&    SetAllocator( const M& m )  {  return malloc = m; }
@@ -1037,7 +1009,7 @@ public:     // set_?? methods
 
     public:     // types
       operator unsigned() const
-        {  return keyset == 0 ? zarray_key_to_int( keybuf, keylen ) : 0;  }
+        {  return keyset == 0 ? key_to_int( keybuf, keylen ) : 0;  }
       operator const char*() const
         {  return keyset == 1 ? (const char*)keybuf : nullptr;  }
       operator const widechar*() const
@@ -1161,7 +1133,7 @@ public:     // set_?? methods
       {
         byte_t  thekey[4];
 
-        return put_xvalue( thekey, zarray_int_to_key( thekey, ndwkey ), 0 );
+        return put_xvalue( thekey, int_to_key( thekey, ndwkey ), 0 );
       }
     xvalue<M>*  put_xvalue( const char*  pszkey )
       {
@@ -1192,7 +1164,7 @@ public:     // set_?? methods
       {
         byte_t  thekey[4];
 
-        return zhandler != nullptr ? zhandler->search( thekey, zarray_int_to_key( thekey, ndwkey ) ) : nullptr;
+        return zhandler != nullptr ? zhandler->search( thekey, int_to_key( thekey, ndwkey ) ) : nullptr;
       }
     const ztree*  get_untyped( const char*  pszkey ) const
       {
@@ -2005,6 +1977,42 @@ namespace mtc
     }
   }
 
+  // zarray helpers
+
+  template <class M>
+  inline  size_t  zarray<M>::int_to_key( byte_t* out, unsigned  key )
+  {
+    if ( (*out = (key >> 0x18)) != 0 )
+    {
+      *++out = (key >> 0x10);
+      *++out = (key >> 0x08);
+      *++out = (key >> 0x00);
+      return 4;
+    }
+    if ( (*out = (key >> 0x10)) != 0 )
+    {
+      *++out = (key >> 0x08);
+      *++out = (key >> 0x00);
+      return 3;
+    }
+    if ( (*out = (key >> 0x08)) != 0 )
+    {
+      *++out = (key >> 0x00);
+      return 2;
+    }
+    return (*out = key) != 0 ? 1 : 0;
+  }
+
+  template <class M>
+  inline  unsigned  zarray<M>::key_to_int( const char* key, size_t len )
+  {
+    unsigned  out = 0;
+
+    for ( auto end = key + len; key != end; )
+      out = (out << 8) + (unsigned char)*key++;
+    return out;
+  }
+
   // zarray::ztree implementation
 
   template <class M>
@@ -2667,7 +2675,7 @@ namespace mtc
   {
     byte_t  thekey[4];
 
-    return serial_get_untyped( s, thekey, zarray_int_to_key( thekey, k ), 0 );
+    return serial_get_untyped( s, thekey, int_to_key( thekey, k ), 0 );
   }
 
   template <class M> template <class S>

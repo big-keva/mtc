@@ -155,8 +155,8 @@ namespace mtc
         }
       const  Revive*  Search( unsigned  k ) const
         {
-          byte_t  thekey[4];                                                                                \
-          return search( thekey, zarray_int_to_key( thekey, k ), z_word32 );
+          byte_t  thekey[4];
+          return search( thekey, zarray<>::int_to_key( thekey, k ), z_word32 );
         }
       const  Revive*  Search( const char* k ) const
         {  return search( k, (unsigned)w_strlen( k ), z_charstr );  }
@@ -176,13 +176,13 @@ namespace mtc
     template <class M = def_alloc>  Revive* add_##_type_( unsigned thekey, Revive* fsnext = nullptr )                         \
     {                                                                                                                         \
       byte_t  strkey[4];                                                                                                      \
-      return Revive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nullptr );         \
+      return Revive::Create<M>( z_word32, z_##_type_, strkey, zarray<>::int_to_key( strkey, thekey ), fsnext, nullptr );      \
     }                                                                                                                         \
-    template <class M = def_alloc>  Revive* add_##_type_( const char* thekey, Revive* fsnext = nullptr )              \
+    template <class M = def_alloc>  Revive* add_##_type_( const char* thekey, Revive* fsnext = nullptr )                      \
     {                                                                                                                         \
-      return Revive::Create<M>( z_charstr, z_##_type_, thekey, (unsigned)w_strlen( thekey ), fsnext, nullptr );           \
+      return Revive::Create<M>( z_charstr, z_##_type_, thekey, (unsigned)w_strlen( thekey ), fsnext, nullptr );               \
     }                                                                                                                         \
-    template <class M = def_alloc>  Revive* add_##_type_( const widechar* thekey, Revive* fsnext = nullptr )          \
+    template <class M = def_alloc>  Revive* add_##_type_( const widechar* thekey, Revive* fsnext = nullptr )                  \
     {                                                                                                                         \
       return Revive::Create<M>( z_widestr, z_##_type_, thekey, (unsigned)(sizeof(widechar) * w_strlen( thekey )), fsnext, nullptr );  \
     }
@@ -218,7 +218,7 @@ namespace mtc
     template <class M = def_alloc>  Revive* add_##_type_( unsigned  thekey, Revive* nested, Revive* fsnext = nullptr )              \
     {                                                                                                                               \
       byte_t  strkey[4];                                                                                                            \
-      return Revive::Create<M>( z_word32, z_##_type_, strkey, zarray_int_to_key( strkey, thekey ), fsnext, nested );                \
+      return Revive::Create<M>( z_word32, z_##_type_, strkey, zarray<>::int_to_key( strkey, thekey ), fsnext, nested );                \
     }                                                                                                                               \
     template <class M = def_alloc>  Revive*  add_##_type_( const char* szname, Revive* nested, Revive* fsnext = nullptr )           \
     {                                                                                                                               \
