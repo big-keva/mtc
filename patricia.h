@@ -135,7 +135,11 @@ namespace mtc
       pat_node* p_next = nullptr;
       pat_node* p_list = nullptr;
       uint32_t  uflags;
-      char      cvalue[sizeof(V)];
+      union
+      {
+        char    cdummy;
+        V       vvalue;
+      };
       char      strkey[1];
 
     public:
@@ -161,8 +165,8 @@ namespace mtc
 
             void      delval();
 
-            V*        getval()        {  return (uflags & 0x80000000) != 0 ? (      V*)cvalue : nullptr;  }
-      const V*        getval() const  {  return (uflags & 0x80000000) != 0 ? (const V*)cvalue : nullptr;  }
+            V*        getval()        {  return (uflags & 0x80000000) != 0 ? &vvalue : nullptr;  }
+      const V*        getval() const  {  return (uflags & 0x80000000) != 0 ? &vvalue : nullptr;  }
 
             V*        setval( const V& );
             V*        setval( V&& );
@@ -371,7 +375,7 @@ namespace mtc
   patriciaTree<V, M>::pat_node::~pat_node()
     {
       if ( hasval() )
-        ((V*)cvalue)->~V();
+        getval()->~V();
     }
 
   template <class V, class M>
@@ -590,19 +594,19 @@ namespace mtc
   template <class V, class M>
   V*    patriciaTree<V, M>::pat_node::setval( const V& v )
     {
-      if ( (uflags & 0x80000000) != 0 )
-        ((V*)cvalue)->~V();
+      if ( hasval() )
+        getval()->~V();
       uflags |= 0x80000000;
-        return new( (V*)cvalue ) V( v );
+        return new( &vvalue ) V( v );
     }
 
   template <class V, class M>
   V*    patriciaTree<V, M>::pat_node::setval( V&& v )
     {
-      if ( (uflags & 0x80000000) != 0 )
-        ((V*)cvalue)->~V();
+      if ( hasval() )
+        getval()->~V();
       uflags |= 0x80000000;
-        return new( (V*)cvalue ) V( v );
+        return new( &vvalue ) V( v );
     }
 
   template <class V, class M>
@@ -611,7 +615,7 @@ namespace mtc
       size_t    arsize = 0;
       size_t    ccharr = 0;
       size_t    curlen = keylen();
-      const V*  pvalue = (uflags & 0x80000000) != 0 ? (const V*)cvalue : nullptr;
+      const V*  pvalue = getval();
 
       for ( auto p = p_list; p != nullptr; p = p->p_next, arsize += 2 )
         {
@@ -696,7 +700,7 @@ namespace mtc
       size_t    arsize = 0;
       size_t    ccharr = 0;
       size_t    curlen = keylen();
-      const V*  pvalue = (uflags & 0x80000000) != 0 ? (const V*)cvalue : nullptr;
+      const V*  pvalue = getval();
 
       for ( auto p = p_list; p != nullptr; p = p->p_next, arsize += 2 )
         {
