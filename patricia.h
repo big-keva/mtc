@@ -375,7 +375,7 @@ namespace mtc
   patriciaTree<V, M>::pat_node::~pat_node()
     {
       if ( hasval() )
-        getval()->~V();
+        vvalue.~V();
     }
 
   template <class V, class M>
@@ -577,8 +577,8 @@ namespace mtc
   template <class V, class M>
   void  patriciaTree<V, M>::pat_node::delval()
     {
-      if ( (uflags & 0x80000000) != 0 )
-        ((V*)cvalue)->~V();
+      if ( hasval() )
+        vvalue.~V();
       uflags &= ~0x80000000;
     }
 
@@ -595,7 +595,7 @@ namespace mtc
   V*    patriciaTree<V, M>::pat_node::setval( const V& v )
     {
       if ( hasval() )
-        getval()->~V();
+        vvalue.~V();
       uflags |= 0x80000000;
         return new( &vvalue ) V( v );
     }
@@ -604,7 +604,7 @@ namespace mtc
   V*    patriciaTree<V, M>::pat_node::setval( V&& v )
     {
       if ( hasval() )
-        getval()->~V();
+        vvalue.->~V();
       uflags |= 0x80000000;
         return new( &vvalue ) V( v );
     }
