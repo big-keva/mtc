@@ -604,7 +604,7 @@ namespace mtc
   V*    patriciaTree<V, M>::pat_node::setval( V&& v )
     {
       if ( hasval() )
-        vvalue.->~V();
+        vvalue.~V();
       uflags |= 0x80000000;
         return new( &vvalue ) V( v );
     }
