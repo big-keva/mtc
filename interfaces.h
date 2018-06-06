@@ -86,21 +86,21 @@ namespace mtc
     mutable iface*  piface;
 
   public:       // construction/destruction
-    api( iface* p = nullptr )
+    api( iface* p = nullptr ) noexcept
       {
         if ( (piface = p) != nullptr )
           attach()( p );
       }
-    api( const api& a )
+    api( const api& a ) noexcept
       {
         if ( (piface = a.piface) != nullptr )
           attach()( piface );
       }
-    api( api&& a ): piface( a.piface )
+    api( api&& a ) noexcept: piface( a.piface )
       {
         a.piface = nullptr;
       }
-    api( const API<iface, attach, detach>& a )
+    api( const API<iface, attach, detach>& a ) noexcept
       {
         if ( (piface = a.ptr()) != nullptr )
           attach()( piface );
@@ -325,7 +325,7 @@ namespace mtc
 
   struct reference_counter: public std::atomic_int
   {
-    reference_counter(): std::atomic_int( 0 ) {}
+    reference_counter() noexcept: std::atomic_int( 0 ) {}
   };
 
 }  // mtc namespace
