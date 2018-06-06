@@ -309,7 +309,7 @@ namespace mtc
   class range
   {
   public:
-    range(): l( 0 ), h( INT_MAX ) {}
+    range() noexcept: l( 0 ), h( INT_MAX ) {}
     range( int lo, int up ): l( lo ), h( up ) {}
     range( int lh ): l( lh ), h( lh ) {}
 
