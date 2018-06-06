@@ -173,7 +173,51 @@ namespace mtc
   {
     mutable M malloc;
     byte_t    vxtype;
-    char      chdata[sizeof(array<char, M>)];
+
+    union
+    {
+    # define derive_var( _type_ ) _type_##_t  v_##_type_
+      derive_var( char );
+      derive_var( byte );
+      derive_var( int16 );
+      derive_var( word16 );
+      derive_var( int32 );
+      derive_var( word32 );
+      derive_var( int64 );
+      derive_var( word64 );
+      derive_var( float );
+      derive_var( double );
+    # undef derive_var
+
+      char*       v_charstr;
+      widechar*   v_widestr;
+//      buffer    v_buffer;
+      zarray<M>   v_zarray;
+
+    # define derive_arr( _type_ ) array<_type_##_t, M>  v_array_##_type_
+      derive_arr( char );
+      derive_arr( byte );
+      derive_arr( int16 );
+      derive_arr( word16 );
+      derive_arr( int32 );
+      derive_arr( word32 );
+      derive_arr( int64 );
+      derive_arr( word64 );
+      derive_arr( float );
+      derive_arr( double );
+    # undef derive_arr
+
+      array<_auto_<char, M>, M>     v_array_charstr;
+      array<_auto_<widechar, M>, M> v_array_widestr;
+//      array<, M>z_array_buffer  = 50,
+      array<zarray<M>, M>           v_array_zarray;
+      array<xvalue<M>, M>           v_array_xvalue;
+    };
+
+    template <class hack, class... args>
+    hack*   construct( hack* h, args... aset )  {  return new( h ) hack( aset... );  }
+    template <class hack>
+    void    destruct ( hack* h )                {  if ( h != nullptr )  h->~hack();  }
 
   public:             // allocator
     M&    GetAllocator() const        {  return malloc;     }
@@ -236,40 +280,49 @@ namespace mtc
 
           case z_array_charstr:
             {
-              array<_auto_<char, M>, M>&  a = *o.set_array_charstr();
-              const array<_auto_<char, M>, M>&  s = *get_array_charstr();
+              auto& a = *o.set_array_charstr();
+              auto& s = *  get_array_charstr();
 
-              return s.for_each( [&a]( const _auto_<char, M>& s )
-                {
-                  _auto_<char, M> p;
+              for ( auto str: s )
+              {
+                _auto_<char, M> p( w_strdup( a.GetAllocator(), str ) );
 
-                  return (p = w_strdup( a.GetAllocator(), s )) != nullptr ? a.Append( static_cast<_auto_<char, M>&&>( p ) ) : ENOMEM;
-                } ) == 0 ? o : xvalue();
+                if ( p == nullptr || a.Append( static_cast<_auto_<char, M>&&>( p ) ) != 0 )
+                  return xvalue();
+              }
+              
+              return o;
             }
           case z_array_widestr:
             {
-              array<_auto_<widechar, M>, M>&  a = *o.set_array_widestr();
-              const array<_auto_<widechar, M>, M>&  s = *get_array_widestr();
+              auto& a = *o.set_array_widestr();
+              auto& s = *  get_array_widestr();
 
-              return s.for_each( [&a]( const _auto_<widechar, M>& s )
-                {
-                  _auto_<widechar, M> p;
+              for ( auto str: s )
+              {
+                _auto_<widechar, M> p( w_strdup( a.GetAllocator(), str ) );
+                
+                if ( p == nullptr || a.Append( static_cast<_auto_<widechar, M>&&>( p ) ) != 0 )
+                  return xvalue();
+              }
 
-                  return (p = w_strdup( a.GetAllocator(), s )) != nullptr ? a.Append( p ) : ENOMEM;
-                } ) == 0 ? o : xvalue();
+              return o;
             }
 //          z_array_buffer  = 50,
           case z_array_xvalue:
             {
-              array<xvalue, M>&  a = *o.set_array_xvalue();
-              const array<xvalue, M>&  s = *get_array_xvalue();
+              auto& a = *o.set_array_xvalue();
+              auto& s = *  get_array_xvalue();
 
-              return s.for_each( [&a]( const xvalue& s )
-                {
-                  xvalue  c;
+              for ( auto x: s )
+              {
+                xvalue  c( x.copy() );
 
-                  return (c = s.copy()).gettype() != undefined_type ? a.Append( c ) : EFAULT;
-                } ) == 0 ? o : xvalue();
+                if ( c.gettype() == undefined_type || a.Append( c ) != 0 )
+                  return xvalue();
+              }
+
+              return o;
             }
           default:  break;
         }
@@ -298,87 +351,95 @@ namespace mtc
 
   public:     // get_? methods
 /* ordinal types */
-  # define  derive_get( _type_ )  \
-    const _type_##_t* get_##_type_() const {  return vxtype == z_##_type_ ? (const _type_##_t*)&chdata : nullptr;  }  \
-          _type_##_t* get_##_type_()       {  return vxtype == z_##_type_ ?       (_type_##_t*)&chdata : nullptr;  }
-      derive_get( char )
-      derive_get( byte )
-      derive_get( int16 )
-      derive_get( word16 )
-      derive_get( int32 )
-      derive_get( word32 )
-      derive_get( int64 )
-      derive_get( word64 )
-      derive_get( float )
-      derive_get( double )
-  # undef derive_get
+  # define  derive_get( _type_ )                                                                  \
+    const auto* get_##_type_() const  {  return vxtype == z_##_type_ ? &v_##_type_ : nullptr;  }  \
+          auto* get_##_type_()        {  return vxtype == z_##_type_ ? &v_##_type_ : nullptr;  }
+
+    derive_get( char )
+    derive_get( byte )
+    derive_get( int16 )
+    derive_get( word16 )
+    derive_get( int32 )
+    derive_get( word32 )
+    derive_get( int64 )
+    derive_get( word64 )
+    derive_get( float )
+    derive_get( double )
+    derive_get( zarray )
 
 /* regular strings  */
-    const char*       get_charstr() const {  return vxtype == z_charstr ? *(const char**)&chdata : nullptr;  }
-    const widechar*   get_widestr() const {  return vxtype == z_widestr ? *(const widechar**)&chdata : nullptr;  }
-          char*       get_charstr()       {  return vxtype == z_charstr ? *(char**)&chdata : nullptr;  }
-          widechar*   get_widestr()       {  return vxtype == z_widestr ? *(widechar**)&chdata : nullptr;  }
-
-/* special types: buffer and zarray */
-//    const char*     get_buffer() const {  return vxtype == z_charstr ? *(const char**)&chdata : nullptr;  }
-    const zarray<M>*  get_zarray() const  {  return vxtype == z_zarray ? (const zarray<M>*)&chdata : nullptr;  }
-          zarray<M>*  get_zarray()        {  return vxtype == z_zarray ? (zarray<M>*)&chdata : nullptr;  }
-
-    const void*       get_holder() const  {  return &chdata;  }
-          void*       get_holder()        {  return &chdata;  }
+    const char*       get_charstr() const {  return vxtype == z_charstr ? v_charstr : nullptr;  }
+          char*       get_charstr()       {  return vxtype == z_charstr ? v_charstr : nullptr;  }
+    const widechar*   get_widestr() const {  return vxtype == z_widestr ? v_widestr : nullptr;  }
+          widechar*   get_widestr()       {  return vxtype == z_widestr ? v_widestr : nullptr;  }
 
 /* arrays */
-  # define  derive_get( _type_ )  \
-    const array<_type_##_t>*  get_array_##_type_() const                                      \
-      {  return vxtype == z_array_##_type_ ? (const array<_type_##_t>*)&chdata : nullptr;  }  \
-          array<_type_##_t>*  get_array_##_type_()                                            \
-      {  return vxtype == z_array_##_type_ ? (array<_type_##_t>*)&chdata : nullptr;  } 
-      derive_get( char )
-      derive_get( byte )
-      derive_get( int16 )
-      derive_get( int32 )
-      derive_get( word16 )
-      derive_get( word32 )
-      derive_get( int64 )
-      derive_get( word64 )
-      derive_get( float )
-      derive_get( double )
+    derive_get( array_char )
+    derive_get( array_byte )
+    derive_get( array_int16 )
+    derive_get( array_int32 )
+    derive_get( array_word16 )
+    derive_get( array_word32 )
+    derive_get( array_int64 )
+    derive_get( array_word64 )
+    derive_get( array_float )
+    derive_get( array_double )
+    derive_get( array_charstr )
+    derive_get( array_widestr )
+    derive_get( array_zarray )
+    derive_get( array_xvalue )
+
   # undef derive_get
 
-/* special arrays */
-  const array<_auto_<char, M>, M>*  get_array_charstr() const
-    {  return vxtype == z_array_charstr ? (const array<_auto_<char, M>, M>*)&chdata : nullptr;  }
-  array<_auto_<char, M>, M>*        get_array_charstr()
-    {  return vxtype == z_array_charstr ? (array<_auto_<char, M>, M>*)&chdata : nullptr;  }
-  const array<_auto_<widechar, M>, M>*  get_array_widestr() const
-    {  return vxtype == z_array_charstr ? (const array<_auto_<widechar, M>, M>*)&chdata : nullptr;  }
-  array<_auto_<widechar, M>, M>*        get_array_widestr()
-    {  return vxtype == z_array_charstr ? (array<_auto_<widechar, M>, M>*)&chdata : nullptr;  }
-  const array<zarray<M>, M>*            get_array_zarray() const
-    {  return vxtype == z_array_zarray  ? (const array<zarray<M>, M>*)&chdata : nullptr;  }
-  array<zarray<M>, M>*                  get_array_zarray()
-    {  return vxtype == z_array_zarray ? (array<zarray<M>, M>*)&chdata : nullptr;  }
-  const array<xvalue<M>, M>*            get_array_xvalue() const
-    {  return vxtype == z_array_xvalue  ? (const array<xvalue<M>, M>*)&chdata : nullptr;  }
-  array<xvalue<M>, M>*                  get_array_xvalue()
-    {  return vxtype == z_array_xvalue ? (array<xvalue<M>, M>*)&chdata : nullptr;  }
+    const void*       get_holder() const  {  return &v_charstr;  }
+          void*       get_holder()        {  return &v_charstr;  }
 
 public:     // set_?? methods
 /* ordinal types */
-  # define  derive_set( _type_ )                                                                  \
-    _type_##_t* set_##_type_( _type_##_t v = 0 )                                                  \
-      {  delete_data();  vxtype = z_##_type_;  return new( (_type_##_t*)&chdata ) _type_##_t( v );  }
+  # define  derive_set( _type_ )              \
+    auto  set_##_type_( _type_##_t v = 0 )    \
+      {                                       \
+        delete_data();  vxtype = z_##_type_;  \
+        return construct( &v_##_type_, v );   \
+      }
 
-      derive_set( char )
-      derive_set( byte )
-      derive_set( int16 )
-      derive_set( word16 )
-      derive_set( int32 )
-      derive_set( word32 )
-      derive_set( int64 )
-      derive_set( word64 )
-      derive_set( float )
-      derive_set( double )
+    derive_set( char )
+    derive_set( byte )
+    derive_set( int16 )
+    derive_set( word16 )
+    derive_set( int32 )
+    derive_set( word32 )
+    derive_set( int64 )
+    derive_set( word64 )
+    derive_set( float )
+    derive_set( double )
+
+  # undef derive_set
+
+/* set_array_#() macrogeneration  */
+  # define derive_set( _type_ )               \
+    auto  set_##_type_()                      \
+      {                                       \
+        delete_data();  vxtype = z_##_type_;  \
+        return construct( &v_##_type_ );      \
+      }
+
+    derive_set( array_char )
+    derive_set( array_byte )
+    derive_set( array_int16 )
+    derive_set( array_word16 )
+    derive_set( array_int32 )
+    derive_set( array_word32 )
+    derive_set( array_int64 )
+    derive_set( array_word64 )
+    derive_set( array_float )
+    derive_set( array_double )
+
+    derive_set( array_charstr )
+    derive_set( array_widestr )
+    derive_set( array_zarray )
+    derive_set( array_xvalue )
+
   # undef derive_set
 
 /* regular strings  */
@@ -389,16 +450,16 @@ public:     // set_?? methods
 
         delete_data();
 
-        if ( (*(char**)&chdata = (char*)GetAllocator().alloc( cchstr + 1 )) == nullptr )
+        if ( (v_charstr = (char*)GetAllocator().alloc( cchstr + 1 )) == nullptr )
           return nullptr;
 
         if ( pszstr != nullptr )
-          memcpy( *(char**)&chdata, pszstr, cchstr );
+          memcpy( v_charstr, pszstr, cchstr );
 
-        (*(char**)&chdata)[cchstr] = '\0';
+        v_charstr[cchstr] = '\0';
           vxtype = z_charstr;
 
-        return *(char**)&chdata;
+        return v_charstr;
       }
     widechar* set_widestr( const widechar*  pszstr, size_t  cchstr = (size_t)-1 )
       {
@@ -407,77 +468,27 @@ public:     // set_?? methods
 
         delete_data();
 
-        if ( (*(widechar**)&chdata = (widechar*)GetAllocator().alloc( sizeof(widechar) * (cchstr + 1) )) == nullptr )
+        if ( (v_widestr = (widechar*)GetAllocator().alloc( sizeof(widechar) * (cchstr + 1) )) == nullptr )
           return nullptr;
 
         if ( pszstr != nullptr )
-          memcpy( *(widechar**)&chdata, pszstr, sizeof(widechar) * cchstr );
+          memcpy( v_widestr, pszstr, sizeof(widechar) * cchstr );
 
-        (*(widechar**)&chdata)[cchstr] = 0;
+        v_widestr[cchstr] = 0;
           vxtype = z_widestr;
 
-        return *(widechar**)&chdata;
+        return v_widestr;
       }
     char*&  set_charstr()
-      {  delete_data();  vxtype = z_charstr;  return *(char**)&chdata = nullptr;  }
+      {  delete_data();  vxtype = z_charstr;  return v_charstr = nullptr;  }
     widechar*&  set_widestr()
-      {  delete_data();  vxtype = z_widestr;  return *(widechar**)&chdata = nullptr;  }
+      {  delete_data();  vxtype = z_widestr;  return v_widestr = nullptr;  }
 
 /* special types: buffer, zarray and array(s) */
     zarray<M>*  set_zarray( M& m )
-      {
-        delete_data();
-        vxtype = z_zarray;
-        return new( (zarray<M>*)&chdata ) zarray<M>( m );
-      }
+      {  delete_data();  vxtype = z_zarray;   return construct( &v_zarray, m ); }
     zarray<M>*  set_zarray( const zarray<M>& z = zarray<M>() )
-      {
-        delete_data();
-        vxtype = z_zarray;
-        return new( (zarray<M>*)&chdata ) zarray<M>( z );
-      }
-
-/*
-  set_array_#() macrogeneration
-*/
-  # define  derive_set_array( _type_ )                                        \
-    array<_type_##_t, M>*  set_array_##_type_()                               \
-    {                                                                         \
-      delete_data();  vxtype = z_array_##_type_;                              \
-      return new( (array<_type_##_t, M>*)&chdata ) array<_type_##_t, M>();    \
-    }
-    derive_set_array( char )
-    derive_set_array( byte )
-    derive_set_array( int16 )
-    derive_set_array( word16 )
-    derive_set_array( int32 )
-    derive_set_array( word32 )
-    derive_set_array( int64 )
-    derive_set_array( word64 )
-    derive_set_array( float )
-    derive_set_array( double )
-  # undef derive_set_array
-
-    array<_auto_<char, M>, M>*      set_array_charstr()
-      {
-        delete_data();  vxtype = z_array_charstr;
-        return new( (array<_auto_<char, M>, M>*)&chdata ) array<_auto_<char, M>, M>();
-      }
-    array<_auto_<widechar, M>, M>*  set_array_widestr()
-      {
-        delete_data();  vxtype = z_array_widestr;
-        return new( (array<_auto_<widechar, M>, M>*)&chdata ) array<_auto_<widechar, M>, M>();
-      }
-    array<zarray<M>, M>*            set_array_zarray()
-      {
-        delete_data();  vxtype = z_array_zarray;
-        return new( (array<zarray<M>, M>*)&chdata ) array<zarray<M>, M>();
-      }
-    array<xvalue<M>, M>*            set_array_xvalue()
-      {
-        delete_data();  vxtype = z_array_xvalue;
-        return new( (array<xvalue<M>, M>*)&chdata )array<xvalue<M>, M>();
-      }
+      {  delete_data();  vxtype = z_zarray;   return construct( &v_zarray, z ); }
 
   protected:  // arithmetic helpers
     template <class A, class B> static  xvalue  GetMul( A a, B b )  {  return a * b;  }
@@ -815,29 +826,29 @@ public:     // set_?? methods
       {
         switch ( vxtype )
         {
-//          case z_buffer:  __safe_array_destruct( (_freebuffer_*)&chdata, 1 ); break;
-          case z_charstr:
-          case z_widestr: GetAllocator().free( *(char**)&chdata );          break;
-          case z_zarray:  __safe_array_destruct( (zarray<M>*)&chdata, 1 );  break;
+          case z_charstr: GetAllocator().free( v_charstr );  break;
+          case z_widestr: GetAllocator().free( v_widestr );  break;
 
-      # define derive_destruct( _type_ )          \
-        case  z_array_##_type_: __safe_array_destruct( (array<_type_##_t, M>*)&chdata, 1 );  break;
-          derive_destruct( char )
-          derive_destruct( byte )
-          derive_destruct( int16 )
-          derive_destruct( word16 )
-          derive_destruct( int32 )
-          derive_destruct( word32 )
-          derive_destruct( int64 )
-          derive_destruct( word64 )
-          derive_destruct( float )
-          derive_destruct( double )
+      # define derive_destruct( _type_ )  case  z_##_type_: destruct( &v_##_type_ );  break;
+
+          derive_destruct( zarray )
+          derive_destruct( array_char )
+          derive_destruct( array_byte )
+          derive_destruct( array_int16 )
+          derive_destruct( array_word16 )
+          derive_destruct( array_int32 )
+          derive_destruct( array_word32 )
+          derive_destruct( array_int64 )
+          derive_destruct( array_word64 )
+          derive_destruct( array_float )
+          derive_destruct( array_double )
+          derive_destruct( array_charstr )
+          derive_destruct( array_widestr )
+          derive_destruct( array_zarray )
+          derive_destruct( array_xvalue )
+
       # undef derive_destruct
 
-          case z_array_charstr: __safe_array_destruct( (array<_auto_<char, M>, M>*)&chdata, 1 );  break;
-          case z_array_widestr: __safe_array_destruct( (array<_auto_<widechar, M>, M>*)&chdata, 1 );  break;
-          case z_array_zarray:  __safe_array_destruct( (array<zarray<M>, M>*)&chdata, 1 );  break;
-          case z_array_xvalue:  __safe_array_destruct( (array<xvalue<M>, M>*)&chdata, 1 );  break;
           default:  break;
         }
         vxtype = 0xff;
@@ -921,8 +932,8 @@ public:     // set_?? methods
       derive_operator( float )
       derive_operator( double )
     # undef derive_operator
-      operator zarray () const  {  const xvalue<M>* p;  return (p = get_xvalue( *this )) != nullptr ? *p->get_zarray() : zarray();  }
-      operator const char* () const {  const xvalue<M>* p;  return (p = get_xvalue( *this )) != nullptr ? p->get_charstr() : nullptr;  }
+      operator zarray () const          {  const xvalue<M>* p;  return (p = get_xvalue( *this )) != nullptr ? *p->get_zarray() : zarray();  }
+      operator const char* () const     {  const xvalue<M>* p;  return (p = get_xvalue( *this )) != nullptr ? p->get_charstr() : nullptr;  }
       operator const widechar* () const {  const xvalue<M>* p;  return (p = get_xvalue( *this )) != nullptr ? p->get_widestr() : nullptr;  }
 
   /*
@@ -949,9 +960,9 @@ public:     // set_?? methods
       derive_setval( float )
       derive_setval( double )
     # undef derive_setval
-      zarray&     set_zarray( const zarray& z = zarray() )  {  return *get_xvalue( *this )->set_zarray( z );  }
-      const char* set_charstr( const char* s )              {  return get_xvalue( *this )->set_charstr( s );  }
-      const char* set_widestr( const widechar* w )          {  return get_xvalue( *this )->set_widestr( w );  }
+      zarray& set_zarray( const zarray& z = zarray() )  {  return *get_xvalue( *this )->set_zarray( z );  }
+      auto    set_charstr( const char* s )              {  return get_xvalue( *this )->set_charstr( s );  }
+      auto    set_widestr( const widechar* w )          {  return get_xvalue( *this )->set_widestr( w );  }
 
   /*
     zarray[key] = ...
@@ -959,19 +970,19 @@ public:     // set_?? methods
     assignment operators - set typed value with automatic type detection
   */
     public:     // zarray[key] = assignment
-      char&           operator = ( char c )             {  return set_char( c );    }
-      byte_t&         operator = ( byte_t b )           {  return set_byte( b );    }
-      int16_t&        operator = ( int16_t i )          {  return set_int16( i );   }
-      int32_t&        operator = ( int32_t i )          {  return set_int32( i );   }
-      int64_t&        operator = ( int64_t i )          {  return set_int64( i );   }
-      word16_t&       operator = ( word16_t i )         {  return set_word16( i );  }
-      word32_t&       operator = ( word32_t i )         {  return set_word32( i );  }
-      word64_t&       operator = ( word64_t i )         {  return set_word64( i );  }
-      float&          operator = ( float f )            {  return set_float( f );   }
-      double&         operator = ( double d )           {  return set_double( d );  }
-      zarray&         operator = ( const zarray& z )    {  return set_zarray( z );  }
-      const char*     operator = ( const char* s )      {  return set_charstr( s ); }
-      const widechar* operator = ( const widechar* w )  {  return set_widestr( w ); }
+      zval&           operator = ( char c )             {  set_char( c );    return *this;  }
+      zval&           operator = ( byte_t b )           {  set_byte( b );    return *this;  }
+      zval&           operator = ( int16_t i )          {  set_int16( i );   return *this;  }
+      zval&           operator = ( int32_t i )          {  set_int32( i );   return *this;  }
+      zval&           operator = ( int64_t i )          {  set_int64( i );   return *this;  }
+      zval&           operator = ( word16_t i )         {  set_word16( i );  return *this;  }
+      zval&           operator = ( word32_t i )         {  set_word32( i );  return *this;  }
+      zval&           operator = ( word64_t i )         {  set_word64( i );  return *this;  }
+      zval&           operator = ( float f )            {  set_float( f );   return *this;  }
+      zval&           operator = ( double d )           {  set_double( d );  return *this;  }
+      zval&           operator = ( const zarray& z )    {  set_zarray( z );  return *this;  }
+      zval&           operator = ( const char* s )      {  set_charstr( s ); return *this;  }
+      zval&           operator = ( const widechar* w )  {  set_widestr( w ); return *this;  }
 
   /*
     [] operators
@@ -979,11 +990,9 @@ public:     // set_?? methods
     access to assiciative array with defined key
   */
     public:     // [] operators
-  # define derive_access_operator( _key_type_ )                               \
-    auto operator [] ( _key_type_ k )                      \
-      {  return zval<zval, _key_type_>( *this, k );  }                        \
-    auto operator [] ( _key_type_ k ) const          \
-      {  return zval<const zval, _key_type_>( *this, k );  }
+  # define derive_access_operator( _key_type_ )                                                     \
+    auto operator [] ( _key_type_ k )       {  return zval<zval, _key_type_>( *this, k );  }        \
+    auto operator [] ( _key_type_ k ) const {  return zval<const zval, _key_type_>( *this, k );  }
 
     derive_access_operator( int )
     derive_access_operator( unsigned )
@@ -998,11 +1007,9 @@ public:     // set_?? methods
     };
 
   public:     // high-level API
-    # define derive_access_operator( _key_type_ )                         \
-    zval<zarray<M>, _key_type_>  operator [] ( _key_type_ k )             \
-      {  return zval<zarray<M>, _key_type_>( *this, k );  }               \
-    const zval<zarray<M>, _key_type_>  operator [] ( _key_type_ k ) const \
-      {  return zval<zarray<M>, _key_type_>( *(zarray<M>*)this, k );  }
+  # define derive_access_operator( _key_type_ )                                                     \
+    auto  operator [] ( _key_type_ k )        {  return zval<zarray<M>, _key_type_>( *this, k );  } \
+    auto  operator [] ( _key_type_ k ) const  {  return zval<zarray<M>, _key_type_>( *(zarray<M>*)this, k );  }
 
     derive_access_operator( unsigned )
     derive_access_operator( const char* )
@@ -1718,10 +1725,47 @@ namespace mtc
   }
 
   template <class M>
-  xvalue<M>::xvalue( const xvalue& v ): malloc( v.malloc ), vxtype( v.vxtype )
+  xvalue<M>::xvalue( const xvalue<M>& v ): malloc( v.malloc ), vxtype( v.vxtype )
   {
-    if ( vxtype != undefined_type )
-      memcpy( chdata, v.chdata, sizeof(chdata) );
+    switch ( vxtype )
+    {
+    # define derive_copy( _type_ )  case z_##_type_:  construct( &v_##_type_, v.v_##_type_ ); break;
+
+      derive_copy( char    )
+      derive_copy( byte    )
+      derive_copy( int16   )
+      derive_copy( word16  )
+      derive_copy( int32   )
+      derive_copy( word32  )
+      derive_copy( int64   )
+      derive_copy( word64  )
+      derive_copy( float   )
+      derive_copy( double  )
+
+      derive_copy( charstr )
+      derive_copy( widestr )
+//      derive_copy( buffer  )
+      derive_copy( zarray  )
+
+      derive_copy( array_char    )
+      derive_copy( array_byte    )
+      derive_copy( array_int16   )
+      derive_copy( array_word16  )
+      derive_copy( array_int32   )
+      derive_copy( array_word32  )
+      derive_copy( array_int64   )
+      derive_copy( array_word64  )
+      derive_copy( array_float   )
+      derive_copy( array_double  )
+
+      derive_copy( array_charstr )
+      derive_copy( array_widestr )
+//      derive_copy( array_buffer  )
+      derive_copy( array_zarray  )
+      derive_copy( array_xvalue  )
+
+    # undef derive_copy
+    }
     ((xvalue&)v).vxtype = undefined_type;
   }
 
@@ -1738,9 +1782,47 @@ namespace mtc
       delete_data();
 
     malloc = v.malloc;
+    vxtype = v.vxtype;
 
-    if ( (vxtype = v.vxtype) != undefined_type )
-      memcpy( chdata, v.chdata, sizeof(chdata) );
+    switch ( vxtype )
+    {
+    # define derive_copy( _type_ )  case z_##_type_:  construct( &v_##_type_, v.v_##_type_ ); break;
+
+      derive_copy( char    )
+      derive_copy( byte    )
+      derive_copy( int16   )
+      derive_copy( word16  )
+      derive_copy( int32   )
+      derive_copy( word32  )
+      derive_copy( int64   )
+      derive_copy( word64  )
+      derive_copy( float   )
+      derive_copy( double  )
+
+      derive_copy( charstr )
+      derive_copy( widestr )
+//      derive_copy( buffer  )
+      derive_copy( zarray  )
+
+      derive_copy( array_char    )
+      derive_copy( array_byte    )
+      derive_copy( array_int16   )
+      derive_copy( array_word16  )
+      derive_copy( array_int32   )
+      derive_copy( array_word32  )
+      derive_copy( array_int64   )
+      derive_copy( array_word64  )
+      derive_copy( array_float   )
+      derive_copy( array_double  )
+
+      derive_copy( array_charstr )
+      derive_copy( array_widestr )
+//      derive_copy( array_buffer  )
+      derive_copy( array_zarray  )
+      derive_copy( array_xvalue  )
+
+    # undef derive_copy
+    }
 
     ((xvalue&)v).vxtype = undefined_type;
       return *this;
@@ -1751,32 +1833,45 @@ namespace mtc
   {
     switch ( vxtype )
     {
-  # define derive_size_plain( _type_ )  case z_##_type_: return 1 + sizeof(_type_##_t);
-  # define derive_size_smart( _type_ )  case z_##_type_: return 1 + ::GetBufLen( *(_type_##_t*)&chdata );
+  # define derive_size_plain( _type_ )  case z_##_type_: return 1 + sizeof(v_##_type_);
+  # define derive_size_smart( _type_ )  case z_##_type_: return 1 + ::GetBufLen( v_##_type_ );
       derive_size_plain( char )
       derive_size_plain( byte )
       derive_size_plain( int16 )
       derive_size_plain( word16 )
-      derive_size_plain( float )
-      derive_size_plain( double )
+
       derive_size_smart( int32 )
       derive_size_smart( word32 )
       derive_size_smart( int64 )
       derive_size_smart( word64 )
+      derive_size_smart( float )
+      derive_size_smart( double )
+      derive_size_smart( array_char )
+      derive_size_smart( array_byte )
+      derive_size_smart( array_int16 )
+      derive_size_smart( array_word16 )
+      derive_size_smart( array_int32 )
+      derive_size_smart( array_word32 )
+      derive_size_smart( array_int64 )
+      derive_size_smart( array_word64 )
+      derive_size_smart( array_float )
+      derive_size_smart( array_double )
+      derive_size_smart( array_charstr )
+      derive_size_smart( array_widestr )
+      derive_size_smart( array_xvalue )
+      derive_size_smart( array_zarray )
   # undef derive_size_smart
   # undef derive_size_plain
 
       case z_charstr:
         {
-          const char* pch = *(const char**)&chdata;
-          unsigned    cch = (unsigned)(pch != nullptr ? w_strlen( pch ) : 0);
+          size_t  cch = v_charstr != nullptr ? w_strlen( v_charstr ) : 0;
 
           return 1 + ::GetBufLen( cch ) + cch;
         }
       case z_widestr:
         {
-          const widechar* pws = *(const widechar**)&chdata;
-          unsigned        cch = (unsigned)(pws != NULL ? w_strlen( pws ) : 0);
+          size_t  cch = v_widestr != nullptr ? w_strlen( v_widestr ) : 0;
 
           return 1 + ::GetBufLen( cch ) + cch * sizeof(widechar);
         }
@@ -1784,21 +1879,6 @@ namespace mtc
 //        return 1 + ::GetBufLen( get_zbuffer()->GetLength() ) + get_zbuffer()->GetLength();
       case z_zarray:
         return 1 + get_zarray()->GetBufLen();
-
-      case z_array_char:    return 1 + ::GetBufLen( *(array<char_t, M>*)&chdata );
-      case z_array_byte:    return 1 + ::GetBufLen( *(array<byte_t, M>*)&chdata );
-      case z_array_int16:   return 1 + ::GetBufLen( *(array<int16_t, M>*)&chdata );
-      case z_array_word16:  return 1 + ::GetBufLen( *(array<word16_t, M>*)&chdata );
-      case z_array_int32:   return 1 + ::GetBufLen( *(array<int32_t, M>*)&chdata );
-      case z_array_word32:  return 1 + ::GetBufLen( *(array<word32_t, M>*)&chdata );
-      case z_array_int64:   return 1 + ::GetBufLen( *(array<int64_t, M>*)&chdata );
-      case z_array_word64:  return 1 + ::GetBufLen( *(array<word64_t, M>*)&chdata );
-      case z_array_float:   return 1 + ::GetBufLen( *(array<float_t, M>*)&chdata );
-      case z_array_double:  return 1 + ::GetBufLen( *(array<double_t, M>*)&chdata );
-      case z_array_charstr:  return 1 + ::GetBufLen( *(array<_auto_<char, M>, M>*)&chdata );
-      case z_array_widestr:  return 1 + ::GetBufLen( *(array<_auto_<widechar, M>, M>*)&chdata );
-      case z_array_xvalue:  return 1 + ::GetBufLen( *get_array_xvalue() );
-      case z_array_zarray:  return 1 + ::GetBufLen( *get_array_zarray() );
 
       default:  return 0;
     }
@@ -1809,60 +1889,54 @@ namespace mtc
   {
     switch ( gettype() )
     {
-  # define derive_put_plain( _type_ )  case z_##_type_: return ::Serialize( ::Serialize( o, vxtype ), &chdata, sizeof(_type_##_t) );
-  # define derive_put_smart( _type_ )  case z_##_type_: return ::Serialize( ::Serialize( o, vxtype ), *(_type_##_t*)&chdata );
-      derive_put_plain( char )
-      derive_put_plain( byte )
-      derive_put_plain( int16 )
-      derive_put_plain( word16 )
-      derive_put_plain( float )
-      derive_put_plain( double )
-      derive_put_smart( int32 )
-      derive_put_smart( word32 )
-      derive_put_smart( int64 )
-      derive_put_smart( word64 )
-  # undef derive_put_smart
-  # undef derive_put_plain
+  # define derive_put( _type_ )  case z_##_type_: return ::Serialize( ::Serialize( o, vxtype ), &v_##_type_, sizeof(v_##_type_) );
+      derive_put( char )
+      derive_put( byte )
+      derive_put( int16 )
+      derive_put( word16 )
+
+  # undef derive_put
+  # define derive_put( _type_ )  case z_##_type_: return ::Serialize( ::Serialize( o, vxtype ), v_##_type_ );
+      derive_put( int32 )
+      derive_put( word32 )
+      derive_put( int64 )
+      derive_put( word64 )
+      derive_put( float )
+      derive_put( double )
+      derive_put( zarray )
+      derive_put( array_char )
+      derive_put( array_byte )
+      derive_put( array_float )
+      derive_put( array_double )
+      derive_put( array_int16 )
+      derive_put( array_word16 )
+      derive_put( array_int32 )
+      derive_put( array_word32 )
+      derive_put( array_int64 )
+      derive_put( array_word64 )
+      derive_put( array_charstr )
+      derive_put( array_widestr )
+      derive_put( array_xvalue )
+      derive_put( array_zarray )
+  # undef derive_put
 
       case z_charstr:
         {
-          const char* pch = *(const char**)&chdata;
-          unsigned    cch = (unsigned)(pch != nullptr ? w_strlen( pch ) : 0);
+          size_t  cch = v_charstr != nullptr ? w_strlen( v_charstr ) : 0;
 
-          return ::Serialize( ::Serialize( ::Serialize( o, vxtype ), cch ), pch, cch );
+          return ::Serialize( ::Serialize( ::Serialize( o, vxtype ), cch ), v_charstr, cch );
         }
       case z_widestr:
         {
-          const widechar* pws = *(const widechar**)&chdata;
-          unsigned        cch = (unsigned)(pws != nullptr ? w_strlen( pws ) : 0);
+          size_t  cch = v_widestr != nullptr ? w_strlen( v_widestr ) : 0;
 
-          return ::Serialize( ::Serialize( ::Serialize( o, vxtype ), cch ), pws, sizeof(widechar) * cch );
+          return ::Serialize( ::Serialize( ::Serialize( o, vxtype ), cch ), v_widestr, sizeof(widechar) * cch );
         }
 /*      case fs_buffer:
         return fsPutBuff( fsPutMemo( fsPutChar( output, vxtype ), get_zbuffer()->GetLength() ),
                                                                   get_zbuffer()->GetBuffer(),
                                                                   get_zbuffer()->GetLength() );*/
-      case z_zarray:
-        return get_zarray()->Serialize( ::Serialize( o, vxtype ) );
-
-  # define  derive_put_array( _type_ ) case z_array_##_type_: return ::Serialize( ::Serialize( o, vxtype ), *(array<_type_##_t, M>*)&chdata );
-      derive_put_array( char )
-      derive_put_array( byte )
-      derive_put_array( float )
-      derive_put_array( double )
-      derive_put_array( int16 )
-      derive_put_array( word16 )
-      derive_put_array( int32 )
-      derive_put_array( word32 )
-      derive_put_array( int64 )
-      derive_put_array( word64 )
-  # undef derive_put_array
-      case z_array_charstr: return ::Serialize( ::Serialize( o, vxtype ), *(array<_auto_<char, M>, M>*)&chdata );
-      case z_array_widestr: return ::Serialize( ::Serialize( o, vxtype ), *(array<_auto_<widechar, M>, M>*)&chdata );
-      case z_array_xvalue: return ::Serialize( ::Serialize( o, vxtype ), *(array<xvalue<M>, M>*)&chdata );
-      case z_array_zarray: return ::Serialize( ::Serialize( o, vxtype ), *(array<zarray<M>, M>*)&chdata );
-
-      default:  return 0;
+      default:  return nullptr;
     }
   }
 
@@ -1884,12 +1958,28 @@ namespace mtc
       derive_get_plain( byte )
       derive_get_plain( int16 )
       derive_get_plain( word16 )
-      derive_get_plain( float )
-      derive_get_plain( double )
+
       derive_get_smart( int32 )
       derive_get_smart( word32 )
       derive_get_smart( int64 )
       derive_get_smart( word64 )
+      derive_get_smart( float )
+      derive_get_smart( double )
+
+      derive_get_smart( zarray )
+      derive_get_smart( array_char )
+      derive_get_smart( array_byte )
+      derive_get_smart( array_float )
+      derive_get_smart( array_double )
+      derive_get_smart( array_int16 )
+      derive_get_smart( array_word16 )
+      derive_get_smart( array_int32 )
+      derive_get_smart( array_word32 )
+      derive_get_smart( array_int64 )
+      derive_get_smart( array_word64 )
+      derive_get_smart( array_charstr )
+      derive_get_smart( array_zarray )
+      derive_get_smart( array_xvalue )
   # undef derive_get_smart
   # undef derive_get_plain
 
@@ -1910,25 +2000,7 @@ namespace mtc
             ::FetchFrom( s, str, sizeof(widechar) * cch ) : nullptr;
         }
 
-  # define  derive_get_array( _type_ )                                \
-    case z_##_type_: return ::FetchFrom( s, *set_##_type_() );
-      derive_get_array( zarray )
-      derive_get_array( array_char )
-      derive_get_array( array_byte )
-      derive_get_array( array_float )
-      derive_get_array( array_double )
-      derive_get_array( array_int16 )
-      derive_get_array( array_word16 )
-      derive_get_array( array_int32 )
-      derive_get_array( array_word32 )
-      derive_get_array( array_int64 )
-      derive_get_array( array_word64 )
-      derive_get_array( array_charstr )
-      derive_get_array( array_zarray )
-      derive_get_array( array_xvalue )
-  # undef derive_get_array
-
-      default:  return 0;
+      default:  return nullptr;
     }
   }
 
