@@ -176,17 +176,17 @@ namespace mtc
 
     union
     {
-    # define derive_var( _type_ ) _type_##_t  v_##_type_
-      derive_var( char );
-      derive_var( byte );
-      derive_var( int16 );
-      derive_var( word16 );
-      derive_var( int32 );
-      derive_var( word32 );
-      derive_var( int64 );
-      derive_var( word64 );
-      derive_var( float );
-      derive_var( double );
+    # define derive_var( _type_ ) _type_##_t  v_##_type_;
+      derive_var( char    )
+      derive_var( byte    )
+      derive_var( int16   )
+      derive_var( word16  )
+      derive_var( int32   )
+      derive_var( word32  )
+      derive_var( int64   )
+      derive_var( word64  )
+      derive_var( float   )
+      derive_var( double  )
     # undef derive_var
 
       char*       v_charstr;
@@ -194,17 +194,17 @@ namespace mtc
 //      buffer    v_buffer;
       zarray<M>   v_zarray;
 
-    # define derive_arr( _type_ ) array<_type_##_t, M>  v_array_##_type_
-      derive_arr( char );
-      derive_arr( byte );
-      derive_arr( int16 );
-      derive_arr( word16 );
-      derive_arr( int32 );
-      derive_arr( word32 );
-      derive_arr( int64 );
-      derive_arr( word64 );
-      derive_arr( float );
-      derive_arr( double );
+    # define derive_arr( _type_ ) array<_type_##_t, M>  v_array_##_type_;
+      derive_arr( char    )
+      derive_arr( byte    )
+      derive_arr( int16   )
+      derive_arr( word16  )
+      derive_arr( int32   )
+      derive_arr( word32  )
+      derive_arr( int64   )
+      derive_arr( word64  )
+      derive_arr( float   )
+      derive_arr( double  )
     # undef derive_arr
 
       array<_auto_<char, M>, M>     v_array_charstr;
@@ -214,10 +214,10 @@ namespace mtc
       array<xvalue<M>, M>           v_array_xvalue;
     };
 
-    template <class hack, class... args>
-    hack*   construct( hack* h, args... aset )  {  return new( h ) hack( aset... );  }
-    template <class hack>
-    void    destruct ( hack* h )                {  if ( h != nullptr )  h->~hack();  }
+    template <class C, class... args>
+    C*   construct( C* p, args... aset )  {  return new( p ) C( aset... );  }
+    template <class C>
+    void destruct ( C* p )                {  if ( p != nullptr )  p->~C();  }
 
   public:             // allocator
     M&    GetAllocator() const        {  return malloc;     }
@@ -367,12 +367,6 @@ namespace mtc
     derive_get( double )
     derive_get( zarray )
 
-/* regular strings  */
-    const char*       get_charstr() const {  return vxtype == z_charstr ? v_charstr : nullptr;  }
-          char*       get_charstr()       {  return vxtype == z_charstr ? v_charstr : nullptr;  }
-    const widechar*   get_widestr() const {  return vxtype == z_widestr ? v_widestr : nullptr;  }
-          widechar*   get_widestr()       {  return vxtype == z_widestr ? v_widestr : nullptr;  }
-
 /* arrays */
     derive_get( array_char )
     derive_get( array_byte )
@@ -390,6 +384,12 @@ namespace mtc
     derive_get( array_xvalue )
 
   # undef derive_get
+
+/* regular strings  */
+    const char*       get_charstr() const {  return vxtype == z_charstr ? v_charstr : nullptr;  }
+          char*       get_charstr()       {  return vxtype == z_charstr ? v_charstr : nullptr;  }
+    const widechar*   get_widestr() const {  return vxtype == z_widestr ? v_widestr : nullptr;  }
+          widechar*   get_widestr()       {  return vxtype == z_widestr ? v_widestr : nullptr;  }
 
     const void*       get_holder() const  {  return &v_charstr;  }
           void*       get_holder()        {  return &v_charstr;  }
@@ -945,24 +945,25 @@ public:     // set_?? methods
       const char* two = z[L"w"].set_charstr( "two" )
   */
     public:     // zarray[key].set_xxx functions
-    # define derive_setval( _type_ )                              \
+    # define derive_set( _type_ )                              \
       _type_##_t& set_##_type_( const _type_##_t& t )             \
         {  return *get_xvalue( *this )->set_##_type_( t );  }
 
-      derive_setval( char )
-      derive_setval( byte )
-      derive_setval( int16 )
-      derive_setval( int32 )
-      derive_setval( int64 )
-      derive_setval( word16 )
-      derive_setval( word32 )
-      derive_setval( word64 )
-      derive_setval( float )
-      derive_setval( double )
-    # undef derive_setval
+      derive_set( char )
+      derive_set( byte )
+      derive_set( int16 )
+      derive_set( int32 )
+      derive_set( int64 )
+      derive_set( word16 )
+      derive_set( word32 )
+      derive_set( word64 )
+      derive_set( float )
+      derive_set( double )
+    # undef derive_set
+
       zarray& set_zarray( const zarray& z = zarray() )  {  return *get_xvalue( *this )->set_zarray( z );  }
-      auto    set_charstr( const char* s )              {  return get_xvalue( *this )->set_charstr( s );  }
-      auto    set_widestr( const widechar* w )          {  return get_xvalue( *this )->set_widestr( w );  }
+      auto    set_charstr( const char* s )              {  return  get_xvalue( *this )->set_charstr( s ); }
+      auto    set_widestr( const widechar* w )          {  return  get_xvalue( *this )->set_widestr( w ); }
 
   /*
     zarray[key] = ...
