@@ -1023,7 +1023,7 @@ namespace mtc
       size_t          ntrace;
 
     // пропустить уже совпадающую часть текущего ключа в итераторе с искомой последовательностью
-      for ( ntrace = 0; ntrace != atrace.size() && keyptr != keyend; keyptr += atrace[ntrace++].keylen )
+      for ( ntrace = 0; ntrace != (size_t)atrace.size() && keyptr != keyend; keyptr += atrace[ntrace++].keylen )
       {
         if ( keyptr + atrace[ntrace].keylen > keyend )
           break;
@@ -1032,7 +1032,7 @@ namespace mtc
       }
 
     // укоротить текущий ключ в итераторе и трассу к нему до текущей совпадающей последовательности
-      while ( atrace.size() != ntrace )
+      while ( (size_t)atrace.size() != ntrace )
       {
         patpos& thepos = atrace.last();
 
