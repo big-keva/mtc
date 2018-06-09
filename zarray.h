@@ -1169,12 +1169,12 @@ public:     // set_?? methods
       }
     const ztree*  get_untyped( const char*  pszkey ) const
       {
-        return zhandler != NULL ? zhandler->search( (const byte_t*)pszkey,
+        return zhandler != nullptr ? zhandler->search( (const byte_t*)pszkey,
           (unsigned)strlen( pszkey ) ) : nullptr;
       }
     const ztree*  get_untyped( const widechar*  pszkey ) const
       {
-        return zhandler != NULL ? zhandler->search( (const byte_t*)pszkey,
+        return zhandler != nullptr ? zhandler->search( (const byte_t*)pszkey,
           (unsigned)(sizeof(widechar) * w_strlen( pszkey )) ) : nullptr;
       }
     ztree*  get_untyped( unsigned     thekey )
@@ -1310,12 +1310,12 @@ public:     // set_?? methods
     v_type* set_##t_name( k_type thekey, const v_type* pszstr, size_t cchstr = (size_t)-1 )       \
       {                                                                                           \
         xvalue<M>* zv;                                                                            \
-        return (zv = put_xvalue( thekey )) != NULL ? zv->set_##t_name( pszstr, cchstr ) : nullptr;\
+        return (zv = put_xvalue( thekey )) != nullptr ? zv->set_##t_name( pszstr, cchstr ) : nullptr;\
       }                                                                                           \
     v_type* get_##t_name( k_type thekey )                                                         \
       {                                                                                           \
         ztree*  zt;                                                                               \
-        return (zt = get_untyped( thekey )) != NULL ? zt->avalue.get_##t_name()  : NULL;          \
+        return (zt = get_untyped( thekey )) != nullptr ? zt->avalue.get_##t_name()  : nullptr;          \
       }                                                                                           \
     const v_type* get_##t_name( k_type thekey, const v_type* defval = nullptr ) const             \
       {                                                                                           \
@@ -1445,10 +1445,10 @@ public:     // set_?? methods
   # undef derive_access_array_class
 /*
   # define  derive_put_buffer( k_type )                                                           \
-    void*  put_buffer( k_type k, unsigned l = 0, const void* p = NULL )                           \
+    void*  put_buffer( k_type k, unsigned l = 0, const void* p = nullptr )                           \
       {                                                                                           \
         xvalue*   zv;                                                                             \
-        return (zv = put_xvalue( k )) != NULL ? zv->set_buffer( l, p ) : NULL;                    \
+        return (zv = put_xvalue( k )) != nullptr ? zv->set_buffer( l, p ) : nullptr;                    \
       }
     derive_put_buffer( unsigned )
     derive_put_buffer( const char* )
@@ -1493,7 +1493,7 @@ public:     // set_?? methods
     unsigned  TypeOfData( _type_  thekey ) const                                          \
       {                                                                                     \
         const ztree*  zt;                                                                   \
-        return (zt = get_untyped( thekey )) != NULL ? zt->avalue.gettype() : 0xff;        \
+        return (zt = get_untyped( thekey )) != nullptr ? zt->avalue.gettype() : 0xff;        \
       }
     derive_TypeOfData( unsigned )
     derive_TypeOfData( const char* )
@@ -2038,7 +2038,7 @@ namespace mtc
       }
       return 1 + ptrtop->lookup( inc_assign( keybuf, ptrtop->chnode ), 0, buflen - 1 );
     }
-    return avalue.gettype() != 0xff ? 0 : ptrtop != NULL ? 1 + ptrtop->lookup( inc_assign( keybuf, ptrtop->chnode ), 0, buflen - 1 ) : -1;
+    return avalue.gettype() != 0xff ? 0 : ptrtop != nullptr ? 1 + ptrtop->lookup( inc_assign( keybuf, ptrtop->chnode ), 0, buflen - 1 ) : -1;
   }
 
   template <class M>  template <class A>
@@ -2277,7 +2277,7 @@ namespace mtc
   template <class M>
   inline  int zarray<M>::GetNextKey( void* keybuf, int cchkey, int buflen ) const
   {
-    if ( zhandler == NULL || cchkey == buflen )
+    if ( zhandler == nullptr || cchkey == buflen )
       return (unsigned)-1;
     if ( cchkey >= 0 )
       ((char*)keybuf)[cchkey++] = '\0';
@@ -2287,14 +2287,14 @@ namespace mtc
   template <class M>
   inline  unsigned  zarray<M>::GetKeyType( const void* ptrkey, int cchkey ) const
   {
-    const ztree*  zvalue = zhandler != NULL ? zhandler->search( (const byte_t*)ptrkey, cchkey ) : NULL;
-    return zvalue != NULL ? zvalue->keyset : (unsigned)-1;
+    const ztree*  zvalue = zhandler != nullptr ? zhandler->search( (const byte_t*)ptrkey, cchkey ) : nullptr;
+    return zvalue != nullptr ? zvalue->keyset : (unsigned)-1;
   }
 
   template <class M>
   inline  size_t  zarray<M>::GetBufLen() const
   {
-    return zhandler != NULL ? zhandler->GetBufLen() : 1;
+    return zhandler != nullptr ? zhandler->GetBufLen() : 1;
   }
 
   template <class M>  template <class O>
@@ -2659,7 +2659,7 @@ namespace mtc
         if ( (chnext = (byte_t)*s++) == chfind )
         {
           while ( (*s++ & 0x80) != 0 )
-            (void)NULL;
+            (void)0;
           return serial_get_untyped( s, k, l - 1, t );
         }
           else
