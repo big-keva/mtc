@@ -1,4 +1,5 @@
 /*
+/*
 
 The MIT License (MIT)
 
@@ -129,6 +130,41 @@ namespace mtc
     mutable M malloc;
     byte_t    vxtype;
 
+    template <class M>
+    friend class zarray;
+
+    using array_char   = array<char_t, M>;
+    using array_byte   = array<byte_t, M>;
+    using array_int16  = array<int16_t, M>;
+    using array_word16 = array<word16_t, M>;
+    using array_int32  = array<int32_t, M>;
+    using array_word32 = array<word32_t, M>;
+    using array_int64  = array<int64_t, M>;
+    using array_word64 = array<word64_t, M>;
+    using array_float  = array<float_t, M>;
+    using array_double = array<double_t, M>;
+
+    using array_charstr = array<_auto_<char, M>, M>;
+    using array_widestr = array<_auto_<widechar, M>, M>;
+    using array_zarray  = array<zarray<M>, M>;
+    using array_xvalue  = array<xvalue<M>, M>;
+
+    using array_char_t   = array_char;
+    using array_byte_t   = array_byte;
+    using array_int16_t  = array_int16;
+    using array_word16_t = array_word16;
+    using array_int32_t  = array_int32;
+    using array_word32_t = array_word32;
+    using array_int64_t  = array_int64;
+    using array_word64_t = array_word64;
+    using array_float_t  = array_float;
+    using array_double_t = array_double;
+
+    using array_charstr_t = array_charstr;
+    using array_widestr_t = array_widestr;
+    using array_zarray_t  = array_zarray;
+    using array_xvalue_t  = array_xvalue;
+
     union
     {
     # define derive_var( _type_ ) _type_##_t  v_##_type_;
@@ -142,31 +178,28 @@ namespace mtc
       derive_var( word64  )
       derive_var( float   )
       derive_var( double  )
-    # undef derive_var
 
       char*       v_charstr;
       widechar*   v_widestr;
 //      buffer    v_buffer;
       zarray<M>   v_zarray;
 
-    # define derive_arr( _type_ ) array<_type_##_t, M>  v_array_##_type_;
-      derive_arr( char    )
-      derive_arr( byte    )
-      derive_arr( int16   )
-      derive_arr( word16  )
-      derive_arr( int32   )
-      derive_arr( word32  )
-      derive_arr( int64   )
-      derive_arr( word64  )
-      derive_arr( float   )
-      derive_arr( double  )
-    # undef derive_arr
+      derive_var( array_char    )
+      derive_var( array_byte    )
+      derive_var( array_int16   )
+      derive_var( array_word16  )
+      derive_var( array_int32   )
+      derive_var( array_word32  )
+      derive_var( array_int64   )
+      derive_var( array_word64  )
+      derive_var( array_float   )
+      derive_var( array_double  )
 
-      array<_auto_<char, M>, M>     v_array_charstr;
-      array<_auto_<widechar, M>, M> v_array_widestr;
-//      array<, M>z_array_buffer  = 50,
-      array<zarray<M>, M>           v_array_zarray;
-      array<xvalue<M>, M>           v_array_xvalue;
+      derive_var( array_charstr   )
+      derive_var( array_widestr  )
+      derive_var( array_zarray   )
+      derive_var( array_xvalue  )
+    # undef derive_var
     };
 
     template <class C, class... args>
@@ -296,8 +329,8 @@ namespace mtc
     xvalue( float   f ):  vxtype( undefined_type )          {  set_float( f );  }
     xvalue( double d ):   vxtype( undefined_type )          {  set_double( d ); }
     xvalue( const zarray<M>& z ): vxtype( undefined_type )  {  set_zarray( z ); }
-    xvalue( const char* s, size_t l ): vxtype( undefined_type ) {  set_charstr( s, l ); }
-    xvalue( const widechar* s, size_t l ): vxtype( undefined_type ) {  set_widestr( s, l ); }
+    xvalue( const char* s, size_t l = (size_t)-1 ): vxtype( undefined_type ) {  set_charstr( s, l ); }
+    xvalue( const widechar* s, size_t l = (size_t)-1 ): vxtype( undefined_type ) {  set_widestr( s, l ); }
 
   public:     // serialization
                         size_t  GetBufLen(    ) const;
@@ -337,7 +370,6 @@ namespace mtc
     derive_get( array_widestr )
     derive_get( array_zarray )
     derive_get( array_xvalue )
-
   # undef derive_get
 
 /* regular strings  */
@@ -781,11 +813,10 @@ public:     // set_?? methods
       {
         switch ( vxtype )
         {
-          case z_charstr: GetAllocator().free( v_charstr );  break;
-          case z_widestr: GetAllocator().free( v_widestr );  break;
+          case z_charstr: if ( v_charstr != nullptr ) GetAllocator().free( v_charstr );  break;
+          case z_widestr: if ( v_widestr != nullptr ) GetAllocator().free( v_widestr );  break;
 
       # define derive_destruct( _type_ )  case  z_##_type_: destruct( &v_##_type_ );  break;
-
           derive_destruct( zarray )
           derive_destruct( array_char )
           derive_destruct( array_byte )
@@ -801,7 +832,6 @@ public:     // set_?? methods
           derive_destruct( array_widestr )
           derive_destruct( array_zarray )
           derive_destruct( array_xvalue )
-
       # undef derive_destruct
 
           default:  break;
@@ -997,25 +1027,74 @@ public:     // set_?? methods
       friend class  zarray;
       friend struct zarray::ztree;
 
-      const char* keybuf;
-      unsigned    keylen;
-      unsigned    keyset;
+      const void* key;
+      size_t      len;
+      unsigned    set;
 
     public:     // constructors
-      zkey(): keybuf( nullptr ), keylen( 0 ), keyset( -1 )  {}
-      zkey( const zkey& z ): keybuf( z.keybuf ), keylen( z.keylen ), keyset( z.keyset ) {}
+      zkey(): key( nullptr ), len( 0 ), set( -1 )  {}
+      zkey( const zkey& z ): key( z.key ), len( z.len ), set( z.set ) {}
 
     private:    // real initialization constructor
-      zkey( const byte_t* k, unsigned l, unsigned t ): keybuf( (const char*)k ), keylen( l ), keyset( t ) {}
+      zkey( const byte_t* k, size_t l, unsigned t ): key( k ), len( l ), set( t ) {}
+
+    public:     // key access
+      constexpr const uint8_t*  getkey() const  {  return (const uint8_t*)key;  }
+      constexpr size_t          getlen() const  {  return len;  }
+      constexpr unsigned        keyset() const  {  return set;  }
 
     public:     // types
       operator unsigned() const
-        {  return keyset == 0 ? key_to_int( keybuf, keylen ) : 0;  }
+        {  return set == 0 ? key_to_int( (const char*)key, len ) : 0;  }
       operator const char*() const
-        {  return keyset == 1 ? (const char*)keybuf : nullptr;  }
+        {  return set == 1 ? (const char*)key: nullptr;  }
       operator const widechar*() const
-        {  return keyset == 2 ? (const widechar*)keybuf : nullptr;  }
+        {  return set == 2 ? (const widechar*)key : nullptr;  }
     };
+
+  protected:  // key wrappers
+    class uintkey
+    {
+      uint8_t thekey[4];
+      size_t  keylen;
+
+    public:     // construction && api
+      uintkey( unsigned key ): keylen( int_to_key( thekey, key ) )  {}
+
+      constexpr const uint8_t*  getkey() const  {  return thekey;  }
+      constexpr size_t          getlen() const  {  return keylen;  }
+      constexpr unsigned        keyset() const  {  return 0;       }
+    };
+
+    class cstrkey
+    {
+      const char* strkey;
+      size_t      keylen;
+
+    public:     // construction && api
+      cstrkey( const char* str ): strkey( str ), keylen( w_strlen( str ) )  {}
+
+      constexpr const uint8_t*  getkey() const  {  return (const uint8_t*)strkey;  }
+      constexpr size_t          getlen() const  {  return keylen;  }
+      constexpr unsigned        keyset() const  {  return 1;       }
+    };
+
+    class wstrkey
+    {
+      const widechar* wcskey;
+      size_t          keylen;
+
+    public:     // construction && api
+      wstrkey( const widechar* wcs ): wcskey( wcs ), keylen( sizeof(widechar) * w_strlen( wcs ) )  {}
+
+      constexpr const uint8_t*  getkey() const  {  return (const uint8_t*)wcskey;  }
+      constexpr size_t          getlen() const  {  return keylen;  }
+      constexpr unsigned        keyset() const  {  return 2;       }
+    };
+
+    static  auto  make_key( unsigned key )  {  return uintkey( key );  }
+    static  auto  make_key( const char* key )  {  return cstrkey( key );  }
+    static  auto  make_key( const widechar* key )  {  return wstrkey( key );  }
 
   private:    // internal structures
     struct  ztree: public array<ztree, M>
@@ -1029,8 +1108,27 @@ public:     // set_?? methods
       ztree( const ztree& );
      ~ztree() {}
 
+    protected:  // search implementation
+      template <class self> static
+      self* search( self& _me, const uint8_t* key, size_t cch )
+        {
+          if ( cch > 0 )
+          {
+            auto  chr = *key;
+            auto  top = _me.begin();
+            auto  end = _me.end();
+
+            while ( top != end && top->chnode < chr )
+              ++top;
+            if ( top == end || top->chnode != chr )
+              return nullptr;
+            return search( *top, key + 1, cch - 1 );
+          }
+          return &_me;
+        }
+
     public:     // unserialized tree work
-      ztree*        insert( const byte_t* ptrkey, unsigned cchkey )
+      ztree*  insert( const byte_t* ptrkey, size_t cchkey )
         {
           ztree*  expand = this;
 
@@ -1058,23 +1156,9 @@ public:     // set_?? methods
             return expand;
           }
         }
-      const ztree*  search( const byte_t* ptrkey, unsigned cchkey ) const
-        {
-          if ( cchkey > 0 )
-          {
-            byte_t        chnext = *ptrkey;
-            const ztree*  ptrtop = this->begin();
-            const ztree*  ptrend = this->end();
-
-            while ( ptrtop < ptrend && ptrtop->chnode < chnext )
-              ++ptrtop;
-            if ( ptrtop >= ptrend || ptrtop->chnode != chnext )
-              return nullptr;
-            return ptrtop->search( ptrkey + 1, cchkey - 1 );
-          }
-          return this;
-        }
-      int           lookup( byte_t* keybuf, int keylen, int buflen ) const;
+      auto  search( const uint8_t* key, size_t cch ) const  {  return search( *this, key, cch );  }
+      auto  search( const uint8_t* key, size_t cch )        {  return search( *this, key, cch );  }
+      int   lookup( byte_t* keybuf, int keylen, int buflen ) const;
 
       public:     // enumeration
         template <class A>  int     Enumerate( array<byte_t, M>&, int, A );
@@ -1108,102 +1192,76 @@ public:     // set_?? methods
 
     zarray  copy() const;
 
+  public:     // compare
+    template <class Z>  bool  operator == ( const zarray<Z>& z ) const;
+    template <class Z>  bool  operator != ( const zarray<Z>& z ) const  {  return !(*this == z);  }
+
   protected:  // helpers
-    static  byte_t* inc_assign( byte_t* p, byte_t c )
+    template <class Z>
+    bool    has_keyval( const zkey& k, const xvalue<Z>& v ) const
+      {
+        auto  pvalue = get_xvalue( k );
+
+        return pvalue != nullptr && *pvalue == v;
+      }
+    static
+    byte_t* inc_assign( byte_t* p, byte_t c )
       {
         *p++ = c;  return p;
       }
-    xvalue<M>*  put_xvalue( const byte_t* p, unsigned l, unsigned k )
+
+  protected:  // put_xvalue implementation
+    template <class K>
+    xvalue<M>*  put_xval( const K& k, const xvalue<M>& x = xvalue<M>() )
       {
         ztree*  pfound;
 
         if ( zhandler == nullptr && (zhandler = allocate_with<zdata>( GetAllocator(), GetAllocator() )) == nullptr )
           return nullptr;
 
-        if ( (pfound = zhandler->insert( p, l )) != nullptr )  pfound->keyset = k;
+        if ( (pfound = zhandler->insert( k.getkey(), k.getlen() )) != nullptr )  pfound->keyset = k.keyset();
           else  return nullptr;
 
         if ( pfound->avalue.gettype() == 0xff )
           ++zhandler->nitems;
 
+        if ( x.gettype() != 0xff )
+          pfound->avalue = x;
+
         return &pfound->avalue;
+      }
+    template <class Z, class K> static
+    auto  get_xval( Z& z, const K& k )
+      {
+        auto  zt = z.zhandler != nullptr ? z.zhandler->search( k.getkey(), k.getlen() ) : nullptr;
+
+        return zt != nullptr ? &zt->avalue : nullptr;
+      }
+    template <class K>
+    auto  get_type( const K& k ) const
+      {
+        auto  pv = get_xval( k );
+        return pv != nullptr ? pv->gettype() : 0xff;
       }
 
   public:     // put_xvalue family
-    xvalue<M>*  put_xvalue( unsigned    ndwkey )
-      {
-        byte_t  thekey[4];
+    auto  put_xvalue( unsigned        key, const xvalue<M>& val = xvalue<M>() ) {  return put_xval( make_key( key ), val );  }
+    auto  put_xvalue( const char*     key, const xvalue<M>& val = xvalue<M>() ) {  return put_xval( make_key( key ), val );  }
+    auto  put_xvalue( const widechar* key, const xvalue<M>& val = xvalue<M>() ) {  return put_xval( make_key( key ), val );  }
 
-        return put_xvalue( thekey, int_to_key( thekey, ndwkey ), 0 );
-      }
-    xvalue<M>*  put_xvalue( const char*  pszkey )
-      {
-        return put_xvalue( (const byte_t*)pszkey, (unsigned)strlen( pszkey ), 1 );
-      }
-    xvalue<M>*  put_xvalue( const widechar*  pszkey )
-      {
-        return put_xvalue( (const byte_t*)pszkey, (unsigned)(sizeof(widechar) * w_strlen( pszkey )), 2 );
-      }
-    xvalue<M>*  put_xvalue( const widechar* wszkey, const xvalue<M>& xv )
-      {
-        xvalue<M>*  pv;
-        return (pv = put_xvalue( wszkey )) != nullptr ? &(*pv = xv) : nullptr;
-      }
-    xvalue<M>*  put_xvalue( unsigned    ndwkey, const xvalue<M>& xv )
-      {
-        xvalue<M>*  pv;
-        return (pv = put_xvalue( ndwkey )) != nullptr ? &(*pv = xv) : nullptr;
-      }
-    xvalue<M>*  put_xvalue( const char* pszkey, const xvalue<M>& xv )
-      {
-        xvalue<M>*  pv;
-        return (pv = put_xvalue( pszkey )) != nullptr ? &(*pv = xv) : nullptr;
-      }
-
-  protected:  // get_untyped family
-    const ztree*  get_untyped( unsigned     ndwkey ) const
-      {
-        byte_t  thekey[4];
-
-        return zhandler != nullptr ? zhandler->search( thekey, int_to_key( thekey, ndwkey ) ) : nullptr;
-      }
-    const ztree*  get_untyped( const char*  pszkey ) const
-      {
-        return zhandler != nullptr ? zhandler->search( (const byte_t*)pszkey,
-          (unsigned)strlen( pszkey ) ) : nullptr;
-      }
-    const ztree*  get_untyped( const widechar*  pszkey ) const
-      {
-        return zhandler != nullptr ? zhandler->search( (const byte_t*)pszkey,
-          (unsigned)(sizeof(widechar) * w_strlen( pszkey )) ) : nullptr;
-      }
-    ztree*  get_untyped( unsigned     thekey )
-      {  return (ztree*)((const zarray*)this)->get_untyped( thekey );  }
-    ztree*  get_untyped( const char*  thekey )
-      {  return (ztree*)((const zarray*)this)->get_untyped( thekey );  }
-    ztree*  get_untyped( const widechar*  thekey )
-      {  return (ztree*)((const zarray*)this)->get_untyped( thekey );  }
-
-  public:     // get_?
-  # define  derive_get_xvalue( _type_ )                                           \
-    const xvalue<M>* get_xvalue( _type_ thekey ) const                            \
-      {                                                                           \
-        const ztree*  zt;                                                         \
-        return (zt = get_untyped( thekey )) != nullptr ? &zt->avalue : nullptr;   \
-      }                                                                           \
-    xvalue<M>*       get_xvalue( _type_ thekey )                                  \
-      {                                                                           \
-        const ztree*  zt;                                                         \
-        return (zt = get_untyped( thekey )) != nullptr ? (xvalue<M>*)&zt->avalue : nullptr;   \
-      }
-    derive_get_xvalue( unsigned )
-    derive_get_xvalue( const char* )
-    derive_get_xvalue( const widechar* )
-  # undef derive_get_xvalue
+  public:     // get_xvalue family
+    auto  get_xvalue( unsigned key )        const {  return get_xval( *this, make_key( key ) );  }
+    auto  get_xvalue( const char* key )     const {  return get_xval( *this, make_key( key ) );  }
+    auto  get_xvalue( const widechar* key ) const {  return get_xval( *this, make_key( key ) );  }
+    auto  get_xvalue( const zkey& key )     const {  return get_xval( *this, key );  }
+    auto  get_xvalue( unsigned key )              {  return get_xval( *this, make_key( key ) );  }
+    auto  get_xvalue( const char* key )           {  return get_xval( *this, make_key( key ) );  }
+    auto  get_xvalue( const widechar* key )       {  return get_xval( *this, make_key( key ) );  }
+    auto  get_xvalue( const zkey& key )           {  return get_xval( *this, key );  }
 
   public:     // access
   # define  derive_access( _type_ )                                                         \
-    _type_##_t* set_##_type_( unsigned  k, _type_##_t v = 0 )                                      \
+    _type_##_t* set_##_type_( unsigned  k, _type_##_t v = 0 )                               \
       {                                                                                     \
         xvalue<M>*  zv;                                                                     \
         return (zv = put_xvalue( k )) != nullptr ? zv->set_##_type_( v ) : nullptr;         \
@@ -1220,47 +1278,47 @@ public:     // set_?? methods
       }                                                                                     \
     const _type_##_t* get_##_type_( unsigned k ) const                                      \
       {                                                                                     \
-        const ztree*  zt;                                                                   \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##_type_()  : nullptr;   \
+        auto  xv = get_xvalue( k );                                                         \
+        return xv != nullptr ? xv->get_##_type_() : nullptr;                                \
       }                                                                                     \
     const _type_##_t* get_##_type_( const char* k ) const                                   \
       {                                                                                     \
-        const ztree*  zt;                                                                   \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##_type_()  : nullptr;   \
+        auto  xv = get_xvalue( k );                                                         \
+        return xv != nullptr ? xv->get_##_type_() : nullptr;                                \
       }                                                                                     \
     const _type_##_t* get_##_type_( const widechar* k ) const                               \
       {                                                                                     \
-        const ztree*  zt;                                                                   \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##_type_()  : nullptr;   \
+        auto  xv = get_xvalue( k );                                                         \
+        return xv != nullptr ? xv->get_##_type_() : nullptr;                                \
       }                                                                                     \
     _type_##_t* get_##_type_( unsigned k )                                                  \
       {                                                                                     \
-        ztree*  zt;                                                                         \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##_type_()  : nullptr;   \
+        auto  xv = get_xvalue( k );                                                         \
+        return xv != nullptr ? xv->get_##_type_() : nullptr;                                \
       }                                                                                     \
     _type_##_t* get_##_type_( const char* k )                                               \
       {                                                                                     \
-        ztree*  zt;                                                                         \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##_type_()  : nullptr;   \
+        auto  xv = get_xvalue( k );                                                         \
+        return xv != nullptr ? xv->get_##_type_() : nullptr;                                \
       }                                                                                     \
     _type_##_t* get_##_type_( const widechar* k )                                           \
       {                                                                                     \
-        ztree*  zt;                                                                         \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##_type_()  : nullptr;   \
+        auto  xv = get_xvalue( k );                                                         \
+        return xv != nullptr ? xv->get_##_type_() : nullptr;                                \
       }                                                                                     \
-    _type_##_t get_##_type_( unsigned k, _type_##_t v ) const                        \
+    _type_##_t get_##_type_( unsigned k, _type_##_t v ) const                               \
       {                                                                                     \
-        const _type_##_t* pval = get_##_type_( k );                                         \
+        auto  pval = get_##_type_( k );                                                     \
         return pval != nullptr ? *pval : v;                                                 \
       }                                                                                     \
-    _type_##_t get_##_type_( const char* k, _type_##_t v ) const                     \
+    _type_##_t get_##_type_( const char* k, _type_##_t v ) const                            \
       {                                                                                     \
-        const _type_##_t* pval = get_##_type_( k );                                         \
+        auto  pval = get_##_type_( k );                                                     \
         return pval != nullptr ? *pval : v;                                                 \
       }                                                                                     \
-    _type_##_t get_##_type_( const widechar* k, _type_##_t v ) const                 \
+    _type_##_t get_##_type_( const widechar* k, _type_##_t v ) const                        \
       {                                                                                     \
-        const _type_##_t* pval = get_##_type_( k );                                         \
+        auto  pval = get_##_type_( k );                                                     \
         return pval != nullptr ? *pval : v;                                                 \
       }
       derive_access( char )
@@ -1273,188 +1331,131 @@ public:     // set_?? methods
       derive_access( word64 )
       derive_access( float )
       derive_access( double )
-
-//      derive_access( string )
-//      derive_access( buffer )
-
-//      derive_access( xvalue )
   # undef   derive_access
 
-  # define  derive_put_type( k_type, v_type )                                                     \
-    v_type* set_##v_type( k_type k )                                                              \
-      {                                                                                           \
-        xvalue<M>*  zv;                                                                           \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_##v_type( GetAllocator() ) : nullptr;  \
-      }                                                                                           \
-    v_type* set_##v_type( k_type k, const v_type& z )                                             \
-      {                                                                                           \
-        xvalue<M>*  zv;                                                                           \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_##v_type( z ) : nullptr;               \
-      }                                                                                           \
-    v_type* get_##v_type( k_type k )                                                              \
-      {                                                                                           \
-        ztree*  zt;                                                                               \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##v_type() : nullptr;          \
-      }                                                                                           \
-    const v_type* get_##v_type( k_type k ) const                                                  \
-      {                                                                                           \
-        const ztree*  zt;                                                                         \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_##v_type() : nullptr;          \
+  # define  derive_access( k_type, v_type )                                     \
+    auto  set_##v_type( k_type k )                                              \
+      {                                                                         \
+        auto  pxv = put_xvalue( k );                                            \
+        return pxv != nullptr ? pxv->set_##v_type( GetAllocator() ) : nullptr;  \
+      }                                                                         \
+    auto  set_##v_type( k_type k, const v_type& z )                             \
+      {                                                                         \
+        auto  pxv = put_xvalue( k );                                            \
+        return pxv != nullptr ? pxv->set_##v_type( z ) : nullptr;               \
+      }                                                                         \
+    auto  get_##v_type( k_type k )                                              \
+      {                                                                         \
+        auto  pxv = get_xvalue( k );                                            \
+        return pxv != nullptr ? pxv->get_##v_type() : nullptr;                  \
+      }                                                                         \
+    auto  get_##v_type( k_type k ) const                                        \
+      {                                                                         \
+        auto  pxv = get_xvalue( k );                                            \
+        return pxv != nullptr ? pxv->get_##v_type() : nullptr;                  \
       }
-    derive_put_type( unsigned, zarray )
-    derive_put_type( const char*, zarray )
-    derive_put_type( const widechar*, zarray )
-  # undef derive_put_type
-
-  # define  derive_put_string( k_type, t_name, v_type )                                           \
-    v_type* set_##t_name( k_type thekey, const v_type* pszstr, size_t cchstr = (size_t)-1 )       \
-      {                                                                                           \
-        xvalue<M>* zv;                                                                            \
-        return (zv = put_xvalue( thekey )) != nullptr ? zv->set_##t_name( pszstr, cchstr ) : nullptr;\
-      }                                                                                           \
-    v_type* get_##t_name( k_type thekey )                                                         \
-      {                                                                                           \
-        ztree*  zt;                                                                               \
-        return (zt = get_untyped( thekey )) != nullptr ? zt->avalue.get_##t_name()  : nullptr;          \
-      }                                                                                           \
-    const v_type* get_##t_name( k_type thekey, const v_type* defval = nullptr ) const             \
-      {                                                                                           \
-        const ztree*  zt;                                                                         \
-        return (zt = get_untyped( thekey )) != nullptr ? zt->avalue.get_##t_name() : defval;      \
-      }
-      derive_put_string( unsigned,        charstr, char )
-      derive_put_string( const char*,     charstr, char )
-      derive_put_string( const widechar*, charstr, char )
-      derive_put_string( unsigned,        widestr, widechar )
-      derive_put_string( const char*,     widestr, widechar )
-      derive_put_string( const widechar*, widestr, widechar )
-  # undef derive_put_string
-
-  # define  derive_access( _type_ )                                                         \
-    array<_type_##_t, M>* set_array_##_type_( unsigned  k )                                 \
-      {                                                                                     \
-        xvalue<M>* zv;                                                                      \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_array_##_type_() : nullptr;      \
-      }                                                                                     \
-    array<_type_##_t, M>* set_array_##_type_( const char* k )                                                \
-      {                                                                                     \
-        xvalue<M>* zv;                                                                      \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_array_##_type_() : nullptr;      \
-      }                                                                                     \
-    array<_type_##_t, M>* set_array_##_type_( const widechar* k )                                            \
-      {                                                                                     \
-        xvalue<M>* zv;                                                                      \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_array_##_type_() : nullptr;      \
-      }                                                                                     \
-    const array<_type_##_t, M>* get_array_##_type_( unsigned k ) const                                             \
-      {                                                                                     \
-        const ztree*  zt;                                                                   \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##_type_()  : nullptr;   \
-      }                                                                                     \
-    const array<_type_##_t, M>* get_array_##_type_( const char* k ) const                                          \
-      {                                                                                     \
-        const ztree*  zt;                                                                   \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##_type_()  : nullptr;   \
-      }                                                                                     \
-    const array<_type_##_t, M>* get_array_##_type_( const widechar* k ) const                                      \
-      {                                                                                     \
-        const ztree*  zt;                                                                   \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##_type_()  : nullptr;   \
-      }                                                                                     \
-    array<_type_##_t, M>* get_array_##_type_( unsigned k )                                                   \
-      {                                                                                     \
-        ztree*  zt;                                                                         \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##_type_()  : nullptr;   \
-      }                                                                                     \
-    array<_type_##_t, M>* get_array_##_type_( const char* k )                                                \
-      {                                                                                     \
-        ztree*  zt;                                                                         \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##_type_()  : nullptr;   \
-      }                                                                                     \
-    array<_type_##_t, M>* get_array_##_type_( const widechar* k )                                            \
-      {                                                                                     \
-        ztree*  zt;                                                                         \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##_type_()  : nullptr;   \
-      }
-
-      derive_access( char )
-      derive_access( byte )
-      derive_access( int16 )
-      derive_access( word16 )
-      derive_access( int32 )
-      derive_access( word32 )
-      derive_access( int64 )
-      derive_access( word64 )
-      derive_access( float )
-      derive_access( double )
-
+    derive_access( unsigned, zarray )
+    derive_access( const char*, zarray )
+    derive_access( const widechar*, zarray )
   # undef derive_access
 
-  # define derive_access_array_str( chtype, fnname, ketype )                                         \
-    array<_auto_<chtype, M>, M>* set_array_##fnname( ketype k )                                      \
-      {                                                                                              \
-        xvalue<M>*  zv;                                                                              \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_array_##fnname() : nullptr;               \
-      }                                                                                              \
-    const array<_auto_<chtype, M>, M>* get_array_##fnname( ketype k ) const                          \
-      {                                                                                              \
-        const ztree* zt;                                                                             \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##fnname() : nullptr;       \
-      }                                                                                              \
-    array<_auto_<chtype, M>, M>* get_array_##fnname( ketype k )                                      \
-      {                                                                                              \
-        ztree* zt;                                                                                   \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##fnname() : nullptr;       \
+  # define  derive_access( k_type, t_name, v_type )                               \
+    auto  set_##t_name( k_type key, const v_type* str, size_t cch = (size_t)-1 )  \
+      {                                                                           \
+        auto  pxv = put_xvalue( key );                                            \
+        return pxv != nullptr ? pxv->set_##t_name( str, cch ) : nullptr;          \
+      }                                                                           \
+    auto  get_##t_name( k_type key )                                              \
+      {                                                                           \
+        auto  pxv = get_xvalue( key );                                            \
+        return pxv != nullptr ? pxv->get_##t_name() : nullptr;                    \
+      }                                                                           \
+    auto  get_##t_name( k_type key, const v_type* def = nullptr ) const           \
+      {                                                                           \
+        auto  pxv = get_xvalue( key );                                            \
+        return pxv != nullptr ? pxv->get_##t_name() : def;                        \
+      }
+      derive_access( unsigned,        charstr, char )
+      derive_access( const char*,     charstr, char )
+      derive_access( const widechar*, charstr, char )
+      derive_access( unsigned,        widestr, widechar )
+      derive_access( const char*,     widestr, widechar )
+      derive_access( const widechar*, widestr, widechar )
+  # undef derive_access
+
+  # define derive_access( k_type, v_type )                      \
+    auto  set_##v_type( k_type k )                              \
+      {                                                         \
+        auto  pxv = put_xvalue( k );                            \
+        return pxv != nullptr ? pxv->set_##v_type() : nullptr;  \
+      }                                                         \
+    auto  get_##v_type( k_type k ) const                        \
+      {                                                         \
+        auto  pxv = get_xvalue( k );                            \
+        return pxv != nullptr ? pxv->get_##v_type() : nullptr;  \
+      }                                                         \
+    auto  get_##v_type( k_type k )                              \
+      {                                                         \
+        auto  pxv = get_xvalue( k );                            \
+        return pxv != nullptr ? pxv->get_##v_type() : nullptr;  \
       }
 
-      derive_access_array_str( char, charstr, unsigned )
-      derive_access_array_str( char, charstr, const char* )
-      derive_access_array_str( char, charstr, const widechar* )
-      derive_access_array_str( widechar, widestr, unsigned )
-      derive_access_array_str( widechar, widestr, const char* )
-      derive_access_array_str( widechar, widestr, const widechar* )
-  # undef derive_access_array_str
+      derive_access( unsigned, array_char )
+      derive_access( const char*, array_char )
+      derive_access( const widechar*, array_char )
 
-//      derive_access( buffer )
+      derive_access( unsigned, array_byte )
+      derive_access( const char*, array_byte )
+      derive_access( const widechar*, array_byte )
 
-  # define derive_access_array_class( cltype, ketype )                                               \
-    array<cltype<M>, M>* set_array_##cltype( ketype k )                                              \
-      {                                                                                              \
-        xvalue<M>*  zv;                                                                              \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_array_##cltype() : nullptr;               \
-      }                                                                                              \
-    const array<cltype<M>, M>* get_array_##cltype( ketype k ) const                                  \
-      {                                                                                              \
-        const ztree* zt;                                                                             \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##cltype() : nullptr;       \
-      }                                                                                              \
-    array<cltype<M>, M>* get_array_##cltype( ketype k )                                              \
-      {                                                                                              \
-        ztree* zt;                                                                                   \
-        return (zt = get_untyped( k )) != nullptr ? zt->avalue.get_array_##cltype() : nullptr;       \
-      }
+      derive_access( unsigned, array_int16 )
+      derive_access( const char*, array_int16 )
+      derive_access( const widechar*, array_int16 )
 
-      derive_access_array_class( zarray, unsigned )
-      derive_access_array_class( zarray, const char* )
-      derive_access_array_class( zarray, const widechar* )
+      derive_access( unsigned, array_word16 )
+      derive_access( const char*, array_word16 )
+      derive_access( const widechar*, array_word16 )
 
-      derive_access_array_class( xvalue, unsigned )
-      derive_access_array_class( xvalue, const char* )
-      derive_access_array_class( xvalue, const widechar* )
+      derive_access( unsigned, array_int32 )
+      derive_access( const char*, array_int32 )
+      derive_access( const widechar*, array_int32 )
 
-  # undef derive_access_array_class
-/*
-  # define  derive_put_buffer( k_type )                                                           \
-    void*  put_buffer( k_type k, unsigned l = 0, const void* p = nullptr )                           \
-      {                                                                                           \
-        xvalue*   zv;                                                                             \
-        return (zv = put_xvalue( k )) != nullptr ? zv->set_buffer( l, p ) : nullptr;                    \
-      }
-    derive_put_buffer( unsigned )
-    derive_put_buffer( const char* )
-    derive_put_buffer( const widechar* )
-  # undef   derive_put_buffer
-*/
+      derive_access( unsigned, array_word32 )
+      derive_access( const char*, array_word32 )
+      derive_access( const widechar*, array_word32 )
+
+      derive_access( unsigned, array_int64 )
+      derive_access( const char*, array_int64 )
+      derive_access( const widechar*, array_int64 )
+
+      derive_access( unsigned, array_word64 )
+      derive_access( const char*, array_word64 )
+      derive_access( const widechar*, array_word64 )
+
+      derive_access( unsigned, array_float )
+      derive_access( const char*, array_float )
+      derive_access( const widechar*, array_float )
+
+      derive_access( unsigned, array_double )
+      derive_access( const char*, array_double )
+      derive_access( const widechar*, array_double )
+
+      derive_access( unsigned, array_charstr )
+      derive_access( const char*, array_charstr )
+      derive_access( const widechar*, array_charstr )
+
+      derive_access( unsigned, array_widestr )
+      derive_access( const char*, array_widestr )
+      derive_access( const widechar*, array_widestr )
+
+      derive_access( unsigned, array_zarray )
+      derive_access( const char*, array_zarray )
+      derive_access( const widechar*, array_zarray )
+
+      derive_access( unsigned, array_xvalue )
+      derive_access( const char*, array_xvalue )
+      derive_access( const widechar*, array_xvalue )
+  # undef derive_access
 
   public:     // enumeration helpers
     template <class action>
@@ -1480,25 +1481,12 @@ public:     // set_?? methods
         zhandler = nullptr;
       }
 
-    int       size() const
-      {
-        return zhandler != nullptr ? zhandler->nitems : 0;
-      }
-    int       haskeys() const
-      {
-        return zhandler != nullptr && zhandler->size() > 0;
-      }
+    int       size() const  {  return zhandler != nullptr ? zhandler->nitems : 0;  }
+    int       haskeys() const  {  return zhandler != nullptr && zhandler->size() > 0;  }
 
-  # define  derive_TypeOfData( _type_ )                                                   \
-    unsigned  TypeOfData( _type_  thekey ) const                                          \
-      {                                                                                     \
-        const ztree*  zt;                                                                   \
-        return (zt = get_untyped( thekey )) != nullptr ? zt->avalue.gettype() : 0xff;        \
-      }
-    derive_TypeOfData( unsigned )
-    derive_TypeOfData( const char* )
-    derive_TypeOfData( const widechar* )
-  # undef derive_TypeOfData
+    unsigned  TypeOfData( unsigned key ) const  {  return get_type( make_key( key ) );  }
+    unsigned  TypeOfData( const char* key ) const  {  return get_type( make_key( key ) );  }
+    unsigned  TypeOfData( const widechar* key ) const  {  return get_type( make_key( key ) );  }
 
   public:     // serialization
                         size_t  GetBufLen(            ) const;
@@ -1588,6 +1576,7 @@ public:     // set_?? methods
   };
 
 }
+
 // serialization helpers
 
 template <class M>
@@ -2266,12 +2255,23 @@ namespace mtc
       {
         xvalue<M>*  p;
 
-        if ( (p = newone.put_xvalue( (const byte_t*)k.keybuf, k.keylen, k.keyset )) != nullptr )
-          *p = v.copy();
-        return p != nullptr ? 0 : ENOMEM;
+        if ( (p = newone.put_xval( k )) == nullptr )
+          return ENOMEM;
+        *p = v.copy();
+          return 0;
       } );
 
     return newone;
+  }
+
+  template <class M> template <class Z>
+  inline  bool  zarray<M>::operator == ( const zarray<Z>& z ) const
+  {
+    if ( size() != z.size() )
+      return false;
+
+    return   for_each( [&]( const zkey& k, const xvalue<M>& v ){  return z.has_keyval( k, v ) ? 0 : 1;  } ) == 0
+        && z.for_each( [&]( const zkey& k, const xvalue<Z>& v ){  return   has_keyval( k, v ) ? 0 : 1;  } ) == 0;
   }
 
   template <class M>
