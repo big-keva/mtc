@@ -181,7 +181,7 @@ namespace mtc
       if ( l > h )
         inplace_swap( l, h );
 
-      if ( s.size() <= (int)(h / element_size) && bitset_impl::setlen( s, h / element_size + 1 ) != 0 )
+      if ( s.size() <= (h / element_size) && bitset_impl::setlen( s, h / element_size + 1 ) != 0 )
         return ENOMEM;
 
     // set lower bits
@@ -210,7 +210,7 @@ namespace mtc
       int               l = r.l;
       int               h = r.h;
 
-      if ( h >= l && s.size() > (int)(l / element_size) )
+      if ( h >= l && s.size() > (l / element_size) )
       {
         decltype(s.begin()) p;
 
