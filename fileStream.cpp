@@ -162,6 +162,7 @@ namespace mtc
 
   public:     // overridables from IFileStream
     virtual api<IByteBuffer>  MemMap( int64_t, uint32_t ) noexcept override;
+    virtual bool              SetLen( int64_t ) noexcept override;
 
   public:     // creation
     int               Open( const char*, unsigned );
@@ -390,6 +391,17 @@ namespace mtc
   }
 
   template <class error>
+  bool  FileStream<error>::SetLen( int64_t len ) noexcept
+  {
+    LONG    hioffs = (LONG)(len >> 32);
+    LONG    looffs = (LONG)(len);
+    DWORD   dwmove;
+
+    return (dwmove = SetFilePointer( handle, looffs, &hioffs, FILE_BEGIN )) != INVALID_SET_FILE_POINTER ?
+      SetEndOfFile( handle ) : false;
+  }
+
+  template <class error>
   int     FileStream<error>::Open( const char* szname, unsigned dwmode )
   {
     DWORD     dwAccess;
@@ -523,6 +535,12 @@ namespace mtc
     return ::lseek( handle, 0, SEEK_CUR );
   }
 
+  template <class error>
+  bool  FileStream<error>::SetLen( int64_t len ) noexcept
+  {
+    return ::ftruncate64( handle, len ) == 0;
+  }
+
 # endif
 
   /*
@@ -531,7 +549,7 @@ namespace mtc
   struct report_error_no_except
   {
     template <class except>
-    void* operator ()( const except& x )  {   return (log_error( EFAULT, x.what() ), nullptr);  }
+    void* operator ()( const except& x )  {   return nullptr;  }
   };
 
   struct report_error_exception
