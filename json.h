@@ -164,7 +164,7 @@ namespace mtc
         {  return search( k, (unsigned)(sizeof(widechar) * w_strlen( k )), z_widestr );  }
 
     protected:  // search helper
-      const   Revive* search( const void* k, unsigned l, unsigned t ) const
+      const   Revive* search( const void* k, size_t l, unsigned t ) const
         {
           return cchkey == l && memcmp( thekey, k, l ) == 0 && k_type == t ? this
             : listed != nullptr ? listed->search( k, l, t ) : nullptr;
