@@ -549,7 +549,7 @@ namespace mtc
   struct report_error_no_except
   {
     template <class except>
-    void* operator ()( const except& x )  {   return nullptr;  }
+    void* operator ()( const except& )  {   return nullptr;  }
   };
 
   struct report_error_exception
