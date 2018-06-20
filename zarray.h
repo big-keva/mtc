@@ -1,5 +1,4 @@
 /*
-/*
 
 The MIT License (MIT)
 
@@ -130,7 +129,7 @@ namespace mtc
     mutable M malloc;
     byte_t    vxtype;
 
-    template <class M>
+    template <class X>
     friend class zarray;
 
     using array_char   = array<char_t, M>;
