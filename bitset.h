@@ -174,6 +174,7 @@ namespace mtc
   inline  int   bitset_set( Vector& s, const range& r )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
+      using             size_type = decltype(s.size());
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
       int               l = r.l;
       int               h = r.h;
@@ -181,7 +182,7 @@ namespace mtc
       if ( l > h )
         inplace_swap( l, h );
 
-      if ( s.size() <= (h / element_size) && bitset_impl::setlen( s, h / element_size + 1 ) != 0 )
+      if ( s.size() <= size_type(h / element_size) && bitset_impl::setlen( s, h / element_size + 1 ) != 0 )
         return ENOMEM;
 
     // set lower bits
@@ -206,11 +207,12 @@ namespace mtc
   inline  int   bitset_del( Vector& s, const range& r )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
+      using             size_type = decltype(s.size());
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
       int               l = r.l;
       int               h = r.h;
 
-      if ( h >= l && s.size() > (l / element_size) )
+      if ( h >= l && s.size() > size_type(l / element_size) )
       {
         decltype(s.begin()) p;
 
