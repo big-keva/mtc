@@ -145,6 +145,14 @@ namespace mtc
         return *this;
       }
 
+  public:     // methods
+    iface*  release()
+      {
+        auto  p = piface;
+          piface = nullptr;
+        return p;
+      }
+
   public:     // conversions
           iface*  operator -> ()       {  assert( piface != nullptr );  return piface;  }
     const iface*  operator -> () const {  assert( piface != nullptr );  return piface;  }
