@@ -64,16 +64,14 @@ namespace mtc
       f( in ) {}
     file( file&& s ):
       f( s.f ) {  s.f = nullptr;  }
-    file( const file& s ):
-      f( s.f ) {  ((file&)s).f = nullptr;  } 
+    file& operator = ( file&& in )
+      {  if ( f ) fclose( f );  f = in.f;  in.f = nullptr;  return *this;  }
+    file( const file& ) = delete;
+    file& operator = ( const file& ) = delete;
    ~file()
       {  if ( f ) fclose( f );  }
 
   public:     // operators
-    file& operator = ( FILE* in )
-      {  if ( f ) fclose( f );  f = in;  return *this;  }
-    file& operator = ( file&& in )
-      {  if ( f ) fclose( f );  f = in.f;  in.f = nullptr;  return *this;  }
     operator FILE* () const
       {  return f;  }
     FILE* detach()
