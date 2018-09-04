@@ -342,9 +342,9 @@ namespace mtc
 
   public:     // get_? methods
 /* ordinal types */
-  # define  derive_get( _type_ )                                                                                  \
-    auto  get_##_type_() const  {  return vxtype == z_##_type_ ? &v_##_type_ : (decltype(&v_##_type_))nullptr;  } \
-    auto  get_##_type_()        {  return vxtype == z_##_type_ ? &v_##_type_ : (decltype(&v_##_type_))nullptr;  }
+  # define  derive_get( _type_ )                                                                                \
+    auto  get_##_type_() const  -> const _type_##_t* {  return vxtype == z_##_type_ ? &v_##_type_ : nullptr;  } \
+    auto  get_##_type_()        ->       _type_##_t* {  return vxtype == z_##_type_ ? &v_##_type_ : nullptr;  }
 
     derive_get( char )
     derive_get( byte )
@@ -356,7 +356,6 @@ namespace mtc
     derive_get( word64 )
     derive_get( float )
     derive_get( double )
-    derive_get( zarray )
 
 /* arrays */
     derive_get( array_char )
@@ -375,22 +374,26 @@ namespace mtc
     derive_get( array_xvalue )
   # undef derive_get
 
-/* regular strings  */
-    const char*       get_charstr() const {  return vxtype == z_charstr ? v_charstr : nullptr;  }
-          char*       get_charstr()       {  return vxtype == z_charstr ? v_charstr : nullptr;  }
-    const widechar*   get_widestr() const {  return vxtype == z_widestr ? v_widestr : nullptr;  }
-          widechar*   get_widestr()       {  return vxtype == z_widestr ? v_widestr : nullptr;  }
+/* zarray */
+    auto  get_zarray() const -> const zarray<>* {  return vxtype == z_zarray ? &v_zarray : nullptr;  }
+    auto  get_zarray()       ->       zarray<>* {  return vxtype == z_zarray ? &v_zarray : nullptr;  }
 
-    const void*       get_holder() const  {  return &v_charstr;  }
-          void*       get_holder()        {  return &v_charstr;  }
+/* regular strings  */
+    auto  get_charstr() const ->  const char*     {  return vxtype == z_charstr ? v_charstr : nullptr;  }
+    auto  get_charstr()       ->        char*     {  return vxtype == z_charstr ? v_charstr : nullptr;  }
+    auto  get_widestr() const ->  const widechar* {  return vxtype == z_widestr ? v_widestr : nullptr;  }
+    auto  get_widestr()       ->        widechar* {  return vxtype == z_widestr ? v_widestr : nullptr;  }
+
+    auto  get_holder() const  ->  const void*   {  return &v_charstr;  }
+    auto  get_holder()        ->        void*   {  return &v_charstr;  }
 
 public:     // set_?? methods
 /* ordinal types */
-  # define  derive_set( _type_ )              \
-    auto  set_##_type_( _type_##_t v = 0 )    \
-      {                                       \
-        delete_data();  vxtype = z_##_type_;  \
-        return construct( &v_##_type_, v );   \
+  # define  derive_set( _type_ )                            \
+    auto  set_##_type_( _type_##_t v = 0 )  -> _type_##_t*  \
+      {                                                     \
+        delete_data();  vxtype = z_##_type_;                \
+        return construct( &v_##_type_, v );                 \
       }
 
     derive_set( char )
@@ -407,11 +410,11 @@ public:     // set_?? methods
   # undef derive_set
 
 /* set_array_#() macrogeneration  */
-  # define derive_set( _type_ )               \
-    auto  set_##_type_()                      \
-      {                                       \
-        delete_data();  vxtype = z_##_type_;  \
-        return construct( &v_##_type_ );      \
+  # define derive_set( _type_ )                 \
+    auto  set_##_type_() -> _type_##_t*         \
+      {                                         \
+        delete_data();  vxtype = z_##_type_;    \
+        return construct( &v_##_type_ );        \
       }
 
     derive_set( array_char )
@@ -812,34 +815,34 @@ public:     // set_?? methods
     template <class V> bool  operator >= ( const V& v ) const { return (CompTo( v ) & 0x06) != 0; }
 
   protected:  // stringize helpers
-    auto  to_string( char c ) const         {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
-    auto  to_string( byte_t v ) const       {  return std::move( std::to_string( v ) );  }
-    auto  to_string( int16_t v ) const      {  return std::move( std::to_string( v ) );  }
-    auto  to_string( int32_t v ) const      {  return std::move( std::to_string( v ) );  }
-    auto  to_string( int64_t v ) const      {  return std::move( std::to_string( v ) );  }
-    auto  to_string( uint16_t v ) const     {  return std::move( std::to_string( v ) );  }
-    auto  to_string( uint32_t v ) const     {  return std::move( std::to_string( v ) );  }
-    auto  to_string( uint64_t v ) const     {  return std::move( std::to_string( v ) );  }
-    auto  to_string( float v ) const        {  return std::move( std::to_string( v ) );  }
-    auto  to_string( double v ) const       {  return std::move( std::to_string( v ) );  }
-    auto  to_string( const char* v ) const  {  return std::move( std::string( v != nullptr ? v : "" ) );  }
+    auto  to_string( char c ) const         -> std::string  {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
+    auto  to_string( byte_t v ) const       -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( int16_t v ) const      -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( int32_t v ) const      -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( int64_t v ) const      -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( uint16_t v ) const     -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( uint32_t v ) const     -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( uint64_t v ) const     -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( float v ) const        -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( double v ) const       -> std::string  {  return std::move( std::to_string( v ) );  }
+    auto  to_string( const char* v ) const  -> std::string  {  return std::move( std::string( v != nullptr ? v : "" ) );  }
 
-    std::string to_string( const widechar* v ) const
+    auto  to_string( const widechar* v ) const  -> std::string
       {
         throw std::runtime_error( "not implemented" );
       }
 
     template <class X>
-    auto  to_string( const xvalue<X>& v ) const           {  return std::move( mtc::to_string( v ) );  }
+    auto  to_string( const xvalue<X>& v ) const           ->  std::string {  return std::move( mtc::to_string( v ) );  }
     template <class X>
-    auto  to_string( const zarray<X>& v ) const           {  return std::move( mtc::to_string( v ) );  }
+    auto  to_string( const zarray<X>& v ) const           ->  std::string {  return std::move( mtc::to_string( v ) );  }
     template <class X>
-    auto  to_string( const _auto_<char, X>& v ) const     {  return std::move( to_string( v.ptr() ) );  }
+    auto  to_string( const _auto_<char, X>& v ) const     ->  std::string {  return std::move( to_string( v.ptr() ) );  }
     template <class X>
-    auto  to_string( const _auto_<widechar, X>& v ) const {  return std::move( to_string( v.ptr() ) );  }
+    auto  to_string( const _auto_<widechar, X>& v ) const ->  std::string {  return std::move( to_string( v.ptr() ) );  }
 
     template <class V, class X>
-    auto  to_string( const array<V, X>& arr ) const
+    auto  to_string( const array<V, X>& arr ) const       ->  std::string 
       {
         std::string out( "{" );
 
