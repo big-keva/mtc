@@ -58,6 +58,7 @@ SOFTWARE.
 # include "wcsstr.h"
 # include "array.h"
 # include <cassert>
+# include <string>
 # include <atomic>
 
 # if defined( _MSC_VER )
@@ -119,6 +120,9 @@ namespace mtc
 
   typedef xvalue<>  XValue;
   typedef zarray<>  ZArray;
+
+  template <class M>  std::string to_string( const xvalue<M>& );
+  template <class M>  std::string to_string( const zarray<M>& );
 
   /*
     xvalue handles any data in local buffer; data may be accessed by accessor methods
@@ -338,9 +342,9 @@ namespace mtc
 
   public:     // get_? methods
 /* ordinal types */
-  # define  derive_get( _type_ )                                                                  \
-    const auto* get_##_type_() const  {  return vxtype == z_##_type_ ? &v_##_type_ : nullptr;  }  \
-          auto* get_##_type_()        {  return vxtype == z_##_type_ ? &v_##_type_ : nullptr;  }
+  # define  derive_get( _type_ )                                                                                  \
+    auto  get_##_type_() const  {  return vxtype == z_##_type_ ? &v_##_type_ : (decltype(&v_##_type_))nullptr;  } \
+    auto  get_##_type_()        {  return vxtype == z_##_type_ ? &v_##_type_ : (decltype(&v_##_type_))nullptr;  }
 
     derive_get( char )
     derive_get( byte )
@@ -807,6 +811,84 @@ public:     // set_?? methods
     template <class V> bool  operator <= ( const V& v ) const { return (CompTo( v ) & 0x05) != 0; }
     template <class V> bool  operator >= ( const V& v ) const { return (CompTo( v ) & 0x06) != 0; }
 
+  protected:  // stringize helpers
+    auto  to_string( char c ) const         {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
+    auto  to_string( byte_t v ) const       {  return std::move( std::to_string( v ) );  }
+    auto  to_string( int16_t v ) const      {  return std::move( std::to_string( v ) );  }
+    auto  to_string( int32_t v ) const      {  return std::move( std::to_string( v ) );  }
+    auto  to_string( int64_t v ) const      {  return std::move( std::to_string( v ) );  }
+    auto  to_string( uint16_t v ) const     {  return std::move( std::to_string( v ) );  }
+    auto  to_string( uint32_t v ) const     {  return std::move( std::to_string( v ) );  }
+    auto  to_string( uint64_t v ) const     {  return std::move( std::to_string( v ) );  }
+    auto  to_string( float v ) const        {  return std::move( std::to_string( v ) );  }
+    auto  to_string( double v ) const       {  return std::move( std::to_string( v ) );  }
+    auto  to_string( const char* v ) const  {  return std::move( std::string( v != nullptr ? v : "" ) );  }
+
+    std::string to_string( const widechar* v ) const
+      {
+        throw std::runtime_error( "not implemented" );
+      }
+
+    template <class M>
+    auto  to_string( const xvalue<M>& v ) const           {  return std::move( mtc::to_string( v ) );  }
+    template <class M>
+    auto  to_string( const zarray<M>& v ) const           {  return std::move( mtc::to_string( v ) );  }
+    template <class M>
+    auto  to_string( const _auto_<char, M>& v ) const     {  return std::move( to_string( v.ptr() ) );  }
+    template <class M>
+    auto  to_string( const _auto_<widechar, M>& v ) const {  return std::move( to_string( v.ptr() ) );  }
+
+    template <class V, class M>
+    auto  to_string( const array<V, M>& arr ) const
+      {
+        std::string out( "{" );
+
+        for ( auto& val: arr )
+          out += to_string( val );
+
+        return out.back() = '}', std::move( out );
+      }
+
+  public:     // stringize
+    std::string to_string() const
+      {
+        switch ( gettype() )
+        {
+          case z_char:          return std::move( to_string( *get_char() ) );
+          case z_byte:          return std::move( to_string( *get_byte() ) );
+          case z_int16:         return std::move( to_string( *get_int16() ) );
+          case z_int32:         return std::move( to_string( *get_int32() ) );
+          case z_int64:         return std::move( to_string( *get_int64() ) );
+          case z_word16:        return std::move( to_string( *get_word16() ) );
+          case z_word32:        return std::move( to_string( *get_word32() ) );
+          case z_word64:        return std::move( to_string( *get_word64() ) );
+          case z_float:         return std::move( to_string( *get_float() ) );
+          case z_double:        return std::move( to_string( *get_double() ) );
+
+          case z_charstr:       return get_charstr();
+          case z_widestr:       return std::move( to_string( get_widestr() ) );
+
+          case z_zarray:        return std::move( to_string( *get_zarray() ) );
+
+          case z_array_char:    return std::move( to_string( *get_array_char() ) );
+          case z_array_byte:    return std::move( to_string( *get_array_byte() ) );
+          case z_array_int16:   return std::move( to_string( *get_array_int16() ) );
+          case z_array_int32:   return std::move( to_string( *get_array_int32() ) );
+          case z_array_int64:   return std::move( to_string( *get_array_int64() ) );
+          case z_array_word16:  return std::move( to_string( *get_array_word16() ) );
+          case z_array_word32:  return std::move( to_string( *get_array_word32() ) );
+          case z_array_word64:  return std::move( to_string( *get_array_word64() ) );
+          case z_array_float:   return std::move( to_string( *get_array_float() ) );
+          case z_array_double:  return std::move( to_string( *get_array_double() ) );
+
+          case z_array_charstr: return std::move( to_string( *get_array_charstr() ) );
+          case z_array_widestr: return std::move( to_string( *get_array_widestr() ) );
+          case z_array_zarray:  return std::move( to_string( *get_array_zarray() ) );
+          case z_array_xvalue:  return std::move( to_string( *get_array_xvalue() ) );
+          default:
+            throw std::invalid_argument( "undefined xvalue<> type" );
+        }
+      }
   protected:  // helpers
     void  delete_data()
       {
@@ -1487,6 +1569,12 @@ public:     // set_?? methods
     unsigned  TypeOfData( const char* key ) const  {  return get_type( make_key( key ) );  }
     unsigned  TypeOfData( const widechar* key ) const  {  return get_type( make_key( key ) );  }
 
+  public:     // stringize
+    std::string to_string() const
+      {
+        return "{}";
+      }
+
   public:     // serialization
                         size_t  GetBufLen(            ) const;
     template <class O>  O*      Serialize( O*  output ) const;
@@ -1574,6 +1662,8 @@ public:     // set_?? methods
 
   };
 
+  template <class M>  std::string to_string( const xvalue<M>& x ) {  return std::move( x.to_string() );  }
+  template <class M>  std::string to_string( const zarray<M>& z ) {  return std::move( z.to_string() );  }
 }
 
 // serialization helpers
