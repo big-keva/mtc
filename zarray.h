@@ -829,17 +829,17 @@ public:     // set_?? methods
         throw std::runtime_error( "not implemented" );
       }
 
-    template <class M>
-    auto  to_string( const xvalue<M>& v ) const           {  return std::move( mtc::to_string( v ) );  }
-    template <class M>
-    auto  to_string( const zarray<M>& v ) const           {  return std::move( mtc::to_string( v ) );  }
-    template <class M>
-    auto  to_string( const _auto_<char, M>& v ) const     {  return std::move( to_string( v.ptr() ) );  }
-    template <class M>
-    auto  to_string( const _auto_<widechar, M>& v ) const {  return std::move( to_string( v.ptr() ) );  }
+    template <class X>
+    auto  to_string( const xvalue<X>& v ) const           {  return std::move( mtc::to_string( v ) );  }
+    template <class X>
+    auto  to_string( const zarray<X>& v ) const           {  return std::move( mtc::to_string( v ) );  }
+    template <class X>
+    auto  to_string( const _auto_<char, X>& v ) const     {  return std::move( to_string( v.ptr() ) );  }
+    template <class X>
+    auto  to_string( const _auto_<widechar, X>& v ) const {  return std::move( to_string( v.ptr() ) );  }
 
-    template <class V, class M>
-    auto  to_string( const array<V, M>& arr ) const
+    template <class V, class X>
+    auto  to_string( const array<V, X>& arr ) const
       {
         std::string out( "{" );
 
