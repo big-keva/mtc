@@ -57,6 +57,7 @@ SOFTWARE.
 # include "autoptr.h"
 # include "wcsstr.h"
 # include "array.h"
+# include <stdexcept>
 # include <cassert>
 # include <string>
 # include <atomic>
