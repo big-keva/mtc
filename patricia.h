@@ -1157,7 +1157,7 @@ namespace mtc
   int           patriciaDump::Select( const void* k, size_t l, _func_ f ) const
   {
     byte_t        thekey[0x100];
-    const byte_t* thedic;
+    const char*   thedic;
     int           nchars;
     int           nnodes;
     int           sublen;
