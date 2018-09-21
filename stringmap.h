@@ -416,8 +416,8 @@ namespace mtc
   template <class action>
   int       _base_stringmap_<C, V, M>::for_each( action _do_ )
     {
-      const void* p = nullptr;
-      int         e = 0;
+      void* p = nullptr;
+      int   e = 0;
 
       while ( (p = Enum( p )) != nullptr && (e = _do_( GetKey( p ), GetVal( p ) )) == 0 )
         (void)0;
