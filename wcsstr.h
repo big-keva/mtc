@@ -80,6 +80,15 @@ SOFTWARE.
 namespace mtc
 {
 
+# if !defined( mtc_charstr_defined )
+# define mtc_charstr_defined
+  using charstr = std::string;
+# endif
+# if !defined( mtc_widestr_defined )
+# define mtc_widestr_defined
+  using widestr = std::basic_string<widechar>;
+# endif
+
   namespace impl
   {
   
