@@ -90,7 +90,7 @@ namespace mtc
 
         for ( pslash = (char*)psz + srclen; pslash > psz && !is_slash( *pslash ); --pslash )
           (void)NULL;
-        while ( !is_slash( *pslash ) )
+        while ( is_slash( *pslash ) )
           ++pslash;
 
         if ( w_strlen( newdir ) + 2 + w_strlen( pslash ) > cch )
