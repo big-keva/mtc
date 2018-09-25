@@ -48,11 +48,24 @@ namespace mtc
       if ( _typ == 0 )  _ptr = (const uint8_t*)memcpy( _buf, b, l );
         else _ptr = b;
     }
+  zmap::key::key( unsigned t, const std::string& val ): _typ( t ), _len( val.length() )
+    {
+      if ( _typ == 0 )  _ptr = (const uint8_t*)memcpy( _buf, val.c_str(), _len );
+        else _ptr = (const uint8_t*)val.c_str();
+    }
   zmap::key::key( unsigned k ): _typ( uint ), _ptr( _buf ), _len( keys::int_to_key( _buf, k ) )  {}
   zmap::key::key( const char* k ): _typ( cstr ), _ptr( (const uint8_t*)k ), _len( w_strlen( k ) ) {}
   zmap::key::key( const widechar* k ): _typ( wstr ), _ptr( (const uint8_t*)k ), _len( sizeof(widechar) * w_strlen( k ) )  {}
   zmap::key::key( const key& k ): _typ( k._typ ), _ptr( k._ptr ), _len( k._len )
     {  if ( _typ == 0 ) _ptr = (const uint8_t*)memcpy( _buf, k._buf, sizeof(k._buf) );  }
+  zmap::key&  zmap::key::operator= ( const key& k )
+    {
+      _typ = k._typ;
+      _len = k._len;
+      if ( k._ptr == k._buf ) _ptr = (const uint8_t*)memcpy( _buf, k._buf, k._len );
+        else _ptr = k._ptr;
+      return *this;
+    }
 
   zmap::key::operator unsigned () const {  return _typ == uint ? keys::key_to_int( _ptr, _len ) : 0;  }
   zmap::key::operator const char* () const {  return _typ == cstr ? (const char*)_ptr : nullptr;  }
@@ -69,16 +82,16 @@ namespace mtc
     {  return *reinterpret_cast<      std::unique_ptr<ztree_t>*>( z_data );  }
 
   zmap::ztree_t::ztree_t( byte_t ch ):
-    std::vector<ztree_t>(), chnode( ch ), keyset( 0 ) {}
+    std::vector<ztree_t>(), chnode( ch ), keyset( key::none ) {}
 
   zmap::ztree_t::ztree_t( ztree_t&& zt ):
-    std::vector<ztree_t>( std::move( zt ) ), chnode( zt.chnode ), keyset( zt.keyset ), pvalue( std::move( zt.pvalue ) ) {  zt.keyset = 0;  }
+    std::vector<ztree_t>( std::move( zt ) ), chnode( zt.chnode ), keyset( zt.keyset ), pvalue( std::move( zt.pvalue ) ) {  zt.keyset = key::none;  }
 
   zmap::ztree_t&  zmap::ztree_t::operator = ( ztree_t&& zt )
     {
       std::vector<ztree_t>::operator=( std::move( zt ) );
       chnode = zt.chnode;
-      keyset = zt.keyset;  zt.keyset = 0;
+      keyset = zt.keyset;  zt.keyset = key::none;
       pvalue = std::move( zt.pvalue );
       return *this;
     }
@@ -92,29 +105,13 @@ namespace mtc
         pvalue = std::move( std::unique_ptr<zval>( new zval( *zt.pvalue.get() ) ) );
     }
 
-  template <class self>
-  static  self* zmap::ztree_t::search( self& _me, const uint8_t* key, size_t cch )
+  auto  zmap::ztree_t::insert( const uint8_t* key, size_t cch ) -> zmap::ztree_t*
     {
-      if ( cch > 0 )
+      for ( auto expand = this; ; ++key, --cch )
       {
-        auto  chr = *key;
-        auto  top = _me.begin();
-        auto  end = _me.end();
-
-        while ( top != end && top->chnode < chr )
-          ++top;
-        return top == end || top->chnode != chr ? nullptr : search( *top, key + 1, cch - 1 );
-      }
-      return &_me;
-    }
-
-  inline  auto  zmap::ztree_t::insert( const byte_t* ptrkey, size_t cchkey ) -> zmap::ztree_t*
-    {
-      for ( auto expand = this; ; ++ptrkey, --cchkey )
-      {
-        if ( cchkey > 0 )
+        if ( cch > 0 )
         {
-          byte_t  chnext = *ptrkey;
+          uint8_t chnext = *key;
           auto    ptrtop = expand->begin();
           auto    ptrend = expand->end();
 
@@ -129,30 +126,43 @@ namespace mtc
       }
     }
 
-  inline  auto  zmap::ztree_t::lookup( byte_t* keybuf, int keylen, int buflen ) const -> int
-  {
-    auto  ptrtop = begin();
-    auto  ptrend = end();
-    int   outlen;
-
-    if ( keylen > 0 )
+  auto  zmap::ztree_t::remove( const uint8_t* key, size_t cch ) -> size_t
     {
-      while ( ptrtop < ptrend && ptrtop->chnode < *keybuf )
-        ++ptrtop;
-      if ( ptrtop >= ptrend )
-        return -1;
-      if ( ptrtop->chnode == keybuf[0] )
+      if ( cch > 0 )
       {
-        if ( (outlen = ptrtop->lookup( keybuf + 1, keylen - 1, buflen - 1 )) != -1 )
-          return 1 + outlen;
-        if ( ++ptrtop >= ptrend )
-          return -1;
+        auto  chr = *key;
+        auto  top = this->begin();
+        auto  end = this->end();
+
+        while ( top != end && top->chnode < chr )
+          ++top;
+        return top == end || top->chnode != chr ? 0 : top->remove( key + 1, cch - 1 );
       }
-      return 1 + ptrtop->lookup( (*keybuf++ = ptrtop->chnode, keybuf), 0, buflen - 1 );
+        else
+      if ( pvalue != nullptr )
+      {
+        keyset = key::none;
+        pvalue.reset();
+        return 1;
+      }
+      return 0;
     }
-    return pvalue != nullptr ? 0 :
-           ptrtop != ptrend  ? 1 + ptrtop->lookup( (*keybuf++ = ptrtop->chnode, keybuf), 0, buflen - 1 ) : -1;
-  }
+
+  template <class self> static
+  auto  zmap::ztree_t::search( self& _me, const uint8_t* key, size_t cch ) -> self*
+    {
+      if ( cch > 0 )
+      {
+        auto  chr = *key;
+        auto  top = _me.begin();
+        auto  end = _me.end();
+
+        while ( top != end && top->chnode < chr )
+          ++top;
+        return top == end || top->chnode != chr ? nullptr : search( *top, key + 1, cch - 1 );
+      }
+      return &_me;
+    }
 
   size_t  zmap::ztree_t::GetBufLen() const
   {
@@ -194,16 +204,11 @@ namespace mtc
   /*
     zmap::const_iterator implementation
   */
-
-  zmap::const_iterator::const_iterator_value::const_iterator_value( const key& k, const zval* v ): first( k ), second( *v )
-    {
-    }
-
+/*
   zmap::const_iterator::const_iterator()
-    {
-    }
-
+    {}
   zmap::const_iterator::const_iterator( const const_iterator& it ):
+      zvalue( it.zvalue ),
       zstack( it.zstack ),
       z_buff( it.z_buff )
     {
@@ -219,18 +224,18 @@ namespace mtc
       }
     }
 
-  auto  zmap::const_iterator::operator -> () const -> const_iterator_value
+  auto  zmap::const_iterator::operator -> () const -> const value*
     {
-      if ( zstack.size() != 0 || last().first->pvalue != nullptr )
-        return const_iterator_value( key( last().first->keyset, (const uint8_t*)z_buff.c_str(), z_buff.length() ), last().first->pvalue.get() );
-      return const_iterator_value( key(), nullptr );
+      if ( &zvalue.second == nullptr )
+        throw std::invalid_argument( "invalid call to zmap::const_iterator::operator ->" );
+      return &zvalue;
     }
 
-  auto  zmap::const_iterator::operator * () const -> const_iterator_value
+  auto  zmap::const_iterator::operator * () const -> const value&
     {
-      if ( zstack.size() != 0 || last().first->pvalue != nullptr )
-        return const_iterator_value( key( last().first->keyset, (const uint8_t*)z_buff.c_str(), z_buff.length() ), last().first->pvalue.get() );
-      return const_iterator_value( key(), nullptr );
+      if ( &zvalue.second == nullptr )
+        throw std::invalid_argument( "invalid call to zmap::const_iterator::operator ->" );
+      return zvalue;
     }
 
   auto  zmap::const_iterator::operator++() -> const const_iterator& {  return next();  }
@@ -253,6 +258,18 @@ namespace mtc
       return zstack == it.zstack;
     }
 
+  auto  zmap::const_iterator::init() -> const_iterator&
+    {
+      zvalue.~value();
+
+      if ( zstack.size() != 0 )
+        new( &zvalue )  value( key( last().first->keyset, z_buff ), last().first->pvalue.get() );
+      else
+        new( &zvalue )  value();
+
+      return *this;
+    }
+
   auto  zmap::const_iterator::find() -> const_iterator&
     {
       assert( zstack.size() != 0 );
@@ -262,14 +279,16 @@ namespace mtc
 
       assert( last().first->pvalue != nullptr );
 
-      return *this;
+      return init();
     }
+*/
 
   /*
     zmap::const_iterator::next()
 
     Смещает итератор на следующую заполненную пару ключ-значение по ztree_t - дереву.
   */
+/*
   auto  zmap::const_iterator::next() -> const_iterator&
     {
       while ( zstack.size() != 0 )
@@ -289,7 +308,7 @@ namespace mtc
           do  down( last().first++ );
             while ( last().first->pvalue == nullptr && last().first->size() != 0 );
 
-          if ( last().first->pvalue != nullptr )  return *this;
+          if ( last().first->pvalue != nullptr )  return init();
             else continue;
         }
 
@@ -314,9 +333,9 @@ namespace mtc
         z_buff.back() = last().first->chnode;
 
         if ( last().first->pvalue != nullptr )
-          return *this;
+          return init();
       }
-      return *this;
+      return init();
     }
 
   auto  zmap::const_iterator::prev() -> const_iterator&
@@ -343,7 +362,7 @@ namespace mtc
 
   auto  zmap::const_iterator::last() -> zpos& {  return zstack.back();  }
   auto  zmap::const_iterator::last() const -> const zpos& {  return zstack.back();  }
-
+*/
   /*
     zmap::const_place_t implementation
   */
@@ -710,6 +729,9 @@ namespace mtc
     return z_tree() != nullptr ? z_tree()->GetBufLen() : 1;
   }
 
+  auto  zmap::empty() const -> bool {  return n_vals == 0;  }
+  auto  zmap::size() const -> size_t {  return n_vals;  }
+
   zmap::iterator  zmap::begin()
     {
       if ( z_tree().get() == nullptr )
@@ -729,12 +751,45 @@ namespace mtc
   zmap::const_iterator  zmap::begin() const  {  return cbegin();  }
   zmap::const_iterator  zmap::end() const  {  return cend();  }
 
-  size_t  zmap::size() const  {  return n_vals;  }
+  auto  zmap::at( const key& k ) -> zval&
+    {
+      auto  pval = get( k );
+
+      if ( pval == nullptr )
+        throw std::out_of_range( "key has no match in zmap" );
+      return *pval;
+    }
+
+  auto  zmap::at( const key& k ) const -> const zval&
+    {
+      auto  pval = get( k );
+
+      if ( pval == nullptr )
+        throw std::out_of_range( "key has no match in zmap" );
+      return *pval;
+    }
 
   auto  zmap::operator []( const key& k ) -> patch_place_t
     {  return std::move( patch_place_t( k, *this ) );  }
   auto  zmap::operator []( const key& k ) const -> const const_place_t
     {  return std::move( const_place_t( k, *(zmap*)this ) );  }
+
+  auto  zmap::clear() -> void
+    {
+      z_tree().reset();
+      n_vals = 0;
+    }
+
+  auto  zmap::erase( const key& k ) -> size_t
+    {
+      size_t  n_dels;
+
+      if ( z_tree() == nullptr )
+        return 0;
+      if ( (n_vals -= (n_dels = z_tree()->remove( k.data(), k.size() ))) == 0 )
+        z_tree().reset();
+      return n_dels;
+    }
 
   std::string to_string( const zmap::key& key )
     {

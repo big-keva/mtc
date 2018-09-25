@@ -688,9 +688,14 @@ namespace mtc
     class const_place_t;
     class patch_place_t;
 
+  protected:
+    template <class value>
+    class iterator_data;
+    template <class value, class ztree_iterator>
+    class iterator_base;
+
   public:     // iterator support
     class key;
-    using value_type = std::pair<const key, zval>;
     class iterator;
     class const_iterator;
 
@@ -837,11 +842,54 @@ namespace mtc
     const_iterator  cbegin() const;
     const_iterator  cend() const;
 
-            size_t  size() const;
+  public:     // properties
+    constexpr
+    auto  max_size() const -> size_t {  return std::numeric_limits<size_t>::max();  }
+    auto  empty() const -> bool;
+    auto  size() const  -> size_t;
+
+  public:     // direct element access
+    auto  at( const key& )       ->       zval&;
+    auto  at( const key& ) const -> const zval&;
 
   public:     // c++ access
     auto  operator []( const key& )       ->       patch_place_t;
     auto  operator []( const key& ) const -> const const_place_t;
+
+  public:     // modifiers
+    auto  clear() -> void;
+
+    /*
+    auto  insert( const key&, zval&& ) -> std::pair<iterator, bool>;
+    auto  insert( const key&, const zval& ) -> std::pair<iterator, bool>;
+    auto  insert( const std::pair<key, zval>& ) -> std::pair<iterator, bool>;
+    auto  insert( const std::initializer_list<std::pair<key, zval>>& ) -> void;
+    */
+    /*
+    auto  erase( const_iterator ) -> iterator;
+    auto  erase( const_iterator, const_iterator ) -> iterator;
+    */
+    auto  erase( const key& ) -> size_t;
+
+  public:     // search
+    /*
+    auto  find( const key& ) -> iterator;
+    auto  find( const key& ) const -> const_iterator;
+
+    auto  lower_bound( const key& ) -> iterator;
+    auto  lower_bound( const key& ) const -> const_iterator;
+
+    auto  upper_bound( const key& ) -> iterator;
+    auto  upper_bound( const key& ) const -> const_iterator;
+    */
+
+  public:     // compare operators
+    bool operator== ( const zmap& z ) const;
+    bool operator!= ( const zmap& z ) const {  return !(*this == z);  }
+    bool operator<  ( const zmap& z ) const;
+    bool operator<= ( const zmap& z ) const;
+    bool operator>  ( const zmap& z ) const;
+    bool operator>= ( const zmap& z ) const;
 
   protected:
     auto  z_tree() const -> const std::unique_ptr<ztree_t>&;
@@ -1001,7 +1049,7 @@ namespace mtc
     }
   }
 
-  // zmap implementation
+  // zmap:: classes
 
   /*
     zmap::ztree_t - собственно префиксное дерево, хранящее все данные
@@ -1009,10 +1057,11 @@ namespace mtc
   class zmap::ztree_t: public std::vector<ztree_t>
   {
     friend class zmap;
-    friend class const_iterator;
+    template <class value, class z_iterator>
+    friend class iterator_base;
 
-    byte_t                chnode;
-    byte_t                keyset;     // the key type
+    uint8_t               chnode;
+    uint8_t               keyset;     // the key type
     std::unique_ptr<zval> pvalue;     // the element value
 
   public:
@@ -1025,13 +1074,13 @@ namespace mtc
 
   protected:  // search implementation
     template <class self> static
-    self* search( self& _me, const uint8_t* key, size_t cch );
+    auto  search( self& _me, const uint8_t* key, size_t cch ) -> self*;
 
   public:     // unserialized tree work
-    auto  insert( const byte_t* ptrkey, size_t cchkey ) -> ztree_t*;
+    auto  insert( const uint8_t* key, size_t cch ) -> ztree_t*;
+    auto  remove( const uint8_t* key, size_t cch ) -> size_t;
     auto  search( const uint8_t* key, size_t cch ) const  {  return search( *this, key, cch );  }
     auto  search( const uint8_t* key, size_t cch )        {  return search( *this, key, cch );  }
-    auto  lookup( byte_t* keybuf, int keylen, int buflen ) const -> int;
 
   public:     // serialization
                         size_t  GetBufLen(    ) const;
@@ -1046,34 +1095,37 @@ namespace mtc
   class zmap::key
   {
     friend class zmap;
-    friend class const_iterator;
+    template <class value, class z_iterator>
+    friend class iterator_base;
 
   private:
-    const unsigned  _typ;
+    unsigned        _typ;
     const uint8_t*  _ptr;
-    const size_t    _len;
+    size_t          _len;
 
   private:
     uint8_t         _buf[4];
 
   public:     // key types
-    enum: unsigned
+    enum: uint8_t
     {
       uint = 0,
       cstr = 1,
       wstr = 2,
-      none = (unsigned)-1
+      none = (uint8_t)-1
     };
 
   protected:
     key();
     key( unsigned typ, const uint8_t* buf, size_t len );
+    key( unsigned typ, const std::string& val );
 
   public: // construction
     key( unsigned );
     key( const char* );
     key( const widechar* );
     key( const key& );
+    key& operator = ( const key& );
 
   public: // data
     auto  type() const  -> unsigned       {  return _typ;  }
@@ -1086,61 +1138,74 @@ namespace mtc
     operator const widechar* () const;
   };
 
-  class zmap::const_iterator
+  template <class value>
+  class zmap::iterator_data
+  {
+    template <class value, class z_iterator>
+    friend class iterator_base;
+
+    iterator_data(): second( *(value*)nullptr ) {}
+    iterator_data( const key& k, value* v ): first( k ), second( *v ) {}
+
+  public:
+    key     first;
+    value&  second;
+
+  };
+
+  template <class value, class z_iterator>
+  class zmap::iterator_base
   {
     friend class zmap;
 
   protected:
-    const_iterator( ztree_t::const_iterator beg, ztree_t::const_iterator end );
+    iterator_base( z_iterator beg, z_iterator end );
 
   public:
-    class const_iterator_value
-    {
-    public:
-      const_iterator_value( const key&, const zval* );
-      const const_iterator_value* operator -> () const {  return this;  }
-
-    public:
-      const key   first;
-      const zval& second;
-    };
+    iterator_base();
+    iterator_base( const iterator_base& );
 
   public:
-    const_iterator();
-    const_iterator( const const_iterator& );
-
-  public:
-    auto  operator -> () const -> const_iterator_value;
-    auto  operator * () const -> const_iterator_value;
-    auto  operator ++ () -> const const_iterator&;
-    auto  operator -- () -> const const_iterator&;
-    auto  operator ++ ( int ) -> const_iterator;
-    auto  operator -- ( int ) -> const_iterator;
-    auto  operator == ( const const_iterator& it ) const -> bool;
-    auto  operator != ( const const_iterator& it ) const -> bool {  return !(*this == it);  }
+    auto  operator -> () const -> const value*;
+    auto  operator * () const -> const value&;
+    auto  operator ++ () -> const iterator_base&;
+    auto  operator -- () -> const iterator_base&;
+    auto  operator ++ ( int ) -> iterator_base;
+    auto  operator -- ( int ) -> iterator_base;
+    auto  operator == ( const iterator_base& it ) const -> bool;
+    auto  operator != ( const iterator_base& it ) const -> bool {  return !(*this == it);  }
 
   protected:
-    using zpos = std::pair<ztree_t::const_iterator, ztree_t::const_iterator>;
+    using zpos = std::pair<z_iterator, z_iterator>;
 
-    auto  find() -> const_iterator&;
-    auto  next() -> const_iterator&;
-    auto  prev() -> const_iterator&;
-    void  down( ztree_t::const_iterator );
+    auto  init() -> iterator_base&;
+    auto  find() -> iterator_base&;
+    auto  next() -> iterator_base&;
+    auto  prev() -> iterator_base&;
+    void  down( z_iterator );
     void  back();
     auto  last()       ->       zpos&;
     auto  last() const -> const zpos&;
 
   protected:
+    value             zvalue;
     std::vector<zpos> zstack;
     std::string       z_buff;
 
   };
 
-  class zmap::iterator: public const_iterator
+  class zmap::const_iterator: public iterator_base<iterator_data<const zval>, ztree_t::const_iterator>
   {
     friend class zmap;
 
-    using const_iterator::const_iterator;
+    using iterator_base::iterator_base;
+  };
+
+  class zmap::iterator: public iterator_base<iterator_data<zval>, ztree_t::iterator>
+  {
+    friend class zmap;
+
+    using iterator_base::iterator_base;
   };
 
   class zmap::const_place_t
@@ -1301,6 +1366,184 @@ namespace mtc
 
     return z_tree()->FetchFrom( s );
   }
+
+  /* zmap::iterator_base inline implementation */
+
+  template <class value, class z_iterator>
+  zmap::iterator_base<value, z_iterator>::iterator_base()
+    {}
+
+  template <class value, class z_iterator>
+  zmap::iterator_base<value, z_iterator>::iterator_base( const iterator_base& it ):
+      zvalue( it.zvalue ),
+      zstack( it.zstack ),
+      z_buff( it.z_buff )
+    {}
+
+  template <class value, class z_iterator>
+  zmap::iterator_base<value, z_iterator>::iterator_base( z_iterator beg, z_iterator end )
+    {
+      if ( beg != end )
+      {
+        zstack.push_back( std::make_pair( beg, end ) );
+        z_buff.push_back( beg->chnode );
+        find();
+      }
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::operator -> () const -> const value*
+    {
+      if ( &zvalue.second == nullptr )
+        throw std::invalid_argument( "invalid call to zmap::iterator_base<value, z_iterator>::operator ->" );
+      return &zvalue;
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::operator * () const -> const value&
+    {
+      if ( &zvalue.second == nullptr )
+        throw std::invalid_argument( "invalid call to zmap::iterator_base<value, z_iterator>::operator ->" );
+      return zvalue;
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::operator++() -> const iterator_base& {  return next();  }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::operator--() -> const iterator_base& {  return prev();  }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::operator++( int ) -> iterator_base
+    {
+      iterator_base  _lst( *this );
+      return (next(), std::move( _lst ));
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::operator--( int ) -> iterator_base
+    {
+      iterator_base  _lst( *this );
+      return (prev(), std::move( _lst ));
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::operator==( const iterator_base& it ) const -> bool
+    {
+      return zstack == it.zstack;
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::init() -> iterator_base&
+    {
+      zvalue.~value();
+
+      if ( zstack.size() != 0 )
+        new( &zvalue )  value( key( last().first->keyset, z_buff ), last().first->pvalue.get() );
+      else
+        new( &zvalue )  value();
+
+      return *this;
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::find() -> iterator_base&
+    {
+      assert( zstack.size() != 0 );
+
+      while ( last().first->pvalue == nullptr && last().first->size() != 0 )
+        down( last().first );
+
+      assert( last().first->pvalue != nullptr );
+
+      return init();
+    }
+
+  /*
+    zmap::iterator_base::next()
+
+    Смещает итератор на следующую заполненную пару ключ-значение по ztree_t - дереву.
+  */
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::next() -> iterator_base&
+    {
+      while ( zstack.size() != 0 )
+      {
+      // считается, что текущий элемент, если он есть, всё равно уже просмотрен;
+      //
+      // возможные состояния трассы:
+      //  - есть вложенные элементы в текущем итераторе;
+      //  - вложенных элементов нет, но есть следующие элементы того же уровня;
+      //  - на этом уровне больше нет элементов.
+      //
+      // если есть вложенные элементы, опуститься по дереву максимально глубоко, до первого элемента,
+      // у которого есть значение pvalue; если такое значение существует, закончить поиск, иначе
+      // продолжить анализ вариантов в новом цикле.
+        if ( last().first->size() != 0 )
+        {
+          do  down( last().first++ );
+            while ( last().first->pvalue == nullptr && last().first->size() != 0 );
+
+          if ( last().first->pvalue != nullptr )  return init();
+            else continue;
+        }
+
+      // вложенных в текущий элементов нет;
+        assert( last().first->size() == 0 );
+
+      // проверить, не последний ли это был элемент на данном уровне и, если он был последним, откатиться
+      // вверх по дереву до первого не-последнего элемента
+        if ( ++last().first == last().second )
+        {
+          do  back();
+            while ( zstack.size() != 0 && last().first == last().second );
+
+          if ( zstack.size() != 0 )
+            z_buff.back() = last().first->chnode;
+
+          continue;
+        }
+
+      // элемент был не последним; заместить последний символ поискового ключа на текущий и повторить
+      // алгоритм с возможным заходом по дереву
+        z_buff.back() = last().first->chnode;
+
+        if ( last().first->pvalue != nullptr )
+          return init();
+      }
+      return init();
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::prev() -> iterator_base&
+    {
+      return *this;
+    }
+
+  template <class value, class z_iterator>
+  void  zmap::iterator_base<value, z_iterator>::down( z_iterator it )
+    {
+      auto  beg = it->begin();
+      auto  end = it->end();
+
+      assert( beg != end );
+
+      zstack.push_back( std::make_pair( beg, end ) );
+      z_buff.push_back( beg->chnode );
+    }
+
+  template <class value, class z_iterator>
+  void  zmap::iterator_base<value, z_iterator>::back()
+    {
+      zstack.pop_back();
+      z_buff.pop_back();
+    }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::last() -> zpos& {  return zstack.back();  }
+
+  template <class value, class z_iterator>
+  auto  zmap::iterator_base<value, z_iterator>::last() const -> const zpos& {  return zstack.back();  }
 
 }
 
@@ -1809,23 +2052,6 @@ namespace mtc
 
     return   for_each( [&]( const zkey& k, const xvalue<M>& v ){  return z.has_keyval( k, v ) ? 0 : 1;  } ) == 0
         && z.for_each( [&]( const zkey& k, const xvalue<Z>& v ){  return   has_keyval( k, v ) ? 0 : 1;  } ) == 0;
-  }
-
-  template <class M>
-  inline  int zarray<M>::GetNextKey( void* keybuf, int cchkey, int buflen ) const
-  {
-    if ( zhandler == nullptr || cchkey == buflen )
-      return (unsigned)-1;
-    if ( cchkey >= 0 )
-      ((char*)keybuf)[cchkey++] = '\0';
-    return zhandler->lookup( (byte_t*)keybuf, cchkey, buflen );
-  }
-
-  template <class M>
-  inline  unsigned  zarray<M>::GetKeyType( const void* ptrkey, int cchkey ) const
-  {
-    const ztree*  zvalue = zhandler != nullptr ? zhandler->search( (const byte_t*)ptrkey, cchkey ) : nullptr;
-    return zvalue != nullptr ? zvalue->keyset : (unsigned)-1;
   }
 
   //
