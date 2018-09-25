@@ -113,7 +113,8 @@ namespace mtc
   };
 
   inline  bool  z_is_integer_type( const unsigned zt )  {  return zt >= z_char && zt <= z_word64;   }
-  inline  bool  z_is_float_type( const unsigned zt )    {  return zt == z_float || zt == z_double;  }
+  inline  bool  z_is_float_type  ( const unsigned zt )  {  return zt == z_float || zt == z_double;  }
+  inline  bool  z_is_numeric_type( const unsigned zt )  {  return z_is_integer_type( zt ) || z_is_float_type( zt );  }
   inline  bool  z_is_string_type( const unsigned zt )   {  return zt == z_charstr || zt == z_widestr;   }
 
   template <class M = def_alloc>  class zarray;
