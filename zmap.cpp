@@ -75,11 +75,11 @@ namespace mtc
     zmap::z_tree implementation
   */
 
-  auto  zmap::z_tree() const -> const std::unique_ptr<ztree_t>&
-    {  return *reinterpret_cast<const std::unique_ptr<ztree_t>*>( z_data );  }
+  auto  zmap::z_tree() const -> const std::shared_ptr<ztree_t>&
+    {  return *reinterpret_cast<const std::shared_ptr<ztree_t>*>( z_data );  }
 
-  auto  zmap::z_tree()       ->       std::unique_ptr<ztree_t>&
-    {  return *reinterpret_cast<      std::unique_ptr<ztree_t>*>( z_data );  }
+  auto  zmap::z_tree()       ->       std::shared_ptr<ztree_t>&
+    {  return *reinterpret_cast<      std::shared_ptr<ztree_t>*>( z_data );  }
 
   zmap::ztree_t::ztree_t( byte_t ch ):
     std::vector<ztree_t>(), chnode( ch ), keyset( key::none ) {}
@@ -201,168 +201,6 @@ namespace mtc
     return size;
   }
 
-  /*
-    zmap::const_iterator implementation
-  */
-/*
-  zmap::const_iterator::const_iterator()
-    {}
-  zmap::const_iterator::const_iterator( const const_iterator& it ):
-      zvalue( it.zvalue ),
-      zstack( it.zstack ),
-      z_buff( it.z_buff )
-    {
-    }
-
-  zmap::const_iterator::const_iterator( ztree_t::const_iterator beg, ztree_t::const_iterator end )
-    {
-      if ( beg != end )
-      {
-        zstack.push_back( std::make_pair( beg, end ) );
-        z_buff.push_back( beg->chnode );
-        find();
-      }
-    }
-
-  auto  zmap::const_iterator::operator -> () const -> const value*
-    {
-      if ( &zvalue.second == nullptr )
-        throw std::invalid_argument( "invalid call to zmap::const_iterator::operator ->" );
-      return &zvalue;
-    }
-
-  auto  zmap::const_iterator::operator * () const -> const value&
-    {
-      if ( &zvalue.second == nullptr )
-        throw std::invalid_argument( "invalid call to zmap::const_iterator::operator ->" );
-      return zvalue;
-    }
-
-  auto  zmap::const_iterator::operator++() -> const const_iterator& {  return next();  }
-  auto  zmap::const_iterator::operator--() -> const const_iterator& {  return prev();  }
-
-  auto  zmap::const_iterator::operator++( int ) -> const_iterator
-    {
-      const_iterator  _lst( *this );
-      return (next(), std::move( _lst ));
-    }
-
-  auto  zmap::const_iterator::operator--( int ) -> const_iterator
-    {
-      const_iterator  _lst( *this );
-      return (prev(), std::move( _lst ));
-    }
-
-  auto  zmap::const_iterator::operator==( const const_iterator& it ) const -> bool
-    {
-      return zstack == it.zstack;
-    }
-
-  auto  zmap::const_iterator::init() -> const_iterator&
-    {
-      zvalue.~value();
-
-      if ( zstack.size() != 0 )
-        new( &zvalue )  value( key( last().first->keyset, z_buff ), last().first->pvalue.get() );
-      else
-        new( &zvalue )  value();
-
-      return *this;
-    }
-
-  auto  zmap::const_iterator::find() -> const_iterator&
-    {
-      assert( zstack.size() != 0 );
-
-      while ( last().first->pvalue == nullptr && last().first->size() != 0 )
-        down( last().first );
-
-      assert( last().first->pvalue != nullptr );
-
-      return init();
-    }
-*/
-
-  /*
-    zmap::const_iterator::next()
-
-    Смещает итератор на следующую заполненную пару ключ-значение по ztree_t - дереву.
-  */
-/*
-  auto  zmap::const_iterator::next() -> const_iterator&
-    {
-      while ( zstack.size() != 0 )
-      {
-      // считается, что текущий элемент, если он есть, всё равно уже просмотрен;
-      //
-      // возможные состояния трассы:
-      //  - есть вложенные элементы в текущем итераторе;
-      //  - вложенных элементов нет, но есть следующие элементы того же уровня;
-      //  - на этом уровне больше нет элементов.
-      //
-      // если есть вложенные элементы, опуститься по дереву максимально глубоко, до первого элемента,
-      // у которого есть значение pvalue; если такое значение существует, закончить поиск, иначе
-      // продолжить анализ вариантов в новом цикле.
-        if ( last().first->size() != 0 )
-        {
-          do  down( last().first++ );
-            while ( last().first->pvalue == nullptr && last().first->size() != 0 );
-
-          if ( last().first->pvalue != nullptr )  return init();
-            else continue;
-        }
-
-      // вложенных в текущий элементов нет;
-        assert( last().first->size() == 0 );
-
-      // проверить, не последний ли это был элемент на данном уровне и, если он был последним, откатиться
-      // вверх по дереву до первого не-последнего элемента
-        if ( ++last().first == last().second )
-        {
-          do  back();
-            while ( zstack.size() != 0 && last().first == last().second );
-
-          if ( zstack.size() != 0 )
-            z_buff.back() = last().first->chnode;
-
-          continue;
-        }
-
-      // элемент был не последним; заместить последний символ поискового ключа на текущий и повторить
-      // алгоритм с возможным заходом по дереву
-        z_buff.back() = last().first->chnode;
-
-        if ( last().first->pvalue != nullptr )
-          return init();
-      }
-      return init();
-    }
-
-  auto  zmap::const_iterator::prev() -> const_iterator&
-    {
-      return *this;
-    }
-
-  void  zmap::const_iterator::down( ztree_t::const_iterator it )
-    {
-      auto  beg = it->begin();
-      auto  end = it->end();
-
-      assert( beg != end );
-
-      zstack.push_back( std::make_pair( beg, end ) );
-      z_buff.push_back( beg->chnode );
-    }
-
-  void  zmap::const_iterator::back()
-    {
-      zstack.pop_back();
-      z_buff.pop_back();
-    }
-
-  auto  zmap::const_iterator::last() -> zpos& {  return zstack.back();  }
-  auto  zmap::const_iterator::last() const -> const zpos& {  return zstack.back();  }
-*/
   /*
     zmap::const_place_t implementation
   */
@@ -511,14 +349,17 @@ namespace mtc
   */
 
   zmap::zmap(): n_vals( 0 )
-    {  new( &z_tree() ) std::unique_ptr<ztree_t>();  }
+    {  new( &z_tree() ) std::shared_ptr<ztree_t>();  }
 
   zmap::zmap( zmap&& z ): n_vals( z.n_vals )
-    {  new( &z_tree() ) std::unique_ptr<ztree_t>( std::move( z.z_tree() ) );  z.n_vals = 0;  }
+    {  new( &z_tree() ) std::shared_ptr<ztree_t>( std::move( z.z_tree() ) );  z.n_vals = 0;  }
+
+  zmap::zmap( const zmap& z ): n_vals( z.n_vals )
+    {  new( &z_tree() ) std::shared_ptr<ztree_t>( z.z_tree() );  }
 
   zmap::zmap( const std::initializer_list<std::pair<key, zval>>& il ): n_vals( 0 )
     {
-      new( &z_tree() ) std::unique_ptr<ztree_t>();
+      new( &z_tree() ) std::shared_ptr<ztree_t>();
 
       for ( auto& keyval: il )
         put( keyval.first, keyval.second );
@@ -533,14 +374,14 @@ namespace mtc
     }
 
   zmap::~zmap()
-    {  z_tree().~unique_ptr<ztree_t>();  }
+    {  z_tree().~shared_ptr<ztree_t>();  }
 
   auto  zmap::copy() const -> zmap
     {
       zmap  make;
 
       if ( (make.n_vals = n_vals) != 0 )
-        make.z_tree() = std::unique_ptr<ztree_t>( new ztree_t( *z_tree() ) );
+        make.z_tree() = std::shared_ptr<ztree_t>( new ztree_t( *z_tree() ) );
 
       return std::move( make );
     }
@@ -550,7 +391,7 @@ namespace mtc
       ztree_t*  pfound;
 
       if ( z_tree() == nullptr )
-        z_tree() = std::unique_ptr<ztree_t>( new ztree_t() );
+        z_tree() = std::shared_ptr<ztree_t>( new ztree_t() );
 
       if ( (pfound = z_tree()->insert( k.data(), k.size() ))->pvalue == nullptr )
         {
@@ -567,7 +408,7 @@ namespace mtc
       ztree_t*  pfound;
 
       if ( z_tree() == nullptr )
-        z_tree() = std::unique_ptr<ztree_t>( new ztree_t() );
+        z_tree() = std::shared_ptr<ztree_t>( new ztree_t() );
 
       if ( (pfound = z_tree()->insert( k.data(), k.size() ))->pvalue == nullptr )
         {
@@ -588,15 +429,16 @@ namespace mtc
 
   auto  zmap::get( const key& k ) -> zval*
     {
-      auto  zt = z_tree() != nullptr ? z_tree()->search( k.data(), k.size() ) : nullptr;
+      auto& zt = z_tree();
+      auto  zv = zt != nullptr ? z_tree()->search( k.data(), k.size() ) : nullptr;
 
-      return zt != nullptr ? zt->pvalue.get() : nullptr;
+      return zv != nullptr ? zv->pvalue.get() : nullptr;
     }
 
   auto  zmap::get_type( const key& k ) const -> decltype(zval::vx_type)
     {
       auto  pv = get( k );
-      return pv != nullptr ? pv->get_type() : z_untyped;
+      return pv != nullptr ? pv->get_type() : zval::z_untyped;
     }
 
   /* zmap get_xxx/set_xxx impl */
