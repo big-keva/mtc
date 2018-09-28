@@ -60,6 +60,8 @@ SOFTWARE.
 # include <string>
 # include <atomic>
 # include <type_traits>
+# include <memory>
+# include <limits>
 
 namespace mtc
 {
@@ -119,7 +121,7 @@ namespace mtc
     template <class ... types>
     class get_max_size
     {
-      template <class... types>
+      template <class... L>
       struct get_size;
 
       template <class T>
@@ -642,7 +644,7 @@ namespace mtc
 
     auto  to_string( const widechar* v ) const  -> std::string
       {
-        throw std::runtime_error( "not implemented" );
+        (void)v;  throw std::runtime_error( "not implemented" );
       }
 
     auto  to_string( const zval& v ) const  ->  std::string {  return std::move( mtc::to_string( v ) );  }
@@ -843,8 +845,6 @@ namespace mtc
     const_iterator  cend() const;
 
   public:     // properties
-    constexpr
-    auto  max_size() const -> size_t {  return std::numeric_limits<size_t>::max();  }
     auto  empty() const -> bool;
     auto  size() const  -> size_t;
 
@@ -892,17 +892,17 @@ namespace mtc
     bool operator>= ( const zmap& z ) const;
 
   protected:
-    auto  z_tree() const -> const std::shared_ptr<ztree_t>&;
-    auto  z_tree()       ->       std::shared_ptr<ztree_t>&;
+    auto  z_tree() const -> const std::unique_ptr<ztree_t>&;
+    auto  z_tree()       ->       std::unique_ptr<ztree_t>&;
 
   protected:
-    char    z_data[impl::get_max_size<std::shared_ptr<ztree_t>>::value];
+    char    z_data[impl::get_max_size<std::unique_ptr<ztree_t>>::value];
     size_t  n_vals;
 
   };
 
   inline  std::string to_string( const zval& z ) {  return std::move( z.to_string() );  }
-  inline  std::string to_string( const zmap& z ) {  return std::move( ""/*z.to_string() */);  }
+  inline  std::string to_string( const zmap& z ) {  (void)z;  return std::move( ""/*z.to_string() */);  }
           std::string to_string( const zmap::key& );
 
 }
@@ -1141,7 +1141,7 @@ namespace mtc
   template <class value>
   class zmap::iterator_data
   {
-    template <class value, class z_iterator>
+    template <class v, class zit>
     friend class iterator_base;
 
     iterator_data(): second( *(value*)nullptr ) {}
@@ -1265,6 +1265,34 @@ namespace mtc
     zmap::ztree_t inline implementation
   */
 
+  inline
+  size_t  zmap::ztree_t::GetBufLen() const
+  {
+    int       branch = plain_branchlen();
+    word16_t  lstore = static_cast<word16_t>( (branch > 0 ? 0x0400 + branch : size()) + (pvalue != nullptr ? 0x0200 : 0) );
+    size_t    buflen = ::GetBufLen( lstore );
+
+    if ( pvalue != nullptr )
+      buflen += 1 + pvalue->GetBufLen();
+
+    if ( branch > 0 )
+    {
+      auto  pbeg = this;
+
+      while ( pbeg->size() == 1 && pbeg->pvalue == nullptr )
+        {  pbeg = pbeg->data();  ++buflen;  }
+      return buflen + pbeg->GetBufLen();
+    }
+      else
+    for ( auto p = begin(); p != end(); ++p, ++buflen )
+    {
+      size_t  sublen = p->GetBufLen();
+      buflen += ::GetBufLen( sublen ) + sublen;
+    }
+
+    return buflen;
+  }
+
   template <class O>
   O*   zmap::ztree_t::Serialize( O* o ) const
   {
@@ -1352,6 +1380,12 @@ namespace mtc
     zmap inline implementation
   */
 
+  inline
+  size_t  zmap::GetBufLen() const
+  {
+    return z_tree() != nullptr ? z_tree()->GetBufLen() : 1;
+  }
+
   template <class O>
   O*  zmap::Serialize( O* o ) const
   {
@@ -1362,8 +1396,7 @@ namespace mtc
   S*  zmap::FetchFrom( S*  s )
   {
     if ( z_tree() != nullptr )
-      z_tree() = std::make_shared( new ztree_t() );
-
+      z_tree() = std::move( std::unique_ptr<ztree_t>( new ztree_t() ) );
     return z_tree()->FetchFrom( s );
   }
 

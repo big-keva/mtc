@@ -75,11 +75,11 @@ namespace mtc
     zmap::z_tree implementation
   */
 
-  auto  zmap::z_tree() const -> const std::shared_ptr<ztree_t>&
-    {  return *reinterpret_cast<const std::shared_ptr<ztree_t>*>( z_data );  }
+  auto  zmap::z_tree() const -> const std::unique_ptr<ztree_t>&
+    {  return *reinterpret_cast<const std::unique_ptr<ztree_t>*>( z_data );  }
 
-  auto  zmap::z_tree()       ->       std::shared_ptr<ztree_t>&
-    {  return *reinterpret_cast<      std::shared_ptr<ztree_t>*>( z_data );  }
+  auto  zmap::z_tree()       ->       std::unique_ptr<ztree_t>&
+    {  return *reinterpret_cast<      std::unique_ptr<ztree_t>*>( z_data );  }
 
   zmap::ztree_t::ztree_t( byte_t ch ):
     std::vector<ztree_t>(), chnode( ch ), keyset( key::none ) {}
@@ -148,7 +148,7 @@ namespace mtc
       return 0;
     }
 
-  template <class self> static
+  template <class self>
   auto  zmap::ztree_t::search( self& _me, const uint8_t* key, size_t cch ) -> self*
     {
       if ( cch > 0 )
@@ -163,33 +163,6 @@ namespace mtc
       }
       return &_me;
     }
-
-  size_t  zmap::ztree_t::GetBufLen() const
-  {
-    int       branch = plain_branchlen();
-    word16_t  lstore = static_cast<word16_t>( (branch > 0 ? 0x0400 + branch : size()) + (pvalue != nullptr ? 0x0200 : 0) );
-    size_t    buflen = ::GetBufLen( lstore );
-
-    if ( pvalue != nullptr )
-      buflen += 1 + pvalue->GetBufLen();
-
-    if ( branch > 0 )
-    {
-      auto  pbeg = this;
-
-      while ( pbeg->size() == 1 && pbeg->pvalue == nullptr )
-        {  pbeg = pbeg->data();  ++buflen;  }
-      return buflen + pbeg->GetBufLen();
-    }
-      else
-    for ( auto p = begin(); p != end(); ++p, ++buflen )
-    {
-      size_t  sublen = p->GetBufLen();
-      buflen += ::GetBufLen( sublen ) + sublen;
-    }
-
-    return buflen;
-  }
 
   auto  zmap::ztree_t::plain_branchlen() const -> int
   {
@@ -349,17 +322,22 @@ namespace mtc
   */
 
   zmap::zmap(): n_vals( 0 )
-    {  new( &z_tree() ) std::shared_ptr<ztree_t>();  }
+    {  new( &z_tree() ) std::unique_ptr<ztree_t>();  }
 
   zmap::zmap( zmap&& z ): n_vals( z.n_vals )
-    {  new( &z_tree() ) std::shared_ptr<ztree_t>( std::move( z.z_tree() ) );  z.n_vals = 0;  }
+    {  new( &z_tree() ) std::unique_ptr<ztree_t>( std::move( z.z_tree() ) );  z.n_vals = 0;  }
 
   zmap::zmap( const zmap& z ): n_vals( z.n_vals )
-    {  new( &z_tree() ) std::shared_ptr<ztree_t>( z.z_tree() );  }
+    {
+      if ( n_vals != 0 )
+        new( &z_tree() ) std::unique_ptr<ztree_t>( new ztree_t( *z.z_tree().get() ) );
+      else
+        new( &z_tree() ) std::unique_ptr<ztree_t>( new ztree_t() );
+    }
 
   zmap::zmap( const std::initializer_list<std::pair<key, zval>>& il ): n_vals( 0 )
     {
-      new( &z_tree() ) std::shared_ptr<ztree_t>();
+      new( &z_tree() ) std::unique_ptr<ztree_t>();
 
       for ( auto& keyval: il )
         put( keyval.first, keyval.second );
@@ -374,14 +352,14 @@ namespace mtc
     }
 
   zmap::~zmap()
-    {  z_tree().~shared_ptr<ztree_t>();  }
+    {  z_tree().~unique_ptr<ztree_t>();  }
 
   auto  zmap::copy() const -> zmap
     {
       zmap  make;
 
       if ( (make.n_vals = n_vals) != 0 )
-        make.z_tree() = std::shared_ptr<ztree_t>( new ztree_t( *z_tree() ) );
+        make.z_tree() = std::unique_ptr<ztree_t>( new ztree_t( *z_tree() ) );
 
       return std::move( make );
     }
@@ -391,7 +369,7 @@ namespace mtc
       ztree_t*  pfound;
 
       if ( z_tree() == nullptr )
-        z_tree() = std::shared_ptr<ztree_t>( new ztree_t() );
+        z_tree() = std::unique_ptr<ztree_t>( new ztree_t() );
 
       if ( (pfound = z_tree()->insert( k.data(), k.size() ))->pvalue == nullptr )
         {
@@ -408,7 +386,7 @@ namespace mtc
       ztree_t*  pfound;
 
       if ( z_tree() == nullptr )
-        z_tree() = std::shared_ptr<ztree_t>( new ztree_t() );
+        z_tree() = std::unique_ptr<ztree_t>( new ztree_t() );
 
       if ( (pfound = z_tree()->insert( k.data(), k.size() ))->pvalue == nullptr )
         {
@@ -565,11 +543,6 @@ namespace mtc
   # undef derive_set_move
   # undef derive_set_copy
   # undef derive_get_type
-
-  size_t  zmap::GetBufLen() const
-  {
-    return z_tree() != nullptr ? z_tree()->GetBufLen() : 1;
-  }
 
   auto  zmap::empty() const -> bool {  return n_vals == 0;  }
   auto  zmap::size() const -> size_t {  return n_vals;  }
