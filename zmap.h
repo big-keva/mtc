@@ -62,6 +62,7 @@ SOFTWARE.
 # include <type_traits>
 # include <memory>
 # include <limits>
+# include <mutex>
 
 namespace mtc
 {
@@ -686,8 +687,12 @@ namespace mtc
   class zmap
   {
     class ztree_t;
-    class const_place_t;
-    class patch_place_t;
+    class zdata_t;
+
+  public:     // iterator support
+    class key;
+    class iterator;
+    class const_iterator;
 
   protected:
     template <class value>
@@ -695,10 +700,9 @@ namespace mtc
     template <class value, class ztree_iterator>
     class iterator_base;
 
-  public:     // iterator support
-    class key;
-    class iterator;
-    class const_iterator;
+  protected:
+    auto  private_data() -> zdata_t*;
+    auto  make_private() -> zmap&;
 
   public:
     zmap();
@@ -707,6 +711,7 @@ namespace mtc
     zmap( const std::initializer_list<std::pair<key, zval>>& );
     zmap& operator = ( zmap&& );
     zmap& operator = ( const zmap& );
+    zmap& operator = ( const std::initializer_list<std::pair<key, zval>>& );
    ~zmap();
 
   public:     // serialization
@@ -714,17 +719,14 @@ namespace mtc
     template <class O>  O*      Serialize( O* o ) const;
     template <class S>  S*      FetchFrom( S* );
 
-  public:     // copying
-    auto  copy() const  -> zmap;
-
   public:     // put family
     auto  put( const key&, zval&& )               -> zval*;
     auto  put( const key&, const zval& = zval() ) -> zval*;
 
   public:     // get_zval family
-    auto  get( const key& ) const        -> const zval*;
-    auto  get( const key& )              ->       zval*;
-    auto  get_type( const key& ) const        -> decltype(zval::vx_type);
+    auto  get( const key& ) const       -> const zval*;
+    auto  get( const key& )             ->       zval*;
+    auto  get_type( const key& ) const  -> decltype(zval::vx_type);
 
   public:     // getters by type
   # define declare_get_type( _type_ )                                 \
@@ -853,8 +855,10 @@ namespace mtc
     auto  at( const key& ) const -> const zval&;
 
   public:     // c++ access
+  /*
     auto  operator []( const key& )       ->       patch_place_t;
     auto  operator []( const key& ) const -> const const_place_t;
+  */
 
   public:     // modifiers
     auto  clear() -> void;
@@ -892,12 +896,7 @@ namespace mtc
     bool operator>= ( const zmap& z ) const;
 
   protected:
-    auto  z_tree() const -> const std::unique_ptr<ztree_t>&;
-    auto  z_tree()       ->       std::unique_ptr<ztree_t>&;
-
-  protected:
-    char    z_data[impl::get_max_size<std::unique_ptr<ztree_t>>::value];
-    size_t  n_vals;
+    zdata_t*  p_data = nullptr;
 
   };
 
@@ -1092,6 +1091,24 @@ namespace mtc
 
   };
 
+  class zmap::zdata_t: public ztree_t
+  {
+  public:
+    zdata_t();
+    zdata_t( const zdata_t& );
+
+  public:
+    long  attach();
+    long  detach();
+
+  public:
+    size_t      n_vals;
+
+  protected:
+    std::mutex  _mutex;
+    long        _refer;
+  };
+
   class zmap::key
   {
     friend class zmap;
@@ -1208,6 +1225,7 @@ namespace mtc
     using iterator_base::iterator_base;
   };
 
+  /*
   class zmap::const_place_t
   {
     friend class zmap;
@@ -1229,6 +1247,23 @@ namespace mtc
     operator charstr      () const;
     operator widestr      () const;
     operator const zmap&  () const;
+
+  public:
+    bool  operator == ( char     ) const;
+    bool  operator == ( byte_t   ) const;
+    bool  operator == ( int16_t  ) const;
+    bool  operator == ( int32_t  ) const;
+    bool  operator == ( int64_t  ) const;
+    bool  operator == ( word16_t ) const;
+    bool  operator == ( word32_t ) const;
+    bool  operator == ( word64_t ) const;
+    bool  operator == ( float_t  ) const;
+    bool  operator == ( double_t ) const;
+    bool  operator == ( const charstr& ) const;
+    bool  operator == ( const widestr& ) const;
+
+    bool  operator != ( const charstr& s ) const  {  return !(*this == s);  }
+    bool  operator != ( const widestr& s ) const  {  return !(*this == s);  }
 
   protected:
     zmap_t    empty;
@@ -1260,6 +1295,7 @@ namespace mtc
     auto  operator = ( charstr&& s ) -> patch_place_t&;
     auto  operator = ( widestr&& s ) -> patch_place_t&;
   };
+  */
 
   /*
     zmap::ztree_t inline implementation
@@ -1383,21 +1419,22 @@ namespace mtc
   inline
   size_t  zmap::GetBufLen() const
   {
-    return z_tree() != nullptr ? z_tree()->GetBufLen() : 1;
+    return p_data != nullptr ? p_data->GetBufLen() : 1;
   }
 
   template <class O>
   O*  zmap::Serialize( O* o ) const
   {
-    return z_tree() != nullptr ? z_tree()->Serialize( o ) : ::Serialize( o, (char)0 );
+    return p_data != nullptr ? p_data->Serialize( o ) : ::Serialize( o, (char)0 );
   }
 
   template <class S>
   S*  zmap::FetchFrom( S*  s )
   {
-    if ( z_tree() != nullptr )
-      z_tree() = std::move( std::unique_ptr<ztree_t>( new ztree_t() ) );
-    return z_tree()->FetchFrom( s );
+    if ( p_data == nullptr )
+      (p_data = new zdata_t())->attach();
+
+    return p_data->FetchFrom( s );
   }
 
   /* zmap::iterator_base inline implementation */
@@ -1485,7 +1522,7 @@ namespace mtc
       assert( zstack.size() != 0 );
 
       while ( last().first->pvalue == nullptr && last().first->size() != 0 )
-        down( last().first );
+        down( last().first++ );
 
       assert( last().first->pvalue != nullptr );
 

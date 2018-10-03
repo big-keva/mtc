@@ -381,6 +381,7 @@ namespace mtc
 
         copy( charstr )
         copy( widestr )
+        copy( zmap )
 
         copy( array_char )
         copy( array_byte )
@@ -395,9 +396,8 @@ namespace mtc
         copy( array_charstr )
         copy( array_widestr )
         copy( array_zval )
+        copy( array_zmap )
       # undef copy
-        case z_array_zmap:
-        case z_zmap:  throw std::invalid_argument( "copy constructor for 'zmap' class not implemented, use &&" );
       }
       return *this;
     }
