@@ -52,7 +52,7 @@ SOFTWARE.
 # pragma once
 # if !defined( __mtc_charstream_h__ )
 # define __mtc_charstream_h__
-# include "serialize.h"
+# include "serialize.decl.h"
 
 namespace mtc
 {
