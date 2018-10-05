@@ -90,15 +90,6 @@ namespace mtc
       return *this;
     }
 
-  zmap::ztree_t::ztree_t( const ztree_t& zt ):
-      std::vector<ztree_t>( zt ),
-      chnode( zt.chnode ),
-      keyset( zt.keyset )
-    {
-      if ( zt.pvalue != nullptr )
-        pvalue = std::move( std::unique_ptr<zval>( new zval( *zt.pvalue.get() ) ) );
-    }
-
   auto  zmap::ztree_t::insert( const uint8_t* key, size_t cch ) -> zmap::ztree_t*
     {
       for ( auto expand = this; ; ++key, --cch )
@@ -168,6 +159,21 @@ namespace mtc
       return &_me;
     }
 
+  auto  zmap::ztree_t::copyit() const -> ztree_t
+    {
+      ztree_t mkcopy( chnode );
+
+      for ( auto ptr = begin(); ptr != end(); ++ptr )
+        mkcopy.push_back( std::move( ptr->copyit() ) );
+
+      mkcopy.keyset = keyset;
+
+      if ( pvalue != nullptr )
+        mkcopy.pvalue = std::move( std::unique_ptr<zval>( new zval( *pvalue.get() ) ) );
+
+      return std::move( mkcopy );
+    }
+
   auto  zmap::ztree_t::plain_branchlen() const -> int
   {
     const ztree_t*  pbeg;
@@ -182,10 +188,8 @@ namespace mtc
     zmap::zdata_t implementation
   */
 
-  zmap::zdata_t::zdata_t(): n_vals( 0 ), _refer( 0 )
-    {}
-  zmap::zdata_t::zdata_t( const zdata_t& d ): ztree_t( d ), n_vals( d.n_vals ), _refer( 0 )
-    {}
+  zmap::zdata_t::zdata_t(): n_vals( 0 ), _refer( 0 )  {}
+  zmap::zdata_t::zdata_t( ztree_t&& t, size_t n ):  ztree_t( std::move( t ) ), n_vals( n ), _refer( 0 ) {}
 
   long  zmap::zdata_t::attach()
     {
@@ -197,6 +201,11 @@ namespace mtc
     {
       std::unique_lock<std::mutex>  aulock( _mutex );
       return --_refer;
+    }
+
+  auto  zmap::zdata_t::copyit() -> zdata_t*
+    {
+      return new zdata_t( ztree_t::copyit(), n_vals );
     }
 
   /*
@@ -420,7 +429,7 @@ namespace mtc
       if ( lcount == 1 )
         return p_data;
 
-      zdata_t*  p_copy = new zdata_t( *p_data );
+      zdata_t*  p_copy = p_data->copyit();
 
       p_data->detach();
 
@@ -439,7 +448,7 @@ namespace mtc
       if ( lcount == 1 )
         return *this;
 
-      zdata_t*  p_copy = new zdata_t( *p_data );
+      zdata_t*  p_copy = p_data->copyit();
 
       p_data->detach();
 
@@ -506,8 +515,8 @@ namespace mtc
   # define derive_get_type( _type_ )                                                  \
   auto  zmap::get_##_type_( const key& k ) -> _type_##_t*                             \
     {                                                                                 \
-      auto  pval = get( k );                                                          \
-      return pval != nullptr ? pval->get_##_type_() : nullptr;                        \
+      auto  pv = get( k );                                                            \
+      return pv != nullptr ? pv->get_##_type_() : nullptr;                            \
     }                                                                                 \
   auto  zmap::get_##_type_( const key& k ) const -> const _type_##_t*                 \
     {                                                                                 \
@@ -527,11 +536,11 @@ namespace mtc
 
   # define derive_set_move( _type_ )                                                  \
   auto  zmap::set_##_type_( const key& k, _type_##_t&& t ) -> _type_##_t*             \
-    {  return put( k )->set_##_type_( std::move( t ) );  }
+    {  return put( k, std::move( zval( std::move( t ) ) ) )->get_##_type_();  }
 
   # define derive_set_copy( _type_ )                                                  \
   auto  zmap::set_##_type_( const key& k, const _type_##_t& t ) -> _type_##_t*        \
-    {  return put( k )->set_##_type_( t );  }
+    {  return put( k, std::move( zval( t ) ) )->get_##_type_();  }
 
     derive_get_type( char    )
     derive_get_type( byte    )
@@ -585,6 +594,7 @@ namespace mtc
     derive_set_copy( word64  )
     derive_set_copy( float   )
     derive_set_copy( double  )
+    derive_set_copy( zmap )
     derive_set_copy( charstr )
     derive_set_copy( widestr )
     derive_set_copy( array_char )

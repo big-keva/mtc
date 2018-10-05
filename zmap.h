@@ -222,6 +222,11 @@ namespace mtc
     zval& operator = ( float_t );
     zval& operator = ( double_t );
 
+    zval( const char*, size_t = (size_t)-1 );
+    zval& operator = ( const char* );
+    zval( const widechar*, size_t = (size_t)-1 );
+    zval& operator = ( const widechar* );
+
   # define declare_init( _type_ )         \
     zval( _type_##_t&& );                 \
     zval( const _type_##_t& );            \
@@ -797,6 +802,7 @@ namespace mtc
     declare_set_copy( word64  )
     declare_set_copy( float   )
     declare_set_copy( double  )
+    declare_set_copy( zmap )
     declare_set_copy( charstr )
     declare_set_copy( widestr )
     declare_set_copy( array_char )
@@ -816,9 +822,9 @@ namespace mtc
     declare_set_pure( zmap    )
     declare_set_pure( array_zmap    )
 
+    declare_set_move( zmap    )
     declare_set_move( charstr )
     declare_set_move( widestr )
-    declare_set_move( zmap    )
     declare_set_move( array_char )
     declare_set_move( array_byte    )
     declare_set_move( array_int16   )
@@ -1063,12 +1069,15 @@ namespace mtc
     uint8_t               keyset;     // the key type
     std::unique_ptr<zval> pvalue;     // the element value
 
+  protected:
+    auto  copyit() const -> ztree_t;
+
   public:
     ztree_t( byte_t chinit = '\0' );
     ztree_t( ztree_t&& );
     ztree_t& operator = ( ztree_t&& );
 
-    ztree_t( const ztree_t& );
+    ztree_t( const ztree_t& ) = delete;
     ztree_t& operator = ( const ztree_t& ) = delete;
 
   protected:  // search implementation
@@ -1093,13 +1102,22 @@ namespace mtc
 
   class zmap::zdata_t: public ztree_t
   {
+    friend class zmap;
+
+    zdata_t( zdata_t&& ) = delete;
+    zdata_t( const zdata_t& ) = delete;
+    zdata_t&  operator= ( zdata_t&& ) = delete;
+    zdata_t&  operator= ( const zdata_t& ) = delete;
+
+    zdata_t( ztree_t&&, size_t );
+
   public:
     zdata_t();
-    zdata_t( const zdata_t& );
 
   public:
     long  attach();
     long  detach();
+    auto  copyit() -> zdata_t*;
 
   public:
     size_t      n_vals;

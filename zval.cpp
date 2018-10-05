@@ -43,6 +43,16 @@ namespace mtc
     derive_init( double );
   # undef derive_init
 
+  zval::zval( const char* psz, size_t len )
+    {  set_charstr( charstr( psz, len != (size_t)-1 ? len : w_strlen( psz ) ) );  }
+  zval& zval::operator = ( const char* psz )
+    {  return set_charstr( charstr( psz ) ), *this;  }
+
+  zval::zval( const widechar* psz, size_t len )
+    {  set_widestr( widestr( psz, len != (size_t)-1 ? len : w_strlen( psz ) ) );  }
+  zval& zval::operator = ( const widechar* psz )
+    {  return set_widestr( widestr( psz ) ), *this;  }
+
   # define derive_init( _type_ )                            \
   zval::zval( const _type_##_t& t ): vx_type( z_untyped )   \
     {  set_##_type_( t );  }                                \
@@ -52,13 +62,9 @@ namespace mtc
     {  set_##_type_( t );  return *this;  }                 \
   zval& zval::operator = ( _type_##_t&& t )                 \
     {  set_##_type_( std::move( t ) );  return *this;  }
+    derive_init( zmap )
     derive_init( charstr )
     derive_init( widestr )
-
-  zval::zval( zmap_t&& t ): vx_type( z_untyped )
-    {  set_zmap( std::move( t ) );  }
-  zval& zval::operator = ( zmap_t&& t )
-    {  set_zmap( std::move( t ) );  return *this;  }
 
     derive_init( array_char )
     derive_init( array_byte )
@@ -126,21 +132,15 @@ namespace mtc
         return new( &inner().v_##_type_ ) _type_##_t( t );              \
       }
 
+    derive_access_type( zmap )
     derive_access_type( charstr )
     derive_access_type( widestr )
   # undef derive_access_type
 
-  auto  zval::get_zmap() -> zmap_t*             {  return vx_type == z_zmap ? &inner().v_zmap : nullptr;  }
-  auto  zval::get_zmap() const -> const zmap_t* {  return vx_type == z_zmap ? &inner().v_zmap : nullptr;  }
   auto  zval::set_zmap()  -> zmap_t*
     {
       clear().vx_type = z_zmap;
       return new( &inner().v_zmap ) zmap_t();
-    }
-  auto  zval::set_zmap( zmap_t&& t )  -> zmap_t*
-    {
-      clear().vx_type = z_zmap;
-      return new( &inner().v_zmap ) zmap_t( std::move( t ) );
     }
 
   # define derive_access_array( _type_ )                                        \
@@ -359,7 +359,7 @@ namespace mtc
         move( array_zmap )
       # undef move
       }
-      return *this;
+      return zv.vx_type = z_untyped, *this;
     }
 
   auto  zval::fetch( const zval& zv ) -> zval&
