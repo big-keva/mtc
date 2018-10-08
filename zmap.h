@@ -1159,6 +1159,8 @@ namespace mtc
     key( unsigned );
     key( const char* );
     key( const widechar* );
+    key( const charstr& );
+    key( const widestr& );
     key( const key& );
     key& operator = ( const key& );
 

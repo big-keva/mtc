@@ -56,6 +56,8 @@ namespace mtc
   zmap::key::key( unsigned k ): _typ( uint ), _ptr( _buf ), _len( keys::int_to_key( _buf, k ) )  {}
   zmap::key::key( const char* k ): _typ( cstr ), _ptr( (const uint8_t*)k ), _len( w_strlen( k ) ) {}
   zmap::key::key( const widechar* k ): _typ( wstr ), _ptr( (const uint8_t*)k ), _len( sizeof(widechar) * w_strlen( k ) )  {}
+  zmap::key::key( const charstr& k ): _typ( cstr ), _ptr( (const uint8_t*)k.c_str() ), _len( k.length() ) {}
+  zmap::key::key( const widestr& k ): _typ( wstr ), _ptr( (const uint8_t*)k.c_str() ), _len( sizeof(widechar) * k.length() )  {}
   zmap::key::key( const key& k ): _typ( k._typ ), _ptr( k._ptr ), _len( k._len )
     {  if ( _typ == 0 ) _ptr = (const uint8_t*)memcpy( _buf, k._buf, sizeof(k._buf) );  }
   zmap::key&  zmap::key::operator= ( const key& k )
