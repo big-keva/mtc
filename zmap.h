@@ -1087,8 +1087,8 @@ namespace mtc
   public:     // unserialized tree work
     auto  insert( const uint8_t* key, size_t cch ) -> ztree_t*;
     auto  remove( const uint8_t* key, size_t cch ) -> size_t;
-    auto  search( const uint8_t* key, size_t cch ) const  {  return search( *this, key, cch );  }
-    auto  search( const uint8_t* key, size_t cch )        {  return search( *this, key, cch );  }
+    auto  search( const uint8_t* key, size_t cch ) const -> const ztree_t* {  return search( *this, key, cch );  }
+    auto  search( const uint8_t* key, size_t cch )       ->       ztree_t* {  return search( *this, key, cch );  }
 
   public:     // serialization
                         size_t  GetBufLen(    ) const;
