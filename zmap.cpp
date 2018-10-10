@@ -400,6 +400,15 @@ namespace mtc
       return *this;
     }
 
+  zmap& zmap::operator=( const zmap& z )
+    {
+      if ( p_data != nullptr && p_data->detach() == 0 )
+        delete p_data;
+      if ( (p_data = z.p_data) != nullptr )
+        p_data->attach();
+      return *this;
+    }
+
   zmap& zmap::operator= ( const std::initializer_list<std::pair<key, zval>>& il )
     {
       if ( p_data != nullptr )
