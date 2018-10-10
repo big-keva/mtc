@@ -11,10 +11,10 @@ namespace mtc
   zval::zval(): vx_type( z_untyped )
     {}
 
-  zval::zval( zval&& zv )
+  zval::zval( zval&& zv ): vx_type( z_untyped )
     {  fetch( std::move( zv ) );  }
 
-  zval::zval( const zval& zv )
+  zval::zval( const zval& zv ): vx_type( z_untyped )
     {  fetch( zv );  }
 
   zval& zval::operator = ( zval&& zv )
