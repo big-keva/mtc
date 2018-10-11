@@ -999,7 +999,7 @@ namespace mtc
       size_t  cc = c1 <= c2 ? c1 : c2;
       int     rc = memcmp( k1, k2, cc );
 
-      return rc != 0 ? rc : c1 - cc;
+      return rc != 0 ? rc : (c1 > cc) - (c1 < cc);
     }
 
   inline
