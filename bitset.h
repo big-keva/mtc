@@ -86,16 +86,16 @@ namespace mtc
       return bitset_impl::setlen( a, (m + sizeof(a.at( 0 )) * CHAR_BIT - 1) / (sizeof(a.at( 0 )) * CHAR_BIT) );
     }
 
-  template <class bitset>
-  inline  bool  bitset_get( const bitset& s, const range& r )
+  template <class bitset, class U>
+  inline  bool  bitset_get( const bitset& s, const range<U>& r )
     {
       for ( auto u = r.l; u <= r.h; )
         if ( bitset_get( s, u++ ) ) return true;
       return false;
     }
 
-  template <class Vector>
-  inline  bool  bitset_get( const Vector& s, unsigned b )
+  template <class Vector, class U>
+  inline  bool  bitset_get( const Vector& s, U b )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
@@ -109,7 +109,7 @@ namespace mtc
       int   f = bitset_first( m );
       int   l = bitset_last( m );
 
-      return f != -1 ? bitset_get( s, range( f, l ) ) : false;
+      return f != -1 ? bitset_get( s, make_range( f, l ) ) : false;
     }
 
   template <class bitset>
@@ -170,14 +170,14 @@ namespace mtc
       return bits & mask;
     }
 
-  template <class Vector>
-  inline  int   bitset_set( Vector& s, const range& r )
+  template <class Vector, class U>
+  inline  int   bitset_set( Vector& s, const range<U>& r )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       using             size_type = decltype(s.size());
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
-      int               l = r.l;
-      int               h = r.h;
+      auto              l = r.l;
+      auto              h = r.h;
 
       if ( l > h )
         inplace_swap( l, h );
@@ -201,16 +201,16 @@ namespace mtc
     }
 
   template <class Vector>
-  inline  int   bitset_set( Vector& s, int u )  {  return bitset_set( s, range( u ) );  }
+  inline  int   bitset_set( Vector& s, int u )  {  return bitset_set( s, make_range( u ) );  }
 
-  template <class Vector>
-  inline  int   bitset_del( Vector& s, const range& r )
+  template <class Vector, class U>
+  inline  int   bitset_del( Vector& s, const range<U>& r )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       using             size_type = decltype(s.size());
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
-      int               l = r.l;
-      int               h = r.h;
+      auto              l = r.l;
+      auto              h = r.h;
 
       if ( h >= l && s.size() > size_type(l / element_size) )
       {
@@ -232,7 +232,7 @@ namespace mtc
     }
 
   template <class bitset>
-  inline  int   bitset_del( bitset& s, int u )  {  return bitset_del( s, range( u ) );  }
+  inline  int   bitset_del( bitset& s, int u )  {  return bitset_del( s, make_range( u ) );  }
 
 }
 

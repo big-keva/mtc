@@ -54,6 +54,7 @@ SOFTWARE.
 # include <cstdlib>
 # include <cstdint>
 # include <climits>
+# include <limits>
 # include <fcntl.h>
 # include <new>
 
@@ -306,47 +307,56 @@ namespace mtc
 //
 // range - работа с интервалами
 //
+  template <class U>
   class range
   {
   public:
-    range() noexcept: l( 0 ), h( INT_MAX ) {}
-    range( int lo, int up ): l( lo ), h( up ) {}
-    range( int lh ): l( lh ), h( lh ) {}
+    U   l;   // левая
+    U   h;   // правая
+
+  public:
+    range() noexcept: l( 0 ), h( std::numeric_limits<U>().max() ) {}
+    range( U lo, U up ): l( lo ), h( up ) {}
+    range( U lh ): l( lh ), h( lh ) {}
 
   public:     // operators
-    range&  operator &= ( const range& r )
+    auto  operator &= ( const range& r ) -> range&
       {
         l = max( l, r.l );  
         h = min( h, r.h );
         return *this;
       }
-    range&  operator |= ( const range& ct )
+    auto  operator |= ( const range& r ) -> range&
       {
-        l = min( l, ct.l );
-        h = max( h, ct.h );
+        l = min( l, r.l );
+        h = max( h, r.h );
         return *this;
       }
-    range operator & ( const range& r ) const
+    auto  operator & ( const range& r ) const -> range
       {
         range x( *this );
         return x &= r;
       }
-    range operator | ( const range& r ) const
+    auto  operator | ( const range& r ) const -> range
       {
         range x( *this );
         return x |= r;
       }
     bool  operator == ( const range& r ) const {  return l == r.l && h == r.h;  }
-    bool  operator != ( const range& r ) const {  return l != r.l || h != r.h;  }
+    bool  operator != ( const range& r ) const {  return !(*this == r);  }
 
   public:
-    range move( int i ) {  return range( i + l, i + h );  }
+    template <class shift>
+    range move( shift s ) {  return range( s + l, s + h );  }
     int   size() const  {  return h - l + 1;  }
     
-  public:
-    int       l;   // левая
-    int       h;   // правая
   };
+
+  template <class U>
+  range<U>  make_range( U l, U h )  {  return range<U>( l, h );  }
+
+  template <class U>
+  range<U>  make_range( U lh )  {  return range<U>( lh );  }
 
 }
 
