@@ -63,6 +63,9 @@ namespace mtc
   {
     virtual long  Attach() = 0;
     virtual long  Detach() = 0;
+
+  protected:
+   ~Iface() {}
   };
 
   namespace impl

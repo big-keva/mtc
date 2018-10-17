@@ -52,6 +52,7 @@ install(
     suballocator.h
     wcsstr.h
     zarray.h
+    zmap.h
     zipStream.h
   DESTINATION include/mtc
 )
