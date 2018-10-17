@@ -51,8 +51,8 @@ SOFTWARE.
 */
 # if !defined( __mtc_z_js_h__ )
 # define __mtc_z_js_h__
-//# include "charstream.h"
 # include "zmap.h"
+# include <inttypes.h>
 
 namespace mtc {
 namespace json {
