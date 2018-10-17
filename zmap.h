@@ -495,16 +495,32 @@ namespace mtc
     # undef derive_math
 
   public:     // arithmetic
-    zval operator *   ( const zval& r ) const {  return GetMul( r );  }
-    zval operator /   ( const zval& r ) const {  return GetDiv( r );  }
-    zval operator %   ( const zval& r ) const {  return GetPct( r );  }
-    zval operator +   ( const zval& r ) const {  return GetAdd( r );  }
-    zval operator -   ( const zval& r ) const {  return GetSub( r );  }
-    zval operator <<  ( const zval& r ) const {  return GetShl( r );  }
-    zval operator >>  ( const zval& r ) const {  return GetShr( r );  }
-    zval operator &   ( const zval& r ) const {  return GetAnd( r );  }
-    zval operator ^   ( const zval& r ) const {  return GetXor( r );  }
-    zval operator |   ( const zval& r ) const {  return Get_Or( r );  }
+    zval  operator *  ( const zval& r ) const {  return GetMul( r );  }
+    zval  operator /  ( const zval& r ) const {  return GetDiv( r );  }
+    zval  operator %  ( const zval& r ) const {  return GetPct( r );  }
+    zval  operator +  ( const zval& r ) const {  return GetAdd( r );  }
+    zval  operator -  ( const zval& r ) const {  return GetSub( r );  }
+    zval  operator << ( const zval& r ) const {  return GetShl( r );  }
+    zval  operator >> ( const zval& r ) const {  return GetShr( r );  }
+    zval  operator &  ( const zval& r ) const {  return GetAnd( r );  }
+    zval  operator ^  ( const zval& r ) const {  return GetXor( r );  }
+    zval  operator |  ( const zval& r ) const {  return Get_Or( r );  }
+
+    zval  operator ~  ()  const
+      {
+        switch ( get_type() )
+        {
+          case z_char:    return ~*get_char();
+          case z_byte:    return ~*get_byte();
+          case z_int16:   return ~*get_int16();
+          case z_int32:   return ~*get_int32();
+          case z_int64:   return ~*get_int64();
+          case z_word16:  return ~*get_word16();
+          case z_word32:  return ~*get_word32();
+          case z_word64:  return ~*get_word64();
+          default:        return zval(); 
+        }
+      }
 
   protected:  // compare helpers
     /*
@@ -528,8 +544,8 @@ namespace mtc
         return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;
       }
 
-    # define  derive_noncmp( c1, c2 ) static  int   CompTo( c1, c2 )  {  return 0;  } \
-                                      static  int   CompTo( c2, c1 )  {  return 0;  }
+    # define  derive_noncmp( c1, c2 ) static  int   CompTo( c1, c2 )  {  return 0x08;  } \
+                                      static  int   CompTo( c2, c1 )  {  return 0x08;  }
       derive_noncmp( charstr, char )
       derive_noncmp( charstr, byte_t )
       derive_noncmp( charstr, int16_t )
