@@ -3,6 +3,166 @@
 
 namespace mtc
 {
+  template <class A, class B> static  zval  GetMul( A a, B b )  {  return a * b;  }
+  template <class A, class B> static  zval  GetDiv( A a, B b )  {  return a / b;  }
+  template <class A, class B> static  zval  GetAdd( A a, B b )  {  return a + b;  }
+  template <class A, class B> static  zval  GetSub( A a, B b )  {  return a - b;  }
+
+  template <class A, class B> static  zval  GetAnd( A a, B b )  {  return a & b;  }
+  template <class A, class B> static  zval  GetXor( A a, B b )  {  return a ^ b;  }
+  template <class A, class B> static  zval  Get_Or( A a, B b )  {  return a | b;  }
+  template <class A, class B> static  zval  GetPct( A a, B b )  {  return a % b;  }
+  template <class A, class B> static  zval  GetShl( A a, B b )  {  return a << b;  }
+  template <class A, class B> static  zval  GetShr( A a, B b )  {  return a >> b;  }
+
+  /*
+    операции над zval и целым или дробным значением - макрогенерация:
+    template <class V> zval  (#)( zval, V )
+  */
+  # define  derive_operation_xvalue_value( funcname )                     \
+  template <class V>  zval  funcname( const zval& z, V v )                \
+    {                                                                     \
+      switch ( z.get_type() )                                             \
+      {                                                                   \
+        case zval::z_char:    return funcname( *z.get_char(), v );        \
+        case zval::z_byte:    return funcname( *z.get_byte(), v );        \
+        case zval::z_int16:   return funcname( *z.get_int16(), v );       \
+        case zval::z_int32:   return funcname( *z.get_int32(), v );       \
+        case zval::z_int64:   return funcname( *z.get_int64(), v );       \
+        case zval::z_word16:  return funcname( *z.get_word16(), v );      \
+        case zval::z_word32:  return funcname( *z.get_word32(), v );      \
+        case zval::z_word64:  return funcname( *z.get_word64(), v );      \
+        case zval::z_float:   return funcname( *z.get_float(), v );       \
+        case zval::z_double:  return funcname( *z.get_double(), v );      \
+        default:        return zval();                                    \
+      }                                                                   \
+    }
+    derive_operation_xvalue_value( GetMul )
+    derive_operation_xvalue_value( GetDiv )
+    derive_operation_xvalue_value( GetAdd )
+    derive_operation_xvalue_value( GetSub )
+  # undef  derive_operation_xvalue_value
+
+  /*
+    операции над zval и zval - макрогенерация:
+    zval  (#)( const zval&, const zval& )
+  */
+  # define  derive_operation_xvalue_xvalue( funcname )                    \
+  zval  funcname( const zval& z, const zval& x )                          \
+    {                                                                     \
+      switch ( x.get_type() )                                             \
+      {                                                                   \
+        case zval::z_char:    return funcname( z, *x.get_char() );        \
+        case zval::z_byte:    return funcname( z, *x.get_byte() );        \
+        case zval::z_int16:   return funcname( z, *x.get_int16() );       \
+        case zval::z_int32:   return funcname( z, *x.get_int32() );       \
+        case zval::z_int64:   return funcname( z, *x.get_int64() );       \
+        case zval::z_word16:  return funcname( z, *x.get_word16() );      \
+        case zval::z_word32:  return funcname( z, *x.get_word32() );      \
+        case zval::z_word64:  return funcname( z, *x.get_word64() );      \
+        case zval::z_float:   return funcname( z, *x.get_float() );       \
+        case zval::z_double:  return funcname( z, *x.get_double() );      \
+        default:        return zval();                                    \
+      }                                                                   \
+    }
+    derive_operation_xvalue_xvalue( GetMul )
+    derive_operation_xvalue_xvalue( GetDiv )
+    derive_operation_xvalue_xvalue( GetSub )
+  # undef derive_operation_xvalue_xvalue
+
+  /*
+    специализации StrCat с поддержкой суммирования однотипных строк
+  */
+  template <class A, class B>
+  zval  StrCat( A, B )  {  return zval();  }
+  zval  StrCat( const charstr& a, const charstr& b )  {  return std::move( zval( std::move( a + b ) ) );  }
+  zval  StrCat( const widestr& a, const widestr& b )  {  return std::move( zval( std::move( a + b ) ) );  }
+  zval  StrCat( char a, const charstr& b )  {  return std::move( zval( std::move( a + b ) ) );  }
+  zval  StrCat( const charstr& a, char b )  {  return std::move( zval( std::move( a + b ) ) );  }
+
+  template <class V>
+  zval  StrCat( const zval& z, V v )
+    {
+      switch ( z.get_type() )
+      {
+        case zval::z_char:    return StrCat( *z.get_char(),   v );
+        case zval::z_byte:    return StrCat( *z.get_byte(),   v );
+        case zval::z_int16:   return StrCat( *z.get_int16(),  v );
+        case zval::z_int32:   return StrCat( *z.get_int32(),  v );
+        case zval::z_int64:   return StrCat( *z.get_int64(),  v );
+        case zval::z_word16:  return StrCat( *z.get_word16(), v );
+        case zval::z_word32:  return StrCat( *z.get_word32(), v );
+        case zval::z_word64:  return StrCat( *z.get_word64(), v );
+        case zval::z_float:   return StrCat( *z.get_float(),  v );
+        case zval::z_double:  return StrCat( *z.get_double(), v );
+        case zval::z_charstr: return StrCat( *z.get_charstr(), v );
+        case zval::z_widestr: return StrCat( *z.get_widestr(), v );
+        default:              return zval();
+      }
+    }
+
+  auto  GetAdd( const zval& z, const zval& x ) -> zval
+    {
+      switch ( x.get_type() )
+      {
+        case zval::z_char:    return mtc::GetAdd( z, *x.get_char() );
+        case zval::z_byte:    return mtc::GetAdd( z, *x.get_byte() );
+        case zval::z_int16:   return mtc::GetAdd( z, *x.get_int16() );
+        case zval::z_int32:   return mtc::GetAdd( z, *x.get_int32() );
+        case zval::z_int64:   return mtc::GetAdd( z, *x.get_int64() );
+        case zval::z_word16:  return mtc::GetAdd( z, *x.get_word16() );
+        case zval::z_word32:  return mtc::GetAdd( z, *x.get_word32() );
+        case zval::z_word64:  return mtc::GetAdd( z, *x.get_word64() );
+        case zval::z_float:   return mtc::GetAdd( z, *x.get_float() );
+        case zval::z_double:  return mtc::GetAdd( z, *x.get_double() );
+        case zval::z_charstr: return mtc::StrCat( z, *x.get_charstr() );
+        case zval::z_widestr: return mtc::StrCat( z, *x.get_widestr() );
+        default:        return zval();
+      }
+    }
+
+  /*
+    макрогенерация битовых операций над целочисленными значениями
+  */
+  # define  derive_math( funcname )                                       \
+  template <class V>  zval  funcname( const zval& z, V v )                \
+    {                                                                     \
+      switch ( z.get_type() )                                             \
+      {                                                                   \
+        case zval::z_char:    return funcname( *z.get_char(), v );        \
+        case zval::z_byte:    return funcname( *z.get_byte(), v );        \
+        case zval::z_int16:   return funcname( *z.get_int16(), v );       \
+        case zval::z_int32:   return funcname( *z.get_int32(), v );       \
+        case zval::z_int64:   return funcname( *z.get_int64(), v );       \
+        case zval::z_word16:  return funcname( *z.get_word16(), v );      \
+        case zval::z_word32:  return funcname( *z.get_word32(), v );      \
+        case zval::z_word64:  return funcname( *z.get_word64(), v );      \
+        default:        return zval();                                    \
+      }                                                                   \
+    }                                                                     \
+  zval  funcname( const zval& z, const zval& x )                          \
+    {                                                                     \
+      switch ( x.get_type() )                                             \
+      {                                                                   \
+        case zval::z_char:    return funcname( z, *x.get_char() );        \
+        case zval::z_byte:    return funcname( z, *x.get_byte() );        \
+        case zval::z_int16:   return funcname( z, *x.get_int16() );       \
+        case zval::z_int32:   return funcname( z, *x.get_int32() );       \
+        case zval::z_int64:   return funcname( z, *x.get_int64() );       \
+        case zval::z_word16:  return funcname( z, *x.get_word16() );      \
+        case zval::z_word32:  return funcname( z, *x.get_word32() );      \
+        case zval::z_word64:  return funcname( z, *x.get_word64() );      \
+        default:        return zval();                                    \
+      }                                                                   \
+    }
+    derive_math( GetPct )
+    derive_math( GetShl )
+    derive_math( GetShr )
+    derive_math( GetAnd )
+    derive_math( GetXor )
+    derive_math( Get_Or )
+  # undef derive_math
+
   // zval implementation
 
   auto  zval::inner() const -> const zval::inner_t& {  return *reinterpret_cast<const inner_t*>( storage );  }
@@ -241,6 +401,33 @@ namespace mtc
 
   auto  zval::is_numeric() const -> bool
     {  return get_type() >= z_char && get_type() <= z_double;  }
+
+  zval  zval::operator *  ( const zval& r ) const {  return GetMul( *this, r );  }
+  zval  zval::operator /  ( const zval& r ) const {  return GetDiv( *this, r );  }
+  zval  zval::operator %  ( const zval& r ) const {  return GetPct( *this, r );  }
+  zval  zval::operator +  ( const zval& r ) const {  return GetAdd( *this, r );  }
+  zval  zval::operator -  ( const zval& r ) const {  return GetSub( *this, r );  }
+  zval  zval::operator << ( const zval& r ) const {  return GetShl( *this, r );  }
+  zval  zval::operator >> ( const zval& r ) const {  return GetShr( *this, r );  }
+  zval  zval::operator &  ( const zval& r ) const {  return GetAnd( *this, r );  }
+  zval  zval::operator ^  ( const zval& r ) const {  return GetXor( *this, r );  }
+  zval  zval::operator |  ( const zval& r ) const {  return Get_Or( *this, r );  }
+
+  zval  zval::operator ~  ()  const
+    {
+      switch ( get_type() )
+      {
+        case z_char:    return ~*get_char();
+        case z_byte:    return ~*get_byte();
+        case z_int16:   return ~*get_int16();
+        case z_int32:   return ~*get_int32();
+        case z_int64:   return ~*get_int64();
+        case z_word16:  return ~*get_word16();
+        case z_word32:  return ~*get_word32();
+        case z_word64:  return ~*get_word64();
+        default:        return zval(); 
+      }
+    }
 
   size_t  zval::GetBufLen() const
   {
