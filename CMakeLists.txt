@@ -16,6 +16,8 @@ add_library(mtc STATIC
   jsconfig.cpp
   netStream.cpp
   zipStream.cpp
+  zval.cpp
+  zmap.cpp
 )
 
 install(TARGETS mtc DESTINATION lib)
@@ -50,6 +52,7 @@ install(
     suballocator.h
     wcsstr.h
     zarray.h
+    zmap.h
     zipStream.h
   DESTINATION include/mtc
 )
