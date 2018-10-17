@@ -115,24 +115,34 @@ inline  FILE*                 FetchFrom( FILE*, void*, size_t );
 //[]=========================================================================[]
 
 template <class T>
-inline  size_t  GetBufLen( T );
+size_t  GetBufLen( T );
 
-constexpr inline  size_t  GetBufLen( char );
-constexpr inline  size_t  GetBufLen( unsigned char );
-constexpr inline  size_t  GetBufLen( bool );
-constexpr inline  size_t  GetBufLen( float );
-constexpr inline  size_t  GetBufLen( double );
-          inline  size_t  GetBufLen( const char* );
-          inline  size_t  GetBufLen( char* );
+constexpr inline  size_t  GetBufLen( char )           {  return 1;  }
+constexpr inline  size_t  GetBufLen( unsigned char )  {  return 1;  }
+constexpr inline  size_t  GetBufLen( bool )           {  return 1;  }
+constexpr inline  size_t  GetBufLen( float )          {  return sizeof(float);  }
+constexpr inline  size_t  GetBufLen( double )         {  return sizeof(double);  }
+
+inline  size_t  GetBufLen( const char*  string )
+  {
+    auto length = strlen( string );
+
+    return sizeof(*string) * length + GetBufLen( length );
+  }
+
+inline  size_t  GetBufLen( char* string )
+  {
+    return GetBufLen( (const char*)string );
+  }
 
 template <class T>
-inline  size_t  GetBufLen( const std::vector<T>& );
+size_t  GetBufLen( const std::vector<T>& );
 
 template <class C>
-inline  size_t  GetBufLen( const std::basic_string<C>& );
+size_t  GetBufLen( const std::basic_string<C>& );
 
 template <class K, class V>
-inline  size_t  GetBufLen( const std::map<K, V>& );
+size_t  GetBufLen( const std::map<K, V>& );
 
 //[]=========================================================================[]
 
