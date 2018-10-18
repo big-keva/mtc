@@ -18,6 +18,7 @@ add_library(mtc STATIC
   zipStream.cpp
   zval.cpp
   zmap.cpp
+  z_js.cpp
 )
 
 install(TARGETS mtc DESTINATION lib)
