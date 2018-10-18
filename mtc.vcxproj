@@ -24,6 +24,7 @@
     <ClCompile Include="fileStream.cpp" />
     <ClCompile Include="jsconfig.cpp" />
     <ClCompile Include="netStream.cpp" />
+    <ClCompile Include="z_js.cpp" />
     <ClCompile Include="zmap.cpp" />
     <ClCompile Include="zval.cpp" />
     <ClCompile Include="zipStream.cpp" />
