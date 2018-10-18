@@ -69,6 +69,19 @@ namespace mtc
       return *this;
     }
 
+  auto  zmap::key::operator == ( const key& k ) const -> bool
+    {
+      if ( _typ != k._typ )
+        return false;
+      switch ( _typ )
+        {
+          case uint:  return (unsigned)*this == (unsigned)k;
+          case cstr:  return w_strcmp( (const char*)*this, (const char*)k ) == 0;
+          case wstr:  return w_strcmp( (const widechar*)*this, (const widechar*)k ) == 0;
+          default  :  return true;
+        }
+    }
+
   zmap::key::operator unsigned () const {  return _typ == uint ? keys::key_to_int( _ptr, _len ) : 0;  }
   zmap::key::operator const char* () const {  return _typ == cstr ? (const char*)_ptr : nullptr;  }
   zmap::key::operator const widechar* () const {  return _typ == wstr ? (const widechar*)_ptr : nullptr;  }
@@ -715,6 +728,18 @@ namespace mtc
       }
 
       return 0;
+    }
+
+  auto  zmap::operator== ( const zmap& z ) const -> bool
+    {
+      if ( size() != z.size() )
+        return false;
+
+      for ( auto me = cbegin(), he = z.cbegin(); me != cend() && he != z.cend(); ++me, ++he )
+        if ( me->first != he->first || me->second != he->second )
+          return false;
+
+      return true;
     }
 
   std::string to_string( const zmap::key& key )

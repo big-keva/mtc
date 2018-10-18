@@ -645,7 +645,6 @@ namespace mtc
     declare_set_copy( word64  )
     declare_set_copy( float   )
     declare_set_copy( double  )
-    declare_set_copy( zmap )
     declare_set_copy( charstr )
     declare_set_copy( widestr )
     declare_set_copy( array_char )
@@ -662,10 +661,8 @@ namespace mtc
     declare_set_copy( array_widestr )
     declare_set_copy( array_zval    )
 
-    declare_set_pure( zmap    )
     declare_set_pure( array_zmap    )
 
-    declare_set_move( zmap    )
     declare_set_move( charstr )
     declare_set_move( widestr )
     declare_set_move( array_char )
@@ -686,6 +683,10 @@ namespace mtc
   # undef declare_set_move
   # undef declare_set_copy
   # undef declare_get_type
+
+  auto  set_zmap( const key& ) -> zmap*;
+  auto  set_zmap( const key&, zmap&& ) -> zmap*;
+  auto  set_zmap( const key&, const zmap& ) -> zmap*;
 
   public:     // iterators
           iterator  begin();
@@ -1007,6 +1008,10 @@ namespace mtc
     key( const key& );
     key& operator = ( const key& );
 
+  public:
+    auto  operator == ( const key& k ) const -> bool;
+    auto  operator != ( const key& k ) const -> bool {  return !(*this == k);  }
+
   public: // data
     auto  type() const  -> unsigned       {  return _typ;  }
     auto  data() const  -> const uint8_t* {  return _ptr;  }
@@ -1236,7 +1241,7 @@ namespace mtc
 
     if ( (lfetch & 0x0200) != 0 )
     {
-      pvalue = std::unique_ptr<ztree_t>( new zval() );
+      pvalue = std::unique_ptr<zval>( new zval() );
 
       if ( (s = pvalue->FetchFrom( ::FetchFrom( s, (char&)keyset ) )) == nullptr )
         return nullptr;
