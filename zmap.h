@@ -52,7 +52,7 @@ SOFTWARE.
 # pragma once
 # if !defined( __zmap_hpp__ )
 # define __zmap_hpp__
-# include "serialize.h"
+# include "serialize.decl.h"
 # include "wcsstr.h"
 # include <cassert>
 # include <algorithm>
@@ -937,7 +937,7 @@ namespace mtc
   public:     // serialization
                         size_t  GetBufLen(    ) const;
     template <class O>  O*      Serialize( O* ) const;
-    template <class S>  S*      FetchFrom( S* );
+    template <class S>  S*      FetchFrom( S*, size_t& );
 
   protected:  // helpers
     int   plain_branchlen() const;
@@ -1232,7 +1232,7 @@ namespace mtc
   }
 
   template <class S>
-  S*    zmap::ztree_t::FetchFrom( S* s )
+  S*    zmap::ztree_t::FetchFrom( S* s, size_t& n )
   {
     word16_t  lfetch;
 
@@ -1245,6 +1245,7 @@ namespace mtc
 
       if ( (s = pvalue->FetchFrom( ::FetchFrom( s, (char&)keyset ) )) == nullptr )
         return nullptr;
+      else ++n;
     }
 
     if ( (lfetch & 0x0400) != 0 )
@@ -1260,7 +1261,7 @@ namespace mtc
         pbeg->push_back( std::move( ztree_t( chnext ) ) );
       }
 
-      return pbeg->FetchFrom( s );
+      return pbeg->FetchFrom( s, n );
     }
       else
     {
@@ -1274,7 +1275,7 @@ namespace mtc
         if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
           return nullptr;
         push_back( std::move( ztree_t( chnext ) ) );
-          s = back().FetchFrom( s );
+          s = back().FetchFrom( s, n );
       }
     }
     return s;
@@ -1302,7 +1303,7 @@ namespace mtc
     if ( p_data == nullptr )
       (p_data = new zdata_t())->attach();
 
-    return p_data->FetchFrom( s );
+    return p_data->FetchFrom( s, p_data->n_vals );
   }
 
   /* zmap::iterator_base inline implementation */
