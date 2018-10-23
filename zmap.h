@@ -52,7 +52,7 @@ SOFTWARE.
 # pragma once
 # if !defined( __zmap_hpp__ )
 # define __zmap_hpp__
-# include "serialize.decl.h"
+# include "serialize.h"
 # include "wcsstr.h"
 # include <cassert>
 # include <algorithm>
