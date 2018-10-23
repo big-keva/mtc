@@ -20,9 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="byteBuffer.cpp" />
+    <ClCompile Include="config.cpp" />
     <ClCompile Include="dirtools.cpp" />
     <ClCompile Include="fileStream.cpp" />
-    <ClCompile Include="jsconfig.cpp" />
     <ClCompile Include="netStream.cpp" />
     <ClCompile Include="z_js.cpp" />
     <ClCompile Include="zmap.cpp" />
@@ -31,8 +31,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="byteBuffer.h" />
+    <ClInclude Include="config.h" />
     <ClInclude Include="fileStream.h" />
-    <ClInclude Include="jsconfig.h" />
     <ClInclude Include="json.h" />
     <ClInclude Include="netStream.h" />
     <ClInclude Include="zipStream.h" />
