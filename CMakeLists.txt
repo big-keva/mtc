@@ -16,6 +16,7 @@ add_library(mtc STATIC
   jsconfig.cpp
   netStream.cpp
   zipStream.cpp
+  config.cpp
   zval.cpp
   zmap.cpp
   z_js.cpp
@@ -53,6 +54,7 @@ install(
     suballocator.h
     wcsstr.h
     zarray.h
+    config.h
     zmap.h
     z_js.h
     zipStream.h
