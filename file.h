@@ -59,6 +59,9 @@ namespace mtc
   {
     FILE* f;
 
+    file( const file& ) = delete;
+    file& operator = ( const file& ) = delete;
+
   public:     // construction
     file( FILE* in = nullptr ):
       f( in ) {}
@@ -66,16 +69,13 @@ namespace mtc
       f( s.f ) {  s.f = nullptr;  }
     file& operator = ( file&& in )
       {  if ( f ) fclose( f );  f = in.f;  in.f = nullptr;  return *this;  }
-    file( const file& ) = delete;
-    file& operator = ( const file& ) = delete;
    ~file()
       {  if ( f ) fclose( f );  }
 
   public:     // operators
-    operator FILE* () const
-      {  return f;  }
-    FILE* detach()
-      {  FILE* p = f;  f = nullptr;  return p;  }
+    operator FILE* () const {  return f;  }
+    FILE* ptr() const {  return f;  }
+    FILE* detach()  {  FILE* p = f;  f = nullptr;  return p;  }
   };
 }
 
