@@ -98,46 +98,6 @@ namespace mtc
       return w_strcat( w_strcat( w_strcpy( out, newdir ), "/" ), pslash );
     }
 
-    template <class K>
-    config  open( const config& cfg, K key )
-      {
-        const char* substr = cfg.get_charstr( key );
-        auto        zvconf = cfg.get_zarray( configGUID );
-
-        if ( substr != nullptr && zvconf != nullptr )
-        {
-          auto  szroot = zvconf->get_charstr( 0U );
-          auto  except = zvconf->get_int32( 1U, 0 ) != 0;
-          char  szpath[0x400];
-
-          if ( __impl__::fullpath( szpath, sizeof(szpath), substr, szroot ) != nullptr )
-          {
-            if ( except )
-              return Open( szpath, enable_exceptions );
-            else
-              return Open( szpath, disable_exceptions );
-          }
-        }
-
-        return config();
-      }
-
-    template <class K>
-    config  section( const config& cfg, K key )
-      {
-        const zarray<>* pzsect = cfg.get_zarray( key );
-        auto            zvconf = cfg.get_zarray( configGUID );
-
-        if ( pzsect != nullptr && zvconf != nullptr )
-        {
-          config  newcfg( *pzsect );
-
-          return (newcfg.set_zarray( configGUID, *zvconf ), newcfg);
-        }
-
-        return config();
-      }
-
   }
 
   // config implementation

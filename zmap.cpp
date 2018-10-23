@@ -1,4 +1,5 @@
 # include "zmap.h"
+# include "serialize.h"
 
 namespace mtc
 {
