@@ -371,7 +371,7 @@ namespace json {
   }
 
   template <class S>
-  S*  Parse( S* s, zval& x, const zmap& revive = zmap() )
+  S*  Parse( S* s, zval& x, const zval& revive = zmap() )
   {
     parse::source<S>  stream( s );
     parse::reader     reader( stream );

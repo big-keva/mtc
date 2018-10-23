@@ -155,9 +155,9 @@ namespace parse {
   template <class I>
   auto  iParse( reader& stm, I& i ) -> I&
     {
-      std::make_unsigned<I>::type uvalue;
-      char                        chnext;
-      bool                        is_neg;
+      typename std::make_unsigned<I>::type  uvalue;
+      char                                  chnext;
+      bool                                  is_neg;
 
       if ( (is_neg = ((chnext = stm.nospace()) == '-')) == false )
         stm.putback( chnext );
@@ -198,8 +198,6 @@ namespace parse {
     {
       char  chnext;
       char  chprev;
-      int   cchstr = 0;
-      int   climit = 0;
 
       if ( (chnext = src.nospace()) != '\"' )
         throw error( "'\"' expected" );
