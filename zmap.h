@@ -1485,4 +1485,6 @@ namespace mtc
 
 }
 
+# include "serialize.h"
+
 # endif  // __zmap_hpp__
