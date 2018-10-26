@@ -115,7 +115,7 @@ inline  FILE*                 FetchFrom( FILE*, void*, size_t );
 //[]=========================================================================[]
 
 template <class T>
-size_t  GetBufLen( T );
+size_t  inline  GetBufLen( T );
 
 constexpr inline  size_t  GetBufLen( char )           {  return 1;  }
 constexpr inline  size_t  GetBufLen( unsigned char )  {  return 1;  }
@@ -136,60 +136,61 @@ inline  size_t  GetBufLen( char* string )
   }
 
 template <class T>
-size_t  GetBufLen( const std::vector<T>& );
+inline  size_t  GetBufLen( const std::vector<T>& );
 
 template <class C>
-size_t  GetBufLen( const std::basic_string<C>& );
+inline  size_t  GetBufLen( const std::basic_string<C>& );
 
 template <class K, class V>
-size_t  GetBufLen( const std::map<K, V>& );
+inline  size_t  GetBufLen( const std::map<K, V>& );
 
 //[]=========================================================================[]
 
-template <class O>  O*  Serialize( O*, char );
-template <class O>  O*  Serialize( O*, unsigned char );
-template <class O>  O*  Serialize( O*, float );
-template <class O>  O*  Serialize( O*, double );
-template <class O>  O*  Serialize( O*, bool );
+template <class O>  inline  O*  Serialize( O*, char );
+template <class O>  inline  O*  Serialize( O*, unsigned char );
+template <class O>  inline  O*  Serialize( O*, float );
+template <class O>  inline  O*  Serialize( O*, double );
+template <class O>  inline  O*  Serialize( O*, bool );
 
 template <class O,
-          class T>  O*  Serialize( O*, T );
+          class T>  inline  O*  Serialize( O*, T );
 
-template <class O>  O*  Serialize( O*, const char* );
-template <class O>  O*  Serialize( O*, char* );
-
-template <class O,
-          class T>  O*  Serialize( O*, const std::vector<T>& );
+template <class O>  inline  O*  Serialize( O*, const char* );
+template <class O>  inline  O*  Serialize( O*, char* );
 
 template <class O,
-          class C>  O*  Serialize( O*, const std::basic_string<C>& );
+          class T>  inline  O*  Serialize( O*, const std::vector<T>& );
+
+template <class O,
+          class C>  inline  O*  Serialize( O*, const std::basic_string<C>& );
 
 template <class O,
           class K,
-          class V>  O*  Serialize( O*, const std::map<K, V>& );
+          class V>  inline  O*  Serialize( O*, const std::map<K, V>& );
 
 //[]=========================================================================[]
 
-template <class S>  S*  FetchFrom( S*, char& );
-template <class S>  S*  FetchFrom( S*, unsigned char& );
-template <class S>  S*  FetchFrom( S*, float& );
-template <class S>  S*  FetchFrom( S*, double& );
-template <class S>  S*  FetchFrom( S*, bool& );
+template <class S>  inline  S*  FetchFrom( S*, char& );
+template <class S>  inline  S*  FetchFrom( S*, unsigned char& );
+template <class S>  inline  S*  FetchFrom( S*, float& );
+template <class S>  inline  S*  FetchFrom( S*, double& );
+template <class S>  inline  S*  FetchFrom( S*, bool& );
 
 template <class S,
-          class T>  S*  FetchFrom( S*, T& );
+          class T>  inline  S*  FetchFrom( S*, T& );
 
-template <class S>  S*  FetchFrom( S*, char*& );
-template <class S>  S*  FetchFrom( S*, const char*& );
-
-template <class S,
-          class T>  S*  FetchFrom( S*, std::vector<T>& );
+template <class S>  inline  S*  FetchFrom( S*, char*& );
+template <class S>  inline  S*  FetchFrom( S*, const char*& );
 
 template <class S,
-          class C>  S*  FetchFrom( S*, std::basic_string<C>& );
+          class T>  inline  S*  FetchFrom( S*, std::vector<T>& );
+
+template <class S,
+          class C>  inline  S*  FetchFrom( S*, std::basic_string<C>& );
 
 template <class S,
           class K,
-          class V>  S*  FetchFrom( S*, std::map<K, V>& );
+          class V>  inline  S*  FetchFrom( S*, std::map<K, V>& );
 
 # endif  // __mtc_serialize_decl_h__
+

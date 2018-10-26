@@ -142,14 +142,14 @@ inline  FILE*       FetchFrom( FILE* s, void* p, size_t l )
 
 //[]=========================================================================[]
 
-template <class O>  O*  Serialize( O* o, char c )                         {  return Serialize( o, &c, sizeof(c) );  }
-template <class O>  O*  Serialize( O* o, unsigned char c )                {  return Serialize( o, &c, sizeof(c) );  }
-template <class O>  O*  Serialize( O* o, float  f )                       {  return Serialize( o, &f, sizeof(f) );  }
-template <class O>  O*  Serialize( O* o, double d )                       {  return Serialize( o, &d, sizeof(d) );  }
-template <class O>  O*  Serialize( O* o, bool b )                         {  return Serialize( o, (char)(b ? 1 : 0) );  }
+template <class O>  inline  O*  Serialize( O* o, char c )           {  return Serialize( o, &c, sizeof(c) );  }
+template <class O>  inline  O*  Serialize( O* o, unsigned char c )  {  return Serialize( o, &c, sizeof(c) );  }
+template <class O>  inline  O*  Serialize( O* o, float  f )         {  return Serialize( o, &f, sizeof(f) );  }
+template <class O>  inline  O*  Serialize( O* o, double d )         {  return Serialize( o, &d, sizeof(d) );  }
+template <class O>  inline  O*  Serialize( O* o, bool b )           {  return Serialize( o, (char)(b ? 1 : 0) );  }
 
 template <class O,
-          class T>  O*  Serialize( O*  o, T t )
+          class T>  inline  O*  Serialize( O*  o, T t )
   {
     int   nshift = 0;
     char  bstore;
@@ -168,20 +168,20 @@ template <class O,
     return o;
   }
 
-template <class O>  O*  Serialize( O* o, const char* s )
+template <class O>  inline  O*  Serialize( O* o, const char* s )
   {
     auto  length = strlen( s );
 
     return Serialize( Serialize( o, length ), (const void*)s, sizeof(*s) * length );
   }
 
-template <class O>  O*  Serialize( O* o, char* s )
+template <class O>  inline  O*  Serialize( O* o, char* s )
   {
     return Serialize( o, (const char*)s );
   }
 
 template <class O,
-          class T>  O*  Serialize( O* o, const std::vector<T>& a )
+          class T>  inline  O*  Serialize( O* o, const std::vector<T>& a )
   {
     o = ::Serialize( o, a.size() );
 
@@ -192,14 +192,14 @@ template <class O,
   }
 
 template <class O,
-          class C>  O*  Serialize( O* o, const std::basic_string<C>& s )
+          class C>  inline  O*  Serialize( O* o, const std::basic_string<C>& s )
   {
     return ::Serialize( ::Serialize( o, s.length() ), s.c_str(), sizeof(C) * s.length() );
   }
 
 template <class O,
           class K,
-          class V>  O*  Serialize( O* o, const std::map<K, V>& m )
+          class V>  inline  O*  Serialize( O* o, const std::map<K, V>& m )
   {
     o = ::Serialize( o, m.size() );
 
@@ -211,11 +211,11 @@ template <class O,
 
 //[]=========================================================================[]
 
-template <class S>  S*  FetchFrom( S* s, char& c )                        {  return FetchFrom( s, &c, sizeof(c) );  }
-template <class S>  S*  FetchFrom( S* s, unsigned char& c )               {  return FetchFrom( s, &c, sizeof(c) );  }
-template <class S>  S*  FetchFrom( S* s, float&  f )                      {  return FetchFrom( s, &f, sizeof(f) );  }
-template <class S>  S*  FetchFrom( S* s, double& d )                      {  return FetchFrom( s, &d, sizeof(d) );  }
-template <class S>  S*  FetchFrom( S* s, bool& b )
+template <class S>  inline  S*  FetchFrom( S* s, char& c )          {  return FetchFrom( s, &c, sizeof(c) );  }
+template <class S>  inline  S*  FetchFrom( S* s, unsigned char& c ) {  return FetchFrom( s, &c, sizeof(c) );  }
+template <class S>  inline  S*  FetchFrom( S* s, float&  f )        {  return FetchFrom( s, &f, sizeof(f) );  }
+template <class S>  inline  S*  FetchFrom( S* s, double& d )        {  return FetchFrom( s, &d, sizeof(d) );  }
+template <class S>  inline  S*  FetchFrom( S* s, bool& b )
   {
     char  c;
 
@@ -225,7 +225,7 @@ template <class S>  S*  FetchFrom( S* s, bool& b )
   }
 
 template <class S,
-          class T>  S*  FetchFrom( S* s, T& t )
+          class T>  inline  S*  FetchFrom( S* s, T& t )
   {
     int   nshift = 0;
     char  bfetch;
@@ -239,7 +239,7 @@ template <class S,
     return s;
   }
 
-template <class S>  S*  FetchFrom( S* s, char*&  r )
+template <class S>  inline  S*  FetchFrom( S* s, char*&  r )
   {
     unsigned  length;
 
@@ -252,13 +252,13 @@ template <class S>  S*  FetchFrom( S* s, char*&  r )
     return s;
   }
 
-template <class S>  S*  FetchFrom( S* s, const char*& r )
+template <class S>  inline  S*  FetchFrom( S* s, const char*& r )
   {
     return FetchFrom( s, (char*&)r );
   }
 
 template <class S,
-          class T>  S*  FetchFrom( S* s, std::vector<T>& a )
+          class T>  inline  S*  FetchFrom( S* s, std::vector<T>& a )
   {
     int   length;
 
@@ -277,7 +277,7 @@ template <class S,
   }
 
 template <class S,
-          class C>  S*  FetchFrom( S* s, std::basic_string<C>& o )
+          class C>  inline  S*  FetchFrom( S* s, std::basic_string<C>& o )
   {
     int   l;
 
@@ -298,7 +298,7 @@ template <class S,
 
 template <class S,
           class K,
-          class V>  S*  FetchFrom( S* s, std::map<K, V>& m )
+          class V>  inline  S*  FetchFrom( S* s, std::map<K, V>& m )
   {
     size_t  len;
 
@@ -316,3 +316,4 @@ template <class S,
   }
 
 # endif  // __mtc_serialize__
+
