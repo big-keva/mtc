@@ -219,6 +219,12 @@ namespace json {
     derive_printjson_flo( double )
   # undef derive_printjson_flo
 
+  template <class O, class D = print::compact>  O*  Print( O* o, const uuid_t& uuid, const D& deco = D() )
+    {
+      auto  s = mtc::to_string( uuid );
+      return ::Serialize( deco.Shift( o ), s.c_str(), s.length() );
+    }
+
 // vectors
   template <class O, class T, class D = print::compact>
   O*  Print( O* o, const std::vector<T>& a, const D& decorate = D() )
@@ -250,6 +256,7 @@ namespace json {
       case zval::z_word64:  return Print( decorate.Space( o ), *v.get_word64() );
       case zval::z_float:   return Print( decorate.Space( o ), *v.get_float() );
       case zval::z_double:  return Print( decorate.Space( o ), *v.get_double() );
+      case zval::z_uuid:    return Print( decorate.Space( o ), *v.get_uuid() );
 
       case zval::z_charstr: return Print( decorate.Space( o ), *v.get_charstr() );
       case zval::z_widestr: return Print( decorate.Space( o ), *v.get_widestr() );
@@ -270,6 +277,7 @@ namespace json {
       case zval::z_array_widestr: return Print( decorate.Space( o ), *v.get_array_widestr(), D( decorate ) );
       case zval::z_array_zval:    return Print( decorate.Space( o ), *v.get_array_zval(), D( decorate ) );
       case zval::z_array_zmap:    return Print( decorate.Space( o ), *v.get_array_zmap(), D( decorate ) );
+      case zval::z_array_uuid:    return Print( decorate.Space( o ), *v.get_array_uuid(), D( decorate ) );
 
       default:  assert( false );  abort();  return o;
     }
