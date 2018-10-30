@@ -579,6 +579,7 @@ namespace mtc
     derive_get_type( double  )
     derive_get_type( charstr )
     derive_get_type( widestr )
+    derive_get_type( uuid    )
 
     derive_get_init( char    )
     derive_get_init( byte    )
@@ -592,6 +593,7 @@ namespace mtc
     derive_get_init( double  )
     derive_get_init( charstr )
     derive_get_init( widestr )
+    derive_get_init( uuid    )
 
     derive_get_type( zmap    )
     derive_get_type( array_char )
@@ -608,6 +610,7 @@ namespace mtc
     derive_get_type( array_widestr )
     derive_get_type( array_zmap    )
     derive_get_type( array_zval    )
+    derive_get_type( array_uuid    )
 
     derive_set_copy( char    )
     derive_set_copy( byte    )
@@ -620,6 +623,7 @@ namespace mtc
     derive_set_copy( float   )
     derive_set_copy( double  )
     derive_set_copy( zmap )
+    derive_set_copy( uuid )
     derive_set_copy( charstr )
     derive_set_copy( widestr )
     derive_set_copy( array_char )
@@ -635,6 +639,7 @@ namespace mtc
     derive_set_copy( array_charstr )
     derive_set_copy( array_widestr )
     derive_set_copy( array_zval    )
+    derive_set_copy( array_uuid    )
 
     derive_set_pure( zmap    )
     derive_set_pure( array_zmap    )
@@ -656,6 +661,7 @@ namespace mtc
     derive_set_move( array_widestr )
     derive_set_move( array_zmap    )
     derive_set_move( array_zval    )
+    derive_set_move( array_uuid    )
   # undef derive_set_pure
   # undef derive_set_move
   # undef derive_set_copy

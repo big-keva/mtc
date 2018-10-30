@@ -54,6 +54,7 @@ SOFTWARE.
 # define __zmap_hpp__
 # include "serialize.decl.h"
 # include "wcsstr.h"
+# include "uuid.h"
 # include <cassert>
 # include <algorithm>
 # include <vector>
@@ -91,6 +92,7 @@ namespace mtc
   using array_widestr = std::vector<widestr>;
   using array_zmap    = std::vector<zmap>;
   using array_zval    = std::vector<zval>;
+  using array_uuid    = std::vector<uuid_t>;
 
   using charstr_t = charstr;
   using widestr_t = widestr;
@@ -113,6 +115,7 @@ namespace mtc
   using array_widestr_t = array_widestr;
   using array_zmap_t    = array_zmap;
   using array_zval_t    = array_zval;
+  using array_uuid_t    = array_uuid;
 
   std::string to_string( const zval& );
   std::string to_string( const zmap& );
@@ -171,6 +174,8 @@ namespace mtc
       z_buffer  = 18,
       z_zmap    = 19,
 
+      z_uuid    = 20,
+
       z_array_char    = 32,
       z_array_byte    = 33,
       z_array_int16   = 34,
@@ -187,6 +192,8 @@ namespace mtc
       z_array_buffer  = 50,
       z_array_zmap    = 51,
       z_array_zval    = 52,
+
+      z_array_uuid    = 53,
 
       z_untyped       = (unsigned)-1
     };
@@ -210,6 +217,7 @@ namespace mtc
     zval( word64_t );
     zval( float_t );
     zval( double_t );
+    zval( const uuid_t& );
 
     zval& operator = ( char_t t );
     zval& operator = ( byte_t );
@@ -221,6 +229,7 @@ namespace mtc
     zval& operator = ( word64_t );
     zval& operator = ( float_t );
     zval& operator = ( double_t );
+    zval& operator = ( const uuid_t& );
 
     zval( const char*, size_t = (size_t)-1 );
     zval& operator = ( const char* );
@@ -250,6 +259,7 @@ namespace mtc
     declare_init( array_widestr )
     declare_init( array_zval )
     declare_init( array_zmap )
+    declare_init( array_uuid )
 
   public:     // access operators
   /*
@@ -266,9 +276,9 @@ namespace mtc
   */
 
   public:     // accessors
-  # define  declare_access_type( _type_ )                           \
-    const _type_##_t*  get_##_type_() const;                        \
-          _type_##_t*  set_##_type_( _type_##_t = _type_##_t() );   \
+  # define  declare_access_type( _type_ )                                 \
+    const _type_##_t*  get_##_type_() const;                              \
+          _type_##_t*  set_##_type_( const _type_##_t& = _type_##_t() );  \
           _type_##_t*  get_##_type_();
 
     declare_access_type( char )
@@ -281,6 +291,7 @@ namespace mtc
     declare_access_type( word64 )
     declare_access_type( float )
     declare_access_type( double )
+    declare_access_type( uuid )
   # undef declare_access_type
 
   # define declare_access_type( _type_ )  \
@@ -318,6 +329,7 @@ namespace mtc
     declare_access_array( charstr )
     declare_access_array( widestr )
     declare_access_array( zval )
+    declare_access_array( uuid )
   # undef declare_access_array
 
     const array_zmap* get_array_zmap() const;
@@ -371,6 +383,17 @@ namespace mtc
         return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;
       }
 
+    template <class A>
+    static int  CompTo( const A&, const uuid_t& ) {  return 0x08;  }
+    template <class B>
+    static int  CompTo( const uuid_t&, const B& ) {  return 0x08;  }
+
+    static int  CompTo( const uuid_t& a, const uuid_t& b )
+      {
+        int    rc = a.compare( b );
+        return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;
+      }
+
     # define  derive_noncmp( c1, c2 ) static  int   CompTo( c1, c2 )  {  return 0x08;  } \
                                       static  int   CompTo( c2, c1 )  {  return 0x08;  }
       derive_noncmp( charstr, char )
@@ -410,6 +433,8 @@ namespace mtc
           case z_word64:  return CompTo( *get_word64(), b );
           case z_double:  return CompTo( *get_double(), b );
 
+          case z_uuid:    return CompTo( *get_uuid(), b );
+
           case z_charstr: return CompTo( *get_charstr(), b );
           case z_widestr: return CompTo( *get_widestr(), b );
 
@@ -447,6 +472,8 @@ namespace mtc
           case z_word32:  return CompTo( *x.get_word32() );
           case z_word64:  return CompTo( *x.get_word64() );
           case z_double:  return CompTo( *x.get_double() );
+
+          case z_uuid:    return CompTo( *x.get_uuid() );
 
           case z_charstr: return CompTo( *x.get_charstr() );
           case z_widestr: return CompTo( *x.get_widestr() );
@@ -605,6 +632,7 @@ namespace mtc
     declare_get_type( double  )
     declare_get_type( charstr )
     declare_get_type( widestr )
+    declare_get_type( uuid    )
 
     declare_get_init( char    )
     declare_get_init( byte    )
@@ -618,6 +646,7 @@ namespace mtc
     declare_get_init( double  )
     declare_get_init( charstr )
     declare_get_init( widestr )
+    declare_get_init( uuid    )
 
     declare_get_type( zmap    )
     declare_get_type( array_char )
@@ -634,6 +663,7 @@ namespace mtc
     declare_get_type( array_widestr )
     declare_get_type( array_zmap    )
     declare_get_type( array_zval    )
+    declare_get_type( array_uuid    )
 
     declare_set_copy( char    )
     declare_set_copy( byte    )
@@ -647,6 +677,7 @@ namespace mtc
     declare_set_copy( double  )
     declare_set_copy( charstr )
     declare_set_copy( widestr )
+    declare_set_copy( uuid )
     declare_set_copy( array_char )
     declare_set_copy( array_byte    )
     declare_set_copy( array_int16   )
@@ -660,6 +691,7 @@ namespace mtc
     declare_set_copy( array_charstr )
     declare_set_copy( array_widestr )
     declare_set_copy( array_zval    )
+    declare_set_copy( array_uuid    )
 
     declare_set_pure( array_zmap    )
 
@@ -679,6 +711,7 @@ namespace mtc
     declare_set_move( array_widestr )
     declare_set_move( array_zmap    )
     declare_set_move( array_zval    )
+    declare_set_move( array_uuid    )
   # undef declare_set_pure
   # undef declare_set_move
   # undef declare_set_copy
@@ -792,6 +825,7 @@ namespace mtc
     derive_var( charstr )
     derive_var( widestr )
     derive_var( zmap )
+    derive_var( uuid )
 
     derive_var( array_char )
     derive_var( array_byte )
@@ -807,6 +841,7 @@ namespace mtc
     derive_var( array_widestr )
     derive_var( array_zval )
     derive_var( array_zmap )
+    derive_var( array_uuid )
   # undef derive_var
   };
 
@@ -831,6 +866,7 @@ namespace mtc
       derive_put_smart( charstr )
       derive_put_smart( widestr )
       derive_put_smart( zmap )
+      derive_put_smart( uuid )
       derive_put_smart( array_char )
       derive_put_smart( array_byte )
       derive_put_smart( array_float )
@@ -845,6 +881,7 @@ namespace mtc
       derive_put_smart( array_widestr )
       derive_put_smart( array_zval )
       derive_put_smart( array_zmap )
+      derive_put_smart( array_uuid )
   # undef derive_put_smart
   # undef derive_put_plain
       default:  return nullptr;
@@ -879,6 +916,7 @@ namespace mtc
       derive_get_smart( charstr )
       derive_get_smart( widestr )
       derive_get_smart( zmap )
+      derive_get_smart( uuid )
       derive_get_smart( array_char )
       derive_get_smart( array_byte )
       derive_get_smart( array_float )
@@ -892,6 +930,7 @@ namespace mtc
       derive_get_smart( array_charstr )
       derive_get_smart( array_zmap )
       derive_get_smart( array_zval )
+      derive_get_smart( array_uuid )
   # undef derive_get_smart
   # undef derive_get_plain
       default:  return nullptr;

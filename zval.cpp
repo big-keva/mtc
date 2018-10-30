@@ -191,24 +191,29 @@ namespace mtc
     {  set_##_type_( t );  }                        \
   zval& zval::operator = ( _type_##_t t )           \
     {   set_##_type_( t );  return *this;  }
-    derive_init( char );
-    derive_init( byte );
-    derive_init( int16 );
-    derive_init( int32 );
-    derive_init( int64 );
-    derive_init( word16 );
-    derive_init( word32 );
-    derive_init( word64 );
-    derive_init( float );
-    derive_init( double );
+    derive_init( char )
+    derive_init( byte )
+    derive_init( int16 )
+    derive_init( int32 )
+    derive_init( int64 )
+    derive_init( word16 )
+    derive_init( word32 )
+    derive_init( word64 )
+    derive_init( float )
+    derive_init( double )
   # undef derive_init
 
-  zval::zval( const char* psz, size_t len )
+  zval::zval( const uuid_t& uuid ): vx_type( z_untyped )
+    {  set_uuid( uuid );  }
+  zval& zval::operator= ( const uuid_t& uuid )
+    {  return set_uuid( uuid ), *this;  }
+
+  zval::zval( const char* psz, size_t len ): vx_type( z_untyped )
     {  set_charstr( charstr( psz, len != (size_t)-1 ? len : w_strlen( psz ) ) );  }
   zval& zval::operator = ( const char* psz )
     {  return set_charstr( charstr( psz ) ), *this;  }
 
-  zval::zval( const widechar* psz, size_t len )
+  zval::zval( const widechar* psz, size_t len ): vx_type( z_untyped )
     {  set_widestr( widestr( psz, len != (size_t)-1 ? len : w_strlen( psz ) ) );  }
   zval& zval::operator = ( const widechar* psz )
     {  return set_widestr( widestr( psz ) ), *this;  }
@@ -228,17 +233,18 @@ namespace mtc
 
     derive_init( array_char )
     derive_init( array_byte )
-    derive_init( array_int16 );
-    derive_init( array_int32 );
-    derive_init( array_int64 );
-    derive_init( array_word16 );
-    derive_init( array_word32 );
-    derive_init( array_word64 );
-    derive_init( array_float );
-    derive_init( array_double );
-    derive_init( array_charstr );
-    derive_init( array_widestr );
-    derive_init( array_zval );
+    derive_init( array_int16 )
+    derive_init( array_int32 )
+    derive_init( array_int64 )
+    derive_init( array_word16 )
+    derive_init( array_word32 )
+    derive_init( array_word64 )
+    derive_init( array_float )
+    derive_init( array_double )
+    derive_init( array_charstr )
+    derive_init( array_widestr )
+    derive_init( array_zval )
+    derive_init( array_uuid )
   # undef derive_init
 
   zval::zval( array_zmap_t&& t ): vx_type( z_untyped )
@@ -255,7 +261,7 @@ namespace mtc
       {                                                               \
         return vx_type == z_##_type_ ? &inner().v_##_type_ : nullptr; \
       }                                                               \
-    _type_##_t*  zval::set_##_type_( _type_##_t t )                   \
+    _type_##_t*  zval::set_##_type_( const _type_##_t& t )            \
       {                                                               \
         clear().vx_type = z_##_type_;                                 \
         return new( &inner().v_##_type_ ) _type_##_t( t );            \
@@ -270,6 +276,7 @@ namespace mtc
     derive_access_type( word64 )
     derive_access_type( float )
     derive_access_type( double )
+    derive_access_type( uuid )
   # undef derive_access_type
 
   # define derive_access_type( _type_ )                                 \
@@ -335,6 +342,7 @@ namespace mtc
     derive_access_array( charstr )
     derive_access_array( widestr )
     derive_access_array( zval )
+    derive_access_array( uuid )
   # undef derive_access_array
 
   const array_zmap* zval::get_array_zmap() const
@@ -375,6 +383,7 @@ namespace mtc
         destruct( charstr )
         destruct( widestr )
         destruct( zmap )
+        destruct( uuid )
 
         destruct( array_char )
         destruct( array_byte )
@@ -390,6 +399,7 @@ namespace mtc
         destruct( array_widestr )
         destruct( array_zval )
         destruct( array_zmap )
+        destruct( array_uuid )
       # undef destruct
       }
       vx_type = z_untyped;
@@ -449,6 +459,7 @@ namespace mtc
       derive_size_smart( charstr )
       derive_size_smart( widestr )
       derive_size_smart( zmap )
+      derive_size_smart( uuid )
       derive_size_smart( array_char )
       derive_size_smart( array_byte )
       derive_size_smart( array_int16 )
@@ -463,6 +474,7 @@ namespace mtc
       derive_size_smart( array_widestr )
       derive_size_smart( array_zval )
       derive_size_smart( array_zmap )
+      derive_size_smart( array_uuid )
   # undef derive_size_smart
   # undef derive_size_plain
       default:  return 0;
@@ -488,6 +500,7 @@ namespace mtc
         case z_widestr:       return std::move( to_string( *get_widestr() ) );
 
         case z_zmap:          return std::move( to_string( *get_zmap() ) );
+        case z_uuid:          return std::move( mtc::to_string( *get_uuid() ) );
 
         case z_array_char:    return std::move( to_string( *get_array_char() ) );
         case z_array_byte:    return std::move( to_string( *get_array_byte() ) );
@@ -504,6 +517,7 @@ namespace mtc
         case z_array_widestr: return std::move( to_string( *get_array_widestr() ) );
         case z_array_zmap:    return std::move( to_string( *get_array_zmap() ) );
         case z_array_zval:    return std::move( to_string( *get_array_zval() ) );
+        case z_array_uuid:    return std::move( to_string( *get_array_uuid() ) );
         default:
           throw std::invalid_argument( "undefined xvalue<> type" );
       }
@@ -529,6 +543,7 @@ namespace mtc
         move( charstr )
         move( widestr )
         move( zmap )
+        move( uuid )
 
         move( array_char )
         move( array_byte )
@@ -544,6 +559,7 @@ namespace mtc
         move( array_widestr )
         move( array_zval )
         move( array_zmap )
+        move( array_uuid )
       # undef move
       }
       return zv.vx_type = z_untyped, *this;
@@ -569,6 +585,7 @@ namespace mtc
         copy( charstr )
         copy( widestr )
         copy( zmap )
+        copy( uuid )
 
         copy( array_char )
         copy( array_byte )
@@ -584,6 +601,7 @@ namespace mtc
         copy( array_widestr )
         copy( array_zval )
         copy( array_zmap )
+        copy( array_uuid )
       # undef copy
       }
       return *this;
