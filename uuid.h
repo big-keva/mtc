@@ -113,7 +113,7 @@ namespace mtc {
 }
 
 inline  size_t  GetBufLen( const mtc::uuid_t& uuid )
-  {  return 16;  }
+  {  (void)uuid;  return 16;  }
 template <class O>
 inline  O*      Serialize( O* o, const mtc::uuid_t& uuid )
   {
