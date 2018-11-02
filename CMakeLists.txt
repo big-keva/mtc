@@ -53,6 +53,7 @@ install(
     strptime.h
     stringmap.h
     suballocator.h
+    uuid.h
     wcsstr.h
     zarray.h
     config.h
