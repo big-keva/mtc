@@ -46,12 +46,14 @@ install(
     platform.h
     prefixtree.h
     serialize.h
+    serialize.decl.h    
     serializex.h
     sort.h
     stdlog.h
     strptime.h
     stringmap.h
     suballocator.h
+    uuid.h
     wcsstr.h
     zarray.h
     config.h
