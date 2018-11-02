@@ -46,6 +46,7 @@ install(
     platform.h
     prefixtree.h
     serialize.h
+    serialize.decl.h    
     serializex.h
     sort.h
     stdlog.h
