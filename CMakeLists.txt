@@ -45,6 +45,7 @@ install(
     patricia.h
     platform.h
     prefixtree.h
+    recursive_shared_mutex.hpp
     serialize.h
     serialize.decl.h    
     serializex.h
