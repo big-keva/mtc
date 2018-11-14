@@ -39,19 +39,24 @@ install(
     iBuffer.h
     interfaces.h
     iStream.h
+    jsconfig.h
     jsonTools.h
+    json.h
     netListen.h
     netStream.h
     patricia.h
     platform.h
     prefixtree.h
+    recursive_shared_mutex.hpp
     serialize.h
+    serialize.decl.h    
     serializex.h
     sort.h
     stdlog.h
     strptime.h
     stringmap.h
     suballocator.h
+    uuid.h
     wcsstr.h
     zarray.h
     config.h
