@@ -520,7 +520,11 @@ namespace mtc
 
     auto  to_string( const widechar* v ) const  -> std::string
       {
-        (void)v;  throw std::runtime_error( "not implemented" );
+        std::string out;
+
+        while ( *v != 0 ) out += (char)*v++;
+
+        return std::move( out );
       }
 
     auto  to_string( const zval& v ) const  ->  std::string {  return std::move( mtc::to_string( v ) );  }
@@ -540,6 +544,8 @@ namespace mtc
       }
 
   public:     // stringize
+    static
+    const char* type_name( z_type type );
     std::string to_string() const;
 
   protected:  // helpers

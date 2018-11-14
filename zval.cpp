@@ -423,7 +423,7 @@ namespace mtc
   zval  zval::operator ^  ( const zval& r ) const {  return GetXor( *this, r );  }
   zval  zval::operator |  ( const zval& r ) const {  return Get_Or( *this, r );  }
 
-  zval  zval::operator ~  ()  const
+  zval  zval::operator ~ ()  const
     {
       switch ( get_type() )
       {
@@ -481,6 +481,49 @@ namespace mtc
     }
   }
 
+  auto  zval::type_name( z_type type ) -> const char* 
+    {
+      switch ( type )
+      {
+        case z_char:          return "char";
+        case z_byte:          return "byte";
+        case z_int16:         return "int16";
+        case z_int32:         return "int32";
+        case z_int64:         return "int64";
+        case z_word16:        return "word16";
+        case z_word32:        return "word32";
+        case z_word64:        return "word64";
+        case z_float:         return "float";
+        case z_double:        return "double";
+
+        case z_charstr:       return "charstr";
+        case z_widestr:       return "widestr";
+
+        case z_zmap:          return "zmap";
+        case z_uuid:          return "uuid";
+
+        case z_array_char:    return "array_char";
+        case z_array_byte:    return "array_byte";
+        case z_array_int16:   return "array_int16";
+        case z_array_int32:   return "array_int32";
+        case z_array_int64:   return "array_int64";
+        case z_array_word16:  return "array_word16";
+        case z_array_word32:  return "array_word32";
+        case z_array_word64:  return "array_word64";
+        case z_array_float:   return "array_float";
+        case z_array_double:  return "array_double";
+
+        case z_array_charstr: return "array_charstr";
+        case z_array_widestr: return "array_widestr";
+        case z_array_zmap:    return "array_zmap";
+        case z_array_zval:    return "array_zval";
+        case z_array_uuid:    return "array_uuid";
+
+        case z_untyped:       return "untyped";
+        default:              throw std::invalid_argument( "undefined zval type" );
+      }
+    }
+
   std::string zval::to_string() const
     {
       switch ( get_type() )
@@ -496,7 +539,7 @@ namespace mtc
         case z_float:         return std::move( to_string( *get_float() ) );
         case z_double:        return std::move( to_string( *get_double() ) );
 
-        case z_charstr:       return *get_charstr();
+        case z_charstr:       return std::move( to_string( *get_charstr() ) );
         case z_widestr:       return std::move( to_string( *get_widestr() ) );
 
         case z_zmap:          return std::move( to_string( *get_zmap() ) );
