@@ -160,6 +160,18 @@ namespace mtc
       return stpath.length() != 0 ? config::Open( stpath ) : config();
     }
 
+  auto  config::get_zmap( const zmap::key& key ) const -> mtc::zmap
+    {
+      auto  pmap = cfgmap.get_zmap( key );
+
+      return pmap != nullptr ? *pmap : mtc::zmap();
+    }
+
+  auto  config::has_key( const zmap::key& key ) const -> bool
+    {
+      return cfgmap.get( key ) != nullptr;
+    }
+
   auto  config::Open( const char* path ) -> config
     {
       file    lpfile = fopen( path, "rb" );

@@ -47,6 +47,10 @@ namespace mtc {
 
     auto  get_config  ( const zmap::key& ) const -> config;
 
+    auto  get_zmap    ( const zmap::key& ) const -> mtc::zmap;
+
+    auto  has_key     ( const zmap::key& ) const -> bool;
+
   public:     // loading
     static  auto  Open( const char* ) -> config;
     static  auto  Open( const charstr& ) -> config;
