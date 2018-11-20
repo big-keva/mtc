@@ -110,6 +110,8 @@ namespace mtc
 
   config::config( const zmap& z, const charstr& s ): cfgmap( z ), origin( s ) {}
 
+  config::config( const std::initializer_list<std::pair<zmap::key, zval>>& il ): cfgmap( il ) {}
+
   auto  config::get_section( const zmap::key& key ) const -> config
     {
       auto  pmap = cfgmap.get_zmap( key );
@@ -155,9 +157,18 @@ namespace mtc
 
   auto  config::get_config( const zmap::key& key ) const -> config
     {
-      auto  stpath = get_path( key );
+      auto  pvalue = cfgmap.get( key );
 
-      return stpath.length() != 0 ? config::Open( stpath ) : config();
+      if ( pvalue != nullptr )
+      {
+        return pvalue->get_type() == zval::z_zmap ? config( *pvalue->get_zmap(), origin ) : config();
+      }
+        else
+      {
+        auto  stpath = get_path( key );
+
+        return stpath.length() != 0 ? config::Open( stpath ) : config();
+      }
     }
 
   auto  config::to_zmap() const -> mtc::zmap

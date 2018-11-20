@@ -23,6 +23,7 @@ namespace mtc {
   public:     // construction
     config();
     config( config&& );
+    config( const std::initializer_list<std::pair<zmap::key, zval>>& );
 
   public:     // iterators
     auto  begin () const {  return cfgmap.begin();  }
