@@ -159,16 +159,20 @@ namespace mtc
     {
       auto  pvalue = cfgmap.get( key );
 
-      if ( pvalue != nullptr )
-      {
-        return pvalue->get_type() == zval::z_zmap ? config( *pvalue->get_zmap(), origin ) : config();
-      }
-        else
+      if ( pvalue == nullptr )
+        return config();
+
+      if ( pvalue->get_type() == zval::z_zmap )
+        return config( *pvalue->get_zmap(), origin );
+
+      if ( pvalue->get_type() == zval::z_charstr )
       {
         auto  stpath = get_path( key );
 
-        return stpath.length() != 0 ? config::Open( stpath ) : config();
+        if ( stpath.length() != 0 )
+          return config::Open( stpath );
       }
+      return config();
     }
 
   auto  config::to_zmap() const -> mtc::zmap
