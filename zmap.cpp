@@ -551,8 +551,8 @@ namespace mtc
   # define derive_get_init( _type_ )                                                  \
   auto  zmap::get_##_type_( const key& k, const _type_##_t& t ) const -> _type_##_t   \
     {                                                                                 \
-      auto  pv = get( k );                                                            \
-      return pv != nullptr ? *pv->get_##_type_() : t;                                 \
+      auto  pv = get_##_type_( k );                                                   \
+      return pv != nullptr ? *pv : t;                                                 \
     }
 
   # define derive_set_pure( _type_ )                                                  \
