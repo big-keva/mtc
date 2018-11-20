@@ -420,39 +420,41 @@ namespace parse {
             Parse( s.putback( chnext ), *arrval, pzvrev );
 
           // check if std::vector<zval> is convertible to simple types; if is, try convert to simple types
-            if ( !arrval->empty() )
-              for ( auto prev = arrval->begin(), next = prev + 1; next != arrval->end(); prev = next++ )
-                if ( next->get_type() != prev->get_type() )
-                  return z;
+            if ( arrval->empty() )
+              return z;
+
+            for ( auto prev = arrval->begin(), next = prev + 1; next != arrval->end(); prev = next++ )
+              if ( next->get_type() != prev->get_type() )
+                return z;
 
             switch ( arrval->front().get_type() )
-              {
-              # define  derive_transform( _type_ )                                \
-                case zval::z_##_type_:                                            \
-                  {                                                               \
-                    mtc::array_##_type_&  newarr = *newval.set_array_##_type_();  \
-                                                                                  \
-                    for ( auto it: *arrval )                                      \
-                      newarr.push_back( std::move( *it.get_##_type_() ) );        \
-                    break;                                                        \
-                  }
-                derive_transform( char )
-                derive_transform( byte )
-                derive_transform( int16 )
-                derive_transform( int32 )
-                derive_transform( int64 )
-                derive_transform( float )
-                derive_transform( word16 )
-                derive_transform( word32 )
-                derive_transform( word64 )
-                derive_transform( double )
-                derive_transform( charstr )
-                derive_transform( widestr )
-                derive_transform( zmap )
-              # undef  derive_transform
-                default:  return z;
-              }
-              z = std::move( newval );
+            {
+            # define  derive_transform( _type_ )                                \
+              case zval::z_##_type_:                                            \
+                {                                                               \
+                  mtc::array_##_type_&  newarr = *newval.set_array_##_type_();  \
+                                                                                \
+                  for ( auto it: *arrval )                                      \
+                    newarr.push_back( std::move( *it.get_##_type_() ) );        \
+                  break;                                                        \
+                }
+              derive_transform( char )
+              derive_transform( byte )
+              derive_transform( int16 )
+              derive_transform( int32 )
+              derive_transform( int64 )
+              derive_transform( float )
+              derive_transform( word16 )
+              derive_transform( word32 )
+              derive_transform( word64 )
+              derive_transform( double )
+              derive_transform( charstr )
+              derive_transform( widestr )
+              derive_transform( zmap )
+            # undef  derive_transform
+              default:  return z;
+            }
+            z = std::move( newval );
           }
           return z;
 
