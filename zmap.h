@@ -207,6 +207,7 @@ namespace mtc
    ~zval();
 
   public:     // special constructors
+    zval( bool );
     zval( char_t t );
     zval( byte_t );
     zval( int16_t );
@@ -219,6 +220,7 @@ namespace mtc
     zval( double_t );
     zval( const uuid_t& );
 
+    zval& operator = ( bool );
     zval& operator = ( char_t t );
     zval& operator = ( byte_t );
     zval& operator = ( int16_t );

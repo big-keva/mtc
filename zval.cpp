@@ -186,6 +186,12 @@ namespace mtc
   zval::~zval()
     {  clear();  }
 
+  zval::zval( bool b ): vx_type( z_untyped )
+    {  set_byte( b ? 1 : 0 );  }
+
+  zval& zval::operator= ( bool b )
+    {  set_byte( b ? 1 : 0 );  return *this;  }
+
   # define derive_init( _type_ )                    \
   zval::zval( _type_##_t t ): vx_type( z_untyped )  \
     {  set_##_type_( t );  }                        \
