@@ -160,11 +160,9 @@ namespace mtc
       return stpath.length() != 0 ? config::Open( stpath ) : config();
     }
 
-  auto  config::get_zmap( const zmap::key& key ) const -> mtc::zmap
+  auto  config::to_zmap() const -> mtc::zmap
     {
-      auto  pmap = cfgmap.get_zmap( key );
-
-      return pmap != nullptr ? *pmap : mtc::zmap();
+      return cfgmap;
     }
 
   auto  config::has_key( const zmap::key& key ) const -> bool
