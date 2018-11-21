@@ -175,7 +175,7 @@ namespace mtc
       return config();
     }
 
-  auto  config::to_zmap() const -> mtc::zmap
+  auto  config::to_zmap() const -> const mtc::zmap&
     {
       return cfgmap;
     }
