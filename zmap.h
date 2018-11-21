@@ -1068,6 +1068,13 @@ namespace mtc
     operator unsigned () const;
     operator const char* () const;
     operator const widechar* () const;
+
+  public: // accessors
+    auto  is_charstr() const -> bool  {  return _typ == cstr;  }
+    auto  is_widestr() const -> bool  {  return _typ == wstr;  }
+    auto  to_charstr() const -> const char* {  return (const char*)*this;  }
+    auto  to_widestr() const -> const widechar* {  return (const widechar*)*this;  }
+
   };
 
   template <class value>
