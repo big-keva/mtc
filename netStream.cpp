@@ -91,7 +91,7 @@ namespace mtc
     enum
     {
       E_INTERRUPT   = EINTR,
-      E_INPROGRESS  = EINPROGRESS,
+      E_INPROGRESS  = EAGAIN,
       InvalidSocket = -1
     };
 
