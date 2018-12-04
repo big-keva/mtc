@@ -64,20 +64,6 @@ namespace mtc
 //[]=========================================================================[]
 
 template <class T>
-inline  size_t  GetBufLen( T dwdata )
-  {
-    T       bitest = 0x007f;
-    size_t  ncount = 1;
-
-    while ( (dwdata & ~bitest) != 0 )
-    {
-      bitest = (T)((bitest << 7) | 0x7f);
-        ++ncount;
-    }
-    return ncount;
-  }
-
-template <class T>
 inline  size_t  GetBufLen( const std::vector<T>& a )
   {
     size_t  cc = ::GetBufLen( a.size() );
