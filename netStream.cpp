@@ -91,7 +91,7 @@ namespace mtc
     enum
     {
       E_INTERRUPT   = EINTR,
-      E_INPROGRESS  = EINPROGRESS,
+      E_INPROGRESS  = EAGAIN,
       InvalidSocket = -1
     };
 
@@ -204,11 +204,11 @@ namespace mtc
 
   // CNetStream implementation
 
-	CNetStream::CNetStream(): sockid(), tmoGet( -1 ), tmoPut( -1 )
+  CNetStream::CNetStream(): sockid(), tmoGet( -1 ), tmoPut( -1 )
     {
     }
 
-	CNetStream::CNetStream( SocketHandle&& s ): sockid( static_cast<SocketHandle&&>( s ) ), tmoGet( -1 ), tmoPut( -1 )
+  CNetStream::CNetStream( SocketHandle&& s ): sockid( static_cast<SocketHandle&&>( s ) ), tmoGet( -1 ), tmoPut( -1 )
     {
     }
 
@@ -365,24 +365,26 @@ namespace mtc
 
   bool  CNetStream::HasDataToRead() const noexcept
   {
-    fd_set          fd;
+    fd_set          rd;
+    fd_set          xd;
     struct timeval  tv;
 
   // check if there is data in stream
-    FD_ZERO( &fd );
-    FD_SET( sockid, &fd );
+    FD_ZERO( &rd );   FD_SET( sockid, &rd );
+    FD_ZERO( &xd );   FD_SET( sockid, &xd );
 
     tv.tv_usec = (tmoGet - (tv.tv_sec = tmoGet / 1000) * 1000) * 1000;
 
   // check the data in buffer
-    return select( (int)(sockid + 1), &fd, nullptr, nullptr, tmoGet != (word32_t)-1 ? &tv : nullptr ) > 0;
+    return select( (int)(sockid + 1), &rd, nullptr, &xd, tmoGet != (word32_t)-1 ? &tv : nullptr ) > 0
+      && FD_ISSET( sockid, &rd );
   }
 
   int   CNetStream::SetGetTimeout() const noexcept
   {
     if ( tmoGet != (word32_t)-1 )
     {
-	    struct timeval  tv;
+      struct timeval  tv;
 
       tv.tv_usec = (tmoGet - (tv.tv_sec = tmoGet / 1000) * 1000) * 1000;
 
@@ -397,7 +399,7 @@ namespace mtc
   {
     if ( tmoPut != (word32_t)-1 )
     {
-	    struct timeval  tv;
+      struct timeval  tv;
 
       tv.tv_usec = (tmoPut - (tv.tv_sec = tmoPut / 1000) * 1000) * 1000;
 
