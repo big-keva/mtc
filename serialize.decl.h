@@ -115,7 +115,18 @@ inline  FILE*                 FetchFrom( FILE*, void*, size_t );
 //[]=========================================================================[]
 
 template <class T>
-size_t  inline  GetBufLen( T );
+inline  size_t  GetBufLen( T dwdata )
+  {
+    T       bitest = 0x007f;
+    size_t  ncount = 1;
+
+    while ( (dwdata & ~bitest) != 0 )
+    {
+      bitest = (T)((bitest << 7) | 0x7f);
+        ++ncount;
+    }
+    return ncount;
+  }
 
 constexpr inline  size_t  GetBufLen( char )           {  return 1;  }
 constexpr inline  size_t  GetBufLen( unsigned char )  {  return 1;  }
