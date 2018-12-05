@@ -223,6 +223,8 @@ namespace mtc
     char* outptr = (char*)o;
     char* outend = outptr + l;
 
+    SetGetTimeout();
+
     // check data available
     if ( HasDataToRead() )
       while ( outptr < outend )
@@ -233,10 +235,9 @@ namespace mtc
       // try read data
         if ( (cbread = recv( sockid, outptr, (int)(outend - outptr), 0 )) < 0 )
         { 
-          if ( (nerror = Sockets::GetError()) == Sockets::E_INPROGRESS )
-            continue;
-          log_error( nerror, "recv( ... %u, 0 ) error (%d)!", outend - outptr, nerror );
-            return (word32_t)-1;
+          nerror = Sockets::GetError();
+
+          return log_error( nerror, "recv( ... %u, 0 ) error (%d)!", outend - outptr, nerror ), (word32_t)-1;
         }
 
       // check for zero byte count
@@ -354,7 +355,7 @@ namespace mtc
     int       nerror;
     int       cbpart;
 
-    if ( (nerror = SetGetTimeout()) != 0 )
+    if ( (nerror = SetPutTimeout()) != 0 )
       return nerror;
 
     for ( ncbput = 0; ncbput < l; ncbput += cbpart )
