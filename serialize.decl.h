@@ -193,4 +193,3 @@ template <class S,
           class V>  inline  S*  FetchFrom( S*, std::map<K, V>& );
 
 # endif  // __mtc_serialize_decl_h__
-
