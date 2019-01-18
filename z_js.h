@@ -153,12 +153,16 @@ namespace json {
         static char         repsrc[] = "\b\t\n\f\r\"/\\";
         static const char*  repval[] = { "\\b", "\\t", "\\n", "\\f", "\\r", "\\\"", "\\/", "\\\\" };
         char*               reppos;
+        auto                endptr = s;
         char                chnext[0x10];
 
         if ( s == nullptr )
           return ::Serialize( o, "null", 4 );
 
-        for ( o = ::Serialize( o, '\"' ); l-- > 0; ++s )
+        if ( l == (size_t)-1 )
+          l = w_strlen( s );
+
+        for ( o = ::Serialize( o, '\"' ), endptr = s + l; s != endptr; ++s )
         {
           if ( (*s & ~0x7f) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
             o = ::Serialize( o, repval[reppos - repsrc], (unsigned)strlen( repval[reppos - repsrc] ) );
