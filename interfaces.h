@@ -247,7 +247,7 @@ namespace mtc
       bool  operator != ( const void* p ) const {  return !(*this == p);  }
 
     protected:
-      auto    getptr()  {  return (typename std::remove_const<iface>::type*)piface;  }
+      auto    getptr() -> typename std::remove_const<iface>::type* {  return (typename std::remove_const<iface>::type*)piface;  }
 
     protected:
       mutable iface*  piface;

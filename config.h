@@ -26,9 +26,9 @@ namespace mtc {
     config( const std::initializer_list<std::pair<zmap::key, zval>>& );
 
   public:     // iterators
-    auto  begin () const {  return cfgmap.begin();  }
-    auto  end   () const {  return cfgmap.end();    }
-    auto  size  () const {  return cfgmap.size();   }
+    auto  begin () const -> decltype(cfgmap.begin()) {  return cfgmap.begin();  }
+    auto  end   () const -> decltype(cfgmap.end())   {  return cfgmap.end();    }
+    auto  size  () const -> decltype(cfgmap.size())  {  return cfgmap.size();   }
 
   public:     // access
     auto  get_section ( const zmap::key& ) const -> config;
