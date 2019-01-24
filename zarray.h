@@ -1050,9 +1050,9 @@ public:     // set_?? methods
       derive_set( double )
     # undef derive_set
 
-      zarray& set_zarray( const zarray& z = zarray() )  {  return *get_xvalue( *this )->set_zarray( z );  }
-      auto    set_charstr( const char* s )              {  return  get_xvalue( *this )->set_charstr( s ); }
-      auto    set_widestr( const widechar* w )          {  return  get_xvalue( *this )->set_widestr( w ); }
+      auto  set_zarray( const zarray& z = zarray() ) -> zarray&   {  return *get_xvalue( *this )->set_zarray( z );  }
+      auto  set_charstr( const char* s )             -> char*     {  return  get_xvalue( *this )->set_charstr( s ); }
+      auto  set_widestr( const widechar* w )         -> widechar* {  return  get_xvalue( *this )->set_widestr( w ); }
 
   /*
     zarray[key] = ...
@@ -1080,9 +1080,9 @@ public:     // set_?? methods
     access to assiciative array with defined key
   */
     public:     // [] operators
-  # define derive_access_operator( _key_type_ )                                                     \
-    auto operator [] ( _key_type_ k )       {  return zval<zval, _key_type_>( *this, k );  }        \
-    auto operator [] ( _key_type_ k ) const {  return zval<const zval, _key_type_>( *this, k );  }
+  # define derive_access_operator( _key_type_ )  \
+    auto operator [] ( _key_type_ k )       -> zval<zval, _key_type_>        {  return zval<zval, _key_type_>( *this, k );  }        \
+    auto operator [] ( _key_type_ k ) const -> zval<const zval, _key_type_>  {  return zval<const zval, _key_type_>( *this, k );  }
 
     derive_access_operator( int )
     derive_access_operator( unsigned )
@@ -1097,9 +1097,9 @@ public:     // set_?? methods
     };
 
   public:     // high-level API
-  # define derive_access_operator( _key_type_ )                                                     \
-    auto  operator [] ( _key_type_ k )        {  return zval<zarray<M>, _key_type_>( *this, k );  } \
-    auto  operator [] ( _key_type_ k ) const  {  return zval<zarray<M>, _key_type_>( *(zarray<M>*)this, k );  }
+  # define derive_access_operator( _key_type_ )  \
+    auto  operator [] ( _key_type_ k )       -> zval<zarray<M>, _key_type_> {  return zval<zarray<M>, _key_type_>( *this, k );  }    \
+    auto  operator [] ( _key_type_ k ) const -> zval<zarray<M>, _key_type_> {  return zval<zarray<M>, _key_type_>( *(zarray<M>*)this, k );  }
 
     derive_access_operator( unsigned )
     derive_access_operator( const char* )
@@ -1178,9 +1178,9 @@ public:     // set_?? methods
       constexpr unsigned        keyset() const  {  return 2;       }
     };
 
-    static  auto  make_key( unsigned key )  {  return uintkey( key );  }
-    static  auto  make_key( const char* key )  {  return cstrkey( key );  }
-    static  auto  make_key( const widechar* key )  {  return wstrkey( key );  }
+    static  auto  make_key( unsigned key ) -> uintkey {  return uintkey( key );  }
+    static  auto  make_key( const char* key ) -> cstrkey {  return cstrkey( key );  }
+    static  auto  make_key( const widechar* key ) ->wstrkey {  return wstrkey( key );  }
 
   private:    // internal structures
     struct  ztree: public array<ztree, M>
@@ -1242,8 +1242,8 @@ public:     // set_?? methods
             return expand;
           }
         }
-      auto  search( const uint8_t* key, size_t cch ) const  {  return search( *this, key, cch );  }
-      auto  search( const uint8_t* key, size_t cch )        {  return search( *this, key, cch );  }
+      auto  search( const uint8_t* key, size_t cch ) const -> const ztree* {  return search( *this, key, cch );  }
+      auto  search( const uint8_t* key, size_t cch )       ->       ztree* {  return search( *this, key, cch );  }
       int   lookup( byte_t* keybuf, int keylen, int buflen ) const;
 
       public:     // enumeration
