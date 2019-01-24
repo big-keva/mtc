@@ -71,9 +71,9 @@ namespace mtc
   namespace impl
   {
     template <class T>  class att
-      {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Attach();  }  };
+      {  public: void operator ()( T* p ){  ((typename std::remove_cv<T>::type*)p)->Attach();  }  };
     template <class T>  class det
-      {  public: auto operator ()( T* p ){  return ((typename std::remove_cv<T>::type*)p)->Detach();  }  };
+      {  public: void operator ()( T* p ){  ((typename std::remove_cv<T>::type*)p)->Detach();  }  };
 
   }
 
