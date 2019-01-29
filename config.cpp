@@ -112,6 +112,11 @@ namespace mtc
 
   config::config( const std::initializer_list<std::pair<zmap::key, zval>>& il ): cfgmap( il ) {}
 
+  config& config::operator = ( config&& c )
+    {
+      return cfgmap = std::move( c.cfgmap ), *this;
+    }
+
   auto  config::get_section( const zmap::key& key ) const -> config
     {
       auto  pmap = cfgmap.get_zmap( key );

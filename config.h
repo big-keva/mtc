@@ -24,6 +24,7 @@ namespace mtc {
     config();
     config( config&& );
     config( const std::initializer_list<std::pair<zmap::key, zval>>& );
+    config& operator = ( config&& );
 
   public:     // iterators
     auto  begin () const -> decltype(cfgmap.begin()) {  return cfgmap.begin();  }
