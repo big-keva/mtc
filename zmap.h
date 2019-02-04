@@ -458,7 +458,7 @@ namespace mtc
           case z_array_zval:
           default:  break;
         }
-        return 0;
+        return 0x08;
       }
     int CompTo( const zval& x ) const
       {
@@ -498,7 +498,7 @@ namespace mtc
           case z_array_zval:
           default:  break;
         }
-        return 0;
+        return 0x08;
       }
   public:     // compare
     bool  operator == ( const zval& v ) const { return (CompTo( v ) & 0x04) != 0; }
