@@ -227,13 +227,13 @@ namespace mtc
   /*
     zmap::const_place_t implementation
   */
-  /*
   zmap::const_place_t::const_place_t( const key& k, zmap& m ): refer( k ), owner( m )
     {}
 
   zmap::const_place_t::const_place_t( const_place_t&& in ): refer( in.refer ), owner( in.owner )
     {}
 
+  /*
   template <class out, class val, class act>
   out   map_value( val& ref, act map )
     {
@@ -359,29 +359,8 @@ namespace mtc
   /*
     zmap::patch_place_t
   */
-  /*
-  # define derive_assign( _type_ )                                                        \
-  auto  zmap::patch_place_t::operator= ( const _type_##_t& t ) -> zmap::patch_place_t&  \
-  {  return owner.set_##_type_( refer, t ), *this;  }
-    derive_assign( char )
-    derive_assign( byte )
-    derive_assign( int16 )
-    derive_assign( int32 )
-    derive_assign( int64 )
-    derive_assign( word16 )
-    derive_assign( word32 )
-    derive_assign( word64 )
-    derive_assign( float )
-    derive_assign( double )
-    derive_assign( charstr )
-    derive_assign( widestr )
-  # undef derive_assign
-
-  auto  zmap::patch_place_t::operator= ( charstr&& s ) -> zmap::patch_place_t&
-    {  return owner.set_charstr( refer, std::move( s ) ), *this;  }
-  auto  zmap::patch_place_t::operator= ( widestr&& s ) -> zmap::patch_place_t&
-    {  return owner.set_widestr( refer, std::move( s ) ), *this;  }
-  */
+  auto  zmap::patch_place_t::operator= ( zval&& v ) -> zmap::patch_place_t&
+    {  return owner.put( refer, std::move( v ) ), *this;  }
 
   /*
     zmap implementation
@@ -707,12 +686,11 @@ namespace mtc
       return *pval;
     }
 
-  /*
-  auto  zmap::operator []( const key& k ) -> patch_place_t
-    {  return std::move( patch_place_t( k, *this ) );  }
   auto  zmap::operator []( const key& k ) const -> const const_place_t
     {  return std::move( const_place_t( k, *(zmap*)this ) );  }
-  */
+
+  auto  zmap::operator []( const key& k ) -> patch_place_t
+    {  return std::move( patch_place_t( k, *this ) );  }
 
   auto  zmap::clear() -> void
     {

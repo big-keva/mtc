@@ -583,6 +583,10 @@ namespace mtc
     template <class value, class ztree_iterator>
     class iterator_base;
 
+  private:
+    class const_place_t;
+    class patch_place_t;
+
   protected:
     auto  private_data() -> zdata_t*;
     auto  make_private() -> zmap&;
@@ -746,10 +750,8 @@ namespace mtc
     auto  at( const key& ) const -> const zval&;
 
   public:     // c++ access
-  /*
     auto  operator []( const key& )       ->       patch_place_t;
     auto  operator []( const key& ) const -> const const_place_t;
-  */
 
   public:     // modifiers
     auto  clear() -> void;
@@ -1147,7 +1149,6 @@ namespace mtc
     using iterator_base::iterator_base;
   };
 
-  /*
   class zmap::const_place_t
   {
     friend class zmap;
@@ -1156,6 +1157,7 @@ namespace mtc
     const_place_t( const_place_t&& );
 
   public:
+    /*
     operator char         () const;
     operator byte_t       () const;
     operator int16_t      () const;
@@ -1168,9 +1170,11 @@ namespace mtc
     operator double_t     () const;
     operator charstr      () const;
     operator widestr      () const;
-    operator const zmap&  () const;
+    operator zmap         () const;
+    */
 
   public:
+    /*
     bool  operator == ( char     ) const;
     bool  operator == ( byte_t   ) const;
     bool  operator == ( int16_t  ) const;
@@ -1186,9 +1190,9 @@ namespace mtc
 
     bool  operator != ( const charstr& s ) const  {  return !(*this == s);  }
     bool  operator != ( const widestr& s ) const  {  return !(*this == s);  }
+    */
 
   protected:
-    zmap_t    empty;
     key       refer;
     zmap_t&   owner;
   };
@@ -1200,24 +1204,8 @@ namespace mtc
     using const_place_t::const_place_t;
 
   public:
-  # define declare_assign( _type_ )   auto  operator = ( const _type_##_t& ) -> patch_place_t&;
-    declare_assign( char )
-    declare_assign( byte )
-    declare_assign( int16 )
-    declare_assign( int32 )
-    declare_assign( int64 )
-    declare_assign( word16 )
-    declare_assign( word32 )
-    declare_assign( word64 )
-    declare_assign( float )
-    declare_assign( double )
-    declare_assign( charstr )
-    declare_assign( widestr )
-  # undef declare_assign
-    auto  operator = ( charstr&& s ) -> patch_place_t&;
-    auto  operator = ( widestr&& s ) -> patch_place_t&;
+    auto  operator = ( zval&& ) -> patch_place_t&;
   };
-  */
 
   /*
     zmap::ztree_t inline implementation
