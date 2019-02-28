@@ -5,13 +5,13 @@
 
 TEST_CASE( "patricia keys are deleteable" )
 {
-  mtc::patricia::tree<int>  patree;
-
   SECTION( "one-range keys may be deleted" )
   {
-    patree.Insert( std::string( "aaa" ), 111 );
-    patree.Insert( std::string( "bbb" ), 222 );
-    patree.Insert( std::string( "ccc" ), 333 );
+    mtc::patricia::tree<int>  patree( {
+      { "aaa", 111 },
+      { "bbb", 222 },
+      { "ccc", 333 }
+    } );
 
     patree.Delete( std::string( "bbb" ) );
     patree.Delete( std::string( "ccc" ) );
@@ -20,6 +20,8 @@ TEST_CASE( "patricia keys are deleteable" )
 
   SECTION( "partial keys may be deleted upper-to-lower" )
   {
+    mtc::patricia::tree<int>  patree;
+
     patree.Insert( std::string( "a" ), 1 );
     patree.Insert( std::string( "aa" ), 11 );
 
@@ -29,6 +31,8 @@ TEST_CASE( "patricia keys are deleteable" )
 
   SECTION( "partial keys may be deleted with merging" )
   {
+    mtc::patricia::tree<int>  patree;
+
     patree.Insert( std::string( "a" ), 1 );
     patree.Insert( std::string( "aa" ), 11 );
     patree.Insert( std::string( "aaa" ), 111 );
@@ -52,54 +56,54 @@ TEST_CASE( "patricia::tree is dynamic" )
 
   SECTION( "adding new keys return access to their values" )
   {
-    REQUIRE(  patree.Insert( mtc::patricia::make_key( "aaa", 3 ), 12345 ) != nullptr );
-    REQUIRE(  patree.Search( mtc::patricia::make_key( "aaa", 3 ) ) != nullptr );
-    REQUIRE( *patree.Search( mtc::patricia::make_key( "aaa", 3 ) ) == 12345 );
+    REQUIRE(  patree.Insert( "aaa", 12345 ) != nullptr );
+    REQUIRE(  patree.Search( "aaa" ) != nullptr );
+    REQUIRE( *patree.Search( "aaa" ) == 12345 );
   }
 
   SECTION( "adding new keys without values add default values" )
   {
-    REQUIRE(  patree.Insert( mtc::patricia::make_key( "bbb", 3 ) ) != nullptr );
-    REQUIRE(  patree.Search( mtc::patricia::make_key( "bbb", 3 ) ) != nullptr );
-    REQUIRE( *patree.Search( mtc::patricia::make_key( "bbb", 3 ) ) == 0 );
+    REQUIRE(  patree.Insert( mtc::patricia::key( "bbb", 3 ) ) != nullptr );
+    REQUIRE(  patree.Search( mtc::patricia::key( "bbb", 3 ) ) != nullptr );
+    REQUIRE( *patree.Search( mtc::patricia::key( "bbb", 3 ) ) == 0 );
   }
 
   SECTION( "adding existing keys return overriden values with same pointers" )
   {
-    auto  oldptr = patree.Insert( mtc::patricia::make_key( "aaa", 3 ), 12345 );
+    auto  oldptr = patree.Insert( mtc::patricia::key( "aaa", 3 ), 12345 );
     auto  newptr = (decltype(oldptr))nullptr;
 
-    REQUIRE( patree.Search( mtc::patricia::make_key( "aaa", 3 ) ) == oldptr );
-    REQUIRE( patree.Insert( mtc::patricia::make_key( "aaa", 3 ), 0 ) == oldptr );
+    REQUIRE( patree.Search( mtc::patricia::key( "aaa", 3 ) ) == oldptr );
+    REQUIRE( patree.Insert( mtc::patricia::key( "aaa", 3 ), 0 ) == oldptr );
   }
 
   SECTION( "deleted keys are deleted physically" )
   {
-    patree.Insert( mtc::patricia::make_key( "ccc", 3 ), 7 );
-    patree.Insert( mtc::patricia::make_key( "eee", 3 ), 9 );
+    patree.Insert( "ccc", 7 );
+    patree.Insert( "eee", 9 );
 
-    REQUIRE( patree.Search( mtc::patricia::make_key( "ccc", 3 ) ) != nullptr );
-    REQUIRE( patree.Search( mtc::patricia::make_key( "eee", 3 ) ) != nullptr );
+    REQUIRE( patree.Search( "ccc" ) != nullptr );
+    REQUIRE( patree.Search( "eee" ) != nullptr );
 
-    patree.Delete( mtc::patricia::make_key( "ccc", 3 ) );
+    patree.Delete( "ccc" );
 
-    REQUIRE( patree.Search( mtc::patricia::make_key( "ccc", 3 ) ) == nullptr );
-    REQUIRE( patree.Search( mtc::patricia::make_key( "eee", 3 ) ) != nullptr );
+    REQUIRE( patree.Search( mtc::patricia::key( "ccc", 3 ) ) == nullptr );
+    REQUIRE( patree.Search( mtc::patricia::key( "eee", 3 ) ) != nullptr );
 
-    patree.Delete( mtc::patricia::make_key( "eee", 3 ) );
+    patree.Delete( mtc::patricia::key( "eee", 3 ) );
 
-    REQUIRE( patree.Search( mtc::patricia::make_key( "eee", 3 ) ) == nullptr );
+    REQUIRE( patree.Search( mtc::patricia::key( "eee", 3 ) ) == nullptr );
   }
 
   SECTION( "constant access is also available" )
   {
     const auto& tree = patree;
 
-    patree.Insert( mtc::patricia::make_key( "aaa" ), 7 );
-    patree.Insert( mtc::patricia::make_key( "bbb" ), 9 );
+    patree.Insert( "aaa", 7 );
+    patree.Insert( "bbb", 9 );
 
-    REQUIRE( tree.Search( mtc::patricia::make_key( "aaa" ) ) != nullptr );
-    REQUIRE( tree.Search( mtc::patricia::make_key( "eee" ) ) == nullptr );
+    REQUIRE( tree.Search( "aaa" ) != nullptr );
+    REQUIRE( tree.Search( "eee" ) == nullptr );
   }
 }
 
@@ -114,7 +118,7 @@ TEST_CASE( "patricia::tree is iterable" )
 
   SECTION( "one-element patricia tree is iterable" )
   {
-    patree.Insert( mtc::patricia::make_key( "aaa" ), 1 );
+    patree.Insert( "aaa", 1 );
 
     auto  it = patree.begin();
 
@@ -184,39 +188,39 @@ TEST_CASE( "patricia::tree is iterable" )
     const mtc::patricia::tree<int>& rt = patree;
     auto                            it = rt.end();
 
-    it = rt.find( mtc::patricia::make_key( "bbb" ) );
+    it = rt.find( "bbb" );
       REQUIRE( it != rt.end() );
       REQUIRE( it.key() == std::string( "bbb" ) );
 
-      it = rt.lower_bound( mtc::patricia::make_key( "" ) );
+      it = rt.lower_bound( "" );
       REQUIRE( it != rt.end() );
       REQUIRE( it.key() == std::string( "a" ) );
 
-    it = rt.lower_bound( mtc::patricia::make_key( "0000" ) );
+    it = rt.lower_bound( "0000" );
       REQUIRE( it != rt.end() );
       REQUIRE( it.key() == std::string( "a" ) );
 
-    it = rt.lower_bound( mtc::patricia::make_key( "a" ) );
+    it = rt.lower_bound( "a" );
       REQUIRE( it != rt.end() );
       REQUIRE( it.key() == std::string( "a" ) );
 
-    it = rt.lower_bound( mtc::patricia::make_key( "a0" ) );
+    it = rt.lower_bound( "a0" );
       REQUIRE( it != rt.end() );
       REQUIRE( it.key() == std::string( "aa" ) );
 
-    it = rt.lower_bound( mtc::patricia::make_key( "aa" ) );
+    it = rt.lower_bound( "aa" );
       REQUIRE( it != rt.end() );
       REQUIRE( it.key() == std::string( "aa" ) );
 
-    it = rt.lower_bound( mtc::patricia::make_key( "aa0" ) );
+    it = rt.lower_bound( "aa0" );
       REQUIRE( it != rt.end() );
       REQUIRE( it.key() == std::string( "aaa" ) );
 
-    it = rt.lower_bound( mtc::patricia::make_key( "aab" ) );
+    it = rt.lower_bound( "aab" );
       REQUIRE( it != rt.end() );
       REQUIRE( it.key() == std::string( "bbb" ) );
 
-    it = rt.lower_bound( mtc::patricia::make_key( "bbbb" ) );
+    it = rt.lower_bound( "bbbb" );
       REQUIRE( it == rt.end() );
   }
 }
@@ -239,11 +243,11 @@ TEST_CASE( "patricia::tree is serializable" )
   {
     mtc::patricia::dump   dumped( serial.data() );
 
-    REQUIRE( dumped.Search( mtc::patricia::make_key( "z" ) ) == nullptr );
-    REQUIRE( dumped.Search( mtc::patricia::make_key( "a" ) ) != nullptr );
-    REQUIRE( dumped.Search( mtc::patricia::make_key( "aa" ) ) != nullptr );
-    REQUIRE( dumped.Search( mtc::patricia::make_key( "aaa" ) ) != nullptr );
-    REQUIRE( dumped.Search( mtc::patricia::make_key( "bbb" ) ) != nullptr );
+    REQUIRE( dumped.Search( mtc::patricia::key( "z" ) ) == nullptr );
+    REQUIRE( dumped.Search( mtc::patricia::key( "a" ) ) != nullptr );
+    REQUIRE( dumped.Search( mtc::patricia::key( "aa" ) ) != nullptr );
+    REQUIRE( dumped.Search( mtc::patricia::key( "aaa" ) ) != nullptr );
+    REQUIRE( dumped.Search( mtc::patricia::key( "bbb" ) ) != nullptr );
   }
 
   SECTION( "patricia::dump provives untyped iterator" )
