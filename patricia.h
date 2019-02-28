@@ -122,8 +122,8 @@ namespace patricia  {
     {
       friend class tree;
 
-      key         patkey;
-      value*      patval;
+      patricia::key patkey;
+      value*        patval;
 
     protected:
       base_iterator( nodes* );
@@ -294,8 +294,8 @@ namespace patricia  {
     {
       friend class dump;
 
-      key         patkey;
-      const void* patval;
+      patricia::key patkey;
+      const void*   patval;
 
       struct  patpos
       {
