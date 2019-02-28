@@ -86,7 +86,7 @@ namespace patricia  {
 
   public:     // serialization
                         size_t  GetBufLen(      ) const {  return ::GetBufLen( len ) + len;  }
-    template <class O>  O*      Serialize( O* o ) const {  return ::Serialize( ::Serialize( len ), ptr, len );  }
+    template <class O>  O*      Serialize( O* o ) const {  return ::Serialize( ::Serialize( o, len ), ptr, len );  }
 
   public:     // compare
     bool  operator == ( const key& k ) const  {  return len == k.len && (ptr == k.ptr || std::equal( ptr, ptr + len, k.ptr ));  }
@@ -120,7 +120,6 @@ namespace patricia  {
     template <class value, class nodes>
     class base_iterator
     {
-      template <class V>
       friend class tree;
 
       key         patkey;
@@ -679,7 +678,7 @@ namespace patricia  {
         {
           auto  thekey = p->chars;
           auto  cchkey = p->keylen();
-          auto  nwrite = mtc::min( cchkey, (size_t)(0x20 - 3) );
+          auto  nwrite = std::min( cchkey, (size_t)(0x20 - 3) );
 
           for ( size_t i = 0; i < before; ++i )
             print( ' ' );
@@ -1541,10 +1540,7 @@ namespace patricia  {
       if ( cchstr != 0 )
       {
         if ( (size_t)achars.size() < keylen + cchstr )
-        {
-          if ( achars.resize( (keylen + cchstr + 0x0f) & ~0x0f ) != 0 )
-            return nullptr;
-        }
+          achars.resize( (keylen + cchstr + 0x0f) & ~0x0f );
 
         if ( (serial = ::FetchFrom( serial, keylen + achars.data(), cchstr )) == nullptr )
           return nullptr;
