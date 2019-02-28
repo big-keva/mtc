@@ -3,7 +3,7 @@
   обеспечивающий достаточное количество текста, чтобы никто не ошибся с кодировкой.
 */
 # define CATCH_CONFIG_MAIN
-# include <catch.hpp>
+# include <catch2/catch.hpp>
 # include <mtc/wcsstr.h>
 
 class fake_allocator
