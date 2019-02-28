@@ -73,9 +73,9 @@ namespace patricia  {
     size_t                len;
 
   public:     // construction
-                              key(): ptr( nullptr ), len( 0 ) {}
-    template <class chartype> key( const chartype* s, size_t l ): ptr( (const unsigned char*)s ), len( sizeof(chartype) * l )  {}
-    template <class chartype> key( const std::basic_string<chartype>& s ): ptr( (const unsigned char*)s.data() ), len( sizeof(chartype) * s.size() ) {}
+                              key();
+    template <class chartype> key( const chartype*, size_t = (size_t)-1 );
+    template <class chartype> key( const std::basic_string<chartype>& );
 
   public:     // key access
     auto    getptr() const -> const unsigned char*  {  return ptr;  }
@@ -94,10 +94,6 @@ namespace patricia  {
 
   };
 
-  template <class chartype = char>
-  static  key make_key( const chartype* k, size_t l ) {  return std::move( key( k, l ) );  }
-  static  key make_key( const std::string& s )        {  return std::move( key( s ) );  }
-
 }}
 
 template <class O>
@@ -111,6 +107,24 @@ namespace patricia  {
   {
     class nothing {};
   }
+
+// key implementation
+
+  inline
+  key::key(): ptr( nullptr ), len( 0 )
+    {}
+
+  template <class chartype>
+  key::key( const chartype* s, size_t l ): ptr( (const unsigned char*)s ), len( 0 )
+    {
+      if ( (len = l) == (size_t)-1 && ptr != nullptr )
+        for ( len = 0; ptr[len] != 0; ++len ) (void)NULL;
+      len *= sizeof(chartype);
+    }
+
+  template <class chartype>
+  key::key( const std::basic_string<chartype>& s ): ptr( (const unsigned char*)s.data() ), len( sizeof(chartype) * s.size() )
+    {}
 
   template <class V = nothing>
   class tree
@@ -225,6 +239,7 @@ namespace patricia  {
   public:     // construction
     tree()  {}
     tree( tree&& );
+    tree( const std::initializer_list<std::pair<key, V>>& );
     tree& operator = ( tree&& );
     tree( const tree& ) = delete;
     tree& operator = ( const tree& ) = delete;
@@ -235,12 +250,13 @@ namespace patricia  {
                                             V*    Insert( const key& k, V&& v )             {  return insert( k, v );  }
                                       const V*    Search( const key& k ) const              {  return search<const V>( k, *this );  }
                                             V*    Search( const key& k )                    {  return search<      V>( k, *this );  }
-
+/*
     template <class chartype = char>        void  Delete( const chartype* k, size_t l )                   {  return Delete( make_key( k, l ) );  }
     template <class chartype = char>        V*    Insert( const chartype* k, size_t l, const V& v = V() ) {  return Insert( make_key( k, l ), v );  }
     template <class chartype = char>        V*    Insert( const chartype* k, size_t l, V&& v )            {  return Insert( make_key( k, l ), v );  }
     template <class chartype = char>  const V*    Search( const chartype* k, size_t l ) const             {  return Search( make_key( k, l ) );  }
     template <class chartype = char>        V*    Search( const chartype* k, size_t l )                   {  return Search( make_key( k, l ) );  }
+*/
 
   public:     // iterator
     auto  cbegin() const -> const_iterator {  return begin();  }
@@ -881,7 +897,7 @@ namespace patricia  {
         for ( auto nd: atrace )
           achars.insert( achars.end(), nd->key_beg(), nd->key_end() );
 
-        patkey = std::move( patricia::make_key( achars.data(), achars.size() ) );
+        patkey = std::move( patricia::key( achars.data(), achars.size() ) );
         patval = &atrace.back()->value;
       }
         else
@@ -915,6 +931,13 @@ namespace patricia  {
   template <class V>
   tree<V>::tree( tree&& p ):
     p_tree( std::move( p.p_tree ) ) {}
+
+  template <class V>
+  tree<V>::tree( const std::initializer_list<std::pair<key, V>>& list )
+    {
+      for ( auto& it: list )
+        Insert( it.first, it.second );
+    }
 
   template <class V>
   tree<V>& tree<V>::operator = ( tree&& p )
@@ -1290,7 +1313,7 @@ namespace patricia  {
           chrtop = std::copy( t.keyptr, t.keyptr + t.keylen, chrtop );
         }
 
-      patkey = std::move( make_key( achars.data(), chrtop - achars.begin() ) );
+      patkey = std::move( patricia::key( achars.data(), chrtop - achars.begin() ) );
       return *this;
     }
 
