@@ -245,18 +245,17 @@ namespace patricia  {
     tree& operator = ( const tree& ) = delete;
 
   public:     // API
-                                            void  Delete( const key& k );
+                                            bool  Delete( const key& k );
                                             V*    Insert( const key& k, const V& v = V() )  {  return insert( k, v );  }
                                             V*    Insert( const key& k, V&& v )             {  return insert( k, v );  }
                                       const V*    Search( const key& k ) const              {  return search<const V>( k, *this );  }
                                             V*    Search( const key& k )                    {  return search<      V>( k, *this );  }
-/*
-    template <class chartype = char>        void  Delete( const chartype* k, size_t l )                   {  return Delete( make_key( k, l ) );  }
-    template <class chartype = char>        V*    Insert( const chartype* k, size_t l, const V& v = V() ) {  return Insert( make_key( k, l ), v );  }
-    template <class chartype = char>        V*    Insert( const chartype* k, size_t l, V&& v )            {  return Insert( make_key( k, l ), v );  }
-    template <class chartype = char>  const V*    Search( const chartype* k, size_t l ) const             {  return Search( make_key( k, l ) );  }
-    template <class chartype = char>        V*    Search( const chartype* k, size_t l )                   {  return Search( make_key( k, l ) );  }
-*/
+
+    template <class chartype = char>        bool  Delete( const chartype* k, size_t l )               {  return Delete( key( k, l ) );  }
+    template <class chartype = char>        V*    Insert( const chartype* k, size_t l, const V& v )   {  return Insert( key( k, l ), v );  }
+    template <class chartype = char>        V*    Insert( const chartype* k, size_t l, V&& v )        {  return Insert( key( k, l ), v );  }
+    template <class chartype = char>  const V*    Search( const chartype* k, size_t l ) const         {  return Search( key( k, l ) );  }
+    template <class chartype = char>        V*    Search( const chartype* k, size_t l )               {  return Search( key( k, l ) );  }
 
   public:     // iterator
     auto  cbegin() const -> const_iterator {  return begin();  }
@@ -265,6 +264,16 @@ namespace patricia  {
     auto  begin()        ->       iterator {  return iterator( p_tree.get() );  }
     auto  end()    const -> const_iterator {  return const_iterator();  }
     auto  end()          ->       iterator {  return iterator();  }
+
+  public:     // capacity
+    auto  empty() const -> bool;
+
+  public:     // modifiers
+    void  clear();
+    auto  erase( const key& ) -> size_t;
+    template <class InputIt>
+    void  insert( InputIt first, InputIt last );
+    void  insert( std::initializer_list<std::pair<key, V>> );
 
   public:     // iterable access
     auto  find       ( const key& k ) const -> const_iterator {  return std::move( findit<const_iterator>( k, *this ) );  }
@@ -947,10 +956,43 @@ namespace patricia  {
     }
 
   template <class V>
-  void      tree<V>::Delete( const key& k )
+  bool  tree<V>::Delete( const key& k )
     {
       if ( p_tree != nullptr && p_tree->remove( k.ptr, k.len ) )
         p_tree.reset();
+      return true;
+    }
+
+  template <class V>
+  auto  tree<V>::empty() const -> bool
+    {
+      return p_tree != nullptr && (p_tree->_next != nullptr || p_tree->_list != nullptr);
+    }
+
+  template <class V>
+  void  tree<V>::clear()
+    {
+      p_tree.reset();
+    }
+
+  template <class V>
+  auto  tree<V>::erase( const key& k ) -> size_t
+    {
+      return Delete( k ) ? 1 : 0;
+    }
+
+  template <class V>
+  template <class InputIt>
+  void  tree<V>::insert( InputIt first, InputIt end )
+    {
+      for ( ; first != end; ++first )
+        Insert( first->first, first->second );
+    }
+
+  template <class V>
+  void  tree<V>::insert( std::initializer_list<std::pair<key, V>> list )
+    {
+      return insert( list.begin(), list.end() );
     }
 
   template <class V>
