@@ -1,9 +1,10 @@
 # pragma once
 # if !defined( __mtc_mutex__ )
 # define __mtc_mutex__
-# include <mutex>
 # include <condition_variable>
+# include <climits>
 # include <thread>
+# include <mutex>
 
 namespace mtc
 {
