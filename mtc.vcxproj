@@ -24,6 +24,7 @@
     <ClCompile Include="dirtools.cpp" />
     <ClCompile Include="fileStream.cpp" />
     <ClCompile Include="netStream.cpp" />
+    <ClCompile Include="utf.cpp" />
     <ClCompile Include="z_js.cpp" />
     <ClCompile Include="zmap.cpp" />
     <ClCompile Include="zval.cpp" />
