@@ -13,7 +13,6 @@ add_library(mtc STATIC
   byteBuffer.cpp
   dirtools.cpp
   fileStream.cpp
-  jsconfig.cpp
   netStream.cpp
   zipStream.cpp
   config.cpp
