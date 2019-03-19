@@ -9,3 +9,10 @@ add_executable(test-patricia
 
 add_executable(test-directory
 	test-directory.cpp)
+
+target_link_libraries(test-directory
+	mtc)
+
+add_test(NAME test-patricia COMMAND test-patricia)
+add_test(NAME test-directory COMMAND test-directory)
+
