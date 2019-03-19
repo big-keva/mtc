@@ -293,6 +293,7 @@ namespace patricia  {
     template <class act>  int   for_each( act action )        {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
     template <class act>  int   for_each( act action ) const  {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
 
+  protected:
     template <class arg>                    V*    insert( const key&, arg  );
     template <class res, class slf> static  res*  search( const key&, slf& );
     template <class itr, class slf> static  itr   findit( const key&, slf& );
