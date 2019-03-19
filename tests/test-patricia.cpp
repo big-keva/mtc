@@ -71,7 +71,6 @@ TEST_CASE( "patricia::tree is dynamic" )
   SECTION( "adding existing keys return overriden values with same pointers" )
   {
     auto  oldptr = patree.Insert( mtc::patricia::key( "aaa", 3 ), 12345 );
-    auto  newptr = (decltype(oldptr))nullptr;
 
     REQUIRE( patree.Search( mtc::patricia::key( "aaa", 3 ) ) == oldptr );
     REQUIRE( patree.Insert( mtc::patricia::key( "aaa", 3 ), 0 ) == oldptr );
