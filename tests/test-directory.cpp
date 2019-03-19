@@ -422,25 +422,25 @@ namespace fs {
     directory   thedir;
     const char* endptr;
 
-    if ( pwsdir == nullptr )
+    if ( dir == nullptr )
       return directory();
 
   // allocate directory object
     thedir.data = new inner_t( uflags );
 
   // check if has directory delimiter; if null, create alternate base folder name as ./
-    if ( (endptr = (char*)strrchr( pszdir, '/' )) == nullptr )
+    if ( (endptr = (char*)strrchr( dir, '/' )) == nullptr )
     {
       thedir.data->w_path = string( "./" );
-      endptr = pszdir;
+      endptr = dir;
     }
       else
-    thedir.data->w_path = string( pszdir, ++endptr - pszdir );
+    thedir.data->w_path = string( dir, ++endptr - dir );
 
     thedir.data->filter = string( endptr );
 
   // parse the search entry to directory and the mask
-    if ( (thedir.data->dirptr = opendir( folder.charstr() )) == nullptr )
+    if ( (thedir.data->dirptr = opendir( thedir.data->w_path.charstr() )) == nullptr )
       return directory();
 
     return std::move( thedir );
