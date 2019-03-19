@@ -412,23 +412,21 @@ namespace fs {
 
     thedir.data->w_path = string( altdir );
 # else
-  // check if has directory delimiter
+    const char* endptr;
+
+  // check if has directory delimiter; if null, create alternate base folder name as ./
     if ( (endptr = (char*)strrchr( pszdir, '/' )) == nullptr )
     {
-      if ( (thedir.didata->folder = folder = dir_str::strdup( "./" )) == nullptr )  return directory();
-        else endptr = (char*)pszdir;
+      thedir.data->w_path = string( "./" );
+      endptr = pszdir;
     }
       else
-  // create directory name and mask
-    if ( (thedir.didata->folder = folder = dir_str::strdup( pszdir )) == nullptr )  return directory();
-      else folder[endptr++ - pszdir + 1] = '\0';
+    thedir.data->w_path = string( pszdir, ++endptr - pszdir );
 
-  // create the mask
-    if ( (thedir.didata->filter = w_strdup( endptr )) == nullptr )
-      return directory();
+    thedir.data->filter = string( endptr );
 
   // parse the search entry to directory and the mask
-    if ( (thedir.didata->dirptr = opendir( folder )) == nullptr )
+    if ( (thedir.data->dirptr = opendir( folder.charstr() )) == nullptr )
       return directory();
 # endif  // _MSC_VER
 
