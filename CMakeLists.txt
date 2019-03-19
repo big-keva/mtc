@@ -16,6 +16,7 @@ add_library(mtc STATIC
   netStream.cpp
   zipStream.cpp
   config.cpp
+  dir.cpp
   utf.cpp
   zval.cpp
   zmap.cpp
@@ -31,6 +32,7 @@ install(
     bitset.h
     byteBuffer.h
     charstream.h
+    dir.hpp
     directory.h
     dirtools.hpp
     file.h
@@ -56,6 +58,7 @@ install(
     strptime.h
     stringmap.h
     suballocator.h
+    utf.hpp
     uuid.h
     wcsstr.h
     zarray.h

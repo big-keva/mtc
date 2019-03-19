@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="byteBuffer.cpp" />
     <ClCompile Include="config.cpp" />
+    <ClCompile Include="dir.cpp" />
     <ClCompile Include="dirtools.cpp" />
     <ClCompile Include="fileStream.cpp" />
     <ClCompile Include="netStream.cpp" />
