@@ -65,3 +65,7 @@ install(
     zipStream.h
   DESTINATION include/mtc
 )
+
+enable_testing()
+add_subdirectory(tests)
+
