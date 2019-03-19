@@ -1,5 +1,4 @@
 /*
-/*
 The MIT License (MIT)
 
 Copyright (c) 2016 Андрей Коваленко aka Keva
@@ -1234,7 +1233,7 @@ namespace patricia  {
     {
       if ( atrace.size() != it.atrace.size() )
         return false;
-      for ( auto i = 0; i != atrace.size(); ++i )
+      for ( size_t i = 0; i != atrace.size(); ++i )
         if ( atrace[i].dicptr != it.atrace[i].dicptr )
           return false;
       return true;
