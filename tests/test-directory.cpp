@@ -126,11 +126,14 @@ namespace fs {
     auto  cstr()       ->           char* {  return       (char*)(wstr() + cchstr + 1);  }
 
   public:     // creation
-    static  auto  strlen( const widechar* wcsstr, size_t cchstr ) -> size_t;
-    static  auto  create( const widechar* wcsstr, size_t cchstr = (size_t)-1 ) -> inner_t*;
+    template <class chartype>
+    static  auto  strlen( const chartype*, size_t ) -> size_t;
+    static  auto  create( const widechar*, size_t = (size_t)-1 ) -> inner_t*;
+    static  auto  create( const     char*, size_t = (size_t)-1 ) -> inner_t*;
 
   private:
     inner_t( const widechar* s, size_t l );
+    inner_t( const char* s, size_t l );
   };
 
   class directory::inner_t
@@ -189,31 +192,6 @@ namespace fs {
   // directory::string::inner_t implementation
 
   inline
-  auto  directory::string::inner_t::strlen( const widechar* wcsstr, size_t cchstr ) -> size_t
-  {
-    if ( cchstr == (size_t)-1 )
-    {
-      if ( wcsstr == nullptr )
-        return 0;
-
-      for ( cchstr = 0; wcsstr[cchstr] != 0; ++cchstr )
-        (void)NULL;
-    }
-
-    return cchstr;
-  }
-
-  inline
-  auto  directory::string::inner_t::create( const widechar* wcsstr, size_t cchstr ) -> inner_t*
-  {
-    auto    ccwstr = strlen( wcsstr, cchstr );
-    auto    cccstr = utf::cbchar( wcsstr, ccwstr );
-    size_t  nalloc = sizeof(inner_t) + (ccwstr + 1) * sizeof(widechar) + (cccstr + 1) * sizeof(char);
-
-    return new( new char[nalloc] ) inner_t( wcsstr, ccwstr );
-  }
-
-  inline
   directory::string::inner_t::inner_t( const widechar* s, size_t l ): refcnt( 0 ), cchstr( l )
   {
     auto  pwsstr = wstr();
@@ -228,6 +206,44 @@ namespace fs {
     utf::encode( cstr(), cchstr + 1, wstr(), cchstr );
   }
 
+  inline
+  directory::string::inner_t::inner_t( const char* s, size_t l ): refcnt( 0 ), cchstr( l )
+  {
+    utf::decode( wstr(), cchstr + 1, strcpy( cstr(), s ) );
+  }
+
+  template <class chartype> inline
+  auto  directory::string::inner_t::strlen( const chartype* str, size_t cch ) -> size_t
+  {
+    if ( cch == (size_t)-1 )
+    {
+      if ( str != nullptr ) for ( cch = 0; str[cch] != 0; ++cch ) (void)NULL;
+        else cch = 0;
+    }
+
+    return cch;
+  }
+
+  inline
+  auto  directory::string::inner_t::create( const widechar* str, size_t cch ) -> inner_t*
+  {
+    auto    ccwstr = strlen( str, cch );
+    auto    cccstr = utf::cbchar( str, ccwstr );
+    size_t  nalloc = sizeof(inner_t) + (ccwstr + 1) * sizeof(widechar) + (cccstr + 1) * sizeof(char);
+
+    return new( new char[nalloc] ) inner_t( str, ccwstr );
+  }
+
+  inline
+  auto  directory::string::inner_t::create( const char* str, size_t cch ) -> inner_t*
+  {
+    auto    cccstr = strlen( str, cch );
+    auto    ccwstr = utf::cbchar( str, cccstr );
+    size_t  nalloc = sizeof(inner_t) + (ccwstr + 1) * sizeof(widechar) + (cccstr + 1) * sizeof(char);
+
+    return new( new char[nalloc] ) inner_t( str, ccwstr );
+  }
+
   // directory::string implementation
 
   widechar  directory::string::zero = 0;
@@ -235,6 +251,11 @@ namespace fs {
   directory::string::string( const widechar* pws, size_t cch )
   {
     ++(data = inner_t::create( pws, cch ))->refcnt;
+  }
+
+  directory::string::string( const char* psz, size_t cch )
+  {
+    ++(data = inner_t::create( psz, cch ))->refcnt;
   }
 
   directory::string::string(): data( nullptr )
