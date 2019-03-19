@@ -6,3 +6,6 @@ set(CMAKE_CXX_STANDARD 11)
 
 add_executable(test-patricia
 	test-patricia.cpp)
+
+add_executable(test-patricia
+	test-directory.cpp)

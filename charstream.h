@@ -53,6 +53,7 @@ SOFTWARE.
 # if !defined( __mtc_charstream_h__ )
 # define __mtc_charstream_h__
 # include "serialize.decl.h"
+# include <cassert>
 
 namespace mtc
 {
