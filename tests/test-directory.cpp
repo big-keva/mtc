@@ -59,8 +59,8 @@ namespace fs {
     string( const string& );
    ~string();
     auto  operator = ( const string& ) -> string&;
-    auto  operator == ( const nullptr_t ) const {  return data == nullptr;  }
-    auto  operator != ( const nullptr_t ) const {  return data != nullptr;  }
+    auto  operator == ( const nullptr_t ) const -> bool {  return data == nullptr;  }
+    auto  operator != ( const nullptr_t ) const -> bool {  return data != nullptr;  }
 
   public:     // access
     operator const char*     () const {  return charstr();  }
@@ -138,11 +138,11 @@ namespace fs {
     friend class directory;
 
     std::atomic_int refcnt;
-    unsigned        u_attr;     // directory::attr_xxx virtual attribute combine
-    widechar*       p_name;     // pointer to string in system-specific struct
-    string          w_path;     // current scanned folder
+    unsigned        u_attr;       // directory::attr_xxx virtual attribute combine
+    string          w_path;       // current scanned folder
 
 # if defined( _WIN32 )
+    widechar*             p_name; // pointer to string in system-specific struct
     struct  _wfinddata_t  fidata;
     intptr_t              handle;
 
@@ -156,32 +156,33 @@ namespace fs {
     auto  read()       -> widechar* {  return p_name = (_wfindnext( handle, &fidata ) == 0 ? fidata.name : nullptr);  }
 
 # else
-      DIR*                dirptr;
-      struct dirent*      pentry;
-      _auto_<char>        filter;
+    char*           p_name; // pointer to string in system-specific struct
+    DIR*            dirptr;
+    struct dirent*  pentry;
+    std::string     filter;
 
-    public:     // construction
-      dir_val( unsigned attr ): refcnt( 1 ), dwattr( attr ), szname( nullptr ), dirptr( nullptr ), pentry( nullptr )
-        {
-        }
-     ~dir_val()
-        {
-          if ( dirptr != nullptr )
-            closedir( dirptr );
-        }
+  public:     // construction
+    inner_t( unsigned attr ): refcnt( 1 ), u_attr( attr ), p_name( nullptr ), dirptr( nullptr ), pentry( nullptr )
+      {
+      }
+   ~inner_t()
+      {
+        if ( dirptr != nullptr )
+          closedir( dirptr );
+      }
 
-    public:     // read
-      unsigned    attr() const
-        {
-          return pentry != nullptr ? pentry->d_type == DT_DIR ? attr_dir : attr_file : 0;
-        }
-      char*       read()
-        {
-          for ( szname = nullptr; szname == nullptr && dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr; )
-            if ( *(char*)filter == '\0' || fnmatch( filter, pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
-              szname = pentry->d_name;
-          return szname;
-        }
+  public:     // read
+    unsigned    attr() const
+      {
+        return pentry != nullptr ? pentry->d_type == DT_DIR ? attr_dir : attr_file : 0;
+      }
+    char*       read()
+      {
+        for ( p_name = nullptr; p_name == nullptr && dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr; )
+          if ( filter.length() == 0 || fnmatch( filter.c_str(), pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
+            p_name = pentry->d_name;
+        return p_name;
+      }
 # endif   // WIN32
   };
 
@@ -217,7 +218,6 @@ namespace fs {
   {
     auto  pwsstr = wstr();
     auto  pwsend = pwsstr + cchstr + 1;
-    auto  pchstr = cstr();
 
     if ( s != nullptr )
       while ( l-- != 0 )  *pwsstr++ = *s++;
