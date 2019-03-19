@@ -354,6 +354,8 @@ namespace fs {
     return entry();
   }
 
+# if defined( _WIN32 )
+
   auto  directory::open( const char* dir, unsigned uflags ) -> directory
   {
     widechar  wcs[1024];
@@ -366,17 +368,15 @@ namespace fs {
   auto  directory::open( const widechar* pwsdir, unsigned uflags ) -> directory
   {
     directory   thedir;
+    widechar    altdir[1024];
+    widechar*   folder;
+    widechar*   endptr;
 
     if ( pwsdir == nullptr )
       return directory();
 
   // allocate directory object
     thedir.data = new inner_t( uflags );
-
-# if defined( _WIN32 )
-    widechar  altdir[1024];
-    widechar* folder;
-    widechar* endptr;
 
   // check if a direct name is provided, else if the template has the wild card
     if ( (thedir.data->handle = _wfindfirst( pwsdir = w_strcpy( altdir, pwsdir ), &thedir.data->fidata )) == -1 )
@@ -411,8 +411,22 @@ namespace fs {
       *endptr-- = 0;
 
     thedir.data->w_path = string( altdir );
+
+    return std::move( thedir );
+  }
+
 # else
+
+  auto  directory::open( const char* dir, unsigned uflags ) -> directory
+  {
+    directory   thedir;
     const char* endptr;
+
+    if ( pwsdir == nullptr )
+      return directory();
+
+  // allocate directory object
+    thedir.data = new inner_t( uflags );
 
   // check if has directory delimiter; if null, create alternate base folder name as ./
     if ( (endptr = (char*)strrchr( pszdir, '/' )) == nullptr )
@@ -428,10 +442,20 @@ namespace fs {
   // parse the search entry to directory and the mask
     if ( (thedir.data->dirptr = opendir( folder.charstr() )) == nullptr )
       return directory();
-# endif  // _MSC_VER
 
     return std::move( thedir );
   }
+
+  auto  directory::open( const widechar* dir, unsigned uflags ) -> directory
+  {
+    char  mbs[1024];
+
+    if ( utf::encode( mbs, sizeof(mbs) / sizeof(mbs[0]), dir ) == (size_t)-1 )
+      return directory();
+    return std::move( open( dir, uflags ) );
+  }
+
+# endif   // !_MSC_VER
 
 }}
 
