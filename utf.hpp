@@ -2,6 +2,7 @@
 # if !defined( __mtc_utf_hpp__ )
 # define __mtc_utf_hpp__
 # include <cstdint>
+# include <cstddef>
 
 # if !defined( __widechar_defined__ )
 # define  __widechar_defined__
