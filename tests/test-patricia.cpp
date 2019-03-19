@@ -33,9 +33,9 @@ TEST_CASE( "patricia keys are deleteable" )
   {
     mtc::patricia::tree<int>  patree;
 
-    patree.Insert( std::string( "a" ), 1 );
-    patree.Insert( std::string( "aa" ), 11 );
-    patree.Insert( std::string( "aaa" ), 111 );
+    patree.insert( { { "a", 1 },
+                     { "aa", 11 },
+                     { "aaa", 111 } } );
 
     patree.Delete( std::string( "aa" ) );
     REQUIRE( patree.Search( std::string( "a" ) ) != nullptr );
