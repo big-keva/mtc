@@ -144,9 +144,14 @@ namespace mtc
       char      buffer[1];
     };
 
-  public:     // construction
-    FileStream();
+  protected:    // construction
+    FileStream( const char* szname, size_t ccname );
+
+  public:
    ~FileStream();
+
+   public:      // creation
+    static  auto      Create( const char* szname, size_t ccname = (size_t)-1 ) -> FileStream*;
 
   public:     // overridables from IStream
     virtual word32_t  Get (       void*,   word32_t ) noexcept override;
@@ -165,11 +170,15 @@ namespace mtc
     virtual bool              SetLen( int64_t ) noexcept override;
 
   public:     // creation
-    int               Open( const char*, unsigned );
-    api<IByteBuffer>  Load();
+    auto  Open( unsigned ) -> int;
+    auto  Load() -> api<IByteBuffer>;
 
   protected:  // helpers
-    void              Close();
+    void  Close();
+
+  protected:  // name access
+    auto  FileName() const -> const char* {  return (const char*)(this + 1);  }
+    auto  FileName()        ->      char* {  return (char*)(this + 1);  }
 
   protected:  // variables
     win32_decl( HANDLE handle );
@@ -229,8 +238,9 @@ namespace mtc
     {
       CloseHandle( handle );
         handle = INVALID_HANDLE_VALUE;
-      error()( file_error( strprintf( "Could not MapViewOfFile() for the requested block, error code %u!", GetLastError() ) ) );
-        return EFAULT;
+      error()( file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code %u!",
+        stm->FileName(), GetLastError() ) ) );
+      return EFAULT;
     }
 
     return 0;
@@ -245,7 +255,8 @@ namespace mtc
     {
       int   nerror = errno;
 
-      error()( file_error( strprintf( "Could not MapViewOfFile() for the requested block, error code %u!", nerror ) ) );
+      error()( file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code %u!",
+        stm->FileName(), nerror ) ) );
       return nerror;
     }
     return 0;
@@ -255,16 +266,29 @@ namespace mtc
   // CFileStream implementation
 
   template <class error>
-  FileStream<error>::FileStream()
+  FileStream<error>::FileStream( const char* szname, size_t ccname )
   {
-    win32_decl( handle = INVALID_HANDLE_VALUE );
-    posix_decl( handle = -1 );
+    strncpy( FileName(), szname, ccname )[ccname] = '\0';
+      win32_decl( handle = INVALID_HANDLE_VALUE );
+      posix_decl( handle = -1 );
   }
 
   template <class error>
   FileStream<error>::~FileStream()
   {
     Close();
+  }
+
+  template <class error>
+  auto  FileStream<error>::Create( const char* szname, size_t ccname ) -> FileStream<error>*
+  {
+    size_t  cchstr = ccname != (size_t)-1 ? ccname : strlen( szname );
+    size_t  nalloc = sizeof(FileStream<error>) + cchstr + 1;
+    auto    palloc = (FileStream<error>*)malloc( nalloc );
+
+    if ( palloc != nullptr )
+      new( palloc ) FileStream<error>( szname, cchstr );
+    return palloc;
   }
 
   template <class error>
@@ -402,8 +426,9 @@ namespace mtc
   }
 
   template <class error>
-  int     FileStream<error>::Open( const char* szname, unsigned dwmode )
+  int     FileStream<error>::Open( unsigned dwmode )
   {
+    auto      filename = FileName();
     DWORD     dwAccess;
     DWORD     dwDispos;
     DWORD     dwFlAttr = FILE_ATTRIBUTE_NORMAL;
@@ -458,7 +483,7 @@ namespace mtc
       dwFlAttr |= FILE_FLAG_DELETE_ON_CLOSE;
 
   // create file handle
-    handle = CreateFile( szname, dwAccess, FILE_SHARE_READ, NULL, dwDispos, dwFlAttr, NULL );
+    handle = CreateFile( filename, dwAccess, FILE_SHARE_READ, NULL, dwDispos, dwFlAttr, NULL );
     return handle == INVALID_HANDLE_VALUE ? ENOENT : 0;
   }
 
@@ -567,10 +592,10 @@ namespace mtc
     if ( lpname == nullptr || *lpname == '\0' )
       return (FileStream<error>*)error()( std::invalid_argument( strprintf( "invalid argument: empty file name @" __FILE__ ":%u", __LINE__ ) ) );
 
-    if ( (stream = allocate<FileStream<error>>()) == nullptr )
+    if ( (stream = FileStream<error>::Create( lpname )) == nullptr )
       return (FileStream<error>*)error()( std::bad_alloc() );
 
-    if ( (nerror = stream->Open( lpname, dwmode )) != 0 )
+    if ( (nerror = stream->Open( dwmode )) != 0 )
       return (FileStream<error>*)error()( file_error( strprintf( "could not open file '%s' @" __FILE__ ":%u, error code %d", lpname, __LINE__, nerror ) ) );
 
     return stream;

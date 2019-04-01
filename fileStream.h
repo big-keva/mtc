@@ -82,14 +82,24 @@ namespace mtc
   api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode, const enable_exceptions_t& );
   api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode, const disable_exceptions_t& );
 
-  inline
-  api<IFileStream>  OpenFileStream( const char* sz, unsigned dwmode = 0 )  {  return OpenFileStream( sz, dwmode, disable_exceptions );  }
+  api<IFileStream>  OpenFileStream( const widechar* sz, unsigned dwmode, const enable_exceptions_t& );
+  api<IFileStream>  OpenFileStream( const widechar* sz, unsigned dwmode, const disable_exceptions_t& );
 
   api<IByteBuffer>  LoadFileBuffer( const char* sz, const enable_exceptions_t& );
   api<IByteBuffer>  LoadFileBuffer( const char* sz, const disable_exceptions_t& );
 
-  inline
-  api<IByteBuffer>  LoadFileBuffer( const char* sz )  {  return LoadFileBuffer( sz, disable_exceptions );  }
+  api<IByteBuffer>  LoadFileBuffer( const widechar* sz, const enable_exceptions_t& );
+  api<IByteBuffer>  LoadFileBuffer( const widechar* sz, const disable_exceptions_t& );
+
+  inline  auto  OpenFileStream( const char* sz, unsigned dwmode = 0 ) -> api<IFileStream>
+    {  return OpenFileStream( sz, dwmode, disable_exceptions );  }
+  inline  auto  OpenFileStream( const widechar* sz, unsigned dwmode = 0 ) -> api<IFileStream>
+    {  return OpenFileStream( sz, dwmode, disable_exceptions );  }
+
+  inline  auto  LoadFileBuffer( const char* sz ) -> api<IByteBuffer>
+    {  return LoadFileBuffer( sz, disable_exceptions );  }
+  inline  auto  LoadFileBuffer( const widechar* sz ) -> api<IByteBuffer>
+    {  return LoadFileBuffer( sz, disable_exceptions );  }
 
 }
 
