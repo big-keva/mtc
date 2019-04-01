@@ -506,12 +506,12 @@ namespace mtc
   }
 
   template <class error>
-  int   FileStream<error>::Open( const char* szname, unsigned dwmode )
+  int   FileStream<error>::Open( unsigned dwmode )
   {
   // check if stream is open; close it
     Close();
 
-    return (handle = ::open( szname, dwmode, 0666 )) != -1 ? 0 : errno;
+    return (handle = ::open( FileName(), dwmode, 0666 )) != -1 ? 0 : errno;
   }
 
   template <class error>
