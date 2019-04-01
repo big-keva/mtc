@@ -58,6 +58,15 @@ SOFTWARE.
 # include <fcntl.h>
 # include <new>
 
+# if !defined( __widechar_defined__ )
+# define  __widechar_defined__
+#   if defined(WCHAR_MAX) && (WCHAR_MAX >> 16) == 0
+    typedef wchar_t         widechar;
+#   else
+    typedef unsigned short  widechar;
+#   endif  // size
+# endif  // __widechar_defined__
+
 # if !defined( win32_decl )
 #   if defined( _WIN32 )
 #     define win32_decl( expr ) expr
