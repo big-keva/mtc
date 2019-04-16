@@ -1,4 +1,5 @@
 /*
+/*
 
 The MIT License (MIT)
 
@@ -576,6 +577,7 @@ namespace mtc
     class key;
     class iterator;
     class const_iterator;
+    class serial;
 
   protected:
     template <class value>
@@ -791,6 +793,45 @@ namespace mtc
   protected:
     zdata_t*  p_data = nullptr;
 
+  };
+
+  /*
+    serial::*() methods
+
+    static methods allowing direct access to the field of serialized zmap structure
+
+    special fast implementation for 'const char*' source also provided
+  */
+  class zmap::serial
+  {
+    template <class S>  static  S*    find( S*, const byte_t*, size_t, unsigned );
+
+  public:     // serial::* family
+    class skip;
+
+    template <class S>  static  S*    find(        S*, const key& );
+    template <class S>  static  S*    load( zval&, S*, const key& );
+    template <class S>  static  zval  load(        S*, const key& );
+  };
+
+  class zmap::serial::skip
+  {
+    template <class T,
+              class S>  static  S*  array_vals( S* );
+    template <class C,
+              class S>  static  S*  array_strs( S* );
+    template <class S>  static  S*  array_zmap( S* );
+    template <class S>  static  S*  array_zval( S* );
+
+  public:
+    template <class S>  static  auto  size( S*, size_t ) -> S*;
+    template <class S>  static  auto  zval( S*         ) -> S*;
+    template <class S>  static  auto  zmap( S*         ) -> S*;
+
+  public:
+                        static  auto  size( const char*, size_t ) -> const char*;
+                        static  auto  zval( const char*         ) -> const char*;
+                        static  auto  zmap( const char*         ) -> const char*;
   };
 
   inline  std::string to_string( const zval& z ) {  return std::move( z.to_string() );  }
@@ -1526,6 +1567,315 @@ namespace mtc
 
   template <class value, class z_iterator>
   auto  zmap::iterator_base<value, z_iterator>::last() const -> const zpos& {  return zstack.back();  }
+
+  /* zmap::serial::skip implementation */
+
+  template <class T, class S>
+  S*  zmap::serial::skip::array_vals( S* s )
+  {
+    int   nitems;
+    T     itnext;
+
+    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
+      return nullptr;
+    while ( nitems-- > 0 && (s = ::FetchFrom( s, itnext )) != nullptr )
+      (void)0;
+    return s;
+  }
+
+  template <class C, class S>
+  S*  zmap::serial::skip::array_strs( S* s )
+  {
+    int     nitems;
+    size_t  itelen;
+
+    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
+      return nullptr;
+    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = size( s, sizeof(C) * itelen )) != nullptr )
+      (void)0;
+    return s;
+  }
+
+  template <class S>
+  S*  zmap::serial::skip::array_zmap( S* s )
+  {
+    int     nitems;
+    size_t  itelen;
+
+    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
+      return nullptr;
+    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = skip::zmap( s )) != nullptr )
+      (void)0;
+    return s;
+  }
+
+  template <class S>
+  S*  zmap::serial::skip::array_zval( S* s )
+  {
+    int     nitems;
+    size_t  itelen;
+
+    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
+      return nullptr;
+    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = skip::zval( s )) != nullptr )
+      (void)0;
+    return s;
+  }
+
+  template <class S>  S*  zmap::serial::skip::size( S* s, size_t l )
+  {
+    char      slocal[0x100];
+    unsigned  cbpart;
+
+    while ( (cbpart = l < sizeof(slocal) ? l : sizeof(slocal)) > 0 )
+      if ( (s = ::FetchFrom( s, slocal, cbpart )) != nullptr )  l -= cbpart;
+        else return nullptr;
+    return s;
+  }
+
+  template <class S>  S*  zmap::serial::skip::zval( S* s )
+  {
+    char      vxtype;
+    unsigned  sublen;
+
+    if ( (s = ::FetchFrom( s, vxtype )) == nullptr )
+      return nullptr;
+    switch ( vxtype )
+    {
+    # define  derive_skip_plain( _type_ ) case zval::z_##_type_: return skip::size( s, sizeof(_type_##_t) );
+    # define  derive_skip_smart( _type_ ) case zval::z_##_type_: {  _type_##_t  t;  return ::FetchFrom( s, t ); }
+      derive_skip_plain( char )
+      derive_skip_plain( byte )
+      derive_skip_plain( int16 )
+      derive_skip_plain( word16 )
+
+      derive_skip_smart( int32 )
+      derive_skip_smart( int64 )
+      derive_skip_smart( word32 )
+      derive_skip_smart( word64 )
+      derive_skip_smart( float )
+      derive_skip_smart( double )
+    # undef derive_skip_smart
+    # undef derive_skip_plain
+
+      case zval::z_charstr: return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sublen ) : nullptr;
+      case zval::z_widestr: return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sizeof(widechar) * sublen ) : nullptr;
+      case zval::z_zmap:    return skip::zmap( s );
+      case zval::z_uuid:    return skip::uuid( s );
+
+    # define  derive_skip_array_plain( _type_ ) case zval::z_array_##_type_:  \
+        return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sublen * sizeof(_type_##_t) ) : nullptr;
+      derive_skip_array_plain( char )
+      derive_skip_array_plain( byte )
+      derive_skip_array_plain( float )
+      derive_skip_array_plain( double )
+    # undef derive_skip_array_plain
+
+      case zval::z_array_int16:   return array_vals<int16_t>  ( s );
+      case zval::z_array_int32:   return array_vals<int32_t>  ( s );
+      case zval::z_array_int64:   return array_vals<int64_t>  ( s );
+      case zval::z_array_word16:  return array_vals<word16_t> ( s );
+      case zval::z_array_word32:  return array_vals<word32_t> ( s );
+      case zval::z_array_word64:  return array_vals<word64_t> ( s );
+      case zval::z_array_charstr: return array_strs<char>     ( s );
+      case zval::z_array_widestr: return array_strs<widechar> ( s );
+      case zval::z_array_zmap:    return array_zmap( s );
+      case zval::z_array_zval:    return array_zval( s );
+      case zval::z_array_uuid:    return array_vals<uuid_t>   ( s );
+      default:
+        return nullptr;
+    }
+  }
+
+  template <class S>  S*  zmap::serial::skip::zmap( S* s )
+  {
+    word16_t  lfetch;
+
+    if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
+      return nullptr;
+
+  /*  check if value is stored before other data; either skip or return */
+    if ( (lfetch & 0x0200) != 0 )
+    {
+      char  keyset;
+
+      if ( (s = skip::zval( ::FetchFrom( s, keyset ) )) == nullptr )
+        return nullptr;
+    }
+
+  /*  check if branch is patricia-like: check exact match               */
+    if ( (lfetch & 0x0400) != 0 )
+      return (s = skip::size( s, lfetch & 0x1ff )) != nullptr ? skip::zmap( s ) : nullptr;
+
+    for ( auto arrlen = lfetch & 0x1ff; arrlen-- > 0; )
+    {
+      unsigned  sublen;
+      byte_t    chnext;
+
+      if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
+        return nullptr;
+      if ( (s = skip::size( s, sublen )) == nullptr )
+        return nullptr;
+    }
+    return s;
+  }
+
+  /* zmap::serial::skip* secialization for 'const char*' */
+
+  inline  const char* zmap::serial::skip::size( const char* s, size_t l )
+  {
+    return s + l;
+  }
+
+  inline  const char* zmap::serial::skip::zval( const char* s )
+  {
+    char    vatype = *s++;
+    size_t  sublen;
+
+    switch ( vatype )
+    {
+      case zval::z_char:    return s + sizeof(char);
+      case zval::z_byte:    return s + sizeof(byte_t);
+      case zval::z_int16:   return s + sizeof(int16_t);
+      case zval::z_word16:  return s + sizeof(word16_t);
+      case zval::z_float:   return s + sizeof(float);
+      case zval::z_double:  return s + sizeof(double);
+
+      case zval::z_int32:
+      case zval::z_int64:
+      case zval::z_word32:
+      case zval::z_word64:  while ( *s++ & 0x80 ) (void)0;  return s;
+
+      case zval::z_charstr: return ::FetchFrom( s, sublen ) + sublen;
+      case zval::z_widestr: return ::FetchFrom( s, sublen ) + sizeof(widechar) * sublen;
+      case zval::z_zmap:    return skip::zmap( s );
+
+      case zval::z_array_char:    return ::FetchFrom( s, sublen ) + sublen;
+      case zval::z_array_byte:    return ::FetchFrom( s, sublen ) + sublen;
+      case zval::z_array_float:   return ::FetchFrom( s, sublen ) + sublen * sizeof(float);
+      case zval::z_array_double:  return ::FetchFrom( s, sublen ) + sublen * sizeof(double);
+
+      case zval::z_array_int16:   return array_vals<int16_t>( s );
+      case zval::z_array_int32:   return array_vals<int32_t>( s );
+      case zval::z_array_int64:   return array_vals<int64_t>( s );
+      case zval::z_array_word16:  return array_vals<word16_t>( s );
+      case zval::z_array_word32:  return array_vals<word32_t>( s );
+      case zval::z_array_word64:  return array_vals<word64_t>( s );
+
+      case zval::z_array_charstr: return array_strs<char>( s );
+      case zval::z_array_widestr: return array_strs<widechar>( s );
+      case zval::z_array_zmap:    return array_zmap( s );
+      case zval::z_array_zval:    return array_zval( s );
+      default:
+        return nullptr;
+    }
+  }
+
+  inline  const char* zmap::serial::skip::zmap( const char* s )
+  {
+    word16_t  lfetch;
+    size_t    sublen;
+
+    if ( (lfetch = (byte_t)*s++) & 0x80 )
+      lfetch = (lfetch & 0x7f) | (((word16_t)(byte_t)*s++) << 7);
+
+  /*  check if value is stored before other data; either skip or return */
+    if ( (lfetch & 0x0200) != 0 )
+      s = skip::zval( ++s );
+
+  /*  check if branch is patricia-like: check exact match               */
+    if ( (lfetch & 0x0400) != 0 )
+      return skip::zmap( s + (lfetch & 0x1ff) );
+
+    for ( auto arrlen = lfetch & 0x1ff; arrlen-- > 0; s += sublen )
+      s = ::FetchFrom( ++s, sublen );
+
+    return s;
+  }
+
+  /* zmap::serial getters */
+
+  template <class S>
+  S*  zmap::serial::find( S* s, const byte_t* k, size_t l, unsigned t )
+  {
+    word16_t  lfetch;
+
+    if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
+      return nullptr;
+
+  /*  check if value is stored before other data; either skip or return */
+    if ( (lfetch & 0x0200) != 0 )
+    {
+      char  keyset;
+
+      if ( (s = ::FetchFrom( s, keyset )) == nullptr )
+        return nullptr;
+      if ( l == 0 ) return keyset == t ? s : nullptr;
+        else s = skip::zval( s );
+    }
+      else
+    if ( l == 0 )
+      return nullptr;
+
+  /*  check if branch is patricia-like: check exact match               */
+    if ( (lfetch & 0x0400) != 0 )
+    {
+      int     patlen = lfetch & 0x1ff;
+      byte_t  chload;
+
+      while ( patlen-- > 0 && l > 0 )
+      {
+        if ( (s = ::FetchFrom( s, (char&)chload )) != nullptr && chload == *k++ ) --l;
+          else return nullptr;
+      }
+
+      return patlen < 0 ? find( s, k, l, t ) : nullptr;
+    }
+      else
+    {
+      int     arrlen = lfetch & 0x1ff;
+      byte_t  chfind = *k++;
+
+      while ( arrlen-- > 0 )
+      {
+        unsigned  sublen;
+        byte_t    chnext;
+
+        if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
+          return nullptr;
+
+        if ( chfind == chnext ) return find( s, k, l - 1, t );
+          else
+        if ( chfind <  chnext ) return nullptr;
+          else
+        if ( (s = skip::size( s, sublen )) == nullptr )
+          return nullptr;
+      }
+      return nullptr;
+    }
+  }
+
+  template <class S>
+  S*  zmap::serial::find( S* s, const key& k )
+  {
+    return find( s, k.data(), k.size(), k.type() );
+  }
+
+  template <class S>
+  S*  zmap::serial::load( zval& o, S* s, const key& k )
+  {
+    auto  p = find( s, k );
+
+    return p != nullptr && (p = o.FetchFrom( p )) != nullptr ? p : nullptr;
+  }
+
+  template <class S>
+  zval  zmap::serial::load( S* s, const key& k )
+  {
+    zval  v;
+
+    return load( v, s, k ) != nullptr ? std::move( v ) : zval();
+  }
 
 }
 
