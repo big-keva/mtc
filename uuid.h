@@ -10,7 +10,8 @@ namespace mtc {
   {
     friend std::string  to_string( const uuid& );
 
-    uint8_t ubytes[16];
+  public:
+    enum: size_t {  length = 16 };
 
   public:
     class parse_error: public std::runtime_error  {  using std::runtime_error::runtime_error;  };
@@ -53,6 +54,9 @@ namespace mtc {
     bool  operator >= ( const uuid& rt ) const  {  return compare( rt ) >= 0;  }
     auto  compare( const uuid& rt ) const -> int
       {  return memcmp( ubytes, rt.ubytes, sizeof(ubytes) );  }
+
+  protected:
+    uint8_t ubytes[length];
 
   };
 

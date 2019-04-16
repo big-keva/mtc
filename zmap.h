@@ -1661,7 +1661,7 @@ namespace mtc
       case zval::z_charstr: return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sublen ) : nullptr;
       case zval::z_widestr: return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sizeof(widechar) * sublen ) : nullptr;
       case zval::z_zmap:    return skip::zmap( s );
-      case zval::z_uuid:    return skip::uuid( s );
+      case zval::z_uuid:    return skip::size( s, uuid::length );
 
     # define  derive_skip_array_plain( _type_ ) case zval::z_array_##_type_:  \
         return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sublen * sizeof(_type_##_t) ) : nullptr;
