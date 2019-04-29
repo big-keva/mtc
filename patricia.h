@@ -169,6 +169,8 @@ namespace patricia  {
     };
 
   public:     // key iterator
+    using value_type = V;
+
     using iterator = base_iterator<V, node>;
     using const_iterator = base_iterator<const V, const node>;
 
