@@ -471,6 +471,10 @@ namespace mtc
           pfound->pvalue = std::unique_ptr<zval>( new zval( std::move( v ) ) );
           ++mydata->n_vals;
         }
+      else
+        {
+          *pfound->pvalue = std::move( v );
+        }
       pfound->keyset = k.type();
 
       return pfound->pvalue.get();
@@ -485,6 +489,10 @@ namespace mtc
         {
           pfound->pvalue = std::unique_ptr<zval>( new zval( v ) );
           ++mydata->n_vals;
+        }
+      else
+        {
+          *pfound->pvalue = v;
         }
       pfound->keyset = k.type();
 
