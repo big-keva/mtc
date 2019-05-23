@@ -1197,7 +1197,11 @@ namespace patricia  {
     }
 
   inline
-  dump::iterator::iterator( iterator&& it ): patkey( std::move( it.patkey ) ), patval( std::move( it.patval ) ), atrace( static_cast<decltype(atrace)&&>( it.atrace ) )
+  dump::iterator::iterator( iterator&& it ):
+      patkey( std::move( it.patkey ) ),
+      patval( std::move( it.patval ) ),
+      atrace( std::move( it.atrace ) ),
+      achars( std::move( it.achars ) )
     {
       it.setkey();
     }
@@ -1208,6 +1212,7 @@ namespace patricia  {
       patkey = std::move( it.patkey );
       patval = std::move( it.patval );
       atrace = std::move( it.atrace );
+      achars = std::move( it.achars );
       return setkey();
     }
 
