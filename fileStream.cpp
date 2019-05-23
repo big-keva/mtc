@@ -166,7 +166,7 @@ namespace mtc
     virtual int64_t   Tell  (                                  ) noexcept override;       
 
   public:     // overridables from IFileStream
-    virtual api<IByteBuffer>  MemMap( int64_t, uint32_t ) noexcept override;
+    virtual api<IByteBuffer>  MemMap( int64_t, uint32_t ) override;
     virtual bool              SetLen( int64_t ) noexcept override;
 
   public:     // creation
@@ -227,7 +227,7 @@ namespace mtc
 
   // create mapping view
     if ( (handle = CreateFileMapping( stm->handle, nullptr, PAGE_READONLY | SEC_COMMIT, 0, 0, nullptr )) == nullptr )
-      return log_error( EFAULT, "Could not create the file mapping handle @" __FILE__ ":%u", __LINE__ );
+      return error()( file_error( strprintf( "Could not create the file mapping handle @" __FILE__ ":%u", __LINE__ ) ) ), EFAULT;
 
     cchmem = len;
     nshift = offslo - oalign;
@@ -292,7 +292,7 @@ namespace mtc
   }
 
   template <class error>
-  api<IByteBuffer>  FileStream<error>::MemMap( int64_t off, word32_t len ) noexcept
+  api<IByteBuffer>  FileStream<error>::MemMap( int64_t off, word32_t len )
   {
     _auto_<FileMemmap<error>> memmap;
     int                       nerror;
