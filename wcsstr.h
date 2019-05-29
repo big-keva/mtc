@@ -640,13 +640,14 @@ namespace mtc
 
   inline  std::string strprintf( const char* format, ... )
   {
-    va_list   vaargs;
+    va_list       vaargs;
+    _auto_<char>  output;
 
     va_start( vaargs, format );
-      auto output = vstrduprintf( format, vaargs );
+      output = vstrduprintf( format, vaargs );
     va_end( vaargs );
 
-    return output;
+    return output.ptr();
   }
 
 // ltrim
