@@ -227,7 +227,8 @@ namespace mtc
 
   // create mapping view
     if ( (handle = CreateFileMapping( stm->handle, nullptr, PAGE_READONLY | SEC_COMMIT, 0, 0, nullptr )) == nullptr )
-      return error()( file_error( strprintf( "Could not create the file mapping handle @" __FILE__ ":%u", __LINE__ ) ) ), EFAULT;
+      return error()( file_error( strprintf( "Could not CreateFileMapping( '%s' ), error code 0x%08x",
+        stm->FileName(), GetLastError() ) ) ), EFAULT;
 
     cchmem = len;
     nshift = offslo - oalign;
@@ -238,9 +239,8 @@ namespace mtc
     {
       CloseHandle( handle );
         handle = INVALID_HANDLE_VALUE;
-      error()( file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code %u!",
-        stm->FileName(), GetLastError() ) ) );
-      return EFAULT;
+      return error()( file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code 0x%08x!",
+        stm->FileName(), GetLastError() ) ) ), EFAULT;
     }
 
     return 0;
