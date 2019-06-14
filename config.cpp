@@ -210,4 +210,24 @@ namespace mtc
   auto  config::Open( const charstr& path ) -> config
     {  return std::move( Open( path.c_str() ) );  }
 
+  auto  config::Load( const char* source, const char* path ) -> config
+    {
+      zmap    getcfg;
+      char    szpath[0x400];
+
+      if ( path != nullptr && *path != '\0' )
+      {
+        if ( __impl__::fullpath( szpath, sizeof(szpath), path ) == nullptr )
+          throw error( strprintf( "could not create the full file path '%s'", path ) );
+      }
+        else
+      szpath[0] = '\0';
+
+      json::Parse( source, getcfg );
+
+      return std::move( config( std::move( getcfg ), std::move( charstr( szpath ) ) ) );
+    }
+
+  auto  config::Load( const std::string& source, const std::string& path ) -> config
+    {  return std::move( Load( source.c_str(), path.c_str() ) );  }
 }

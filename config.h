@@ -56,6 +56,8 @@ namespace mtc {
   public:     // loading
     static  auto  Open( const char* ) -> config;
     static  auto  Open( const charstr& ) -> config;
+    static  auto  Load( const char* json, const char* path = nullptr ) -> config;
+    static  auto  Load( const charstr& json, const std::string& path = std::string() ) -> config;
 
   };
   

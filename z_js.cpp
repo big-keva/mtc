@@ -575,7 +575,10 @@ namespace parse {
     z.clear();
 
   // open object
-    if ( (chnext = s.nospace()) != '{' )
+    if ( (chnext = s.nospace()) == '\0' )
+      return std::move( z );
+
+    if ( chnext != '{' )
       throw error( "'{' expected" );
 
   // char by char until end or '}'
