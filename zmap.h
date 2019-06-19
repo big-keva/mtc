@@ -558,12 +558,12 @@ namespace mtc
     auto  inner()       ->       inner_t&;
 
   protected:  // inplace storage
-    char      storage[impl::align<impl::get_max_size<uint64_t, double,
+    char    storage[impl::align<impl::get_max_size<uint64_t, double,
       charstr,
       widestr,
       std::vector<uint64_t>,
       std::vector<widestr>>::value>::value];
-    unsigned  vx_type;
+    byte_t  vx_type;
 
   };
 
