@@ -1491,6 +1491,11 @@ namespace mtc
   template <class value, class z_iterator>
   auto  zmap::iterator_base<value, z_iterator>::next() -> iterator_base&
     {
+      if ( z_buff == "tags" )
+      {
+        int i = 0;
+      }
+
       while ( zstack.size() != 0 )
       {
       // считается, что текущий элемент, если он есть, всё равно уже просмотрен;
@@ -1523,7 +1528,12 @@ namespace mtc
             while ( zstack.size() != 0 && last().first == last().second );
 
           if ( zstack.size() != 0 )
+          {
             z_buff.back() = last().first->chnode;
+
+            if ( last().first->pvalue != nullptr )
+              return init();
+          }
 
           continue;
         }
