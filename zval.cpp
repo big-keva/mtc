@@ -483,6 +483,7 @@ namespace mtc
       derive_size_smart( array_uuid )
   # undef derive_size_smart
   # undef derive_size_plain
+      case z_untyped: return ::GetBufLen( vx_type );
       default:  return 0;
     }
   }
@@ -567,6 +568,8 @@ namespace mtc
         case z_array_zmap:    return std::move( to_string( *get_array_zmap() ) );
         case z_array_zval:    return std::move( to_string( *get_array_zval() ) );
         case z_array_uuid:    return std::move( to_string( *get_array_uuid() ) );
+
+        case z_untyped:       return "<untyped>";
         default:
           throw std::invalid_argument( "undefined xvalue<> type" );
       }

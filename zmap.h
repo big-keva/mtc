@@ -156,7 +156,7 @@ namespace mtc
     union inner_t;
 
   public:     // z_%%% types
-    enum z_type: unsigned
+    enum z_type: byte_t
     {
       z_char    = 1,
       z_byte    = 2,
@@ -195,7 +195,7 @@ namespace mtc
 
       z_array_uuid    = 53,
 
-      z_untyped       = (unsigned)-1
+      z_untyped       = (byte_t)-1
     };
 
   public:     // construction
@@ -934,6 +934,7 @@ namespace mtc
       derive_put_smart( array_uuid )
   # undef derive_put_smart
   # undef derive_put_plain
+      case z_untyped: return ::Serialize( o, vx_type );
       default:  return nullptr;
     }
   }
@@ -983,6 +984,7 @@ namespace mtc
       derive_get_smart( array_uuid )
   # undef derive_get_smart
   # undef derive_get_plain
+      case z_untyped: return s;
       default:  return nullptr;
     }
   }
