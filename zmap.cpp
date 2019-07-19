@@ -519,7 +519,7 @@ namespace mtc
   auto  zmap::get_type( const key& k ) const -> decltype(zval::vx_type)
     {
       auto  pv = get( k );
-      return pv != nullptr ? pv->get_type() : zval::z_untyped;
+      return pv != nullptr ? pv->get_type() : decltype(zval::vx_type)(zval::z_untyped);
     }
 
   /* zmap get_xxx/set_xxx impl */

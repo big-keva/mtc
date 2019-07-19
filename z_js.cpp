@@ -350,7 +350,7 @@ namespace parse {
     {
       auto  pval = type_set.get_word32( s_type );
 
-      return pval != nullptr ? *pval : zval::z_untyped;
+      return pval != nullptr ? *pval : (unsigned)zval::z_untyped;
     }
 
   auto  Parse( reader& s, zval& z, const zval* revive ) -> mtc::zval&
