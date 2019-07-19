@@ -614,7 +614,7 @@ namespace mtc
         move( array_uuid )
       # undef move
       }
-      return zv.vx_type = z_untyped, *this;
+      return *this;
     }
 
   auto  zval::fetch( const zval& zv ) -> zval&
