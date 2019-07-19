@@ -728,6 +728,7 @@ namespace mtc
   # undef declare_set_pure
   # undef declare_set_move
   # undef declare_set_copy
+  # undef declare_get_init
   # undef declare_get_type
 
   auto  set_zmap( const key& ) -> zmap*;
