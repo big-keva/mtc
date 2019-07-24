@@ -1736,7 +1736,7 @@ namespace mtc
 
   inline  const char* zmap::serial::skip::zval( const char* s )
   {
-    char    vatype = *s++;
+    auto    vatype = (unsigned char)*s++;
     size_t  sublen;
 
     switch ( vatype )
@@ -1773,6 +1773,7 @@ namespace mtc
       case zval::z_array_widestr: return array_strs<widechar>( s );
       case zval::z_array_zmap:    return array_zmap( s );
       case zval::z_array_zval:    return array_zval( s );
+      case zval::z_untyped:       return s;
       default:
         return nullptr;
     }
