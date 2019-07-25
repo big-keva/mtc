@@ -204,8 +204,8 @@ namespace patricia  {
       auto  key_end() const -> const unsigned char* {  return chars + keylen();  }
 
     public:
-            node*   search( const unsigned char* key, size_t len )        {  return search<      node>( key, len, *this );  }
-      const node*   search( const unsigned char* key, size_t len ) const  {  return search<      node>( key, len, *this );  }
+            node*   search( const unsigned char* key, size_t len )        {  return search<node>( key, len, *this );  }
+      const node*   search( const unsigned char* key, size_t len ) const  {  return search<node>( key, len, *this );  }
 
             node*   insert( const unsigned char*, size_t );
             auto    remove( const unsigned char*, size_t ) -> bool;
@@ -248,13 +248,13 @@ namespace patricia  {
   public:     // API
                                             bool  Delete( const key& k );
                                             V*    Insert( const key& k, const V& v = V() )  {  return insert( k, v );  }
-                                            V*    Insert( const key& k, V&& v )             {  return insert( k, v );  }
+                                            V*    Insert( const key& k, V&& v )             {  return insert( k, std::move( v ) );  }
                                       const V*    Search( const key& k ) const              {  return search<const V>( k, *this );  }
                                             V*    Search( const key& k )                    {  return search<      V>( k, *this );  }
 
     template <class chartype = char>        bool  Delete( const chartype* k, size_t l )               {  return Delete( key( k, l ) );  }
     template <class chartype = char>        V*    Insert( const chartype* k, size_t l, const V& v )   {  return Insert( key( k, l ), v );  }
-    template <class chartype = char>        V*    Insert( const chartype* k, size_t l, V&& v )        {  return Insert( key( k, l ), v );  }
+    template <class chartype = char>        V*    Insert( const chartype* k, size_t l, V&& v )        {  return Insert( key( k, l ), std::move( v ) );  }
     template <class chartype = char>  const V*    Search( const chartype* k, size_t l ) const         {  return Search( key( k, l ) );  }
     template <class chartype = char>        V*    Search( const chartype* k, size_t l )               {  return Search( key( k, l ) );  }
 
@@ -295,7 +295,8 @@ namespace patricia  {
     template <class act>  int   for_each( act action ) const  {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
 
   protected:
-    template <class arg>                    V*    insert( const key&, arg  );
+                                            V*    insert( const key&, const V& );
+                                            V*    insert( const key&,  V&& );
     template <class res, class slf> static  res*  search( const key&, slf& );
     template <class itr, class slf> static  itr   findit( const key&, slf& );
     template <class itr, class slf> static  itr   lbound( const key&, slf& );
@@ -618,7 +619,7 @@ namespace patricia  {
       if ( hasval() )
         value.~V();
       _sets |= 0x80000000;
-        return new( &value ) V( v );
+        return new( &value ) V( std::move( v ) );
     }
 
   template <class V>
@@ -998,8 +999,7 @@ namespace patricia  {
     }
 
   template <class V>
-  template <class vref>
-  V*    tree<V>::insert( const key& k, vref v )
+  V*    tree<V>::insert( const key& k, const V& v )
     {
       node* pfound;
 
@@ -1008,6 +1008,18 @@ namespace patricia  {
 
       return (pfound = p_tree->insert( k.ptr, k.len )) != nullptr ?
         pfound->setval( v ) : nullptr;
+    }
+
+  template <class V>
+  V*    tree<V>::insert( const key& k, V&& v )
+    {
+      node* pfound;
+
+      if ( p_tree == nullptr )
+        p_tree = std::unique_ptr<node>( node::create( nullptr, 0 ) );
+
+      return (pfound = p_tree->insert( k.ptr, k.len )) != nullptr ?
+        pfound->setval( std::move( v ) ) : nullptr;
     }
 
   template <class V>
