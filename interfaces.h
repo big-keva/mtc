@@ -162,9 +162,6 @@ namespace mtc
           iface*  ptr()                {  return piface;  }
     const iface*  ptr() const          {  return piface;  }
 
-    bool  operator == ( const void* p ) const {  return (const void*)piface == p;  }
-    bool  operator != ( const void* p ) const {  return !(*this == p);  }
-
     operator const iface*() const {  return piface;  }
     operator iface*() {  return piface;  }
 
@@ -172,6 +169,21 @@ namespace mtc
     operator iface**()  {  return &piface;  }
 
   };
+
+  template <class i, class att, class det>
+  bool  operator == ( const api<i, att, det>& i1, const api<i, att, det>& i2 ) {  return i1.ptr() == i2.ptr();  }
+  template <class i, class att, class det>
+  bool  operator != ( const api<i, att, det>& i1, const api<i, att, det>& i2 ) {  return !(i1 == i2);  }
+
+  template <class i, class att, class det>
+  bool  operator == ( const api<i, att, det>& ci, nullptr_t np ) {  return ci.ptr() == np;  }
+  template <class i, class att, class det>
+  bool  operator != ( const api<i, att, det>& ci, nullptr_t np ) {  return !(ci == np);  }
+
+  template <class i, class att, class det>
+  bool  operator == ( nullptr_t np, const api<i, att, det>& ci ) {  return ci.ptr() == np;  }
+  template <class i, class att, class det>
+  bool  operator != ( nullptr_t np, const api<i, att, det>& ci ) {  return !(ci == np);  }
 
   template <class iface, class attach, class detach>
   class API
