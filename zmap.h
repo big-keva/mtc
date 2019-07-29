@@ -835,7 +835,6 @@ namespace mtc
   };
 
   inline  std::string to_string( const zval& z ) {  return std::move( z.to_string() );  }
-  inline  std::string to_string( const zmap& z ) {  (void)z;  return std::move( ""/*z.to_string() */);  }
           std::string to_string( const zmap::key& );
 
 }

@@ -735,17 +735,35 @@ namespace mtc
       return true;
     }
 
-  std::string to_string( const zmap::key& key )
+  auto  to_string( const zmap::key& key ) -> std::string
     {
       unsigned  u_k = key;
       const char* psz = key;
       const widechar* wsz = key;
 
       if ( psz != nullptr )
-        return std::string( psz );
+        return '"' + std::string( psz ) + '"';
       if ( wsz != nullptr )
         return std::string( "widestring" );
       return std::to_string( u_k );
     }
+
+  auto  to_string( const zmap& map ) -> std::string
+  {
+    std::string out;
+
+    for ( auto it: map )
+    {
+      auto  keystr = to_string( it.first );
+      auto  valstr = to_string( it.second );
+
+      if ( out.empty() )
+        out = "{ {" + keystr + ", " + valstr + "}";
+      else
+        out += ", {" + keystr + ", " + valstr + "}";
+    }
+
+    return out.empty() ? "{}" : out + " }";
+  }
 
 }
