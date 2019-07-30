@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __interfaces_h__ )
 # define  __interfaces_h__
 # include <cassert>
+# include <cstddef>
 # include <atomic>
 # include <mutex>
 # include <type_traits>
