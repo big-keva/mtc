@@ -571,6 +571,7 @@ namespace mtc
   {
     class ztree_t;
     class zdata_t;
+    class zbuff_t;
 
   public:     // iterator support
     class key;
@@ -1062,6 +1063,21 @@ namespace mtc
     long        _refer;
   };
 
+  class zmap::zbuff_t: private std::vector<char>
+  {
+    using inherited = std::vector<char>;
+    using inherited::vector;
+
+  public:
+    void  push_back( char );
+    void  pop_back();
+    auto  back() -> char&;
+    auto  back() const -> char;
+    auto  size() const -> size_t;
+    auto  data() const -> const char*;
+
+  };
+
   class zmap::key
   {
     friend class zmap;
@@ -1088,7 +1104,6 @@ namespace mtc
   protected:
     key();
     key( unsigned typ, const uint8_t* buf, size_t len );
-    key( unsigned typ, const std::string& val );
 
   public: // construction
     key( unsigned );
@@ -1173,7 +1188,7 @@ namespace mtc
   protected:
     value             zvalue;
     std::vector<zpos> zstack;
-    std::string       z_buff;
+    zbuff_t           keybuf;
 
   };
 
@@ -1401,7 +1416,7 @@ namespace mtc
   zmap::iterator_base<value, z_iterator>::iterator_base( const iterator_base& it ):
       zvalue( it.zvalue ),
       zstack( it.zstack ),
-      z_buff( it.z_buff )
+      keybuf( it.keybuf )
     {}
 
   template <class value, class z_iterator>
@@ -1410,7 +1425,7 @@ namespace mtc
       if ( beg != end )
       {
         zstack.push_back( std::make_pair( beg, end ) );
-        z_buff.push_back( beg->chnode );
+        keybuf.push_back( beg->chnode );
         find();
       }
     }
@@ -1463,7 +1478,7 @@ namespace mtc
       zvalue.~value();
 
       if ( zstack.size() != 0 )
-        new( &zvalue )  value( key( last().first->keyset, z_buff ), last().first->pvalue.get() );
+        new( &zvalue )  value( key( last().first->keyset, (const uint8_t*)keybuf.data(), keybuf.size() ), last().first->pvalue.get() );
       else
         new( &zvalue )  value();
 
@@ -1524,7 +1539,7 @@ namespace mtc
 
           if ( zstack.size() != 0 )
           {
-            z_buff.back() = last().first->chnode;
+            keybuf.back() = last().first->chnode;
 
             if ( last().first->pvalue != nullptr )
               return init();
@@ -1535,7 +1550,7 @@ namespace mtc
 
       // элемент был не последним; заместить последний символ поискового ключа на текущий и повторить
       // алгоритм с возможным заходом по дереву
-        z_buff.back() = last().first->chnode;
+        keybuf.back() = last().first->chnode;
 
         if ( last().first->pvalue != nullptr )
           return init();
@@ -1558,14 +1573,14 @@ namespace mtc
       assert( beg != end );
 
       zstack.push_back( std::make_pair( beg, end ) );
-      z_buff.push_back( beg->chnode );
+      keybuf.push_back( beg->chnode );
     }
 
   template <class value, class z_iterator>
   void  zmap::iterator_base<value, z_iterator>::back()
     {
       zstack.pop_back();
-      z_buff.pop_back();
+      keybuf.pop_back();
     }
 
   template <class value, class z_iterator>

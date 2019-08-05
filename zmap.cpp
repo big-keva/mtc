@@ -49,11 +49,6 @@ namespace mtc
       if ( _typ == 0 )  _ptr = (const uint8_t*)memcpy( _buf, b, l );
         else _ptr = b;
     }
-  zmap::key::key( unsigned t, const std::string& val ): _typ( t ), _len( val.length() )
-    {
-      if ( _typ == 0 )  _ptr = (const uint8_t*)memcpy( _buf, val.c_str(), _len );
-        else _ptr = (const uint8_t*)val.c_str();
-    }
   zmap::key::key( unsigned k ): _typ( uint ), _ptr( _buf ), _len( keys::int_to_key( _buf, k ) )  {}
   zmap::key::key( const char* k ): _typ( cstr ), _ptr( (const uint8_t*)k ), _len( w_strlen( k ) ) {}
   zmap::key::key( const widechar* k ): _typ( wstr ), _ptr( (const uint8_t*)k ), _len( sizeof(widechar) * w_strlen( k ) )  {}
@@ -222,6 +217,53 @@ namespace mtc
   auto  zmap::zdata_t::copyit() -> zdata_t*
     {
       return new zdata_t( ztree_t::copyit(), n_vals );
+    }
+
+  /*
+    zmap::zbuff_t implementation
+  */
+  void  zmap::zbuff_t::push_back( char ch )
+    {
+      assert( empty() || inherited::size() >= 3 );
+
+      if ( inherited::empty() ) {  inherited::push_back( ch );  inherited::push_back( 0 );  }
+        else at( inherited::size() - 2 ) = ch;
+
+      inherited::push_back( 0 );
+    }
+
+  void  zmap::zbuff_t::pop_back()
+    {
+      assert( inherited::size() >= 3 );
+
+      inherited::at( inherited::size() - 3 ) = 0;
+      inherited::pop_back();
+    }
+
+  auto  zmap::zbuff_t::back() -> char&
+    {
+      assert( inherited::size() >= 3 );
+
+      return inherited::at( inherited::size() - 3 );
+    }
+
+  auto  zmap::zbuff_t::back() const -> char
+    {
+      assert( inherited::size() >= 3 );
+
+      return inherited::at( inherited::size() - 3 );
+    }
+
+  auto  zmap::zbuff_t::size() const -> size_t
+    {
+      assert( inherited::size() >= 3 );
+
+      return inherited::size() - 2;
+    }
+
+  auto  zmap::zbuff_t::data() const -> const char*
+    {
+      return inherited::data();
     }
 
   /*
