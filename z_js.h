@@ -94,8 +94,8 @@ namespace json {
     template <class O>
     O*  charstr( O* o, const char* s, size_t l = (size_t)-1 )
       {
-        static char         repsrc[] = "\b\t\n\f\r\"/\\";
-        static const char*  repval[] = { "\\b", "\\t", "\\n", "\\f", "\\r", "\\\"", "\\/", "\\\\" };
+        static char         repsrc[] = "\b\t\n\f\r\"/\\\0";
+        static const char*  repval[] = { "\\b", "\\t", "\\n", "\\f", "\\r", "\\\"", "\\/", "\\\\", "\\u0000" };
         char*               reppos;
         const char*         endptr;
         char                chbuff[0x10];
