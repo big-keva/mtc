@@ -97,6 +97,22 @@ namespace mtc
 
   };
 
+  template <class Mtx>
+  auto  make_unique_lock( Mtx& mtx ) -> std::unique_lock<Mtx>
+    {  return std::move( std::unique_lock<Mtx>( mtx ) );  }
+
+  template <class Mtx>
+  auto  make_unique_lock( Mtx& mtx, const std::defer_lock_t& ) -> std::unique_lock<Mtx>
+    {  return std::move( std::unique_lock<Mtx>( mtx, std::defer_lock ) );  }
+
+  template <class Mtx>
+  auto  make_shared_lock( Mtx& mtx ) -> mtc::shared_lock<Mtx>
+    {  return std::move( mtc::shared_lock<Mtx>( mtx ) );  }
+
+  template <class Mtx>
+  auto  make_shared_lock( Mtx& mtx, const std::defer_lock_t& ) -> mtc::shared_lock<Mtx>
+    {  return std::move( mtc::shared_lock<Mtx>( mtx, std::defer_lock ) );  }
+
 // recursive_shared_mutex implementation
 
   inline
