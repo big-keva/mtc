@@ -269,12 +269,6 @@ namespace mtc
   /*
     zmap::const_place_t implementation
   */
-  zmap::const_place_t::const_place_t( const key& k, zmap& m ): refer( k ), owner( m )
-    {}
-
-  zmap::const_place_t::const_place_t( const_place_t&& in ): refer( in.refer ), owner( in.owner )
-    {}
-
   /*
   template <class out, class val, class act>
   out   map_value( val& ref, act map )
@@ -737,7 +731,7 @@ namespace mtc
     }
 
   auto  zmap::operator []( const key& k ) const -> const const_place_t
-    {  return std::move( const_place_t( k, *(zmap*)this ) );  }
+    {  return std::move( const_place_t( k, *this ) );  }
 
   auto  zmap::operator []( const key& k ) -> patch_place_t
     {  return std::move( patch_place_t( k, *this ) );  }

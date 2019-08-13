@@ -586,6 +586,9 @@ namespace mtc
     class iterator_base;
 
   private:
+    template <class map>
+    class place_t;
+
     class const_place_t;
     class patch_place_t;
 
@@ -1206,12 +1209,35 @@ namespace mtc
     using iterator_base::iterator_base;
   };
 
-  class zmap::const_place_t
+  template <class map>
+  class zmap::place_t
+  {
+  public:
+    place_t( const key& k, map& m ): refer( k ), owner( m ) {}
+    place_t( const place_t& p ): refer( p.refer ), owner( p.owner ) {}
+    place_t( place_t&& p ): refer( std::move( p.refer ) ), owner( p.owner ) {}
+
+  public:
+    bool  operator == ( const zval& z ) const;
+    bool  operator != ( const zval& z ) const {  return !(*this == z);  }
+
+    bool  operator < ( const zval& z ) const;
+    bool  operator <= ( const zval& z ) const;
+
+    bool  operator > ( const zval& z ) const;
+    bool  operator >= ( const zval& z ) const;
+
+  protected:
+    key   refer;
+    map&  owner;
+    
+  };
+
+  class zmap::const_place_t: protected place_t<const zmap>
   {
     friend class zmap;
 
-    const_place_t( const key&, zmap& );
-    const_place_t( const_place_t&& );
+    using place_t<const zmap>::place_t;
 
   public:
     /*
@@ -1249,19 +1275,17 @@ namespace mtc
     bool  operator != ( const widestr& s ) const  {  return !(*this == s);  }
     */
 
-  protected:
-    key       refer;
-    zmap_t&   owner;
   };
 
-  class zmap::patch_place_t: public const_place_t
+  class zmap::patch_place_t: public place_t<zmap>
   {
     friend class zmap;
 
-    using const_place_t::const_place_t;
+    using place_t<zmap>::place_t;
 
   public:
     auto  operator = ( zval&& ) -> patch_place_t&;
+
   };
 
   /*
@@ -1588,6 +1612,48 @@ namespace mtc
 
   template <class value, class z_iterator>
   auto  zmap::iterator_base<value, z_iterator>::last() const -> const zpos& {  return zstack.back();  }
+
+  /* zmap::place_t implementation */
+
+  template <class map>
+  bool  zmap::place_t<map>::operator == ( const zval& z ) const
+    {
+      auto  pval = owner.get( refer );
+
+      return pval != nullptr && *pval == z;
+    }
+
+  template <class map>
+  bool  zmap::place_t<map>::operator < ( const zval& z ) const
+    {
+      auto  pval = owner.get( refer );
+
+      return pval != nullptr && *pval < z;
+    }
+
+  template <class map>
+  bool  zmap::place_t<map>::operator <= ( const zval& z ) const
+    {
+      auto  pval = owner.get( refer );
+
+      return pval != nullptr && *pval <= z;
+    }
+
+  template <class map>
+  bool  zmap::place_t<map>::operator > ( const zval& z ) const
+    {
+      auto  pval = owner.get( refer );
+
+      return pval != nullptr && *pval > z;
+    }
+
+  template <class map>
+  bool  zmap::place_t<map>::operator >= ( const zval& z ) const
+    {
+      auto  pval = owner.get( refer );
+
+      return pval != nullptr && *pval >= z;
+    }
 
   /* zmap::serial::skip implementation */
 
