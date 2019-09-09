@@ -1722,7 +1722,7 @@ namespace mtc
 
   template <class S>  S*  zmap::serial::skip::zval( S* s )
   {
-    char      vxtype;
+    byte_t    vxtype;
     unsigned  sublen;
 
     if ( (s = ::FetchFrom( s, vxtype )) == nullptr )
@@ -1769,6 +1769,7 @@ namespace mtc
       case zval::z_array_zmap:    return array_zmap( s );
       case zval::z_array_zval:    return array_zval( s );
       case zval::z_array_uuid:    return array_vals<uuid_t>   ( s );
+      case zval::z_untyped:       return s;
       default:
         return nullptr;
     }
