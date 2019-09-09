@@ -2,6 +2,8 @@
 # if !defined( __mtc_uuid_h__ )
 # define __mtc_uuid_h__
 # include "serialize.decl.h"
+# include "wcsstr.h"
+# include <stdexcept>
 # include <cstdint>
 
 namespace mtc {
