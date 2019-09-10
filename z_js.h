@@ -367,7 +367,7 @@ namespace json {
       size_t  buflen;
 
     public:     // construction
-      reader( stream& s ): source( s ), buflen( 0 )  {}
+      reader( stream& s ): source( s ), chbuff{ 0 }, buflen( 0 )  {}
 
     public:     // helpers
       char    getnext();
