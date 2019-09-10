@@ -132,7 +132,7 @@ namespace mtc
           attach()( piface );
         return *this;
       }
-    api& operator = ( api&& a )
+    api& operator = ( api&& a ) noexcept
       {
         if ( piface != nullptr )
           detach()( piface );
@@ -270,23 +270,18 @@ namespace mtc
   public:       // construction/destruction
     API( iface* p = nullptr )
       {
-        autolock  aulock( locker );
-
         if ( (piface = p) != nullptr )
           attach()( p );
       }
     API( const API& a )
       {
-        autolock  aulock( locker );
-        auto      avalue = a.ptr();
+        auto  avalue = a.ptr();
 
         if ( (piface = (iface*)(const iface*)avalue) != nullptr )
           attach()( piface );
       }
     API( const api<iface, attach, detach>& a )
       {
-        autolock  aulock( locker );
-
         if ( (piface = a.ptr()) != nullptr )
           attach()( piface );
       }
