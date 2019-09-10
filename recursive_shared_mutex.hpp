@@ -102,8 +102,8 @@ namespace mtc
     {  return std::move( std::unique_lock<Mtx>( mtx ) );  }
 
   template <class Mtx>
-  auto  make_unique_lock( Mtx& mtx, const std::defer_lock_t& ) -> std::unique_lock<Mtx>
-    {  return std::move( std::unique_lock<Mtx>( mtx, std::defer_lock ) );  }
+  auto  make_unique_lock( Mtx& mtx, const std::defer_lock_t& defer ) -> std::unique_lock<Mtx>
+    {  return std::move( std::unique_lock<Mtx>( mtx, defer ) );  }
 
   template <class Mtx>
   auto  make_shared_lock( Mtx& mtx ) -> mtc::shared_lock<Mtx>
