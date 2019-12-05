@@ -195,6 +195,23 @@ namespace mtc
     return size;
   }
 
+  auto  zmap::ztree_t::plain_ctl_bytes() const -> word32_t
+  {
+    auto  lplain = plain_branchlen();
+      assert( lplain <= 0x3fffffff );
+      assert( size() <= 0x100 );
+    auto  lbytes = static_cast<word32_t>( lplain > 0 ? 0x400 + (lplain & 0x1ff) + ((lplain << 2) & ~0x7ff) : size() );
+
+    return (pvalue != nullptr ? 0x0200 : 0) + lbytes;
+  }
+
+  auto  zmap::ztree_t::plain_ctl_bytes( word32_t encode ) -> size_t
+  {
+    assert( (encode & 0x0400) != 0 );
+
+    return (encode & 0x1ff) | ((encode >> 2) & ~0x1ff);
+  }
+
   /*
     zmap::zdata_t implementation
   */

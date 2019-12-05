@@ -1035,7 +1035,9 @@ namespace mtc
     template <class S>  S*      FetchFrom( S*, size_t& );
 
   protected:  // helpers
-    int   plain_branchlen() const;
+            auto  plain_branchlen() const -> int;
+            auto  plain_ctl_bytes() const -> word32_t;
+    static  auto  plain_ctl_bytes( word32_t encode ) -> size_t;
 
   };
 
@@ -1295,14 +1297,16 @@ namespace mtc
   inline
   size_t  zmap::ztree_t::GetBufLen() const
   {
-    int       branch = plain_branchlen();
-    word16_t  lstore = static_cast<word16_t>( (branch > 0 ? 0x0400 + branch : size()) + (pvalue != nullptr ? 0x0200 : 0) );
-    size_t    buflen = ::GetBufLen( lstore );
+    auto  lbytes = plain_ctl_bytes();
+    auto  buflen = ::GetBufLen( lbytes );
 
-    if ( pvalue != nullptr )
+    if ( (lbytes & 0x0200) != 0 )
+    {
+      assert( pvalue != nullptr );
       buflen += 1 + pvalue->GetBufLen();
+    }
 
-    if ( branch > 0 )
+    if ( (lbytes & 0x0400) != 0 )
     {
       auto  pbeg = this;
 
@@ -1323,17 +1327,17 @@ namespace mtc
   template <class O>
   O*   zmap::ztree_t::Serialize( O* o ) const
   {
-    int       branch = plain_branchlen();
-      assert( branch <= 0x100 );
-      assert( size() <= 0x100 );
-    word16_t  lstore = static_cast<word16_t>( (branch > 0 ? 0x0400 + branch : size()) + (pvalue != nullptr ? 0x0200 : 0) );
+    auto  lbytes = plain_ctl_bytes();
 
-    o = ::Serialize( o, lstore );
+    o = ::Serialize( o, lbytes );
 
-    if ( pvalue != nullptr )
+    if ( (lbytes & 0x0200) != 0 )
+    {
+      assert( pvalue != nullptr );
       o = pvalue->Serialize( ::Serialize( o, keyset ) );
+    }
 
-    if ( branch > 0 )
+    if ( (lbytes & 0x0400) != 0 )
     {
       auto  pbeg = data();
 
@@ -1357,7 +1361,7 @@ namespace mtc
   template <class S>
   S*    zmap::ztree_t::FetchFrom( S* s, size_t& n )
   {
-    word16_t  lfetch;
+    word32_t  lfetch;
 
     if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
       return nullptr;
@@ -1375,7 +1379,7 @@ namespace mtc
     {
       ztree_t*  pbeg = this;
 
-      for ( auto  size = lfetch & 0x1ff; size-- > 0; pbeg = &pbeg->back() )
+      for ( auto  size = plain_ctl_bytes( lfetch ); size-- > 0; pbeg = &pbeg->back() )
       {
         byte_t  chnext;
 
@@ -1777,7 +1781,7 @@ namespace mtc
 
   template <class S>  S*  zmap::serial::skip::zmap( S* s )
   {
-    word16_t  lfetch;
+    word32_t  lfetch;
 
     if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
       return nullptr;
@@ -1793,7 +1797,7 @@ namespace mtc
 
   /*  check if branch is patricia-like: check exact match               */
     if ( (lfetch & 0x0400) != 0 )
-      return (s = skip::size( s, lfetch & 0x1ff )) != nullptr ? skip::zmap( s ) : nullptr;
+      return (s = skip::size( s, ztree_t::plain_ctl_bytes( lfetch ) )) != nullptr ? skip::zmap( s ) : nullptr;
 
     for ( auto arrlen = lfetch & 0x1ff; arrlen-- > 0; )
     {
@@ -1862,11 +1866,11 @@ namespace mtc
 
   inline  const char* zmap::serial::skip::zmap( const char* s )
   {
-    word16_t  lfetch;
+    word32_t  lfetch;
     size_t    sublen;
 
-    if ( (lfetch = (byte_t)*s++) & 0x80 )
-      lfetch = (lfetch & 0x7f) | (((word16_t)(byte_t)*s++) << 7);
+  /* get control length */
+    s = ::FetchFrom( s, lfetch );
 
   /*  check if value is stored before other data; either skip or return */
     if ( (lfetch & 0x0200) != 0 )
@@ -1874,7 +1878,7 @@ namespace mtc
 
   /*  check if branch is patricia-like: check exact match               */
     if ( (lfetch & 0x0400) != 0 )
-      return skip::zmap( s + (lfetch & 0x1ff) );
+      return skip::zmap( s + ztree_t::plain_ctl_bytes( lfetch ) );
 
     for ( auto arrlen = lfetch & 0x1ff; arrlen-- > 0; s += sublen )
       s = ::FetchFrom( ++s, sublen );
@@ -1887,7 +1891,7 @@ namespace mtc
   template <class S>
   S*  zmap::serial::find( S* s, const byte_t* k, size_t l, unsigned t )
   {
-    word16_t  lfetch;
+    word32_t  lfetch;
 
     if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
       return nullptr;
@@ -1909,7 +1913,7 @@ namespace mtc
   /*  check if branch is patricia-like: check exact match               */
     if ( (lfetch & 0x0400) != 0 )
     {
-      int     patlen = lfetch & 0x1ff;
+      auto    patlen = ztree_t::plain_ctl_bytes( lfetch );
       byte_t  chload;
 
       while ( patlen-- > 0 && l > 0 )
@@ -1918,7 +1922,7 @@ namespace mtc
           else return nullptr;
       }
 
-      return patlen < 0 ? find( s, k, l, t ) : nullptr;
+      return patlen == (decltype(patlen))-1 ? find( s, k, l, t ) : nullptr;
     }
       else
     {
