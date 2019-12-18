@@ -155,7 +155,7 @@ namespace fs {
     while ( pwsstr != pwsend )
       *pwsstr++ = 0;
 
-    utf::encode( cstr(), cchstr + 1, wstr(), cchstr );
+    utf::encode( cstr(), cchstr * 6, wstr(), cchstr );
   }
 
   inline
