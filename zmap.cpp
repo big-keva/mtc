@@ -620,6 +620,7 @@ namespace mtc
     derive_get_type( charstr )
     derive_get_type( widestr )
     derive_get_type( uuid    )
+    derive_get_type( zmap    )
 
     derive_get_init( char    )
     derive_get_init( byte    )
@@ -634,8 +635,8 @@ namespace mtc
     derive_get_init( charstr )
     derive_get_init( widestr )
     derive_get_init( uuid    )
+    derive_get_init( zmap    )
 
-    derive_get_type( zmap    )
     derive_get_type( array_char )
     derive_get_type( array_byte    )
     derive_get_type( array_int16   )
