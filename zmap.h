@@ -650,6 +650,7 @@ namespace mtc
     declare_get_type( charstr )
     declare_get_type( widestr )
     declare_get_type( uuid    )
+    declare_get_type( zmap    )
 
     declare_get_init( char    )
     declare_get_init( byte    )
@@ -664,8 +665,8 @@ namespace mtc
     declare_get_init( charstr )
     declare_get_init( widestr )
     declare_get_init( uuid    )
+    declare_get_init( zmap    )
 
-    declare_get_type( zmap    )
     declare_get_type( array_char )
     declare_get_type( array_byte    )
     declare_get_type( array_int16   )
