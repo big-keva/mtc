@@ -51,7 +51,7 @@ namespace mtc
 	  shared_lock( Mtx& mtx, std::adopt_lock_t ): pmtx( &mtx ), owns( true )
 		  {
 		  }
-    shared_lock( shared_lock&& s ): pmtx( s.pmtx ), owns( s.owns )
+    shared_lock( shared_lock&& s ) noexcept: pmtx( s.pmtx ), owns( s.owns )
       {
         s.pmtx = nullptr;
         s.owns = false;
@@ -61,7 +61,7 @@ namespace mtc
         if ( pmtx != nullptr && owns )
           pmtx->unlock_shared();
       }
-    shared_lock& operator = ( shared_lock&& s )
+    shared_lock& operator = ( shared_lock&& s ) noexcept
       {
         if ( pmtx != nullptr && owns )
           pmtx->unlock_shared();
