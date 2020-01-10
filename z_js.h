@@ -295,31 +295,32 @@ namespace json {
     o = decorate.Break( ::Serialize( decorate.Shift( o ), '{' ) );
 
     for ( auto beg = z.begin(), end = z.end(); beg != end; ++beg )
-    {
-      D   subdec( decorate );
-
-    // possible comma
-      if ( bcomma )
-        o = subdec.Break( ::Serialize( o, ',' ) );
-
-    // key
-      switch ( beg->first.type() )
+      if ( beg->second.get_type() != zval::z_untyped )
       {
-        case zmap::key::uint:
-          o = ::Serialize( Print( ::Serialize( subdec.Shift( o ), '"' ), (unsigned)beg->first ), '"' );
-          break;
-        case zmap::key::cstr:
-          o = print::charstr( subdec.Shift( o ), (const char*)beg->first );
-          break;
-        case zmap::key::wstr:
-          o = print::widestr( subdec.Shift( o ), (const widechar*)beg->first );
-          break;
-      }
+        D   subdec( decorate );
 
-    // value
-      o = Print( ::Serialize( o, ':' ), beg->second, subdec );
-      bcomma = true;
-    }
+      // possible comma
+        if ( bcomma )
+          o = subdec.Break( ::Serialize( o, ',' ) );
+
+      // key
+        switch ( beg->first.type() )
+        {
+          case zmap::key::uint:
+            o = ::Serialize( Print( ::Serialize( subdec.Shift( o ), '"' ), (unsigned)beg->first ), '"' );
+            break;
+          case zmap::key::cstr:
+            o = print::charstr( subdec.Shift( o ), (const char*)beg->first );
+            break;
+          case zmap::key::wstr:
+            o = print::widestr( subdec.Shift( o ), (const widechar*)beg->first );
+            break;
+        }
+
+      // value
+        o = Print( ::Serialize( o, ':' ), beg->second, subdec );
+        bcomma = true;
+      }
 
     return ::Serialize( decorate.Shift( bcomma ? decorate.Break( o ) : o ), '}' );
   }
@@ -355,6 +356,9 @@ namespace json {
           return s != nullptr && (s = ::FetchFrom( s, ch )) != nullptr ? ch : '\0';
         }
     };
+
+    template <class S>
+    auto  make_source( S* on ) -> source<S> {  return source<S>( on );  };
 
     /*
       json::intl::reader - ориентированный на json вычитыватель символов последовательно, с некоторыми
