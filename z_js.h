@@ -166,10 +166,18 @@ namespace json {
         {
           if ( (*s & ~0x7f) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
             o = ::Serialize( o, repval[reppos - repsrc], (unsigned)strlen( repval[reppos - repsrc] ) );
-          else if ( *s >= 0x80 || *s < 0x20 )
+          else if ( *s < 0x20 )
             o = ::Serialize( o, chnext, sprintf( chnext, "\\u%04x", *s ) );
-          else
+          else if ( *s < 0x80 )
             o = ::Serialize( o, (char)*s );
+          else
+            {
+              auto  u32 = utf::wide32( s, endptr - s );
+
+              if ( (u32 & ~0x0000ffff) != 0 ) ++s;
+
+              o = ::Serialize( o, chnext, utf::encode( chnext, sizeof(chnext), u32 ) );
+            }
         }
 
         return ::Serialize( o, '\"' );
