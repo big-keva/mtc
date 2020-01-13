@@ -68,6 +68,8 @@ SOFTWARE.
 namespace mtc {
 namespace utf {
 
+  auto    wide32( const widechar*, size_t = (size_t)-1 ) -> uint32_t;
+
   /*
    *  cbchar( utfstr )
    *  Возвращает количество байт, кодирующих первый символ строки.
@@ -108,6 +110,7 @@ namespace utf {
    *  encode( pszout, cchout, pwssrc, cchsrc )
    *  Кодирует wcs-строку в utf8
    */  
+  size_t  encode( char* out, size_t, uint32_t );
   size_t  encode( char* out, size_t, const widechar* src, size_t = (size_t)-1 );
   auto    encode( const widechar* src, size_t = (size_t)-1 ) -> charstr;
 

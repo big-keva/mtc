@@ -155,6 +155,16 @@ namespace utf {
     return u <= 0xffff ? store_16( o, l, u ) : store_21( o, l, u );
   }
 
+  auto    wide32( const widechar* str, size_t ccw ) -> uint32_t
+  {
+    auto  end = str;
+
+    if ( ccw == (size_t)-1 )
+      ccw = str[0] != 0 ? str[1] != 0 ? 2 : 1 : 0;
+
+    return get( str, str + ccw );
+  }
+
   size_t  cbchar( const widechar* pwsstr, size_t  cchstr )
   {
     const widechar* pwsend;
@@ -308,7 +318,10 @@ namespace utf {
     return decode( (widechar*)out.c_str(), ccw, str, len ), std::move( out );
   }
 
-  inline
+ /*
+  * encode( ... )
+  * Кодирует utf32 символ в utf-8
+  */
   size_t  encode( char* output, size_t  cchout, uint32_t chnext )
   {
     char* outorg = output;
