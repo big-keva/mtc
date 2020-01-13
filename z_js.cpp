@@ -1,4 +1,5 @@
 # include "z_js.h"
+# include "utf.hpp"
 # include <type_traits>
 
 namespace mtc {
@@ -193,8 +194,7 @@ namespace parse {
       return stm.putback( *floptr ), flo;
     }
 
-  template <class C>
-  auto  sParse( reader& src, std::basic_string<C>&  str ) -> std::basic_string<C>&
+  auto  sParse( reader& src, mtc::charstr& str ) -> mtc::charstr&
     {
       char  chnext;
       char  chprev;
@@ -214,10 +214,10 @@ namespace parse {
 
       // check regular char
         if ( chprev != '\\' )
-          {
-            str.push_back( (C)(std::make_unsigned<char>::type)chnext );
-            continue;
-          }
+        {
+          str.push_back( chnext );
+          continue;
+        }
 
       // check long code: 4 symbols
         if ( chnext == 'u' )
@@ -225,6 +225,8 @@ namespace parse {
           char      hexchr[5] = "    ";
           widechar  uvalue;
           char*     endptr;
+          auto      strlen = str.length();
+          size_t    utflen;
 
           if ( src.getfour( hexchr ) )
             uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
@@ -233,41 +235,41 @@ namespace parse {
 
           if ( endptr - hexchr != 4 )
             throw error( "4-digit hexadecimal character code expected" );
-              
-          if ( sizeof(C) == sizeof(char) && uvalue > 127 )
-          {
-            if ( (uvalue & ~0x07ff) == 0 )
-            {
-              str.push_back( (C)(0xC0 | (byte_t)(uvalue >> 0x6)) );
-              str.push_back( (C)(0x80 | (byte_t)(uvalue & 0x3f)) );
-            }
-              else
-            {
-              str.push_back( (C)(0xE0 | (byte_t)((uvalue >> 0xc))) );
-              str.push_back( (C)(0x80 | (byte_t)((uvalue >> 0x6) & 0x3F)) );
-              str.push_back( (C)(0x80 | (byte_t)((uvalue & 0x3f))) );
-            }
-          }
-            else
-          str.push_back( (C)uvalue );
+
+          str.resize( strlen + (utflen = utf::cbchar( uvalue )) );
+
+          if ( utf::encode( (char*)str.c_str() + strlen, str.length() - strlen, &uvalue, 1 ) != utflen )
+            throw std::logic_error( "invalid utf8 conversion in mtc library" );
         }
           else
         switch ( chnext )
         {
-          case 'b':   str.push_back( (C)'\b' ); break;
-          case 't':   str.push_back( (C)'\t' ); break;
-          case 'n':   str.push_back( (C)'\n' ); break;
-          case 'f':   str.push_back( (C)'\f' ); break;
-          case 'r':   str.push_back( (C)'\r' ); break;
-          case '\"':  str.push_back( (C)'\"' ); break;
-          case '/':   str.push_back( (C)'/'  ); break;
-          case '\\':  str.push_back( (C)'\\' ); 
-                      chnext = '\0';            break;
+          case 'b':   str.push_back( '\b' ); break;
+          case 't':   str.push_back( '\t' ); break;
+          case 'n':   str.push_back( '\n' ); break;
+          case 'f':   str.push_back( '\f' ); break;
+          case 'r':   str.push_back( '\r' ); break;
+          case '\"':  str.push_back( '\"' ); break;
+          case '/':   str.push_back( '/'  ); break;
+          case '\\':  str.push_back( '\\' ); 
+                      chnext = '\0';         break;
           default:    throw error( "invalid escape sequence" );
         }
         chprev = '\0';
       }
       throw error( "unexpected end of stream" );
+    }
+
+  auto  sParse( reader& src, mtc::widestr& str ) -> mtc::widestr&
+    {
+      mtc::charstr  mbs;
+      size_t        len;
+
+      if ( !utf::verify( sParse( src, mbs ).c_str() ) )
+        throw error( "invalid utf-8 string" );
+      str.resize( len = utf::strlen( mbs.c_str(), mbs.length() ) );
+        utf::decode( (widechar*)str.c_str(), str.length(), mbs.c_str(), mbs.length() );
+      return str;
     }
     
   auto  Parse( reader& s, byte_t&   u, const zval* ) -> byte_t&   {  return uParse( s, u );  }
