@@ -54,6 +54,7 @@ SOFTWARE.
 # define __mtc_utf_hpp__
 # include <cstdint>
 # include <cstddef>
+# include "wcsstr.h"
 
 # if !defined( __widechar_defined__ )
 # define  __widechar_defined__
@@ -86,16 +87,41 @@ namespace utf {
   size_t  cbchar( const widechar* wcs, size_t len = (size_t)-1 );
 
   /*
-      encode( pszout, cchout, pwssrc, cchsrc )
-      Кодирует wcs-строку в utf8
+   * detect( utfstr )
+   * Возвращает признак того, что строка является utf8-строкой.
+   */
+  bool    detect( const char* str, size_t len = (size_t)-1 );
+
+  /*
+   * verify( utfstr )
+   * Возвращает признак того, что строка может быть корректной utf8-строкой.
+   */
+  bool    verify( const char* str, size_t len = (size_t)-1 );
+
+  /*
+   * strlen( utfstr )
+   * Возвращает количество символов, закодированных utf8-строкой.
+   */
+  size_t  strlen( const char* str, size_t len = (size_t)-1 );
+
+  /*
+   *  encode( pszout, cchout, pwssrc, cchsrc )
+   *  Кодирует wcs-строку в utf8
    */  
   size_t  encode( char* out, size_t, const widechar* src, size_t = (size_t)-1 );
+  auto    encode( const widechar* src, size_t = (size_t)-1 ) -> charstr;
 
   /*
    *  decode( pwsout, cchout, pszsrc, cchsrc )
    *  Декодирует строку из utf8 в utf16
    */
   size_t  decode( widechar* out, size_t, const char* src, size_t = (size_t)-1 );
+  auto    decode( const char* src, size_t = (size_t)-1 ) -> widestr;
+
+  inline  auto  encode( const widestr& str ) -> charstr
+    {  return std::move( encode( str.c_str(), str.length() ) );  }
+  inline  auto  decode( const charstr& str ) -> widestr
+    {  return std::move( decode( str.c_str(), str.length() ) );  }
 
 }}
 

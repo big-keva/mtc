@@ -174,8 +174,60 @@ namespace utf {
     return length;
   }
 
+  bool  detect( const char* pszstr, size_t  cchstr )
+  {
+    const char* pszend;
+    bool        uppers = false;
+
+    if ( cchstr != (size_t)-1 ) pszend = pszstr + cchstr;
+      else for ( pszend = pszstr; *pszend != 0; ++pszend ) (void)NULL;
+
+    while ( pszstr < pszend )
+    {
+      size_t  nchars;
+
+      if ( (nchars = cbchar( pszstr, pszend - pszstr )) == 0 )
+        return pszend - pszstr <= 1 ? uppers : false;
+      uppers |= ((*pszstr & 0x80) != 0);
+        pszstr += nchars;
+    }
+    return uppers;
+  }
+
+  bool  verify( const char* pszstr, size_t  cchstr )
+  {
+    const char* pszend;
+
+    if ( cchstr != (size_t)-1 ) pszend = pszstr + cchstr;
+      else for ( pszend = pszstr; *pszend != 0; ++pszend ) (void)NULL;
+
+    while ( pszstr < pszend )
+    {
+      size_t  nchars;
+
+      if ( (nchars = cbchar( pszstr, pszend - pszstr )) != 0 ) pszstr += nchars;
+        else return false;
+    }
+    return true;
+  }
+
+  size_t  strlen( const char* pszstr, size_t  cchstr )
+  {
+    const char* pszend;
+    size_t      cchlen;
+    size_t      nchars;
+
+    if ( cchstr != (size_t)-1 ) pszend = pszstr + cchstr;
+      else for ( pszend = pszstr; *pszend != 0; ++pszend ) (void)NULL;
+
+    for ( cchlen = 0; pszstr < pszend; pszstr += (nchars ? nchars : 1), cchlen += (nchars ? 1 : 0) )
+      nchars = cbchar( pszstr, pszend - pszstr );
+
+    return cchlen;
+  }
+
   inline
-  uint32_t  decode( const char* ptrtop, size_t chsize )
+  uint32_t  dechar( const char* ptrtop, size_t chsize )
   {
     uint32_t  ucchar;
 
@@ -232,7 +284,7 @@ namespace utf {
         ++pszstr;
           continue;
       }
-      if ( (ucchar = decode( pszstr, nchars )) == (unsigned)-1 )
+      if ( (ucchar = dechar( pszstr, nchars )) == (unsigned)-1 )
         continue;
 
       if ( (nstore = put( output, outend - output, ucchar )) == (size_t)-1 )
@@ -245,6 +297,15 @@ namespace utf {
     if ( output < outend )
       *output = 0;
     return output - outorg;
+  }
+
+  auto  decode( const char* str, size_t cch ) -> widestr
+  {
+    auto  len = cch != (size_t)-1 ? cch : w_strlen( str );
+    auto  ccw = utf::strlen( str, len );
+    auto  out = widestr( ccw, 0x20 );
+
+    return decode( (widechar*)out.c_str(), ccw, str, len ), std::move( out );
   }
 
   inline
@@ -315,6 +376,16 @@ namespace utf {
       *output = '\0';
 
     return output - outorg;
+  }
+
+  auto  encode( const widechar* str, size_t cch ) -> charstr
+  {
+    auto  len = cch != (size_t)-1 ? cch : w_strlen( str );
+    auto  out = charstr( len * 6, ' ' );
+
+    out.resize( encode( (char*)out.c_str(), out.length(), str, len ) );
+
+    return std::move( out );
   }
 
 }}
