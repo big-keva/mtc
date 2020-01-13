@@ -483,7 +483,7 @@ namespace mtc
       dwFlAttr |= FILE_FLAG_DELETE_ON_CLOSE;
 
   // create file handle
-    handle = CreateFile( filename, dwAccess, FILE_SHARE_READ, NULL, dwDispos, dwFlAttr, NULL );
+    handle = CreateFile( filename, dwAccess, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, dwDispos, dwFlAttr, NULL );
     return handle == INVALID_HANDLE_VALUE ? ENOENT : 0;
   }
 
