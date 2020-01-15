@@ -77,6 +77,28 @@ namespace mtc {
     typedef widechar  chartype;
     typedef std::basic_string<chartype> string_t;
 
+  protected:
+    static  widechar  upper_16( uint32_t u )
+      {  return 0xd800 | ((u - 0x10000) >> 10);  }
+    static  widechar  lower_16( uint32_t u )
+      {  return 0xdc00 | ((u & 0x03ff));  }
+    static  auto  output( chartype* out, const chartype* end, uint32_t chr ) -> chartype*
+      {
+        if ( chr > 0x0ffff )
+        {
+          if ( out + 1 >= end )
+            return nullptr;
+          *out++ = upper_16( chr );
+          *out++ = lower_16( chr );
+        }
+          else
+        {
+          if ( out >= end )
+            return nullptr;
+          *out++ = (widechar)chr;
+        }
+        return out;
+      }
   };
 
   class utf32
@@ -87,6 +109,10 @@ namespace mtc {
   public:
     typedef uint32_t  chartype;
     typedef std::basic_string<chartype> string_t;
+
+  protected:
+    static  auto  output( chartype* out, const chartype* end, uint32_t chr ) -> chartype*
+      {  return out != end ? (*out++ = chr, out) : nullptr;  }
 
   };
 
@@ -171,8 +197,8 @@ namespace mtc {
       }
 
   protected:  // decoders helpers
-    template <class uccstype, class chartype>
-    static  auto  decodeit( uccstype* out, size_t cwb, const chartype* pch, size_t cch ) -> size_t
+    template <class encoding, class chartype>
+    static  auto  decodeit( typename encoding::chartype* out, size_t cwb, const chartype* pch, size_t cch ) -> size_t
       {
         using uchar = typename std::make_unsigned<chartype>::type;
 
@@ -237,7 +263,7 @@ namespace mtc {
           }
 
         // check if output unicode value is simple or extended
-          if ( (mod = output( out, lim, ucchar )) == nullptr )  break;
+          if ( (mod = encoding::output( out, lim, ucchar )) == nullptr )  break;
             else out = mod;
         }
         
@@ -334,25 +360,6 @@ namespace mtc {
 
         return utf - utforg;
       }
-    static  auto  output( widechar* out, widechar* end, uint32_t chr ) -> widechar*
-      {
-        if ( chr > 0x0ffff )
-        {
-          if ( out + 1 >= end )
-            return nullptr;
-          *out++ = upper_16( chr );
-          *out++ = lower_16( chr );
-        }
-          else
-        {
-          if ( out >= end )
-            return nullptr;
-          *out++ = (widechar)chr;
-        }
-        return out;
-      }
-    static  auto  output( uint32_t* out, uint32_t* end, uint32_t chr ) -> uint32_t*
-      {  return out != end ? (*out++ = chr, out) : nullptr;  }
 
   public:     // encoders
     static  auto  encode( char* out, size_t cwb, uint32_t uch ) -> size_t;
@@ -374,27 +381,19 @@ namespace mtc {
     static  auto  decode( uint32_t* out, size_t cwb, const widechar* pch, size_t = (size_t)-1 ) -> size_t;
     static  auto  decode( uint32_t* out, size_t cwb, const uint32_t* pch, size_t = (size_t)-1 ) -> size_t;
 
-    template <class encoding> static  auto  decode( const char*     pch, size_t = (size_t)-1 ) -> typename encoding::string_t;
-    template <class encoding> static  auto  decode( const widechar* pch, size_t = (size_t)-1 ) -> typename encoding::string_t;
-    template <class encoding> static  auto  decode( const uint32_t* pch, size_t = (size_t)-1 ) -> typename encoding::string_t;
+    static  auto  decode( const utf16&, const char*     pch, size_t cch ) -> typename utf16::string_t;
+    static  auto  decode( const utf16&, const widechar* pch, size_t cch ) -> typename utf16::string_t;
+    static  auto  decode( const utf16&, const uint32_t* pch, size_t cch ) -> typename utf16::string_t;
+    static  auto  decode( const utf32&, const char*     pch, size_t cch ) -> typename utf32::string_t;
+    static  auto  decode( const utf32&, const widechar* pch, size_t cch ) -> typename utf32::string_t;
+    static  auto  decode( const utf32&, const uint32_t* pch, size_t cch ) -> typename utf32::string_t;
 
-    template <class encoding> static  auto  decode( const std::basic_string<char>&     ) -> typename encoding::string_t;
-    template <class encoding> static  auto  decode( const std::basic_string<widechar>& ) -> typename encoding::string_t;
-    template <class encoding> static  auto  decode( const std::basic_string<uint32_t>& ) -> typename encoding::string_t;
-
-    template <> static  auto  decode<utf16>( const char*     pch, size_t cch ) -> typename utf16::string_t;
-    template <> static  auto  decode<utf16>( const widechar* pch, size_t cch ) -> typename utf16::string_t;
-    template <> static  auto  decode<utf16>( const uint32_t* pch, size_t cch ) -> typename utf16::string_t;
-    template <> static  auto  decode<utf32>( const char*     pch, size_t cch ) -> typename utf32::string_t;
-    template <> static  auto  decode<utf32>( const widechar* pch, size_t cch ) -> typename utf32::string_t;
-    template <> static  auto  decode<utf32>( const uint32_t* pch, size_t cch ) -> typename utf32::string_t;
-
-    template <> static  auto  decode<utf16>( const std::basic_string<char>&     src ) -> typename utf16::string_t;
-    template <> static  auto  decode<utf16>( const std::basic_string<widechar>& src ) -> typename utf16::string_t;
-    template <> static  auto  decode<utf16>( const std::basic_string<uint32_t>& src ) -> typename utf16::string_t;
-    template <> static  auto  decode<utf32>( const std::basic_string<char>&     src ) -> typename utf32::string_t;
-    template <> static  auto  decode<utf32>( const std::basic_string<widechar>& src ) -> typename utf32::string_t;
-    template <> static  auto  decode<utf32>( const std::basic_string<uint32_t>& src ) -> typename utf32::string_t;
+    static  auto  decode( const utf16&, const std::basic_string<char>&     src ) -> typename utf16::string_t;
+    static  auto  decode( const utf16&, const std::basic_string<widechar>& src ) -> typename utf16::string_t;
+    static  auto  decode( const utf16&, const std::basic_string<uint32_t>& src ) -> typename utf16::string_t;
+    static  auto  decode( const utf32&, const std::basic_string<char>&     src ) -> typename utf32::string_t;
+    static  auto  decode( const utf32&, const std::basic_string<widechar>& src ) -> typename utf32::string_t;
+    static  auto  decode( const utf32&, const std::basic_string<uint32_t>& src ) -> typename utf32::string_t;
 
   public:     // detectors
     static  bool  detect( const char*     pch, size_t cch = (size_t)-1 );
@@ -563,63 +562,63 @@ namespace mtc {
   // decode() family
 
   inline  auto  utf8::decode( widechar* out, size_t cwb, const char*     pch, size_t cch ) -> size_t
-    {  return decodeit( out, cwb, pch, cch );  }
+    {  return decodeit<utf16>( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( widechar* out, size_t cwb, const widechar* pch, size_t cch ) -> size_t
-    {  return decodeit( out, cwb, pch, cch );  }
+    {  return decodeit<utf16>( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( widechar* out, size_t cwb, const uint32_t* pch, size_t cch ) -> size_t
-    {  return decodeit( out, cwb, pch, cch );  }
+    {  return decodeit<utf16>( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( uint32_t* out, size_t cwb, const char*     pch, size_t cch ) -> size_t
-    {  return decodeit( out, cwb, pch, cch );  }
+    {  return decodeit<utf32>( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( uint32_t* out, size_t cwb, const widechar* pch, size_t cch ) -> size_t
-    {  return decode( out, cwb, pch, cch );  }
+    {  return decodeit<utf32>( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( uint32_t* out, size_t cwb, const uint32_t* pch, size_t cch ) -> size_t
-    {  return decodeit( out, cwb, pch, cch );  }
+    {  return decodeit<utf32>( out, cwb, pch, cch );  }
 
-  template <> auto  utf8::decode<utf16>( const char*      pch, size_t cch ) -> utf16::string_t
+  inline  auto  utf8::decode( const utf16&, const char* pch, size_t cch ) -> utf16::string_t
     {
       typename utf16::string_t out;
       return std::move( decodeit( out, pch, cch ) );
     }
-  template <> auto  utf8::decode<utf16>( const widechar*  pch, size_t cch ) -> utf16::string_t
+  inline  auto  utf8::decode( const utf16&, const widechar*  pch, size_t cch ) -> utf16::string_t
     {
       typename utf16::string_t out;
       return std::move( decodeit( out, pch, cch ) );
     }
-  template <> auto  utf8::decode<utf16>( const uint32_t*  pch, size_t cch ) -> utf16::string_t
+  inline  auto  utf8::decode( const utf16&, const uint32_t*  pch, size_t cch ) -> utf16::string_t
     {
       typename utf16::string_t out;
       return std::move( decodeit( out, pch, cch ) );
     }
 
-  template <> auto  utf8::decode<utf32>( const char*      pch, size_t cch ) -> utf32::string_t
+  inline  auto  utf8::decode( const utf32&, const char*      pch, size_t cch ) -> utf32::string_t
     {
       typename utf32::string_t out;
       return std::move( decodeit( out, pch, cch ) );
     }
-  template <> auto  utf8::decode<utf32>( const widechar*  pch, size_t cch ) -> utf32::string_t
+  inline  auto  utf8::decode( const utf32&, const widechar*  pch, size_t cch ) -> utf32::string_t
     {
       typename utf32::string_t out;
       return std::move( decodeit( out, pch, cch ) );
     }
-  template <> auto  utf8::decode<utf32>( const uint32_t*  pch, size_t cch ) -> utf32::string_t
+  inline  auto  utf8::decode( const utf32&, const uint32_t*  pch, size_t cch ) -> utf32::string_t
     {
       typename utf32::string_t out;
       return std::move( decodeit( out, pch, cch ) );
     }
 
-  template <> auto  utf8::decode<utf16>( const std::basic_string<char>& str ) -> utf16::string_t
-    {  return std::move( decode<utf16>( str.c_str(), str.length() ) );  }
-  template <> auto  utf8::decode<utf16>( const std::basic_string<widechar>& str ) -> utf16::string_t
-    {  return std::move( decode<utf16>( str.c_str(), str.length() ) );  }
-  template <> auto  utf8::decode<utf16>( const std::basic_string<uint32_t>& str ) -> utf16::string_t
-    {  return std::move( decode<utf16>( str.c_str(), str.length() ) );  }
+  inline  auto  utf8::decode( const utf16&, const std::basic_string<char>& str ) -> utf16::string_t
+    {  return std::move( decode( utf16(), str.c_str(), str.length() ) );  }
+  inline  auto  utf8::decode( const utf16&, const std::basic_string<widechar>& str ) -> utf16::string_t
+    {  return std::move( decode( utf16(), str.c_str(), str.length() ) );  }
+  inline  auto  utf8::decode( const utf16&, const std::basic_string<uint32_t>& str ) -> utf16::string_t
+    {  return std::move( decode( utf16(), str.c_str(), str.length() ) );  }
 
-  template <> auto  utf8::decode<utf32>( const std::basic_string<char>& str ) -> utf32::string_t
-    {  return std::move( decode<utf32>( str.c_str(), str.length() ) );  }
-  template <> auto  utf8::decode<utf32>( const std::basic_string<widechar>& str ) -> utf32::string_t
-    {  return std::move( decode<utf32>( str.c_str(), str.length() ) );  }
-  template <> auto  utf8::decode<utf32>( const std::basic_string<uint32_t>& str ) -> utf32::string_t
-    {  return std::move( decode<utf32>( str.c_str(), str.length() ) );  }
+  inline  auto  utf8::decode( const utf32&, const std::basic_string<char>& str ) -> utf32::string_t
+    {  return std::move( decode( utf32(), str.c_str(), str.length() ) );  }
+  inline  auto  utf8::decode( const utf32&, const std::basic_string<widechar>& str ) -> utf32::string_t
+    {  return std::move( decode( utf32(), str.c_str(), str.length() ) );  }
+  inline  auto  utf8::decode( const utf32&, const std::basic_string<uint32_t>& str ) -> utf32::string_t
+    {  return std::move( decode( utf32(), str.c_str(), str.length() ) );  }
 
   inline  auto  utf8::mbtowc( const charstr& mb_str ) -> widestr
     {
@@ -701,7 +700,7 @@ namespace utf
   inline  size_t  decode( widechar* out, size_t len, const char* src, size_t cch = (size_t)-1 )
     {  return utf8::decode( out, len, src, cch );  }
   inline  auto    decode( const char* src, size_t len = (size_t)-1 ) -> widestr
-    {  return utf8::decode<utf16>( src, len );  }
+    {  return utf8::decode( utf16(), src, len );  }
   inline  auto  decode( const charstr& str ) -> widestr
     {  return std::move( decode( str.c_str(), str.length() ) );  }
 
