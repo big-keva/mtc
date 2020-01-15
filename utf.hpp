@@ -157,16 +157,88 @@ namespace mtc {
         return upp;
       }
 
-    template <class encoding, class chartype>
-    static  auto  decodeit( const chartype* pch, size_t cch ) -> typename encoding::string_t
+  protected:  // decoders helpers
+    template <class uccstype, class chartype>
+    static  auto  decodeit( uccstype* out, size_t cwb, const chartype* pch, size_t cch ) -> size_t
       {
-        auto  out = typename encoding::string_t();
+        using uchar = typename std::make_unsigned<chartype>::type;
 
+        auto  org = out;
+        auto  lim = out + cwb;
+        auto  mod = out;
+
+        for ( auto end = pch + checklen( pch, cch ); pch != end && out != lim; )
+        {
+          uint32_t  ucchar;
+
+        // on non-utf strings, throw logic_error as impossible call
+          if ( ((uchar)*pch & ~0x0ff) != 0 )
+            throw std::logic_error( "invalid source string for utf-8 conversion" );
+
+          if ( ((ucchar = (uchar)*pch++) & 0x80) != 0 )
+          {
+            if ( (ucchar & 0xe0) == 0xc0 )
+            {
+              if ( pch >= end )
+                throw std::logic_error( "invalid source for utf conversion" );
+              ucchar = ((ucchar & 0x1f) << 6) | (((uchar)*pch++) & 0x3f);
+            }
+              else
+            if ( (ucchar & 0xf0) == 0xe0 )
+            {
+              if ( pch + 1 >= end )
+                throw std::logic_error( "invalid source for utf conversion" );
+              ucchar = ((ucchar & 0x0f) << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+            }
+              else
+            if ( (ucchar & 0xf8) == 0xf0 )
+            {
+              if ( pch + 2 >= end )
+                throw std::logic_error( "invalid source for utf conversion" );
+              ucchar = ((ucchar & 0x07) << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+            }
+              else
+            if ( (ucchar & 0xfc) == 0xf8 )
+            {
+              if ( pch + 3 >= end )
+                throw std::logic_error( "invalid source for utf conversion" );
+              ucchar = ((ucchar & 0x03) << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+            }
+              else
+            if ( (ucchar & 0xfe) == 0xfc )
+            {
+              if ( pch + 3 >= end )
+                throw std::logic_error( "invalid source for utf conversion" );
+              ucchar = ((ucchar & 0x01) << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
+            }
+          }
+
+        // check if output unicode value is simple or extended
+          if ( (mod = output( out, lim, ucchar )) == nullptr )  break;
+            else out = mod;
+        }
+        
+        return out - org;
+      }
+
+    template <class string_t, class chartype>
+    static  auto  decodeit( string_t& out, const chartype* pch, size_t cch ) -> string_t&
+      {
         out.resize( 2 * (cch = checklen( pch, cch )) );
-        out.resize( decode( (typename encoding::string_t::pointer)out.c_str(), out.length(), pch, cch ) );
+        out.resize( decode( (typename string_t::pointer)out.c_str(), out.length(), pch, cch ) );
         out.shrink_to_fit();
 
-        return std::move( out );
+        return out;
       }
 
     template <class chartype>
@@ -360,80 +432,6 @@ namespace mtc {
     static  auto  encode( const std::basic_string<chartype>& str ) -> charstr
       {  return std::move( encode( str.c_str(), str.length() ) );  }
 
-  protected:  // decoders helpers
-    template <class uccstype, class chartype>
-    static  auto  decode( uccstype* out, size_t cwb, const chartype* pch, size_t cch ) -> size_t
-      {
-        using uchar = typename std::make_unsigned<chartype>::type;
-
-        auto  org = out;
-        auto  lim = out + cwb;
-        auto  mod = out;
-
-        for ( auto end = pch + checklen( pch, cch ); pch != end && out != lim; )
-        {
-          uint32_t  ucchar;
-
-        // on non-utf strings, throw logic_error as impossible call
-          if ( ((uchar)*pch & ~0x0ff) != 0 )
-            throw std::logic_error( "invalid source string for utf-8 conversion" );
-
-          if ( ((ucchar = (uchar)*pch++) & 0x80) != 0 )
-          {
-            if ( (ucchar & 0xe0) == 0xc0 )
-            {
-              if ( pch >= end )
-                throw std::logic_error( "invalid source for utf conversion" );
-              ucchar = ((ucchar & 0x1f) << 6) | (((uchar)*pch++) & 0x3f);
-            }
-              else
-            if ( (ucchar & 0xf0) == 0xe0 )
-            {
-              if ( pch + 1 >= end )
-                throw std::logic_error( "invalid source for utf conversion" );
-              ucchar = ((ucchar & 0x0f) << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-            }
-              else
-            if ( (ucchar & 0xf8) == 0xf0 )
-            {
-              if ( pch + 2 >= end )
-                throw std::logic_error( "invalid source for utf conversion" );
-              ucchar = ((ucchar & 0x07) << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-            }
-              else
-            if ( (ucchar & 0xfc) == 0xf8 )
-            {
-              if ( pch + 3 >= end )
-                throw std::logic_error( "invalid source for utf conversion" );
-              ucchar = ((ucchar & 0x03) << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-            }
-              else
-            if ( (ucchar & 0xfe) == 0xfc )
-            {
-              if ( pch + 3 >= end )
-                throw std::logic_error( "invalid source for utf conversion" );
-              ucchar = ((ucchar & 0x01) << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-              ucchar = (ucchar << 6) | (((uchar)*pch++) & 0x3f);
-            }
-          }
-
-        // check if output unicode value is simple or extended
-          if ( (mod = output( out, lim, ucchar )) == nullptr )  break;
-            else out = mod;
-        }
-        
-        return out - org;
-      }
-
   };
 
   // utf inline implementation
@@ -541,45 +539,63 @@ namespace mtc {
   // decode() family
 
   inline  auto  utf8::decode( widechar* out, size_t cwb, const char*     pch, size_t cch ) -> size_t
-    {  return decode( out, cwb, pch, cch );  }
+    {  return decodeit( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( widechar* out, size_t cwb, const widechar* pch, size_t cch ) -> size_t
-    {  return decode( out, cwb, pch, cch );  }
+    {  return decodeit( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( widechar* out, size_t cwb, const uint32_t* pch, size_t cch ) -> size_t
-    {  return decode( out, cwb, pch, cch );  }
+    {  return decodeit( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( uint32_t* out, size_t cwb, const char*     pch, size_t cch ) -> size_t
-    {  return decode( out, cwb, pch, cch );  }
+    {  return decodeit( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( uint32_t* out, size_t cwb, const widechar* pch, size_t cch ) -> size_t
     {  return decode( out, cwb, pch, cch );  }
   inline  auto  utf8::decode( uint32_t* out, size_t cwb, const uint32_t* pch, size_t cch ) -> size_t
-    {  return decode( out, cwb, pch, cch );  }
+    {  return decodeit( out, cwb, pch, cch );  }
 
   template <> auto  utf8::decode<utf16>( const char*      pch, size_t cch ) -> utf16::string_t
-    {  return std::move( decodeit<utf16, char>( pch, cch ) );  }
+    {
+      typename utf16::string_t out;
+      return std::move( decodeit( out, pch, cch ) );
+    }
   template <> auto  utf8::decode<utf16>( const widechar*  pch, size_t cch ) -> utf16::string_t
-    {  return std::move( decodeit<utf16, widechar>( pch, cch ) );  }
+    {
+      typename utf16::string_t out;
+      return std::move( decodeit( out, pch, cch ) );
+    }
   template <> auto  utf8::decode<utf16>( const uint32_t*  pch, size_t cch ) -> utf16::string_t
-    {  return std::move( decodeit<utf16, uint32_t>( pch, cch ) );  }
+    {
+      typename utf16::string_t out;
+      return std::move( decodeit( out, pch, cch ) );
+    }
 
-  template <> auto  utf8::decode<utf32>( const char*      pch, size_t cch ) -> utf16::string_t
-    {  return std::move( decodeit<utf32, char>( pch, cch ) );  }
-  template <> auto  utf8::decode<utf32>( const widechar*  pch, size_t cch ) -> utf16::string_t
-    {  return std::move( decodeit<utf32, widechar>( pch, cch ) );  }
-  template <> auto  utf8::decode<utf32>( const uint32_t*  pch, size_t cch ) -> utf16::string_t
-    {  return std::move( decodeit<utf32, uint32_t>( pch, cch ) );  }
+  template <> auto  utf8::decode<utf32>( const char*      pch, size_t cch ) -> utf32::string_t
+    {
+      typename utf32::string_t out;
+      return std::move( decodeit( out, pch, cch ) );
+    }
+  template <> auto  utf8::decode<utf32>( const widechar*  pch, size_t cch ) -> utf32::string_t
+    {
+      typename utf32::string_t out;
+      return std::move( decodeit( out, pch, cch ) );
+    }
+  template <> auto  utf8::decode<utf32>( const uint32_t*  pch, size_t cch ) -> utf32::string_t
+    {
+      typename utf32::string_t out;
+      return std::move( decodeit( out, pch, cch ) );
+    }
 
   template <> auto  utf8::decode<utf16>( const std::basic_string<char>& str ) -> utf16::string_t
-    {  return std::move( decodeit<utf16, char>( str.c_str(), str.length() ) );  }
+    {  return std::move( decode<utf16>( str.c_str(), str.length() ) );  }
   template <> auto  utf8::decode<utf16>( const std::basic_string<widechar>& str ) -> utf16::string_t
-    {  return std::move( decodeit<utf16, widechar>( str.c_str(), str.length() ) );  }
+    {  return std::move( decode<utf16>( str.c_str(), str.length() ) );  }
   template <> auto  utf8::decode<utf16>( const std::basic_string<uint32_t>& str ) -> utf16::string_t
-    {  return std::move( decodeit<utf16, uint32_t>( str.c_str(), str.length() ) );  }
+    {  return std::move( decode<utf16>( str.c_str(), str.length() ) );  }
 
   template <> auto  utf8::decode<utf32>( const std::basic_string<char>& str ) -> utf32::string_t
-    {  return std::move( decodeit<utf32, char>( str.c_str(), str.length() ) );  }
+    {  return std::move( decode<utf32>( str.c_str(), str.length() ) );  }
   template <> auto  utf8::decode<utf32>( const std::basic_string<widechar>& str ) -> utf32::string_t
-    {  return std::move( decodeit<utf32, widechar>( str.c_str(), str.length() ) );  }
+    {  return std::move( decode<utf32>( str.c_str(), str.length() ) );  }
   template <> auto  utf8::decode<utf32>( const std::basic_string<uint32_t>& str ) -> utf32::string_t
-    {  return std::move( decodeit<utf32, uint32_t>( str.c_str(), str.length() ) );  }
+    {  return std::move( decode<utf32>( str.c_str(), str.length() ) );  }
 
   inline  auto  utf8::mbtowc( const charstr& mb_str ) -> widestr
     {
