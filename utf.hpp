@@ -70,6 +70,9 @@ namespace mtc {
 
   class utf16
   {
+    friend class utf8;
+    friend class utf32;
+
   public:
     typedef widechar  chartype;
     typedef std::basic_string<chartype> string_t;
@@ -78,6 +81,9 @@ namespace mtc {
 
   class utf32
   {
+    friend class utf8;
+    friend class utf16;
+
   public:
     typedef uint32_t  chartype;
     typedef std::basic_string<chartype> string_t;
@@ -86,6 +92,9 @@ namespace mtc {
 
   class utf8
   {
+    friend class utf16;
+    friend class utf32;
+
     static  widechar  upper_16( uint32_t u )  {  return 0xd800 | ((u - 0x10000) >> 10);  }
     static  widechar  lower_16( uint32_t u )  {  return 0xdc00 | ((u & 0x03ff));  }
     template <class chartype>
@@ -96,7 +105,7 @@ namespace mtc {
         return len;
       }
     template <class chartype>
-    static  size_t    strlenit( const utf16*, const chartype* utf, size_t len )
+    static  size_t    strlen16( const chartype* utf, size_t len )
       {
         auto      cch = 0;
         widechar  buf[2];
@@ -111,7 +120,7 @@ namespace mtc {
         return cch;
       }
     template <class chartype>
-    static  size_t    strlenit( const utf32*, const chartype* utf, size_t len )
+    static  size_t    strlen32( const chartype* utf, size_t len )
       {
         auto      cch = 0;
 
@@ -407,29 +416,21 @@ namespace mtc {
     static  auto  charsize( const uint32_t* utf, size_t len = (size_t)-1 ) -> size_t;
 
   public:     // strlen
-    template <class encoding> static  auto  strlen( const char*,     size_t len = (size_t)-1 ) -> size_t;
-    template <class encoding> static  auto  strlen( const widechar*, size_t len = (size_t)-1 ) -> size_t;
-    template <class encoding> static  auto  strlen( const uint32_t*, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf16&, const char*     utf, size_t len ) -> size_t;
+    static  auto  strlen( const utf16&, const widechar* utf, size_t len ) -> size_t;
+    static  auto  strlen( const utf16&, const uint32_t* utf, size_t len ) -> size_t;
 
-    template <class encoding> static  auto  strlen( const std::basic_string<char>& ) -> size_t;
-    template <class encoding> static  auto  strlen( const std::basic_string<widechar>& ) -> size_t;
-    template <class encoding> static  auto  strlen( const std::basic_string<uint32_t>& ) -> size_t;
+    static  auto  strlen( const utf16&, const std::basic_string<char>& ) -> size_t;
+    static  auto  strlen( const utf16&, const std::basic_string<widechar>& ) -> size_t;
+    static  auto  strlen( const utf16&, const std::basic_string<uint32_t>& ) -> size_t;
 
-    template <> static  auto  strlen<utf16>( const char*     utf, size_t len ) -> size_t;
-    template <> static  auto  strlen<utf16>( const widechar* utf, size_t len ) -> size_t;
-    template <> static  auto  strlen<utf16>( const uint32_t* utf, size_t len ) -> size_t;
+    static  auto  strlen( const utf32&, const char*     utf, size_t len ) -> size_t;
+    static  auto  strlen( const utf32&, const widechar* utf, size_t len ) -> size_t;
+    static  auto  strlen( const utf32&, const uint32_t* utf, size_t len ) -> size_t;
 
-    template <> static  auto  strlen<utf16>( const std::basic_string<char>& ) -> size_t;
-    template <> static  auto  strlen<utf16>( const std::basic_string<widechar>& ) -> size_t;
-    template <> static  auto  strlen<utf16>( const std::basic_string<uint32_t>& ) -> size_t;
-
-    template <> static  auto  strlen<utf32>( const char*     utf, size_t len ) -> size_t;
-    template <> static  auto  strlen<utf32>( const widechar* utf, size_t len ) -> size_t;
-    template <> static  auto  strlen<utf32>( const uint32_t* utf, size_t len ) -> size_t;
-
-    template <> static  auto  strlen<utf32>( const std::basic_string<char>& ) -> size_t;
-    template <> static  auto  strlen<utf32>( const std::basic_string<widechar>& ) -> size_t;
-    template <> static  auto  strlen<utf32>( const std::basic_string<uint32_t>& ) -> size_t;
+    static  auto  strlen( const utf32&, const std::basic_string<char>& ) -> size_t;
+    static  auto  strlen( const utf32&, const std::basic_string<widechar>& ) -> size_t;
+    static  auto  strlen( const utf32&, const std::basic_string<uint32_t>& ) -> size_t;
 
   protected:  // helpers
     static  auto  ennext( const widechar*& src, const widechar* end ) -> uint32_t
@@ -468,33 +469,33 @@ namespace mtc {
   inline  auto  utf8::charsize( const uint32_t* utf, size_t len ) -> size_t
     {  return charsize<uint32_t>( utf, len );  }
 
-  template <> auto  utf8::strlen<utf16>( const char* utf, size_t len ) -> size_t
-    {  return strlenit( (const utf16*)nullptr, utf, len );  }
-  template <> auto  utf8::strlen<utf16>( const widechar* utf, size_t len ) -> size_t
-    {  return strlenit( (const utf16*)nullptr, utf, len );  }
-  template <> auto  utf8::strlen<utf16>( const uint32_t* utf, size_t len ) -> size_t
-    {  return strlenit( (const utf16*)nullptr, utf, len );  }
+  inline  auto  utf8::strlen( const utf16&, const char* utf, size_t len ) -> size_t
+    {  return strlen16( utf, len );  }
+  inline  auto  utf8::strlen( const utf16&, const widechar* utf, size_t len ) -> size_t
+    {  return strlen16( utf, len );  }
+  inline  auto  utf8::strlen( const utf16&, const uint32_t* utf, size_t len ) -> size_t
+    {  return strlen16( utf, len );  }
 
-  template <> auto  utf8::strlen<utf16>( const std::basic_string<char>& str ) -> size_t
-    {  return strlen<utf16>( str.c_str(), str.length() );  }
-  template <> auto  utf8::strlen<utf16>( const std::basic_string<widechar>& str ) -> size_t
-    {  return strlen<utf16>( str.c_str(), str.length() );  }
-  template <> auto  utf8::strlen<utf16>( const std::basic_string<uint32_t>& str ) -> size_t
-    {  return strlen<utf16>( str.c_str(), str.length() );  }
+  inline  auto  utf8::strlen( const utf16&, const std::basic_string<char>& str ) -> size_t
+    {  return strlen16( str.c_str(), str.length() );  }
+  inline  auto  utf8::strlen( const utf16&, const std::basic_string<widechar>& str ) -> size_t
+    {  return strlen16( str.c_str(), str.length() );  }
+  inline  auto  utf8::strlen( const utf16&, const std::basic_string<uint32_t>& str ) -> size_t
+    {  return strlen16( str.c_str(), str.length() );  }
 
-  template <> auto  utf8::strlen<utf32>( const char* utf, size_t len ) -> size_t
-    {  return strlenit( (const utf32*)nullptr, utf, len );  }
-  template <> auto  utf8::strlen<utf32>( const widechar* utf, size_t len ) -> size_t
-    {  return strlenit( (const utf32*)nullptr, utf, len );  }
-  template <> auto  utf8::strlen<utf32>( const uint32_t* utf, size_t len ) -> size_t
-    {  return strlenit( (const utf32*)nullptr, utf, len );  }
+  inline  auto  utf8::strlen( const utf32&, const char* utf, size_t len ) -> size_t
+    {  return strlen32( utf, len );  }
+  inline  auto  utf8::strlen( const utf32&, const widechar* utf, size_t len ) -> size_t
+    {  return strlen32( utf, len );  }
+  inline  auto  utf8::strlen( const utf32&, const uint32_t* utf, size_t len ) -> size_t
+    {  return strlen32( utf, len );  }
 
-  template <> auto  utf8::strlen<utf32>( const std::basic_string<char>& str ) -> size_t
-    {  return strlen<utf32>( str.c_str(), str.length() );  }
-  template <> auto  utf8::strlen<utf32>( const std::basic_string<widechar>& str ) -> size_t
-    {  return strlen<utf32>( str.c_str(), str.length() );  }
-  template <> auto  utf8::strlen<utf32>( const std::basic_string<uint32_t>& str ) -> size_t
-    {  return strlen<utf32>( str.c_str(), str.length() );  }
+  inline  auto  utf8::strlen( const utf32&, const std::basic_string<char>& str ) -> size_t
+    {  return strlen32( str.c_str(), str.length() );  }
+  inline  auto  utf8::strlen( const utf32&, const std::basic_string<widechar>& str ) -> size_t
+    {  return strlen32( str.c_str(), str.length() );  }
+  inline  auto  utf8::strlen( const utf32&, const std::basic_string<uint32_t>& str ) -> size_t
+    {  return strlen32( str.c_str(), str.length() );  }
 
   // encode family
 
@@ -673,7 +674,7 @@ namespace utf
    * Возвращает количество символов, закодированных utf8-строкой.
    */
   inline  size_t  strlen( const char* str, size_t len = (size_t)-1 )
-    {  return utf8::strlen<utf16>( str, len );  }
+    {  return utf8::strlen( utf16(), str, len );  }
 
   /*
    *  encode( pszout, cchout, pwssrc, cchsrc )
