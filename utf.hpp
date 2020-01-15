@@ -241,6 +241,45 @@ namespace mtc {
         return out;
       }
 
+  protected:  // encoders helpers
+    template <class chartype>
+    static  auto  encodeit( char* out, size_t cwb, const chartype* pch, size_t cch ) -> size_t
+      {
+        auto  org = out;
+        auto  lim = out + cwb;
+
+        if ( cch == (size_t)-1 )
+          for ( cch = 0; pch[cch] != 0; ++cch )  (void)NULL;
+
+        for ( auto end = pch + cch; pch != end && out != lim; )
+        {
+          size_t  enc;
+
+          if ( (enc = encode( out, lim - out, ennext( pch, end ) )) != (size_t)-1 )  out += enc;
+            else return enc;
+        }
+
+        if ( out != lim )
+          *out = '\0';
+
+        return out - org;
+      }
+
+    template <class chartype>
+    static  auto  encodeit( const chartype* pch, size_t cch ) -> charstr
+      {
+        auto  out = charstr();
+
+        if ( cch == (size_t)-1 )
+          for ( cch = 0; pch[cch] != 0; ++cch ) (void)NULL;
+
+        out.resize( cch * 7 );
+        out.resize( encode( (char*)out.c_str(), out.length(), pch, cch ) );
+        out.shrink_to_fit();
+
+        return std::move( out );
+      }
+
     template <class chartype>
     static  size_t  charsize( const chartype* utf, size_t len )
       {
@@ -391,47 +430,6 @@ namespace mtc {
         return src != end ? *src++ : 0;
       }
 
-  protected:  // encoders helpers
-    template <class chartype>
-    static  auto  encode( char* out, size_t cwb, const chartype* pch, size_t cch ) -> size_t
-      {
-        auto  org = out;
-        auto  lim = out + cwb;
-
-        if ( cch == (size_t)-1 )
-          for ( cch = 0; pch[cch] != 0; ++cch )  (void)NULL;
-
-        for ( auto end = pch + cch; pch != end && out != lim; )
-        {
-          size_t  enc;
-
-          if ( (enc = encode( out, lim - out, ennext( pch, end ) )) != (size_t)-1 )  out += enc;
-            else return enc;
-        }
-
-        if ( out != lim )
-          *out = '\0';
-
-        return out - org;
-      }
-    template <class chartype>
-    static  auto  encode( const chartype* pch, size_t cch ) -> charstr
-      {
-        auto  out = charstr();
-
-        if ( cch == (size_t)-1 )
-          for ( cch = 0; pch[cch] != 0; ++cch ) (void)NULL;
-
-        out.resize( cch * 7 );
-        out.resize( encode( (char*)out.c_str(), out.length(), pch, cch ) );
-        out.shrink_to_fit();
-
-        return std::move( out );
-      }
-    template <class chartype>
-    static  auto  encode( const std::basic_string<chartype>& str ) -> charstr
-      {  return std::move( encode( str.c_str(), str.length() ) );  }
-
   };
 
   // utf inline implementation
@@ -522,19 +520,19 @@ namespace mtc {
     }
 
   inline  auto  utf8::encode( char* out, size_t cwb, const widechar* pch, size_t cch ) -> size_t
-    {  return encode( out, cwb, pch, cch );  }
+    {  return encodeit( out, cwb, pch, cch );  }
   inline  auto  utf8::encode( char* out, size_t cwb, const uint32_t* pch, size_t cch ) -> size_t
-    {  return encode( out, cwb, pch, cch );  }
+    {  return encodeit( out, cwb, pch, cch );  }
 
   inline  auto  utf8::encode( const widechar* pch, size_t cch ) -> charstr
-    {  return std::move( encode<widechar>( pch, cch ) );  }
+    {  return std::move( encodeit( pch, cch ) );  }
   inline  auto  utf8::encode( const uint32_t* pch, size_t cch ) -> charstr
-    {  return std::move( encode<uint32_t>( pch, cch ) );  }
+    {  return std::move( encodeit( pch, cch ) );  }
 
   inline  auto  utf8::encode( const std::basic_string<widechar>& str ) -> charstr
-    {  return std::move( encode<widechar>( str ) );  }
+    {  return std::move( encodeit( str.c_str(), str.length() ) );  }
   inline  auto  utf8::encode( const std::basic_string<uint32_t>& str ) -> charstr
-    {  return std::move( encode<uint32_t>( str ) );  }
+    {  return std::move( encodeit( str.c_str(), str.length() ) );  }
 
   // decode() family
 
