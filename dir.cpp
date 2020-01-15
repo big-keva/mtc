@@ -180,7 +180,7 @@ namespace fs {
   auto  directory::string::inner_t::create( const widechar* str, size_t cch ) -> inner_t*
   {
     auto    ccwstr = strlen( str, cch );
-    auto    cccstr = utf::cbchar( str, ccwstr );
+    auto    cccstr = ccwstr * 6;
     size_t  nalloc = sizeof(inner_t) + (ccwstr + 1) * sizeof(widechar) + (cccstr + 1) * sizeof(char);
 
     return new( new char[nalloc] ) inner_t( str, ccwstr );
