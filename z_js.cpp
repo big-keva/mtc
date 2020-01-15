@@ -1,5 +1,4 @@
 # include "z_js.h"
-# include "utf.hpp"
 # include <type_traits>
 
 namespace mtc {
@@ -95,6 +94,8 @@ namespace parse {
     }
 
   // parse helpers
+
+  struct noheader {  void operator ()( reader& ) const {}  };
 
   /*
     helper functions for parsing json
@@ -194,19 +195,44 @@ namespace parse {
       return stm.putback( *floptr ), flo;
     }
 
-  auto  sParse( reader& src, mtc::charstr& str ) -> mtc::charstr&
+  // strings
+  inline
+  auto  xFetch( reader& src ) -> widechar
     {
+      char      hexchr[5] = "    ";
+      widechar  uvalue;
+      char*     endptr;
+
+    // convert sequence to utf-16 code
+      if ( !src.getfour( hexchr ) )
+        throw error( "4-digit hexadecimal character code expected" );
+
+      uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
+
+      if ( endptr - hexchr != 4 )
+        throw error( "4-digit hexadecimal character code expected" );
+
+      return uvalue;
+    }
+
+ /*
+  * wFetch( src, zval&[, hdr] )
+  * Дозагружает строку до конца, полагая, что она уже widechar-строка, но не полагаясь на кодировку строки.
+  */
+  template <class header = noheader>
+  auto  wFetch( reader& src, zval& val, const header& hdr = header() ) -> zval&
+    {
+      auto& wc_str = *val.get_widestr();  assert( &wc_str != nullptr );
       char  chnext;
       char  chprev;
 
-      if ( (chnext = src.nospace()) != '\"' )
-        throw error( "'\"' expected" );
+      hdr( src );
 
       for ( chprev = '\0'; (chnext = src.getnext()) != '\0'; chprev = chnext )
       {
       // check for end of identifier
         if ( chnext == '\"' && chprev != '\\' )
-          return str;
+          return val;
 
       // check for '\\'
         if ( chnext == '\\' && chprev != '\\' )
@@ -215,44 +241,91 @@ namespace parse {
       // check regular char
         if ( chprev != '\\' )
         {
-          str.push_back( chnext );
+          wc_str.push_back( (widechar)(unsigned char)chnext );
+          continue;
+        }
+
+        switch ( chnext )
+        {
+          case 'u':   wc_str.push_back( xFetch( src ) );  break;
+          case 'b':   wc_str.push_back( '\b' ); break;
+          case 't':   wc_str.push_back( '\t' ); break;
+          case 'n':   wc_str.push_back( '\n' ); break;
+          case 'f':   wc_str.push_back( '\f' ); break;
+          case 'r':   wc_str.push_back( '\r' ); break;
+          case '\"':  wc_str.push_back( '\"' ); break;
+          case '/':   wc_str.push_back( '/'  ); break;
+          case '\\':  wc_str.push_back( '\\' ); 
+                      chnext = '\0';            break;
+          default:    throw error( "invalid escape sequence" );
+        }
+        chprev = '\0';
+      }
+      throw error( "unexpected end of stream" );
+    }
+    
+ /*
+  * sFetch( src, zval& )
+  * Загружает символьную строку до момента, когда встретится символ unicode \u или конец строки;
+  * При встрече такого символа декодирует его, преобразует всю строку в utf-16 расширением символов,
+  * после чего продолжает загрузку из потока.
+  * Результатом является либо zval{charstr}, либо zval{widestr}, без каких-либо намёков на исходную
+  * кодировку строки.
+  */
+  template <class header = noheader>
+  auto  sFetch( reader& src, zval& val, const header& hdr = header() ) -> zval&
+    {
+      auto& mb_str = *val.set_charstr();  assert( &mb_str != nullptr );
+      char  chnext;
+      char  chprev;
+
+      hdr( src );
+
+      for ( chprev = '\0'; (chnext = src.getnext()) != '\0'; chprev = chnext )
+      {
+      // check for end of identifier
+        if ( chnext == '\"' && chprev != '\\' )
+          return val;
+
+      // check for '\\'
+        if ( chnext == '\\' && chprev != '\\' )
+          continue;
+
+      // check regular char
+        if ( chprev != '\\' )
+        {
+          mb_str.push_back( chnext );
           continue;
         }
 
       // check long code: 4 symbols
         if ( chnext == 'u' )
         {
-          char      hexchr[5] = "    ";
-          widechar  uvalue;
-          char*     endptr;
-          auto      strlen = str.length();
-          size_t    utflen;
+          auto  uvalue = xFetch( src );
 
-          if ( src.getfour( hexchr ) )
-            uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
-          else
-            throw error( "4-digit hexadecimal character code expected" );
-
-          if ( endptr - hexchr != 4 )
-            throw error( "4-digit hexadecimal character code expected" );
-
-          str.resize( strlen + (utflen = utf::cbchar( uvalue )) );
-
-          if ( utf::encode( (char*)str.c_str() + strlen, str.length() - strlen, &uvalue, 1 ) != utflen )
-            throw std::logic_error( "invalid utf8 conversion in mtc library" );
+        // check if encoded character has lower code; continue in this case
+          if ( (uvalue & ~0x00ff) == 0 )
+          {
+            mb_str.push_back( (char)uvalue );
+            continue;
+          }
+            else
+        // transform string to pseudo-unicode sequence by expanding previous characters;
+        // finish loading as widestr
+          return val.set_widestr( std::move( utf8::mbtowc( mb_str ) ) ), wFetch( src, val );
         }
           else
         switch ( chnext )
         {
-          case 'b':   str.push_back( '\b' ); break;
-          case 't':   str.push_back( '\t' ); break;
-          case 'n':   str.push_back( '\n' ); break;
-          case 'f':   str.push_back( '\f' ); break;
-          case 'r':   str.push_back( '\r' ); break;
-          case '\"':  str.push_back( '\"' ); break;
-          case '/':   str.push_back( '/'  ); break;
-          case '\\':  str.push_back( '\\' ); 
-                      chnext = '\0';         break;
+          case 'b':   mb_str.push_back( '\b' ); break;
+          case 't':   mb_str.push_back( '\t' ); break;
+          case 'n':   mb_str.push_back( '\n' ); break;
+          case 'f':   mb_str.push_back( '\f' ); break;
+          case 'r':   mb_str.push_back( '\r' ); break;
+          case '\"':  mb_str.push_back( '\"' ); break;
+          case '/':   mb_str.push_back( '/'  ); break;
+          case '\\':  mb_str.push_back( '\\' ); 
+                      chnext = '\0';            break;
           default:    throw error( "invalid escape sequence" );
         }
         chprev = '\0';
@@ -260,18 +333,51 @@ namespace parse {
       throw error( "unexpected end of stream" );
     }
 
-  auto  sParse( reader& src, mtc::widestr& str ) -> mtc::widestr&
+  auto  sParse( reader& src, zval& val ) -> zval&
     {
-      mtc::charstr  mbs;
-      size_t        len;
-
-      if ( !utf::verify( sParse( src, mbs ).c_str() ) )
-        throw error( "invalid utf-8 string" );
-      str.resize( len = utf::strlen( mbs.c_str(), mbs.length() ) );
-        utf::decode( (widechar*)str.c_str(), str.length(), mbs.c_str(), mbs.length() );
-      return str;
+      return val.set_charstr(), sFetch( src, val, []( reader& src )
+        {
+          if ( src.nospace() != '"' )
+            throw error( "'\"' expected" );
+        } );
     }
-    
+
+  auto  wParse( reader& src, zval& val ) -> zval&
+    {
+      return val.set_widestr(), wFetch( src, val, []( reader& src )
+        {
+          if ( src.nospace() != '"' )
+            throw error( "'\"' expected" );
+        } );
+    }
+
+ /*
+  * zsLoad( ... )
+  * Загружает строку и при необходимости конвертирует её в widestr, если она в utf8.
+  * Иначе оставляет её символьной строкой
+  */
+  auto  zsLoad( reader& src, zval& val ) -> zval&
+    {
+      sParse( src, val );
+
+      if ( val.get_charstr() != nullptr )
+      {
+        if ( utf8::detect( *val.get_charstr() ) )
+          val.set_widestr( std::move( utf8::decode<utf16>( *val.get_charstr() ) ) );
+      }
+        else
+      if ( val.get_widestr() != nullptr )
+      {
+        if ( utf8::detect( *val.get_widestr() ) )
+        {
+          val.get_widestr()->resize( utf8::decode(
+            (widechar*)val.get_widestr()->c_str(), val.get_widestr()->length(),
+                       val.get_widestr()->c_str(), val.get_widestr()->length() ) );
+        }
+      }
+      return val;
+    }
+
   auto  Parse( reader& s, byte_t&   u, const zval* ) -> byte_t&   {  return uParse( s, u );  }
   auto  Parse( reader& s, uint16_t& u, const zval* ) -> uint16_t& {  return uParse( s, u );  }
   auto  Parse( reader& s, uint32_t& u, const zval* ) -> uint32_t& {  return uParse( s, u );  }
@@ -286,8 +392,41 @@ namespace parse {
   auto  Parse( reader& s, float&    f, const zval* ) -> float&    {  return fParse( s, f );  }
   auto  Parse( reader& s, double&   f, const zval* ) -> double&   {  return fParse( s, f );  }
 
-  auto  Parse( reader& s, charstr& r, const zval* ) -> mtc::charstr&  {  return sParse( s, r );  }
-  auto  Parse( reader& s, widestr& r, const zval* ) -> mtc::widestr&  {  return sParse( s, r );  }
+  auto  Parse( reader& s, charstr& r, const zval* ) -> charstr&
+    {
+      zval  z;
+
+      if ( sParse( s, z ).get_charstr() == nullptr )
+        throw error( "string cannot be parsed as simple character string" );
+
+      return r = std::move( *z.get_charstr() );
+    }
+
+  auto  Parse( reader& s, widestr& r, const zval* ) -> widestr&
+    {
+      zval      zv;
+      charstr*  ps;
+      widestr*  pw;
+
+      if ( (ps = sParse( s, zv ).get_charstr()) == nullptr && (pw = zv.get_widestr()) == nullptr )
+        throw error( "string cannot be parsed (not a string)" );
+
+    // if a value is character string, check if it is an utf8 string; convert utf8
+    // to widechar string directly
+      if ( ps != nullptr )
+      {
+        return utf8::detect( *ps )
+          ? r = std::move( utf8::decode<utf16>( *ps ) )
+          : r = std::move( utf8::mbtowc( *ps ) );
+      }
+      if ( pw != nullptr )
+      {
+        return utf8::detect( *pw )
+          ? r = std::move( utf8::decode<utf16>( *pw ) )
+          : r = std::move( *pw );
+      }
+      throw std::logic_error( "must not get control" );
+    }
 
   template <class V>
   auto  Parse( reader& stm, std::vector<V>& out, const zval* revive = nullptr ) -> std::vector<V>&
@@ -461,18 +600,8 @@ namespace parse {
           return z;
 
         case '\"':
-          {
-            mtc::charstr  chrstr;
-            mtc::widestr  wcsstr;
+          return zsLoad( s.putback( chnext ), z );
 
-          // check if charstr or widestr
-            if ( wstrtostr( chrstr, Parse( s.putback( chnext ), wcsstr ) ) )
-              z.set_charstr( std::move( chrstr ) );
-            else
-              z.set_widestr( std::move( wcsstr ) );
-
-            return z;
-          }
         default:  break;
       }
       if ( is_int_char( chnext ) )
@@ -586,34 +715,35 @@ namespace parse {
   // char by char until end or '}'
     while ( (chnext = s.nospace()) != '\0' && chnext != '}' )
     {
-      unsigned      intkey = 0;
-      charstr       strkey;
-      widestr       wcskey;
-      zval*         newval = nullptr;
-      const zval*   revval = nullptr;
+      zval        zv_key;
+      zval*       newval = nullptr;
+      const zval* revval = nullptr;
 
     // get variable name as widestring
       try
-        {  Parse( s.putback( chnext ), wcskey );  }
+        {  Parse( s.putback( chnext ), zv_key );  }
       catch ( const error& jx )
         {  throw error( strprintf( "%s while parsing variable name", jx.what() ) );  }
 
-      if ( wstrtoint( intkey, wcskey ) )
-        {
-          newval = z.put( intkey );
-          revval = revive != nullptr ? revive->get( intkey ) : nullptr;
-        }
-      else
-      if ( wstrtostr( strkey, wcskey ) )
-        {
-          newval = z.put( strkey );
-          revval = revive != nullptr ? revive->get( strkey ) : nullptr;
-        }
-      else
-        {
-          newval = z.put( wcskey );
-          revval = revive != nullptr ? revive->get( wcskey ) : nullptr;
-        }
+      if ( zv_key.get_charstr() != nullptr )
+      {
+        newval = z.put( *zv_key.get_charstr() );
+        revval = revive != nullptr ? revive->get( *zv_key.get_charstr() ) : nullptr;
+      }
+        else
+      if ( zv_key.get_widestr() != nullptr )
+      {
+        newval = z.put( *zv_key.get_widestr() );
+        revval = revive != nullptr ? revive->get( *zv_key.get_widestr() ) : nullptr;
+      }
+        else
+      if ( zv_key.get_int32() != nullptr )
+      {
+        newval = z.put( *zv_key.get_int32() );
+        revval = revive != nullptr ? revive->get( *zv_key.get_int32() ) : nullptr;
+      }
+        else
+      throw error( "invalid key type" );
 
     // check for colon
       if ( (chnext = s.nospace()) != ':' )

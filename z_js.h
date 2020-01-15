@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __mtc_z_js_h__ )
 # define __mtc_z_js_h__
 # include "zmap.h"
+# include "utf.hpp"
 # include <inttypes.h>
 
 namespace mtc {
@@ -115,33 +116,7 @@ namespace json {
             o = ::Serialize( o, repval[reppos - repsrc], nstore = strlen( repval[reppos - repsrc] ) );
           else if ( chnext < 0x20 )
             o = ::Serialize( o, chbuff, nstore = sprintf( chbuff, "\\u%04x", chnext ) );
-          else if ( chnext < 0x80 )
-            o = ::Serialize( o, chnext );
-          else
-            {
-              int   cbchar;
-              int   nleast;
-
-            /* detect the utf-8 unicode char byte count */
-              if ( (chnext & 0xe0) == 0xc0 )  {  nleast = 1;  }  else
-              if ( (chnext & 0xf0) == 0xe0 )  {  nleast = 2;  }  else
-              if ( (chnext & 0xf8) == 0xf0 )  {  nleast = 3;  }  else
-              if ( (chnext & 0xfc) == 0xf8 )  {  nleast = 4;  }  else
-              if ( (chnext & 0xfe) == 0xfc )  {  nleast = 5;  }  else nleast = 0;
-
-              for ( cbchar = 0; cbchar < nleast && s + cbchar < endptr && (s[cbchar] & 0xc0) == 0x80; ++cbchar )
-                (void)NULL;
-
-              if ( nleast == 0 || cbchar < nleast )
-                {
-                  o = ::Serialize( o, chbuff, nstore = sprintf( chbuff, "\\u%04x", chnext ) );
-                }
-              else
-                {
-                  o = ::Serialize( o, s - 1, cbchar + 1 );
-                  s += cbchar;
-                }
-            }
+          else o = ::Serialize( o, chnext );
         }
 
         return ::Serialize( o, '\"' );
@@ -172,11 +147,10 @@ namespace json {
             o = ::Serialize( o, (char)*s );
           else
             {
-              auto  u32 = utf::wide32( s, endptr - s );
+              auto  cnt = utf8::charsize( s, endptr - s );
+              auto  nch = utf8::encode( chnext, sizeof(chnext), s, cnt );
 
-              if ( (u32 & ~0x0000ffff) != 0 ) ++s;
-
-              o = ::Serialize( o, chnext, utf::encode( chnext, sizeof(chnext), u32 ) );
+              o = ::Serialize( o, chnext, nch );  s += cnt > 1 ? 1 : 0;
             }
         }
 
