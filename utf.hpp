@@ -96,7 +96,7 @@ namespace mtc {
         return len;
       }
     template <class chartype>
-    static  size_t    strlen16( const chartype* utf, size_t len )
+    static  size_t    strlenit( const utf16*, const chartype* utf, size_t len )
       {
         auto      cch = 0;
         widechar  buf[2];
@@ -111,7 +111,7 @@ namespace mtc {
         return cch;
       }
     template <class chartype>
-    static  size_t    strlen32( const chartype* utf, size_t len )
+    static  size_t    strlenit( const utf32*, const chartype* utf, size_t len )
       {
         auto      cch = 0;
 
@@ -469,11 +469,11 @@ namespace mtc {
     {  return charsize<uint32_t>( utf, len );  }
 
   template <> auto  utf8::strlen<utf16>( const char* utf, size_t len ) -> size_t
-    {  return strlen16( utf, len );  }
+    {  return strlenit( (const utf16*)nullptr, utf, len );  }
   template <> auto  utf8::strlen<utf16>( const widechar* utf, size_t len ) -> size_t
-    {  return strlen16( utf, len );  }
+    {  return strlenit( (const utf16*)nullptr, utf, len );  }
   template <> auto  utf8::strlen<utf16>( const uint32_t* utf, size_t len ) -> size_t
-    {  return strlen16( utf, len );  }
+    {  return strlenit( (const utf16*)nullptr, utf, len );  }
 
   template <> auto  utf8::strlen<utf16>( const std::basic_string<char>& str ) -> size_t
     {  return strlen<utf16>( str.c_str(), str.length() );  }
@@ -483,11 +483,11 @@ namespace mtc {
     {  return strlen<utf16>( str.c_str(), str.length() );  }
 
   template <> auto  utf8::strlen<utf32>( const char* utf, size_t len ) -> size_t
-    {  return strlen32( utf, len );  }
+    {  return strlenit( (const utf32*)nullptr, utf, len );  }
   template <> auto  utf8::strlen<utf32>( const widechar* utf, size_t len ) -> size_t
-    {  return strlen32( utf, len );  }
+    {  return strlenit( (const utf32*)nullptr, utf, len );  }
   template <> auto  utf8::strlen<utf32>( const uint32_t* utf, size_t len ) -> size_t
-    {  return strlen32( utf, len );  }
+    {  return strlenit( (const utf32*)nullptr, utf, len );  }
 
   template <> auto  utf8::strlen<utf32>( const std::basic_string<char>& str ) -> size_t
     {  return strlen<utf32>( str.c_str(), str.length() );  }
