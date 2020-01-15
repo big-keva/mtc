@@ -102,7 +102,11 @@ namespace mtc {
         widechar  buf[2];
 
         for ( auto end = utf + checklen( utf, len ); utf != end; )
-          utf += decode( buf, 2, utf, end - utf );
+        {
+          auto  ccu = charsize( utf, end - utf );
+            cch += decode( buf, 2, utf, ccu );
+          utf += ccu;
+        }
       
         return cch;
       }
