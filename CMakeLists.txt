@@ -67,8 +67,12 @@ install(
     zmap.h
     z_js.h
     zipStream.h
-    net/sockets.hpp
   DESTINATION include/mtc
+)
+install(
+  FILES
+    net/sockets.hpp
+  DESTINATION include/mtc/net
 )
 
 enable_testing()

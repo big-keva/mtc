@@ -333,7 +333,6 @@ namespace sockets {
     struct sockaddr_storage scaddr;
     socklen_t               scsize = sizeof(scaddr);
     char                    ip_str[INET6_ADDRSTRLEN];
-    uint16_t                dwport;
 
     if ( getpeername( api::CastToHandle( s ), (struct sockaddr*)&scaddr, &scsize ) != 0 )
       return "";
@@ -342,13 +341,11 @@ namespace sockets {
     if ( scaddr.ss_family == AF_INET )
     {
       struct sockaddr_in *s = (struct sockaddr_in *)&scaddr;
-      dwport = ntohs( s->sin_port );
       inet_ntop( AF_INET, &s->sin_addr, ip_str, sizeof(ip_str) );
     }
       else
     { // AF_INET6
       struct sockaddr_in6 *s = (struct sockaddr_in6 *)&scaddr;
-      dwport = ntohs(s->sin6_port);
       inet_ntop(AF_INET6, &s->sin6_addr, ip_str, sizeof(ip_str) );
     }
     return ip_str;
