@@ -155,13 +155,13 @@ namespace fs {
     while ( pwsstr != pwsend )
       *pwsstr++ = 0;
 
-    utf::encode( cstr(), cchstr * 6, wstr(), cchstr );
+    utf8::encode( cstr(), cchstr * 6, wstr(), cchstr );
   }
 
   inline
   directory::string::inner_t::inner_t( const char* s, size_t l ): refcnt( 0 ), cchstr( l )
   {
-    utf::decode( wstr(), cchstr + 1, strcpy( cstr(), s ) );
+    utf16::encode( wstr(), cchstr + 1, strcpy( cstr(), s ) );
   }
 
   template <class chartype> inline
@@ -190,7 +190,7 @@ namespace fs {
   auto  directory::string::inner_t::create( const char* str, size_t cch ) -> inner_t*
   {
     auto    cccstr = strlen( str, cch );
-    auto    ccwstr = utf::cbchar( str, cccstr );
+    auto    ccwstr = utf::strlen( utf16(), str, cccstr );
     size_t  nalloc = sizeof(inner_t) + (ccwstr + 1) * sizeof(widechar) + (cccstr + 1) * sizeof(char);
 
     return new( new char[nalloc] ) inner_t( str, ccwstr );
@@ -333,7 +333,7 @@ namespace fs {
   {
     widechar  wcs[1024];
 
-    if ( utf::decode( wcs, sizeof(wcs) / sizeof(wcs[0]), dir ) == (size_t)-1 )
+    if ( utf16::encode( wcs, sizeof(wcs) / sizeof(wcs[0]), dir ) == (size_t)-1 )
       return directory();
     return std::move( open( wcs, uflags ) );
   }

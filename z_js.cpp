@@ -312,7 +312,7 @@ namespace parse {
             else
         // transform string to pseudo-unicode sequence by expanding previous characters;
         // finish loading as widestr
-          return val.set_widestr( std::move( utf8::mbtowc( mb_str ) ) ), wFetch( src, val );
+          return val.set_widestr( std::move( utf16::expand( mb_str ) ) ), wFetch( src, val );
         }
           else
         switch ( chnext )
@@ -363,16 +363,16 @@ namespace parse {
       if ( val.get_charstr() != nullptr )
       {
         if ( utf8::detect( *val.get_charstr() ) )
-          val.set_widestr( std::move( utf8::decode<utf16>( *val.get_charstr() ) ) );
+          val.set_widestr( std::move( utf16::encode( *val.get_charstr() ) ) );
       }
         else
       if ( val.get_widestr() != nullptr )
       {
         if ( utf8::detect( *val.get_widestr() ) )
         {
-          val.get_widestr()->resize( utf8::decode(
-            (widechar*)val.get_widestr()->c_str(), val.get_widestr()->length(),
-                       val.get_widestr()->c_str(), val.get_widestr()->length() ) );
+          val.get_widestr()->resize( utf::encode(
+            utf16::out( (widechar*)val.get_widestr()->c_str(), val.get_widestr()->length() ),
+            utf16::in( val.get_widestr()->c_str(), val.get_widestr()->length() ) ) );
         }
       }
       return val;
@@ -416,13 +416,13 @@ namespace parse {
       if ( ps != nullptr )
       {
         return utf8::detect( *ps )
-          ? r = std::move( utf8::decode<utf16>( *ps ) )
-          : r = std::move( utf8::mbtowc( *ps ) );
+          ? r = std::move( utf16::encode( *ps ) )
+          : r = std::move( utf16::expand( *ps ) );
       }
       if ( pw != nullptr )
       {
         return utf8::detect( *pw )
-          ? r = std::move( utf8::decode<utf16>( *pw ) )
+          ? r = std::move( utf::encode( utf16::out(), utf8::in( *pw ) ) )
           : r = std::move( *pw );
       }
       throw std::logic_error( "must not get control" );
