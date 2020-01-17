@@ -264,7 +264,7 @@ namespace mtc {
     static  auto  encode( const utf16::string_t& ) -> string_t;
 
   public:
-    static  auto  charsize( uint32_t uch ) -> size_t  {  return 1;  }
+    static  auto  charsize( uint32_t ) -> size_t  {  return 1;  }
 
   };
 
@@ -948,7 +948,7 @@ namespace mtc {
       while ( src.get_char( chr ) && out.put_char( chr ) )
         (void)NULL;
 
-      return (std::conditional<std::is_reference<res>::value, res, res&&>::type)(out.finalize());
+      return (typename std::conditional<std::is_reference<res>::value, res, res&&>::type)(out.finalize());
     }
 
   inline  auto  utf::strlen( const utf8&  out, const char* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
