@@ -17,7 +17,6 @@ add_library(mtc STATIC
   zipStream.cpp
   config.cpp
   dir.cpp
-  utf.cpp
   zval.cpp
   zmap.cpp
   z_js.cpp
