@@ -74,23 +74,25 @@
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)/tmp/$(Platform).$(Configuration)/mtc/tests/$(ProjectName)/</OutDir>
     <IntDir>$(SolutionDir)/tmp/$(Platform).$(Configuration)/mtc/tests/$(ProjectName)/</IntDir>
-    <TargetName>$(ProjectName)</TargetName>
+    <TargetName>$(ProjectName)-$(Platform)-$(Configuration)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)/tmp/$(Platform).$(Configuration)/mtc/tests/$(ProjectName)/</OutDir>
     <IntDir>$(SolutionDir)/tmp/$(Platform).$(Configuration)/mtc/tests/$(ProjectName)/</IntDir>
-    <TargetName>$(ProjectName)</TargetName>
+    <TargetName>$(ProjectName)-$(Platform)-$(Configuration)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)/tmp/$(Platform).$(Configuration)/mtc/tests/$(ProjectName)/</OutDir>
     <IntDir>$(SolutionDir)/tmp/$(Platform).$(Configuration)/mtc/tests/$(ProjectName)/</IntDir>
+    <TargetName>$(ProjectName)-$(Platform)-$(Configuration)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)/tmp/$(Platform).$(Configuration)/mtc/tests/$(ProjectName)/</OutDir>
     <IntDir>$(SolutionDir)/tmp/$(Platform).$(Configuration)/mtc/tests/$(ProjectName)/</IntDir>
+    <TargetName>$(ProjectName)-$(Platform)-$(Configuration)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
