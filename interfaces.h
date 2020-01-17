@@ -195,9 +195,9 @@ namespace mtc
     mutable usemutex  locker;
     mutable iface*    piface;
 
-    template <class _do>  auto interlocked( _do do_ )
+    template <class _do>  auto interlocked( _do do_ ) -> decltype(do_())
       {  autolock  aulock( locker );  return do_();  }
-    template <class _do>  auto interlocked( _do do_ ) const
+    template <class _do>  auto interlocked( _do do_ ) const -> decltype(do_())
       {  autolock  aulock( locker );  return do_();  }
 
   protected:
