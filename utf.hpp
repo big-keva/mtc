@@ -75,10 +75,6 @@ namespace mtc {
 
   class utf
   {
-    friend class utf8;
-    friend class utf16;
-    friend class utf32;
-
   public:
     template <class target, class in>
     static  auto  strlen( const target&, in src ) -> size_t;
@@ -88,15 +84,15 @@ namespace mtc {
     static  auto  encode( target out, in src ) -> typename target::res_type;
 
   public:     // strlen
-    static  auto  strlen( const utf8& out, const char* str, size_t len = (size_t)-1 );
-    static  auto  strlen( const utf8& out, const widechar* str, size_t len = (size_t)-1 );
-    static  auto  strlen( const utf8& out, const uint32_t* str, size_t len = (size_t)-1 );
-    static  auto  strlen( const utf16& out, const char* str, size_t len = (size_t)-1 );
-    static  auto  strlen( const utf16& out, const widechar* str, size_t len = (size_t)-1 );
-    static  auto  strlen( const utf16& out, const uint32_t* str, size_t len = (size_t)-1 );
-    static  auto  strlen( const utf32& out, const char* str, size_t len = (size_t)-1 );
-    static  auto  strlen( const utf32& out, const widechar* str, size_t len = (size_t)-1 );
-    static  auto  strlen( const utf32& out, const uint32_t* str, size_t len = (size_t)-1 );
+    static  auto  strlen( const utf8& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf8& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf8& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf16& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf16& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf16& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf32& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf32& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const utf32& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
 
   public:     // old-style helpers for utf16/utf8 conversions
   /*
@@ -999,15 +995,15 @@ namespace mtc {
       return (typename std::conditional<std::is_reference<res>::value, res, res&&>::type)(out.finalize());
     }
 
-  inline  auto  utf::strlen( const utf8&  out, const char* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf8&  out, const widechar* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf8&  out, const uint32_t* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf16& out, const char* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf16& out, const widechar* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf16& out, const uint32_t* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf32& out, const char* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf32& out, const widechar* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf32& out, const uint32_t* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf8&  out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf8&  out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf8&  out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf16& out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf16& out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf16& out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf32& out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf32& out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf32& out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
 
   // compatibility family
 
