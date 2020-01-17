@@ -98,6 +98,54 @@ namespace mtc {
     static  auto  strlen( const utf32& out, const widechar* str, size_t len = (size_t)-1 );
     static  auto  strlen( const utf32& out, const uint32_t* str, size_t len = (size_t)-1 );
 
+  public:     // old-style helpers for utf16/utf8 conversions
+  /*
+   *  encode( pszout, cchout, pwssrc, cchsrc )
+   *  Кодирует символ в utf8
+   */  
+    static  auto  encode( char* out, size_t len, uint32_t wch ) -> size_t;
+  /*
+   *  encode( pszout, cchout, pwssrc, cchsrc )
+   *  Кодирует строку в utf8
+   */  
+    static  auto  encode( char* out, size_t len, const widechar* src, size_t cch = (size_t)-1 ) -> size_t;
+    static  auto  encode( const widechar*, size_t = (size_t)-1 ) -> charstr;
+    static  auto  encode( const widestr& ) -> charstr;
+
+  /*
+   *  decode( pwsout, cchout, pszsrc, cchsrc )
+   *  Декодирует строку из utf8 в utf16
+   */
+    inline  auto  decode( widechar* out, size_t len, const char* src, size_t cch = (size_t)-1 ) -> size_t;
+    static  auto  decode( const char*, size_t = (size_t)-1 ) -> widestr;
+    static  auto  decode( const charstr& ) -> widestr;
+
+  /*
+   *  cbchar( uint32_t uc )
+   *  Возвращает количество символов, которыми кодируется этот символ.
+   */
+    static  auto  cbchar( uint32_t ) -> size_t;
+  /*
+   *  cbchar( utfstr )
+   *  Возвращает количество байт, кодирующих первый символ строки.
+   */
+    static  auto  cbchar( const char* str, size_t len = (size_t)-1 ) -> size_t;
+  /*
+   * detect( utfstr )
+   * Возвращает признак того, что строка является utf8-строкой.
+   */
+    static  bool  detect( const char* str, size_t len = (size_t)-1 );
+  /*
+   * verify( utfstr )
+   * Возвращает признак того, что строка может быть корректной utf8-строкой.
+   */
+    static  bool  verify( const char* str, size_t len = (size_t)-1 );
+  /*
+   * strlen( utfstr )
+   * Возвращает количество символов, закодированных utf8-строкой.
+   */
+    static  auto  strlen( const char* str, size_t len = (size_t)-1 ) -> size_t;
+
   };
 
   class utf8
@@ -961,81 +1009,31 @@ namespace mtc {
   inline  auto  utf::strlen( const utf32& out, const widechar* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
   inline  auto  utf::strlen( const utf32& out, const uint32_t* str, size_t len ) {  return strlen( out, utf8::in( str, len ) );  }
 
-  // encode family
+  // compatibility family
 
-  /*
-   *  cbchar( uint32_t uc )
-   *  Возвращает количество символов, которыми кодируется этот символ.
-   */
-  inline  size_t  cbchar( uint32_t uch )
-    {  return utf8::charsize( uch );  }
-
-  /*
-   *  cbchar( utfstr )
-   *  Возвращает количество байт, кодирующих первый символ строки.
-   */
-  inline  size_t  cbchar( const char* str, size_t  len = (size_t)-1 )
-    {  return utf8::charsize( str, len );  }
-
-  /*
-   * detect( utfstr )
-   * Возвращает признак того, что строка является utf8-строкой.
-   */
-  inline  bool    detect( const char* str, size_t len = (size_t)-1 )
-    {  return utf8::detect( str, len );  }
-
-  /*
-   * verify( utfstr )
-   * Возвращает признак того, что строка может быть корректной utf8-строкой.
-   */
-  inline  bool    verify( const char* str, size_t len = (size_t)-1 )
-    {  return utf8::detect( str, len );  }
-
-  /*
-   * strlen( utfstr )
-   * Возвращает количество символов, закодированных utf8-строкой.
-   */
-  inline  size_t  strlen( const char* str, size_t len = (size_t)-1 )
-    {  return utf::strlen( utf16(), str, len );  }
-
-  /*
-   *  encode( pszout, cchout, pwssrc, cchsrc )
-   *  Кодирует символ в utf8
-   */  
-/*
-  inline  size_t  encode( char* out, size_t len, uint32_t wch )
+  inline  auto  utf::encode( char* out, size_t len, uint32_t wch ) -> size_t
     {  return encode( utf8::out( out, len ), wch );  }
-*/
-
-  /*
-   *  encode( pszout, cchout, pwssrc, cchsrc )
-   *  Кодирует строку в utf8
-   */  
-  /*
-  inline  size_t  encode( char* out, size_t len, const widechar* src, size_t cch = (size_t)-1 )
+  inline  auto  utf::encode( char* out, size_t len, const widechar* src, size_t cch ) -> size_t
     {  return encode( utf8::out( out, len ), utf16::in( src, cch ) );  }
-  inline  auto    encode( const widechar* src, size_t len = (size_t)-1 ) -> charstr
-    {
-      auto  str = utf8::string();
+  inline  auto  utf::encode( const widechar* str, size_t len ) -> charstr
+    {  return std::move( utf8::encode( str, len ) );  }
+  inline  auto  utf::encode( const widestr& str ) -> charstr
+    {  return std::move( utf8::encode( str ) );  }
 
-      return std::move( encode( utf8::out( str ), utf16::in( src, len ) ) );
-    }
-  inline  auto    encode( const widestr& str ) -> charstr
-    {  return std::move( encode( str.c_str(), str.length() ) );  }
-  */
-
-  /*
-   *  decode( pwsout, cchout, pszsrc, cchsrc )
-   *  Декодирует строку из utf8 в utf16
-   */
-   /*
-  inline  size_t  decode( widechar* out, size_t len, const char* src, size_t cch = (size_t)-1 )
+  inline  auto  utf::decode( widechar* out, size_t len, const char* src, size_t cch ) -> size_t
     {  return encode( utf16::out( out, len ), utf8::in( src, cch ) );  }
-  inline  auto    decode( const char* src, size_t len = (size_t)-1 ) -> widestr
-    {  return encode( utf16::string(), utf8::in( src, len ) );  }
-  inline  auto  decode( const charstr& str ) -> widestr
-    {  return std::move( decode( str.c_str(), str.length() ) );  }
-   */
+  inline  auto  utf::decode( const char* str, size_t len ) -> widestr
+    {  return std::move( utf16::encode( str, len ) );  }
+  inline  auto  utf::decode( const charstr& str ) -> widestr
+    {  return std::move( utf16::encode( str ) );  }
+
+  inline  auto  utf::cbchar( uint32_t uch ) -> size_t                     {  return utf8::charsize( uch );  }
+  inline  auto  utf::cbchar( const char* str, size_t  len ) -> size_t     {  return utf8::charsize( str, len );  }
+
+  inline  bool  utf::detect( const char* str, size_t len )                {  return utf8::detect( str, len );  }
+  inline  bool  utf::verify( const char* str, size_t len )                {  return utf8::detect( str, len );  }
+
+  inline  auto  utf::strlen( const char* str, size_t len ) -> size_t      {  return utf::strlen( utf16(), str, len );  }
 
 }
 
