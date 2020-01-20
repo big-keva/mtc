@@ -671,6 +671,7 @@ namespace mtc {
       using uchar = typename std::make_unsigned<_char>::type;
 
       auto  end = pch;
+      auto  upp = false;
 
       if ( cch == (size_t)-1 )  for ( ; *end != 0; ++end )  (void)NULL;
         else end += cch;
@@ -680,7 +681,7 @@ namespace mtc {
         auto  chnext = (uchar)*pch++;
 
         if ( (chnext & ~0x0ff) != 0 )   // upper characters are not parts of utf conversion
-          continue;
+          return false;
         if ( (chnext & ~0x07f) != 0 )   // check for utf character sequences
         {
           auto  nadded = (chnext & 0xe0) == 0xc0 ? 1 :
@@ -694,11 +695,11 @@ namespace mtc {
             if ( (*pch++ & 0xc0) != 0x80 )  return false;
               else --nadded;
 
-          if ( nadded != 0 )
-            return false;
+          if ( nadded == 0 )  upp = true;
+            else return false;
         }
       }
-      return true;
+      return upp;
     }
 
   template <class _char>
