@@ -577,85 +577,87 @@ namespace mtc
 
   auto  zval::fetch( zval&& zv ) -> zval&
     {
-      switch ( clear().vx_type = zv.vx_type )
-      {
-      # define  move( _type_ )  case z_##_type_:  \
-        new( &inner().v_##_type_ ) _type_##_t( std::move( zv.inner().v_##_type_ ) );  break;
-        move( char )
-        move( byte )
-        move( int16 )
-        move( int32 )
-        move( int64 )
-        move( word16 )
-        move( word32 )
-        move( word64 )
-        move( float )
-        move( double )
+      if ( this != &zv )
+        switch ( clear().vx_type = zv.vx_type )
+        {
+        # define  move( _type_ )  case z_##_type_:  \
+          new( &inner().v_##_type_ ) _type_##_t( std::move( zv.inner().v_##_type_ ) );  break;
+          move( char )
+          move( byte )
+          move( int16 )
+          move( int32 )
+          move( int64 )
+          move( word16 )
+          move( word32 )
+          move( word64 )
+          move( float )
+          move( double )
 
-        move( charstr )
-        move( widestr )
-        move( zmap )
-        move( uuid )
+          move( charstr )
+          move( widestr )
+          move( zmap )
+          move( uuid )
 
-        move( array_char )
-        move( array_byte )
-        move( array_int16 )
-        move( array_int32 )
-        move( array_int64 )
-        move( array_word16 )
-        move( array_word32 )
-        move( array_word64 )
-        move( array_float )
-        move( array_double )
-        move( array_charstr )
-        move( array_widestr )
-        move( array_zval )
-        move( array_zmap )
-        move( array_uuid )
-      # undef move
-      }
+          move( array_char )
+          move( array_byte )
+          move( array_int16 )
+          move( array_int32 )
+          move( array_int64 )
+          move( array_word16 )
+          move( array_word32 )
+          move( array_word64 )
+          move( array_float )
+          move( array_double )
+          move( array_charstr )
+          move( array_widestr )
+          move( array_zval )
+          move( array_zmap )
+          move( array_uuid )
+        # undef move
+        }
       return *this;
     }
 
   auto  zval::fetch( const zval& zv ) -> zval&
     {
-      switch ( clear().vx_type = zv.vx_type )
-      {
-      # define  copy( _type_ )  case z_##_type_:    \
-      new( &inner().v_##_type_ ) _type_##_t( zv.inner().v_##_type_ );  break;
-        copy( char )
-        copy( byte )
-        copy( int16 )
-        copy( int32 )
-        copy( int64 )
-        copy( word16 )
-        copy( word32 )
-        copy( word64 )
-        copy( float )
-        copy( double )
+      if ( this != &zv )
+        switch ( clear().vx_type = zv.vx_type )
+        {
+        # define  copy( _type_ )  case z_##_type_:    \
+        new( &inner().v_##_type_ ) _type_##_t( zv.inner().v_##_type_ );  break;
+          copy( char )
+          copy( byte )
+          copy( int16 )
+          copy( int32 )
+          copy( int64 )
+          copy( word16 )
+          copy( word32 )
+          copy( word64 )
+          copy( float )
+          copy( double )
 
-        copy( charstr )
-        copy( widestr )
-        copy( zmap )
-        copy( uuid )
+          copy( charstr )
+          copy( widestr )
+          copy( zmap )
+          copy( uuid )
 
-        copy( array_char )
-        copy( array_byte )
-        copy( array_int16 )
-        copy( array_int32 )
-        copy( array_int64 )
-        copy( array_word16 )
-        copy( array_word32 )
-        copy( array_word64 )
-        copy( array_float )
-        copy( array_double )
-        copy( array_charstr )
-        copy( array_widestr )
-        copy( array_zval )
-        copy( array_zmap )
-        copy( array_uuid )
-      # undef copy
-      }
+          copy( array_char )
+          copy( array_byte )
+          copy( array_int16 )
+          copy( array_int32 )
+          copy( array_int64 )
+          copy( array_word16 )
+          copy( array_word32 )
+          copy( array_word64 )
+          copy( array_float )
+          copy( array_double )
+          copy( array_charstr )
+          copy( array_widestr )
+          copy( array_zval )
+          copy( array_zmap )
+          copy( array_uuid )
+        # undef copy
+        }
       return *this;
     }
 
