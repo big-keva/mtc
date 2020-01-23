@@ -363,7 +363,12 @@ namespace parse {
             else
         // transform string to pseudo-unicode sequence by expanding previous characters;
         // finish loading as widestr
-          return val.set_widestr( std::move( utf16::expand( mb_str ) ) ), wFetch( src, val );
+          {
+            auto  wc_str = utf16::expand( mb_str );
+            
+            wc_str.push_back( uvalue );
+            return val.set_widestr( std::move( wc_str ) ), wFetch( src, val );
+          }
         }
           else
         switch ( chnext )
@@ -409,6 +414,13 @@ namespace parse {
   */
   auto  zsLoad( reader& src, zval& val ) -> zval&
     {
+      auto  is_simple_codepage = []( const widestr& s ) -> bool
+        {
+          for ( auto& c: s )
+            if ( c > 0xff ) return false;
+          return true;
+        };
+
       sParse( src, val );
 
       if ( val.get_charstr() != nullptr )
@@ -424,6 +436,16 @@ namespace parse {
           val.get_widestr()->resize( utf::encode(
             utf16::out( (widechar*)val.get_widestr()->c_str(), val.get_widestr()->length() ),
             utf16::in( val.get_widestr()->c_str(), val.get_widestr()->length() ) ) );
+        }
+          else
+        if ( is_simple_codepage( *val.get_widestr() ) )
+        {
+          auto  newstr = charstr();
+
+          for ( auto& c: *val.get_widestr() )
+            newstr.push_back( (char)(unsigned char)c );
+
+          val.set_charstr( std::move( newstr ) );
         }
       }
       return val;
