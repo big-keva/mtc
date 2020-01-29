@@ -56,21 +56,7 @@ namespace mtc {
 namespace json {
 namespace parse {
 
-  auto  Parse( reader&, byte_t&,   const zval* revive = nullptr ) -> byte_t&;
-  auto  Parse( reader&, uint16_t&, const zval* revive = nullptr ) -> uint16_t&;
-  auto  Parse( reader&, uint32_t&, const zval* revive = nullptr ) -> uint32_t&;
-  auto  Parse( reader&, uint64_t&, const zval* revive = nullptr ) -> uint64_t&;
-
-  auto  Parse( reader&, char_t& , const zval* revive = nullptr ) -> char_t&;
-  auto  Parse( reader&, int16_t&, const zval* revive = nullptr ) -> int16_t&;
-  auto  Parse( reader&, int32_t&, const zval* revive = nullptr ) -> int32_t&;
-  auto  Parse( reader&, int64_t&, const zval* revive = nullptr ) -> int64_t&;
-
-  auto  Parse( reader&, float&  , const zval* revive = nullptr ) -> float&;
-  auto  Parse( reader&, double& , const zval* revive = nullptr ) -> double&;
-
-  auto  Parse( reader&, mtc::charstr&, const zval* revive = nullptr ) -> mtc::charstr&;
-  auto  Parse( reader&, mtc::widestr&, const zval* revive = nullptr ) -> mtc::widestr&;
+  auto  Parse( reader& s, zmap& z, const zval* revive ) -> zmap&;
 
   // reader implementation
 
@@ -567,7 +553,12 @@ namespace parse {
       return pval != nullptr ? *pval : (unsigned)zval::z_untyped;
     }
 
-  auto  Parse( reader& s, zval& z, const zval* revive ) -> mtc::zval&
+  auto  Parse( reader& s, zmap& z, const zval* revive ) -> zmap&
+    {
+      return Parse( s, z, revive != nullptr ? revive->get_zmap() : nullptr );
+    }
+
+  auto  Parse( reader& s, zval& z, const zval* revive ) -> zval&
     {
       char        chnext;
       unsigned    v_type = zval::z_untyped;
@@ -841,5 +832,36 @@ namespace parse {
 
     return z;
   }
+
+  auto  Parse( reader& src, array_char& out, const zval* revive ) -> array_char&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_byte& out, const zval* revive ) -> array_byte&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_int16& out, const zval* revive ) -> array_int16&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_word16& out, const zval* revive ) -> array_word16&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_int32& out,  const zval* revive ) -> array_int32&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_word32& out, const zval* revive ) -> array_word32&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_int64& out,  const zval* revive ) -> array_int64&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_word64& out, const zval* revive ) -> array_word64&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_float& out,  const zval* revive ) -> array_float&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_double& out, const zval* revive ) -> array_double&
+    {  return Parse<>( src, out, revive );  }
+
+  auto  Parse( reader& src, array_charstr& out, const zval* revive ) -> array_charstr&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_widestr& out, const zval* revive ) -> array_widestr&
+    {  return Parse<>( src, out, revive );  }
+
+  auto  Parse( reader& src, array_zmap& out, const zval* revive ) -> array_zmap&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_zval& out, const zval* revive ) -> array_zval&
+    {  return Parse<>( src, out, revive );  }
 
 }}}

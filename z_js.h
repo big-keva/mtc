@@ -363,9 +363,51 @@ namespace json {
       bool    getfour( char* four );
     };
 
+    auto  Parse( reader&, byte_t&,   const zval* revive = nullptr ) -> byte_t&;
+    auto  Parse( reader&, uint16_t&, const zval* revive = nullptr ) -> uint16_t&;
+    auto  Parse( reader&, uint32_t&, const zval* revive = nullptr ) -> uint32_t&;
+    auto  Parse( reader&, uint64_t&, const zval* revive = nullptr ) -> uint64_t&;
+
+    auto  Parse( reader&, char_t& , const zval* revive = nullptr ) -> char_t&;
+    auto  Parse( reader&, int16_t&, const zval* revive = nullptr ) -> int16_t&;
+    auto  Parse( reader&, int32_t&, const zval* revive = nullptr ) -> int32_t&;
+    auto  Parse( reader&, int64_t&, const zval* revive = nullptr ) -> int64_t&;
+
+    auto  Parse( reader&, float&  , const zval* revive = nullptr ) -> float&;
+    auto  Parse( reader&, double& , const zval* revive = nullptr ) -> double&;
+
+    auto  Parse( reader&, charstr&, const zval* revive = nullptr ) -> charstr&;
+    auto  Parse( reader&, widestr&, const zval* revive = nullptr ) -> widestr&;
+
     auto  Parse( reader&, zval&, const zval* revive = nullptr ) -> zval&;
     auto  Parse( reader&, zmap&, const zmap* revive = nullptr ) -> zmap&;
 
+    auto  Parse( reader&, array_char&,   const zval* revive = nullptr ) -> array_char&;
+    auto  Parse( reader&, array_byte&,   const zval* revive = nullptr ) -> array_byte&;
+    auto  Parse( reader&, array_int16&,  const zval* revive = nullptr ) -> array_int16&;
+    auto  Parse( reader&, array_word16&, const zval* revive = nullptr ) -> array_word16&;
+    auto  Parse( reader&, array_int32&,  const zval* revive = nullptr ) -> array_int32&;
+    auto  Parse( reader&, array_word32&, const zval* revive = nullptr ) -> array_word32&;
+    auto  Parse( reader&, array_int64&,  const zval* revive = nullptr ) -> array_int64&;
+    auto  Parse( reader&, array_word64&, const zval* revive = nullptr ) -> array_word64&;
+    auto  Parse( reader&, array_float&,  const zval* revive = nullptr ) -> array_float&;
+    auto  Parse( reader&, array_double&, const zval* revive = nullptr ) -> array_double&;
+
+    auto  Parse( reader&, array_charstr&, const zval* revive = nullptr ) -> array_charstr&;
+    auto  Parse( reader&, array_widestr&, const zval* revive = nullptr ) -> array_widestr&;
+
+    auto  Parse( reader&, array_zmap&, const zval* revive = nullptr ) -> array_zmap&;
+    auto  Parse( reader&, array_zval&, const zval* revive = nullptr ) -> array_zval&;
+
+  }
+
+  template <class S, class T>
+  S*  Parse( S* s, T& t, const zval& revive = zmap() )
+  {
+    parse::source<S>  stream( s );
+    parse::reader     reader( stream );
+
+    return parse::Parse( reader, t, &revive ), stream;
   }
 
   template <class S>
