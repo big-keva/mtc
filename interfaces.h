@@ -158,13 +158,10 @@ namespace mtc
       }
 
   public:     // conversions
-          iface*  operator -> ()       {  assert( piface != nullptr );  return piface;  }
-    const iface*  operator -> () const {  assert( piface != nullptr );  return piface;  }
-          iface*  ptr()                {  return piface;  }
-    const iface*  ptr() const          {  return piface;  }
+          iface*  operator -> () const {  assert( piface != nullptr );  return piface;  }
+          iface*  ptr() const          {  return piface;  }
 
-    operator const iface*() const {  return piface;  }
-    operator iface*() {  return piface;  }
+    operator iface*() const {  return piface;  }
 
     operator void**() {  return &piface;  }
     operator iface**()  {  return &piface;  }
