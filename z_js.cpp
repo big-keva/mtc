@@ -183,7 +183,7 @@ namespace parse {
       if ( !is_num_char( chnext = stm.nospace() ) )
         throw error( "0..9 expected" );
 
-      for ( u = (uint8_t)chnext - '0'; is_num_char( chnext = stm.getnext() ); )
+      for ( u = ((uint8_t)chnext - (uint8_t)'0'); is_num_char( chnext = stm.getnext() ); )
         u = u * 10 + (uint8_t)chnext - '0';
 
       return stm.putback( chnext ), u;
@@ -817,7 +817,7 @@ namespace parse {
       try
         {  Parse( s, *newval, revval );  }
       catch ( const error& jx )
-        {  throw error( strprintf( "%s while parsing variable value", jx.what() ) );  }
+        {  throw error( strprintf( "%s -> %s", zv_key.to_string().c_str(), jx.what() ) );  }
 
     // check for comma
       if ( (chnext = s.nospace()) == ',' )
