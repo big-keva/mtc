@@ -439,18 +439,22 @@ namespace mtc
 
   zmap& zmap::operator=( zmap&& z )
     {
+      auto  set( std::move( z ) );
+
       if ( p_data != nullptr && p_data->detach() == 0 )
         delete p_data;
-      if ( (p_data = z.p_data) != nullptr )
-        z.p_data = nullptr;
+      if ( (p_data = set.p_data) != nullptr )
+        set.p_data = nullptr;
       return *this;
     }
 
   zmap& zmap::operator=( const zmap& z )
     {
+      auto  set( z );
+
       if ( p_data != nullptr && p_data->detach() == 0 )
         delete p_data;
-      if ( (p_data = z.p_data) != nullptr )
+      if ( (p_data = set.p_data) != nullptr )
         p_data->attach();
       return *this;
     }
