@@ -1124,6 +1124,10 @@ namespace mtc
     auto  operator == ( const key& k ) const -> bool;
     auto  operator != ( const key& k ) const -> bool {  return !(*this == k);  }
 
+  public:
+    static
+    auto  null() {  return key();  }
+
   public: // data
     auto  type() const  -> unsigned       {  return _typ;  }
     auto  data() const  -> const uint8_t* {  return _ptr;  }
