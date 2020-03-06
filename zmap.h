@@ -1126,7 +1126,7 @@ namespace mtc
 
   public:
     static
-    auto  null() {  return key();  }
+    auto  null() -> key {  return key();  }
 
   public: // data
     auto  type() const  -> unsigned       {  return _typ;  }
