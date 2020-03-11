@@ -156,7 +156,7 @@ namespace sockets {
     socket  max = invalid_socket;
 
   public:
-    inner_t( )  {  FD_ZERO( this );  }
+    inner_t( )  {  FD_ZERO( &fds );  }
 
     void  set( sockets::socket s )
       {
