@@ -52,8 +52,10 @@ SOFTWARE.
 # pragma once
 # if !defined( __mtc_net_sockets_hpp__ )
 # define __mtc_net_sockets_hpp__
+# include <functional>
 # include <cstdint>
 # include <string>
+# include <memory>
 # include <chrono>
 # if defined( _WIN32 )
 #   include <winerror.h>
@@ -89,12 +91,86 @@ namespace sockets {
   auto  accept( socket, uint32_t wait = (uint32_t)-1 ) -> socket;
   auto  detach( socket ) -> void;
 
-  namespace select
+  class select
   {
-    auto  read( socket, uint32_t wait = (uint32_t)-1 ) -> unsigned;
-    auto  send( socket, uint32_t wait = (uint32_t)-1 ) -> unsigned;
-    auto  both( socket, uint32_t wait = (uint32_t)-1 ) -> unsigned;   // 0x01 for read, 0x02 for write
-  }
+  public:
+    class const_iterator;
+    class input_sockets
+    {
+      friend class select;
+
+      class inner_t;
+
+    public:
+      input_sockets()  {}
+      input_sockets( const input_sockets& fs ): fdset( fs.fdset ) {}
+      input_sockets( socket s )  {  set( s );  }
+      input_sockets( const std::initializer_list<socket>& s ) {  set( s );  }
+      template <class _It>
+      input_sockets( _It beg, _It end )  {  set( beg, end );  }
+      template <class _It>
+      input_sockets( socket s, _It beg, _It end )  {  set( s ).set( beg, end );  }
+      template <class _It>
+      input_sockets( const std::initializer_list<socket>& s, _It beg, _It end )  {  set( s ).set( beg, end );  }
+
+    public:
+      const_iterator  begin() const;
+      const_iterator  end() const;
+
+    public:
+      auto  set( socket ) -> input_sockets&;
+      auto  set( const std::initializer_list<socket>& s ) -> input_sockets& {  return set( s.begin(), s.end() );  }
+      template <class _It>
+      auto  set( _It beg, _It end ) -> input_sockets& {  while ( beg != end )  set( *beg++ );  return *this;  }
+
+    protected:
+      std::shared_ptr<inner_t>  fdset;
+
+    };
+
+  public:
+    select() = default;
+    select( const input_sockets&, const input_sockets&, const input_sockets&, uint32_t = (uint32_t)-1 );
+
+  public:
+    auto  read() const -> const input_sockets&;
+    auto  send() const -> const input_sockets&;
+    auto  expt() const -> const input_sockets&;
+
+  public:
+    static  auto  read( socket, uint32_t wait = (uint32_t)-1 ) -> unsigned;
+    static  auto  send( socket, uint32_t wait = (uint32_t)-1 ) -> unsigned;
+    static  auto  both( socket, uint32_t wait = (uint32_t)-1 ) -> unsigned;   // 0x01 for read, 0x02 for write
+
+  protected:
+    input_sockets rd;
+    input_sockets wr;
+    input_sockets ex;
+
+  };
+
+  class select::const_iterator
+  {
+    friend class select;
+
+    std::shared_ptr<input_sockets::inner_t> fdset;
+    socket                                  fnext = invalid_socket;
+
+    const_iterator( std::shared_ptr<input_sockets::inner_t> );
+
+  public:
+    const_iterator() = default;
+    const_iterator( const const_iterator& );
+    auto  operator = ( const const_iterator& ) -> const_iterator&;
+
+    auto  operator ++ () -> const_iterator&;
+    auto  operator ++ ( int ) -> const_iterator;
+
+    bool  operator == ( const const_iterator& it ) const;
+    bool  operator != ( const const_iterator& it ) const  {  return !(*this == it);  }
+
+    auto  operator * () const -> socket;
+  };
 
   namespace io
   {

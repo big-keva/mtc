@@ -50,6 +50,7 @@ SOFTWARE.
 
 */
 # include "sockets.hpp"
+# include <algorithm>
 # include <stdexcept>
 # include <cassert>
 # include <cstring>
@@ -145,6 +146,177 @@ namespace sockets {
 
   auto  api::CastToSocket( socket s ) -> sockets::socket  {  return reinterpret_cast<sockets::socket>( s );  }
   auto  api::CastToHandle( sockets::socket s ) -> socket  {  return (socket)(uint64_t)s;  }
+
+  // select::input_sockets implementation
+
+  class select::input_sockets::inner_t
+  {
+  public:
+    fd_set  fds;
+    socket  max = invalid_socket;
+
+  public:
+    inner_t( )  {  FD_ZERO( this );  }
+
+    void  set( sockets::socket s )
+      {
+        if ( s != invalid_socket )
+        {
+          FD_SET( api::CastToHandle( s ), &fds );
+
+          if ( (int)api::CastToHandle( s ) > (int)api::CastToHandle( max ) )
+            max = s;
+        }
+      }
+  };
+
+  auto  select::input_sockets::begin() const -> const_iterator  {  return const_iterator( fdset );  }
+  auto  select::input_sockets::end() const -> const_iterator  {  return const_iterator();  }
+
+  auto  select::input_sockets::set( socket s ) -> input_sockets&
+  {
+    if ( fdset == nullptr )
+      fdset = std::make_shared<inner_t>();
+    return fdset->set( s ), *this;
+  }
+
+  // select::const_iterator implementation
+
+  select::const_iterator::const_iterator( std::shared_ptr<input_sockets::inner_t> p ):
+    fdset( p )
+  {
+    auto  snext = api::CastToHandle( invalid_socket );
+
+    if ( fdset != nullptr )
+    {
+      while ( fnext == invalid_socket && snext <= api::CastToHandle( fdset->max ) )
+        if ( FD_ISSET( snext, &fdset->fds ) ) fnext = api::CastToSocket( snext );
+          else ++snext;
+    }
+
+    if ( fnext == invalid_socket )
+      fdset.reset();
+  }
+
+  select::const_iterator::const_iterator( const const_iterator& it ):
+    fdset( it.fdset ), fnext( it.fnext )  {}
+
+  auto  select::const_iterator::operator = ( const const_iterator& it ) -> const_iterator&
+  {
+    fdset = it.fdset;
+    fnext = it.fnext;
+    return *this;
+  }
+
+  auto  select::const_iterator::operator ++ () -> const_iterator&
+  {
+    if ( fdset == nullptr )
+      throw std::invalid_argument( "invalid ++ call to uninitialized iterator" );
+
+    for ( auto  snext = api::CastToHandle( fnext ) + 1; snext <= api::CastToHandle( fdset->max ); ++snext )
+      if ( FD_ISSET( snext, &fdset->fds ) )
+        return fnext = api::CastToSocket( snext ), *this;
+
+    return fnext = invalid_socket, fdset.reset(), *this;
+  }
+
+  auto  select::const_iterator::operator ++ ( int ) -> const_iterator
+  {
+    auto  ret( *this );
+      operator ++();
+    return ret;
+  }
+
+  bool  select::const_iterator::operator == ( const const_iterator& it ) const
+  {
+    return fnext == it.fnext && fdset == it.fdset;
+  }
+
+  auto  select::const_iterator::operator * () const -> socket
+  {
+    if ( fnext == invalid_socket )
+      throw std::invalid_argument( "invalid * call to iterator" );
+    return fnext;
+  }
+
+  // select implementation
+
+  select::select( const input_sockets& r, const input_sockets& w, const input_sockets& x, uint32_t waitms ):
+    rd( r ), wr( w ), ex( x )
+  {
+    auto  w_time = make_timeval( waitms );
+    int   so_max = -1;
+
+    if ( rd.fdset != nullptr && (int)api::CastToHandle( rd.fdset->max ) > so_max )
+      so_max = api::CastToHandle( rd.fdset->max );
+    if ( wr.fdset != nullptr && (int)api::CastToHandle( wr.fdset->max ) > so_max )
+      so_max = api::CastToHandle( wr.fdset->max );
+    if ( ex.fdset != nullptr && (int)api::CastToHandle( ex.fdset->max ) > so_max )
+      so_max = api::CastToHandle( ex.fdset->max );
+
+    if ( so_max != -1 )
+    {
+      auto  rds = rd.fdset != nullptr ? &rd.fdset->fds : nullptr;
+      auto  wrs = wr.fdset != nullptr ? &wr.fdset->fds : nullptr;
+      auto  exs = ex.fdset != nullptr ? &ex.fdset->fds : nullptr;
+      auto  res = ::select( 1 + so_max, rds, wrs, exs, &w_time );
+
+      if ( res <= 0 )
+      {
+        rd.fdset.reset();
+        wr.fdset.reset();
+        ex.fdset.reset();
+      }
+    }
+  }
+
+  auto  select::read() const -> const input_sockets&  {  return rd;  }
+  auto  select::send() const -> const input_sockets&  {  return wr;  }
+  auto  select::expt() const -> const input_sockets&  {  return ex;  }
+
+  auto  select::read( socket sockid, uint32_t waitms ) -> unsigned
+  {
+    fd_set  rd_set;
+    auto    w_time = make_timeval( waitms );
+
+    if ( sockid == invalid_socket )
+      return 0;
+
+    FD_ZERO( &rd_set );   FD_SET( api::CastToHandle( sockid ), &rd_set );
+
+    return ::select( 1 + (int)api::CastToHandle( sockid ), &rd_set, nullptr, nullptr, &w_time ) > 0 ? 0x01 : 0x00;
+  }
+
+  auto  select::send( socket sockid, uint32_t waitms ) -> unsigned
+  {
+    fd_set  wr_set;
+    auto    w_time = make_timeval( waitms );
+
+    if ( sockid == invalid_socket )
+      return 0;
+
+    FD_ZERO( &wr_set );   FD_SET( api::CastToHandle( sockid ), &wr_set );
+
+    return ::select( 1 + (int)api::CastToHandle( sockid ), nullptr, &wr_set, nullptr, &w_time ) > 0 ? 0x02 : 0x00;
+  }
+
+  auto  select::both( socket sockid, uint32_t waitms ) -> unsigned
+  {
+    fd_set  rd_set;   FD_ZERO( &rd_set );   FD_SET( api::CastToHandle( sockid ), &rd_set );   
+    fd_set  wr_set = rd_set;
+    auto    w_time = make_timeval( waitms );
+    auto    result = 0U;
+
+    if ( sockid == invalid_socket )
+      return 0;
+
+    if ( ::select( 1 + (int)api::CastToHandle( sockid ), &rd_set, &wr_set, nullptr, &w_time ) > 0 )
+    {
+      if ( FD_ISSET( api::CastToHandle( sockid ), &rd_set ) ) result |= 0x01;
+      if ( FD_ISSET( api::CastToHandle( sockid ), &wr_set ) ) result |= 0x02;
+    }
+    return result;
+  }
 
   // socket impementation
 
@@ -271,54 +443,6 @@ namespace sockets {
   auto  detach( socket sockid ) -> void
   {
     api::DetachSocket( api::CastToHandle( sockid ) );
-  }
-
-  namespace select
-  {
-    auto  read( socket sockid, uint32_t waitms ) -> unsigned
-    {
-      fd_set  rd_set;
-      auto    w_time = make_timeval( waitms );
-
-      if ( sockid == invalid_socket )
-        return 0;
-
-      FD_ZERO( &rd_set );   FD_SET( api::CastToHandle( sockid ), &rd_set );
-
-      return ::select( 1 + (int)api::CastToHandle( sockid ), &rd_set, nullptr, nullptr, &w_time ) > 0 ? 0x01 : 0x00;
-    }
-
-    auto  send( socket sockid, uint32_t waitms ) -> unsigned
-    {
-      fd_set  wr_set;
-      auto    w_time = make_timeval( waitms );
-
-      if ( sockid == invalid_socket )
-        return 0;
-
-      FD_ZERO( &wr_set );   FD_SET( api::CastToHandle( sockid ), &wr_set );
-
-      return ::select( 1 + (int)api::CastToHandle( sockid ), nullptr, &wr_set, nullptr, &w_time ) > 0 ? 0x02 : 0x00;
-    }
-
-    auto  both( socket sockid, uint32_t waitms ) -> unsigned
-    {
-      fd_set  rd_set;   FD_ZERO( &rd_set );   FD_SET( api::CastToHandle( sockid ), &rd_set );   
-      fd_set  wr_set = rd_set;
-      auto    w_time = make_timeval( waitms );
-      auto    result = 0U;
-
-      if ( sockid == invalid_socket )
-        return 0;
-
-      if ( ::select( 1 + (int)api::CastToHandle( sockid ), &rd_set, &wr_set, nullptr, &w_time ) > 0 )
-      {
-        if ( FD_ISSET( api::CastToHandle( sockid ), &rd_set ) ) result |= 0x01;
-        if ( FD_ISSET( api::CastToHandle( sockid ), &wr_set ) ) result |= 0x02;
-      }
-      return result;
-    }
-
   }
 
   namespace io
