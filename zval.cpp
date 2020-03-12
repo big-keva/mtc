@@ -181,7 +181,7 @@ namespace mtc
 
   // default compare functions
   template <class A, class B>
-  auto  CompTo( const A& a, const B& b ) -> unsigned {  return 0x00;  }
+  auto  CompTo( const A&, const B& ) -> unsigned {  return 0x00;  }
 
   // compare numeric values
   # define derive_compare( _type_ ) \
