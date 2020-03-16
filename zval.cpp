@@ -184,21 +184,6 @@ namespace mtc
   template <class A, class B>
   auto  CompTo( const A&, const B& ) -> unsigned {  return 0x00;  }
 
-  // compare numeric values
-  # define derive_compare( _type_ ) \
-  template <> auto  CompTo( const _type_& _1, const _type_& _2 ) -> unsigned {  return CmpRes( (_1 > _2) - (_1 < _2) );  }
-    derive_compare( char )
-    derive_compare( byte )
-    derive_compare( int16_t )
-    derive_compare( int32_t )
-    derive_compare( int64_t )
-    derive_compare( word16_t )
-    derive_compare( word32_t )
-    derive_compare( word64_t )
-    derive_compare( float )
-    derive_compare( double )
-  # undef derive_compare
-
   struct signed_unsigned
   {
     template <class A, class B>
@@ -236,16 +221,31 @@ namespace mtc
   template <class A, class B>
   auto  mkDiff( const A& a, const B& b ) -> int
   {
-    return std::conditional<std::is_floating_point<A>::value || std::is_floating_point<B>::value,
+    return std::conditional<std::is_floating_point<A>::value || std::is_floating_point<B>::value || std::is_same<A, B>::value,
              same_sign_types,
              typename std::conditional<std::is_signed<A>::value,
                typename std::conditional<std::is_signed<B>::value, same_sign_types, signed_unsigned>::type,
                typename std::conditional<std::is_signed<B>::value, unsigned_signed, same_sign_types>::type>::type>::type::diff( a, b );
   }
 
+  // compare numeric values
+  # define derive_compare( _type_ ) \
+  inline  auto  CompTo( const _type_& _1, const _type_& _2 ) -> unsigned {  return CmpRes( (_1 > _2) - (_1 < _2) );  }
+    derive_compare( char )
+    derive_compare( byte )
+    derive_compare( int16_t )
+    derive_compare( int32_t )
+    derive_compare( int64_t )
+    derive_compare( word16_t )
+    derive_compare( word32_t )
+    derive_compare( word64_t )
+    derive_compare( float )
+    derive_compare( double )
+  # undef derive_compare
+
   # define derive_compare( _t1_, _t2_ ) \
-  template <> auto  CompTo( const _t1_& _1, const _t2_& _2 ) -> unsigned {  return CmpRes( mkDiff( _1, _2 ) );  } \
-  template <> auto  CompTo( const _t2_& _1, const _t1_& _2 ) -> unsigned {  return CmpRes( mkDiff( _1, _2 ) );  }
+  inline  auto  CompTo( const _t1_& _1, const _t2_& _2 ) -> unsigned {  return CmpRes( mkDiff( _1, _2 ) );  } \
+  inline  auto  CompTo( const _t2_& _1, const _t1_& _2 ) -> unsigned {  return CmpRes( mkDiff( _1, _2 ) );  }
     derive_compare( char, byte )
     derive_compare( char, int16_t )
     derive_compare( char, int32_t )
