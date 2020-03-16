@@ -180,10 +180,6 @@ namespace mtc
                       mtc::zval::compare_eq;
     }
 
-  // default compare functions
-  template <class A, class B>
-  auto  CompTo( const A&, const B& ) -> unsigned {  return 0x00;  }
-
   struct signed_unsigned
   {
     template <class A, class B>
@@ -302,17 +298,15 @@ namespace mtc
   # undef derive_compare
 
   // compare two zval
-  template <>
-  auto  CompTo( const zval& z1, const zval& z2 ) -> unsigned {  return z1.CompTo( z2 );  }
+  inline  auto  CompTo( const zval& z1, const zval& z2 ) -> unsigned {  return z1.CompTo( z2 );  }
+
+  // compare uuids
+  inline  auto  CompTo( const uuid_t& a, const uuid_t& b ) -> unsigned  {  return CmpRes( a.compare( b ) );  }
 
   // compare two strings
   template <class C, class M>
   auto  CompTo( const std::basic_string<C>& c, const std::basic_string<M>& m ) -> unsigned
     {  return CmpRes( w_strcmp( c.c_str(), m.c_str() ) );  }
-
-  // compare uuids
-  auto  CompTo( const uuid_t& a, const uuid_t& b ) -> unsigned
-    {  return CmpRes( a.compare( b ) );  }
 
   // compare vector values
   template <class A, class B>
