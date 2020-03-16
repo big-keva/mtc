@@ -17,10 +17,11 @@ add_library(mtc STATIC
   zipStream.cpp
   config.cpp
   dir.cpp
-  utf.cpp
   zval.cpp
   zmap.cpp
   z_js.cpp
+
+  net/sockets.cpp
 )
 
 install(TARGETS mtc DESTINATION lib)
@@ -67,6 +68,11 @@ install(
     z_js.h
     zipStream.h
   DESTINATION include/mtc
+)
+install(
+  FILES
+    net/sockets.hpp
+  DESTINATION include/mtc/net
 )
 
 # enable_testing()

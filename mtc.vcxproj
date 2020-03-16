@@ -25,7 +25,7 @@
     <ClCompile Include="dirtools.cpp" />
     <ClCompile Include="fileStream.cpp" />
     <ClCompile Include="netStream.cpp" />
-    <ClCompile Include="utf.cpp" />
+    <ClCompile Include="net\sockets.cpp" />
     <ClCompile Include="z_js.cpp" />
     <ClCompile Include="zmap.cpp" />
     <ClCompile Include="zval.cpp" />
@@ -37,38 +37,39 @@
     <ClInclude Include="fileStream.h" />
     <ClInclude Include="json.h" />
     <ClInclude Include="netStream.h" />
+    <ClInclude Include="net\sockets.hpp" />
     <ClInclude Include="zipStream.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{BF6070AC-CFCB-4E8A-85F4-A9A3AE12CDD1}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>mtc</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>

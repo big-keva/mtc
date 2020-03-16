@@ -363,150 +363,33 @@ namespace mtc
 
     zval  operator ~  ()  const;
 
+  public:
+    enum: unsigned
+    {
+      compare_lt = 0x01,
+      compare_gt = 0x02,
+      compare_eq = 0x04,
+      compare_le = 0x05,
+      compare_ge = 0x06
+    };
+
   protected:  // compare helpers
-    /*
-      базовый функционал сравнения:
-        <   0x01
-        >   0x02
-        ==  0x04
-        !=  0x08
-            0x00 - операция не поддерживается
-    */
-    template <class A, class B>
-    static  int   CompTo( A a, B b )
-      {
-        int    rc = (double(a) - double(b) > 0) - (double(a) - double(b) < 0);
-        return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;
-      }
-    template <class c1, class c2>
-    static int  CompTo( const std::basic_string<c1>& s1, const std::basic_string<c2>& s2 )
-      {
-        int    rc = w_strcmp( s1.c_str(), s2.c_str() );
-        return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;
-      }
-
-    template <class A>
-    static int  CompTo( const A&, const uuid_t& ) {  return 0x08;  }
     template <class B>
-    static int  CompTo( const uuid_t&, const B& ) {  return 0x08;  }
+    auto  CompTo( const B& ) const -> unsigned;
 
-    static int  CompTo( const uuid_t& a, const uuid_t& b )
-      {
-        int    rc = a.compare( b );
-        return rc < 0 ? 0x01 + 0x08 : rc > 0 ? 0x02 + 0x08 : 0x04;
-      }
+  public:
+    auto  CompTo( const zval& x ) const -> unsigned;
 
-    # define  derive_noncmp( c1, c2 ) static  int   CompTo( c1, c2 )  {  return 0x08;  } \
-                                      static  int   CompTo( c2, c1 )  {  return 0x08;  }
-      derive_noncmp( charstr, char )
-      derive_noncmp( charstr, byte_t )
-      derive_noncmp( charstr, int16_t )
-      derive_noncmp( charstr, int32_t )
-      derive_noncmp( charstr, int64_t )
-      derive_noncmp( charstr, word16_t )
-      derive_noncmp( charstr, word32_t )
-      derive_noncmp( charstr, word64_t )
-      derive_noncmp( charstr, float )
-      derive_noncmp( charstr, double )
-      derive_noncmp( widestr, char )
-      derive_noncmp( widestr, byte_t )
-      derive_noncmp( widestr, int16_t )
-      derive_noncmp( widestr, int32_t )
-      derive_noncmp( widestr, int64_t )
-      derive_noncmp( widestr, word16_t )
-      derive_noncmp( widestr, word32_t )
-      derive_noncmp( widestr, word64_t )
-      derive_noncmp( widestr, float )
-      derive_noncmp( widestr, double )
-    # undef derive_noncmp
+    bool  lt( const zval& z ) const {  return CompTo( z ) == compare_lt;  }
+    bool  gt( const zval& z ) const {  return CompTo( z ) == compare_gt;  }
+    bool  eq( const zval& z ) const {  return CompTo( z ) == compare_eq;  }
+    bool  le( const zval& z ) const {  return (CompTo( z ) & compare_le) != 0;  }
+    bool  ge( const zval& z ) const {  return (CompTo( z ) & compare_ge) != 0;  }
+    bool  ne( const zval& z ) const {  return !eq( z );  }
 
-    template <class B>  int   CompTo( const B& b ) const
-      {
-        switch ( get_type() )
-        {
-          case z_char:    return CompTo( *get_char(), b );
-          case z_byte:    return CompTo( *get_byte(), b );
-          case z_int16:   return CompTo( *get_int16(), b );
-          case z_int32:   return CompTo( *get_int32(), b );
-          case z_int64:   return CompTo( *get_int64(), b );
-          case z_float:   return CompTo( *get_float(), b );
-          case z_word16:  return CompTo( *get_word16(), b );
-          case z_word32:  return CompTo( *get_word32(), b );
-          case z_word64:  return CompTo( *get_word64(), b );
-          case z_double:  return CompTo( *get_double(), b );
-
-          case z_uuid:    return CompTo( *get_uuid(), b );
-
-          case z_charstr: return CompTo( *get_charstr(), b );
-          case z_widestr: return CompTo( *get_widestr(), b );
-
-          case z_array_char:
-          case z_array_byte:
-          case z_array_int16:
-          case z_array_word16:
-          case z_array_int32:
-          case z_array_word32:
-          case z_array_int64:
-          case z_array_word64:
-          case z_array_float:
-          case z_array_double:
-
-          case z_array_charstr:
-          case z_array_widestr:
-          case z_array_buffer:
-          case z_array_zmap:
-          case z_array_zval:
-          default:  break;
-        }
-        return 0x08;
-      }
-    int CompTo( const zval& x ) const
-      {
-        switch ( x.get_type() )
-        {
-          case z_char:    return CompTo( *x.get_char() );
-          case z_byte:    return CompTo( *x.get_byte() );
-          case z_int16:   return CompTo( *x.get_int16() );
-          case z_int32:   return CompTo( *x.get_int32() );
-          case z_int64:   return CompTo( *x.get_int64() );
-          case z_float:   return CompTo( *x.get_float() );
-          case z_word16:  return CompTo( *x.get_word16() );
-          case z_word32:  return CompTo( *x.get_word32() );
-          case z_word64:  return CompTo( *x.get_word64() );
-          case z_double:  return CompTo( *x.get_double() );
-
-          case z_uuid:    return CompTo( *x.get_uuid() );
-
-          case z_charstr: return CompTo( *x.get_charstr() );
-          case z_widestr: return CompTo( *x.get_widestr() );
-
-          case z_array_char:
-          case z_array_byte:
-          case z_array_int16:
-          case z_array_word16:
-          case z_array_int32:
-          case z_array_word32:
-          case z_array_int64:
-          case z_array_word64:
-          case z_array_float:
-          case z_array_double:
-
-          case z_array_charstr:
-          case z_array_widestr:
-          case z_array_buffer:
-          case z_array_zmap:
-          case z_array_zval:
-          default:  break;
-        }
-        return 0x08;
-      }
   public:     // compare
-    bool  operator == ( const zval& v ) const { return (CompTo( v ) & 0x04) != 0; }
-    bool  operator != ( const zval& v ) const { return (CompTo( v ) & 0x08) != 0; }
-    bool  operator <  ( const zval& v ) const { return (CompTo( v ) & 0x01) != 0; }
-    bool  operator >  ( const zval& v ) const { return (CompTo( v ) & 0x02) != 0; }
-    bool  operator <= ( const zval& v ) const { return (CompTo( v ) & 0x05) != 0; }
-    bool  operator >= ( const zval& v ) const { return (CompTo( v ) & 0x06) != 0; }
+    bool  operator == ( const zval& v ) const;
+    bool  operator != ( const zval& v ) const { return !(*this == v); }
 
   protected:  // stringize helpers
     auto  to_string( char c ) const         -> std::string  {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
@@ -1115,6 +998,8 @@ namespace mtc
     key( unsigned );
     key( const char* );
     key( const widechar* );
+    key( const char*, size_t );
+    key( const widechar*, size_t );
     key( const charstr& );
     key( const widestr& );
     key( const key& );
@@ -1123,6 +1008,10 @@ namespace mtc
   public:
     auto  operator == ( const key& k ) const -> bool;
     auto  operator != ( const key& k ) const -> bool {  return !(*this == k);  }
+
+  public:
+    static
+    auto  null() -> key {  return key();  }
 
   public: // data
     auto  type() const  -> unsigned       {  return _typ;  }

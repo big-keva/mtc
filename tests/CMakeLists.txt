@@ -10,9 +10,21 @@ add_executable(test-patricia
 add_executable(test-directory
 	test-directory.cpp)
 
+add_executable(test-config
+        test-config.cpp)
+
+add_executable(test-zmap
+        test-zmap.cpp)
+
 target_link_libraries(test-directory
+	mtc)
+target_link_libraries(test-config
+	mtc)
+target_link_libraries(test-zmap
 	mtc)
 
 add_test(NAME test-patricia COMMAND test-patricia)
 add_test(NAME test-directory COMMAND test-directory)
+add_test(NAME test-config COMMAND test-config)
+add_test(NAME test-zmap COMMAND test-zmap)
 

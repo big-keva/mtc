@@ -1,6 +1,7 @@
 # include "../zmap.h"
 # include "../z_js.h"
-# include <mtc/serialize.h>
+# include "../utf.hpp"
+# include "../serialize.h"
 
 int main()
 {
@@ -59,7 +60,7 @@ int main()
   zm["charstr"] = "charstr";
   zm["widestr"] = L"widestr";
   zm["charstr2"] = std::move( mtc::charstr( "charstr" ) );
-  zm["widestr2"] = std::move( mtc::widestr( L"widestr" ) );
+  zm["widestr2"] = std::move( mtc::utf16::encode( "widestr" ) );
 
   zm["zmap"] = mtc::zmap{ { "a", "b" } };
   zm["zmap2"] = std::move( mtc::zmap{ { "q", "w" } } );

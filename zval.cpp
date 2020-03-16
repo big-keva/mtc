@@ -16,7 +16,7 @@ namespace mtc
   template <class A, class B> static  zval  GetShr( A a, B b )  {  return a >> b;  }
 
   /*
-    операции над zval и целым или дробным значением - макрогенерация:
+    РѕРїРµСЂР°С†РёРё РЅР°Рґ zval Рё С†РµР»С‹Рј РёР»Рё РґСЂРѕР±РЅС‹Рј Р·РЅР°С‡РµРЅРёРµРј - РјР°РєСЂРѕРіРµРЅРµСЂР°С†РёСЏ:
     template <class V> zval  (#)( zval, V )
   */
   # define  derive_operation_xvalue_value( funcname )                     \
@@ -44,7 +44,7 @@ namespace mtc
   # undef  derive_operation_xvalue_value
 
   /*
-    операции над zval и zval - макрогенерация:
+    РѕРїРµСЂР°С†РёРё РЅР°Рґ zval Рё zval - РјР°РєСЂРѕРіРµРЅРµСЂР°С†РёСЏ:
     zval  (#)( const zval&, const zval& )
   */
   # define  derive_operation_xvalue_xvalue( funcname )                    \
@@ -71,7 +71,7 @@ namespace mtc
   # undef derive_operation_xvalue_xvalue
 
   /*
-    специализации StrCat с поддержкой суммирования однотипных строк
+    СЃРїРµС†РёР°Р»РёР·Р°С†РёРё StrCat СЃ РїРѕРґРґРµСЂР¶РєРѕР№ СЃСѓРјРјРёСЂРѕРІР°РЅРёСЏ РѕРґРЅРѕС‚РёРїРЅС‹С… СЃС‚СЂРѕРє
   */
   template <class A, class B>
   zval  StrCat( A, B )  {  return zval();  }
@@ -122,7 +122,7 @@ namespace mtc
     }
 
   /*
-    макрогенерация битовых операций над целочисленными значениями
+    РјР°РєСЂРѕРіРµРЅРµСЂР°С†РёСЏ Р±РёС‚РѕРІС‹С… РѕРїРµСЂР°С†РёР№ РЅР°Рґ С†РµР»РѕС‡РёСЃР»РµРЅРЅС‹РјРё Р·РЅР°С‡РµРЅРёСЏРјРё
   */
   # define  derive_math( funcname )                                       \
   template <class V>  zval  funcname( const zval& z, V v )                \
@@ -162,6 +162,131 @@ namespace mtc
     derive_math( GetXor )
     derive_math( Get_Or )
   # undef derive_math
+
+  // compare procedures
+
+  /*
+    Р±Р°Р·РѕРІС‹Р№ С„СѓРЅРєС†РёРѕРЅР°Р» СЃСЂР°РІРЅРµРЅРёСЏ:
+      <   0x01
+      >   0x02
+      ==  0x04
+          0x00 - РѕРїРµСЂР°С†РёСЏ РЅРµ РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ
+  */
+  inline  auto  CmpRes( int rc ) -> unsigned
+    {
+      return rc < 0 ? mtc::zval::compare_lt :
+             rc > 0 ? mtc::zval::compare_gt :
+                      mtc::zval::compare_eq;
+    }
+
+  // default compare functions
+  template <class A, class B>
+  auto  CompTo( const A&, const B& ) -> unsigned {  return 0x00;  }
+
+  // compare numeric values
+  # define derive_compare( _type_ ) \
+  template <> auto  CompTo( const _type_& _1, const _type_& _2 ) -> unsigned {  return CmpRes( (_1 > _2) - (_1 < _2) );  }
+    derive_compare( char )
+    derive_compare( byte )
+    derive_compare( int16_t )
+    derive_compare( int32_t )
+    derive_compare( int64_t )
+    derive_compare( word16_t )
+    derive_compare( word32_t )
+    derive_compare( word64_t )
+    derive_compare( float )
+    derive_compare( double )
+  # undef derive_compare
+
+  # define derive_compare( _t1_, _t2_ ) \
+  template <> auto  CompTo( const _t1_& _1, const _t2_& _2 ) -> unsigned {  return CmpRes( ((double)_1 > (double)_2) - ((double)_1 < (double)_2) );  } \
+  template <> auto  CompTo( const _t2_& _1, const _t1_& _2 ) -> unsigned {  return CmpRes( ((double)_1 > (double)_2) - ((double)_1 < (double)_2) );  }
+    derive_compare( char, byte )
+    derive_compare( char, int16_t )
+    derive_compare( char, int32_t )
+    derive_compare( char, int64_t )
+    derive_compare( char, word16_t )
+    derive_compare( char, word32_t )
+    derive_compare( char, word64_t )
+    derive_compare( char, float )
+    derive_compare( char, double )
+
+    derive_compare( byte, int16_t )
+    derive_compare( byte, int32_t )
+    derive_compare( byte, int64_t )
+    derive_compare( byte, word16_t )
+    derive_compare( byte, word32_t )
+    derive_compare( byte, word64_t )
+    derive_compare( byte, float )
+    derive_compare( byte, double )
+
+    derive_compare( int16_t, int32_t )
+    derive_compare( int16_t, int64_t )
+    derive_compare( int16_t, word16_t )
+    derive_compare( int16_t, word32_t )
+    derive_compare( int16_t, word64_t )
+    derive_compare( int16_t, float )
+    derive_compare( int16_t, double )
+
+    derive_compare( int32_t, int64_t )
+    derive_compare( int32_t, word16_t )
+    derive_compare( int32_t, word32_t )
+    derive_compare( int32_t, word64_t )
+    derive_compare( int32_t, float )
+    derive_compare( int32_t, double )
+
+    derive_compare( int64_t, word16_t )
+    derive_compare( int64_t, word32_t )
+    derive_compare( int64_t, word64_t )
+    derive_compare( int64_t, float )
+    derive_compare( int64_t, double )
+
+    derive_compare( word16_t, word32_t )
+    derive_compare( word16_t, word64_t )
+    derive_compare( word16_t, float )
+    derive_compare( word16_t, double )
+
+    derive_compare( word32_t, word64_t )
+    derive_compare( word32_t, float )
+    derive_compare( word32_t, double )
+
+    derive_compare( word64_t, float )
+    derive_compare( word64_t, double )
+
+    derive_compare( float, double )
+  # undef derive_compare
+
+  // compare two zval
+  template <>
+  auto  CompTo( const zval& z1, const zval& z2 ) -> unsigned {  return z1.CompTo( z2 );  }
+
+  // compare two strings
+  template <class C, class M>
+  auto  CompTo( const std::basic_string<C>& c, const std::basic_string<M>& m ) -> unsigned
+    {  return CmpRes( w_strcmp( c.c_str(), m.c_str() ) );  }
+
+  // compare uuids
+  auto  CompTo( const uuid_t& a, const uuid_t& b ) -> unsigned
+    {  return CmpRes( a.compare( b ) );  }
+
+  // compare vector values
+  template <class A, class B>
+  auto  CompTo( const std::vector<A>& a, const std::vector<B>& b ) -> unsigned
+    {
+      auto  ia = a.begin();
+      auto  ib = b.begin();
+      int   rc = 0x04;
+
+      while ( ia != a.end() && ib != b.end() && (rc = CompTo( *ia, *ib )) == 0x04 )
+      {
+        ++ia;
+        ++ib;
+      }
+
+      if ( rc == 0x04 )
+        return rc;
+      return ia == a.end() ? 0x01 : 0x02;
+    }
 
   // zval implementation
 
@@ -488,6 +613,131 @@ namespace mtc
     }
   }
 
+  template <class B>
+  auto  zval::CompTo( const B& b ) const -> unsigned
+    {
+      switch ( get_type() )
+      {
+        case z_char:    return mtc::CompTo( *get_char(), b );
+        case z_byte:    return mtc::CompTo( *get_byte(), b );
+        case z_int16:   return mtc::CompTo( *get_int16(), b );
+        case z_int32:   return mtc::CompTo( *get_int32(), b );
+        case z_int64:   return mtc::CompTo( *get_int64(), b );
+        case z_float:   return mtc::CompTo( *get_float(), b );
+        case z_word16:  return mtc::CompTo( *get_word16(), b );
+        case z_word32:  return mtc::CompTo( *get_word32(), b );
+        case z_word64:  return mtc::CompTo( *get_word64(), b );
+        case z_double:  return mtc::CompTo( *get_double(), b );
+
+        case z_uuid:    return mtc::CompTo( *get_uuid(), b );
+
+        case z_charstr: return mtc::CompTo( *get_charstr(), b );
+        case z_widestr: return mtc::CompTo( *get_widestr(), b );
+
+        case z_array_char:    return mtc::CompTo( *get_char(), b );
+        case z_array_byte:    return mtc::CompTo( *get_array_byte(), b );
+        case z_array_int16:   return mtc::CompTo( *get_array_int16(), b );
+        case z_array_word16:  return mtc::CompTo( *get_array_int32(), b );
+        case z_array_int32:   return mtc::CompTo( *get_array_int64(), b );
+        case z_array_word32:  return mtc::CompTo( *get_array_float(), b );
+        case z_array_int64:   return mtc::CompTo( *get_array_word16(), b );
+        case z_array_word64:  return mtc::CompTo( *get_array_word32(), b );
+        case z_array_float:   return mtc::CompTo( *get_array_word64(), b );
+        case z_array_double:  return mtc::CompTo( *get_array_double(), b );
+
+        case z_array_charstr: return mtc::CompTo( *get_array_charstr(), b );
+        case z_array_widestr: return mtc::CompTo( *get_array_widestr(), b );
+        case z_array_zval:    return mtc::CompTo( *get_array_zval(), b );
+        default:  break;
+      }
+      return 0x00;
+    }
+
+  auto  zval::CompTo( const zval& x ) const -> unsigned
+    {
+      switch ( x.get_type() )
+      {
+        case z_char:    return CompTo( *x.get_char() );
+        case z_byte:    return CompTo( *x.get_byte() );
+        case z_int16:   return CompTo( *x.get_int16() );
+        case z_int32:   return CompTo( *x.get_int32() );
+        case z_int64:   return CompTo( *x.get_int64() );
+        case z_float:   return CompTo( *x.get_float() );
+        case z_word16:  return CompTo( *x.get_word16() );
+        case z_word32:  return CompTo( *x.get_word32() );
+        case z_word64:  return CompTo( *x.get_word64() );
+        case z_double:  return CompTo( *x.get_double() );
+
+        case z_uuid:    return CompTo( *x.get_uuid() );
+
+        case z_charstr: return CompTo( *x.get_charstr() );
+        case z_widestr: return CompTo( *x.get_widestr() );
+
+        case z_array_char:    return CompTo( *x.get_array_char() );
+        case z_array_byte:    return CompTo( *x.get_array_byte() );
+        case z_array_int16:   return CompTo( *x.get_array_int16() );
+        case z_array_word16:  return CompTo( *x.get_array_int32() );
+        case z_array_int32:   return CompTo( *x.get_array_int64() );
+        case z_array_word32:  return CompTo( *x.get_array_float() );
+        case z_array_int64:   return CompTo( *x.get_array_word16() );
+        case z_array_word64:  return CompTo( *x.get_array_word32() );
+        case z_array_float:   return CompTo( *x.get_array_word64() );
+        case z_array_double:  return CompTo( *x.get_array_double() );
+
+        case z_array_charstr: return CompTo( *x.get_array_charstr() );
+        case z_array_widestr: return CompTo( *x.get_array_widestr() );
+        case z_array_zval:    return CompTo( *x.get_array_zval() );
+        default:  break;
+      }
+      return 0x00;
+    }
+
+  bool  zval::operator == ( const zval& z ) const
+    {
+      if ( get_type() != z.get_type() )
+        return false;
+      switch ( get_type() )
+      {
+      # define derive_compare( _type_ ) case z_##_type_:  return *get_##_type_() == *z.get_##_type_();
+        derive_compare( char )
+        derive_compare( byte )
+        derive_compare( int16 )
+        derive_compare( word16 )
+        derive_compare( int32 )
+        derive_compare( word32 )
+        derive_compare( int64 )
+        derive_compare( word64 )
+        derive_compare( float )
+        derive_compare( double )
+
+        derive_compare( charstr )
+        derive_compare( widestr )
+
+        derive_compare( zmap )
+        derive_compare( uuid )
+
+        derive_compare( array_char )
+        derive_compare( array_byte )
+        derive_compare( array_int16 )
+        derive_compare( array_word16 )
+        derive_compare( array_int32 )
+        derive_compare( array_word32 )
+        derive_compare( array_int64 )
+        derive_compare( array_word64 )
+        derive_compare( array_float )
+        derive_compare( array_double )
+
+        derive_compare( array_charstr )
+        derive_compare( array_widestr )
+
+        derive_compare( array_zmap )
+        derive_compare( array_uuid )
+
+      # undef derive_compare
+        default:  return get_type() == z_untyped;
+      }
+    }
+
   auto  zval::type_name( z_type type ) -> const char* 
     {
       switch ( type )
@@ -577,85 +827,87 @@ namespace mtc
 
   auto  zval::fetch( zval&& zv ) -> zval&
     {
-      switch ( clear().vx_type = zv.vx_type )
-      {
-      # define  move( _type_ )  case z_##_type_:  \
-        new( &inner().v_##_type_ ) _type_##_t( std::move( zv.inner().v_##_type_ ) );  break;
-        move( char )
-        move( byte )
-        move( int16 )
-        move( int32 )
-        move( int64 )
-        move( word16 )
-        move( word32 )
-        move( word64 )
-        move( float )
-        move( double )
+      if ( this != &zv )
+        switch ( clear().vx_type = zv.vx_type )
+        {
+        # define  move( _type_ )  case z_##_type_:  \
+          new( &inner().v_##_type_ ) _type_##_t( std::move( zv.inner().v_##_type_ ) );  break;
+          move( char )
+          move( byte )
+          move( int16 )
+          move( int32 )
+          move( int64 )
+          move( word16 )
+          move( word32 )
+          move( word64 )
+          move( float )
+          move( double )
 
-        move( charstr )
-        move( widestr )
-        move( zmap )
-        move( uuid )
+          move( charstr )
+          move( widestr )
+          move( zmap )
+          move( uuid )
 
-        move( array_char )
-        move( array_byte )
-        move( array_int16 )
-        move( array_int32 )
-        move( array_int64 )
-        move( array_word16 )
-        move( array_word32 )
-        move( array_word64 )
-        move( array_float )
-        move( array_double )
-        move( array_charstr )
-        move( array_widestr )
-        move( array_zval )
-        move( array_zmap )
-        move( array_uuid )
-      # undef move
-      }
+          move( array_char )
+          move( array_byte )
+          move( array_int16 )
+          move( array_int32 )
+          move( array_int64 )
+          move( array_word16 )
+          move( array_word32 )
+          move( array_word64 )
+          move( array_float )
+          move( array_double )
+          move( array_charstr )
+          move( array_widestr )
+          move( array_zval )
+          move( array_zmap )
+          move( array_uuid )
+        # undef move
+        }
       return *this;
     }
 
   auto  zval::fetch( const zval& zv ) -> zval&
     {
-      switch ( clear().vx_type = zv.vx_type )
-      {
-      # define  copy( _type_ )  case z_##_type_:    \
-      new( &inner().v_##_type_ ) _type_##_t( zv.inner().v_##_type_ );  break;
-        copy( char )
-        copy( byte )
-        copy( int16 )
-        copy( int32 )
-        copy( int64 )
-        copy( word16 )
-        copy( word32 )
-        copy( word64 )
-        copy( float )
-        copy( double )
+      if ( this != &zv )
+        switch ( clear().vx_type = zv.vx_type )
+        {
+        # define  copy( _type_ )  case z_##_type_:    \
+        new( &inner().v_##_type_ ) _type_##_t( zv.inner().v_##_type_ );  break;
+          copy( char )
+          copy( byte )
+          copy( int16 )
+          copy( int32 )
+          copy( int64 )
+          copy( word16 )
+          copy( word32 )
+          copy( word64 )
+          copy( float )
+          copy( double )
 
-        copy( charstr )
-        copy( widestr )
-        copy( zmap )
-        copy( uuid )
+          copy( charstr )
+          copy( widestr )
+          copy( zmap )
+          copy( uuid )
 
-        copy( array_char )
-        copy( array_byte )
-        copy( array_int16 )
-        copy( array_int32 )
-        copy( array_int64 )
-        copy( array_word16 )
-        copy( array_word32 )
-        copy( array_word64 )
-        copy( array_float )
-        copy( array_double )
-        copy( array_charstr )
-        copy( array_widestr )
-        copy( array_zval )
-        copy( array_zmap )
-        copy( array_uuid )
-      # undef copy
-      }
+          copy( array_char )
+          copy( array_byte )
+          copy( array_int16 )
+          copy( array_int32 )
+          copy( array_int64 )
+          copy( array_word16 )
+          copy( array_word32 )
+          copy( array_word64 )
+          copy( array_float )
+          copy( array_double )
+          copy( array_charstr )
+          copy( array_widestr )
+          copy( array_zval )
+          copy( array_zmap )
+          copy( array_uuid )
+        # undef copy
+        }
       return *this;
     }
 

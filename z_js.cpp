@@ -1,3 +1,54 @@
+/*
+
+The MIT License (MIT)
+
+Copyright (c) 2000-2016 Андрей Коваленко aka Keva
+  keva@meta.ua
+  keva@rambler.ru
+  skype: big_keva
+  phone: +7(495)648-4058, +7(916)015-5592
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+=============================================================================
+
+Данная лицензия разрешает лицам, получившим копию данного программного обеспечения
+и сопутствующей документации (в дальнейшем именуемыми «Программное Обеспечение»),
+безвозмездно использовать Программное Обеспечение без ограничений, включая неограниченное
+право на использование, копирование, изменение, слияние, публикацию, распространение,
+сублицензирование и/или продажу копий Программного Обеспечения, а также лицам, которым
+предоставляется данное Программное Обеспечение, при соблюдении следующих условий:
+
+Указанное выше уведомление об авторском праве и данные условия должны быть включены во
+все копии или значимые части данного Программного Обеспечения.
+
+ДАННОЕ ПРОГРАММНОЕ ОБЕСПЕЧЕНИЕ ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ», БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ,
+ЯВНО ВЫРАЖЕННЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ, ВКЛЮЧАЯ ГАРАНТИИ ТОВАРНОЙ ПРИГОДНОСТИ,
+СООТВЕТСТВИЯ ПО ЕГО КОНКРЕТНОМУ НАЗНАЧЕНИЮ И ОТСУТСТВИЯ НАРУШЕНИЙ, НО НЕ ОГРАНИЧИВАЯСЬ
+ИМИ.
+
+НИ В КАКОМ СЛУЧАЕ АВТОРЫ ИЛИ ПРАВООБЛАДАТЕЛИ НЕ НЕСУТ ОТВЕТСТВЕННОСТИ ПО КАКИМ-ЛИБО ИСКАМ,
+ЗА УЩЕРБ ИЛИ ПО ИНЫМ ТРЕБОВАНИЯМ, В ТОМ ЧИСЛЕ, ПРИ ДЕЙСТВИИ КОНТРАКТА, ДЕЛИКТЕ ИЛИ ИНОЙ
+СИТУАЦИИ, ВОЗНИКШИМ ИЗ-ЗА ИСПОЛЬЗОВАНИЯ ПРОГРАММНОГО ОБЕСПЕЧЕНИЯ ИЛИ ИНЫХ ДЕЙСТВИЙ
+С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
+
+*/
 # include "z_js.h"
 # include <type_traits>
 
@@ -5,21 +56,7 @@ namespace mtc {
 namespace json {
 namespace parse {
 
-  auto  Parse( reader&, byte_t&,   const zval* revive = nullptr ) -> byte_t&;
-  auto  Parse( reader&, uint16_t&, const zval* revive = nullptr ) -> uint16_t&;
-  auto  Parse( reader&, uint32_t&, const zval* revive = nullptr ) -> uint32_t&;
-  auto  Parse( reader&, uint64_t&, const zval* revive = nullptr ) -> uint64_t&;
-
-  auto  Parse( reader&, char_t& , const zval* revive = nullptr ) -> char_t&;
-  auto  Parse( reader&, int16_t&, const zval* revive = nullptr ) -> int16_t&;
-  auto  Parse( reader&, int32_t&, const zval* revive = nullptr ) -> int32_t&;
-  auto  Parse( reader&, int64_t&, const zval* revive = nullptr ) -> int64_t&;
-
-  auto  Parse( reader&, float&  , const zval* revive = nullptr ) -> float&;
-  auto  Parse( reader&, double& , const zval* revive = nullptr ) -> double&;
-
-  auto  Parse( reader&, mtc::charstr&, const zval* revive = nullptr ) -> mtc::charstr&;
-  auto  Parse( reader&, mtc::widestr&, const zval* revive = nullptr ) -> mtc::widestr&;
+  auto  Parse( reader& s, zmap& z, const zval* revive ) -> zmap&;
 
   // reader implementation
 
@@ -95,6 +132,8 @@ namespace parse {
 
   // parse helpers
 
+  struct noheader {  void operator ()( reader& ) const {}  };
+
   /*
     helper functions for parsing json
   */
@@ -144,7 +183,7 @@ namespace parse {
       if ( !is_num_char( chnext = stm.nospace() ) )
         throw error( "0..9 expected" );
 
-      for ( u = (uint8_t)chnext - '0'; is_num_char( chnext = stm.getnext() ); )
+      for ( u = ((uint8_t)chnext - (uint8_t)'0'); is_num_char( chnext = stm.getnext() ); )
         u = u * 10 + (uint8_t)chnext - '0';
 
       return stm.putback( chnext ), u;
@@ -193,20 +232,44 @@ namespace parse {
       return stm.putback( *floptr ), flo;
     }
 
-  template <class C>
-  auto  sParse( reader& src, std::basic_string<C>&  str ) -> std::basic_string<C>&
+  // strings
+  inline
+  auto  xFetch( reader& src ) -> widechar
     {
+      char      hexchr[5] = "    ";
+      widechar  uvalue;
+      char*     endptr;
+
+    // convert sequence to utf-16 code
+      if ( !src.getfour( hexchr ) )
+        throw error( "4-digit hexadecimal character code expected" );
+
+      uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
+
+      if ( endptr - hexchr != 4 )
+        throw error( "4-digit hexadecimal character code expected" );
+
+      return uvalue;
+    }
+
+ /*
+  * wFetch( src, zval&[, hdr] )
+  * Дозагружает строку до конца, полагая, что она уже widechar-строка, но не полагаясь на кодировку строки.
+  */
+  template <class header = noheader>
+  auto  wFetch( reader& src, zval& val, const header& hdr = header() ) -> zval&
+    {
+      auto& wc_str = *val.get_widestr();  assert( &wc_str != nullptr );
       char  chnext;
       char  chprev;
 
-      if ( (chnext = src.nospace()) != '\"' )
-        throw error( "'\"' expected" );
+      hdr( src );
 
       for ( chprev = '\0'; (chnext = src.getnext()) != '\0'; chprev = chnext )
       {
       // check for end of identifier
         if ( chnext == '\"' && chprev != '\\' )
-          return str;
+          return val;
 
       // check for '\\'
         if ( chnext == '\\' && chprev != '\\' )
@@ -214,54 +277,22 @@ namespace parse {
 
       // check regular char
         if ( chprev != '\\' )
-          {
-            str.push_back( (C)(std::make_unsigned<char>::type)chnext );
-            continue;
-          }
-
-      // check long code: 4 symbols
-        if ( chnext == 'u' )
         {
-          char      hexchr[5] = "    ";
-          widechar  uvalue;
-          char*     endptr;
-
-          if ( src.getfour( hexchr ) )
-            uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
-          else
-            throw error( "4-digit hexadecimal character code expected" );
-
-          if ( endptr - hexchr != 4 )
-            throw error( "4-digit hexadecimal character code expected" );
-              
-          if ( sizeof(C) == sizeof(char) && uvalue > 127 )
-          {
-            if ( (uvalue & ~0x07ff) == 0 )
-            {
-              str.push_back( (C)(0xC0 | (byte_t)(uvalue >> 0x6)) );
-              str.push_back( (C)(0x80 | (byte_t)(uvalue & 0x3f)) );
-            }
-              else
-            {
-              str.push_back( (C)(0xE0 | (byte_t)((uvalue >> 0xc))) );
-              str.push_back( (C)(0x80 | (byte_t)((uvalue >> 0x6) & 0x3F)) );
-              str.push_back( (C)(0x80 | (byte_t)((uvalue & 0x3f))) );
-            }
-          }
-            else
-          str.push_back( (C)uvalue );
+          wc_str.push_back( (widechar)(unsigned char)chnext );
+          continue;
         }
-          else
+
         switch ( chnext )
         {
-          case 'b':   str.push_back( (C)'\b' ); break;
-          case 't':   str.push_back( (C)'\t' ); break;
-          case 'n':   str.push_back( (C)'\n' ); break;
-          case 'f':   str.push_back( (C)'\f' ); break;
-          case 'r':   str.push_back( (C)'\r' ); break;
-          case '\"':  str.push_back( (C)'\"' ); break;
-          case '/':   str.push_back( (C)'/'  ); break;
-          case '\\':  str.push_back( (C)'\\' ); 
+          case 'u':   wc_str.push_back( xFetch( src ) );  break;
+          case 'b':   wc_str.push_back( '\b' ); break;
+          case 't':   wc_str.push_back( '\t' ); break;
+          case 'n':   wc_str.push_back( '\n' ); break;
+          case 'f':   wc_str.push_back( '\f' ); break;
+          case 'r':   wc_str.push_back( '\r' ); break;
+          case '\"':  wc_str.push_back( '\"' ); break;
+          case '/':   wc_str.push_back( '/'  ); break;
+          case '\\':  wc_str.push_back( '\\' ); 
                       chnext = '\0';            break;
           default:    throw error( "invalid escape sequence" );
         }
@@ -270,6 +301,142 @@ namespace parse {
       throw error( "unexpected end of stream" );
     }
     
+ /*
+  * sFetch( src, zval& )
+  * Загружает символьную строку до момента, когда встретится символ unicode \u или конец строки;
+  * При встрече такого символа декодирует его, преобразует всю строку в utf-16 расширением символов,
+  * после чего продолжает загрузку из потока.
+  * Результатом является либо zval{charstr}, либо zval{widestr}, без каких-либо намёков на исходную
+  * кодировку строки.
+  */
+  template <class header = noheader>
+  auto  sFetch( reader& src, zval& val, const header& hdr = header() ) -> zval&
+    {
+      auto& mb_str = *val.set_charstr();  assert( &mb_str != nullptr );
+      char  chnext;
+      char  chprev;
+
+      hdr( src );
+
+      for ( chprev = '\0'; (chnext = src.getnext()) != '\0'; chprev = chnext )
+      {
+      // check for end of identifier
+        if ( chnext == '\"' && chprev != '\\' )
+          return val;
+
+      // check for '\\'
+        if ( chnext == '\\' && chprev != '\\' )
+          continue;
+
+      // check regular char
+        if ( chprev != '\\' )
+        {
+          mb_str.push_back( chnext );
+          continue;
+        }
+
+      // check long code: 4 symbols
+        if ( chnext == 'u' )
+        {
+          auto  uvalue = xFetch( src );
+
+        // check if encoded character has lower code; continue in this case
+          if ( (uvalue & ~0x00ff) == 0 )
+          {
+            mb_str.push_back( (char)uvalue );
+            continue;
+          }
+            else
+        // transform string to pseudo-unicode sequence by expanding previous characters;
+        // finish loading as widestr
+          {
+            auto  wc_str = utf16::expand( mb_str );
+            
+            wc_str.push_back( uvalue );
+            return val.set_widestr( std::move( wc_str ) ), wFetch( src, val );
+          }
+        }
+          else
+        switch ( chnext )
+        {
+          case 'b':   mb_str.push_back( '\b' ); break;
+          case 't':   mb_str.push_back( '\t' ); break;
+          case 'n':   mb_str.push_back( '\n' ); break;
+          case 'f':   mb_str.push_back( '\f' ); break;
+          case 'r':   mb_str.push_back( '\r' ); break;
+          case '\"':  mb_str.push_back( '\"' ); break;
+          case '/':   mb_str.push_back( '/'  ); break;
+          case '\\':  mb_str.push_back( '\\' ); 
+                      chnext = '\0';            break;
+          default:    throw error( "invalid escape sequence" );
+        }
+        chprev = '\0';
+      }
+      throw error( "unexpected end of stream" );
+    }
+
+  auto  sParse( reader& src, zval& val ) -> zval&
+    {
+      return val.set_charstr(), sFetch( src, val, []( reader& src )
+        {
+          if ( src.nospace() != '"' )
+            throw error( "'\"' expected" );
+        } );
+    }
+
+  auto  wParse( reader& src, zval& val ) -> zval&
+    {
+      return val.set_widestr(), wFetch( src, val, []( reader& src )
+        {
+          if ( src.nospace() != '"' )
+            throw error( "'\"' expected" );
+        } );
+    }
+
+ /*
+  * zsLoad( ... )
+  * Загружает строку и при необходимости конвертирует её в widestr, если она в utf8.
+  * Иначе оставляет её символьной строкой
+  */
+  auto  zsLoad( reader& src, zval& val ) -> zval&
+    {
+      auto  is_simple_codepage = []( const widestr& s ) -> bool
+        {
+          for ( auto& c: s )
+            if ( c > 0xff ) return false;
+          return true;
+        };
+
+      sParse( src, val );
+
+      if ( val.get_charstr() != nullptr )
+      {
+        if ( utf8::detect( *val.get_charstr() ) )
+          val.set_widestr( std::move( utf16::encode( *val.get_charstr() ) ) );
+      }
+        else
+      if ( val.get_widestr() != nullptr )
+      {
+        if ( utf8::detect( *val.get_widestr() ) )
+        {
+          val.get_widestr()->resize( utf::encode(
+            utf16::out( (widechar*)val.get_widestr()->c_str(), val.get_widestr()->length() ),
+            utf16::in( val.get_widestr()->c_str(), val.get_widestr()->length() ) ) );
+        }
+          else
+        if ( is_simple_codepage( *val.get_widestr() ) )
+        {
+          auto  newstr = charstr();
+
+          for ( auto& c: *val.get_widestr() )
+            newstr.push_back( (char)(unsigned char)c );
+
+          val.set_charstr( std::move( newstr ) );
+        }
+      }
+      return val;
+    }
+
   auto  Parse( reader& s, byte_t&   u, const zval* ) -> byte_t&   {  return uParse( s, u );  }
   auto  Parse( reader& s, uint16_t& u, const zval* ) -> uint16_t& {  return uParse( s, u );  }
   auto  Parse( reader& s, uint32_t& u, const zval* ) -> uint32_t& {  return uParse( s, u );  }
@@ -284,8 +451,41 @@ namespace parse {
   auto  Parse( reader& s, float&    f, const zval* ) -> float&    {  return fParse( s, f );  }
   auto  Parse( reader& s, double&   f, const zval* ) -> double&   {  return fParse( s, f );  }
 
-  auto  Parse( reader& s, charstr& r, const zval* ) -> mtc::charstr&  {  return sParse( s, r );  }
-  auto  Parse( reader& s, widestr& r, const zval* ) -> mtc::widestr&  {  return sParse( s, r );  }
+  auto  Parse( reader& s, charstr& r, const zval* ) -> charstr&
+    {
+      zval  z;
+
+      if ( sParse( s, z ).get_charstr() == nullptr )
+        throw error( "string cannot be parsed as simple character string" );
+
+      return r = std::move( *z.get_charstr() );
+    }
+
+  auto  Parse( reader& s, widestr& r, const zval* ) -> widestr&
+    {
+      zval      zv;
+      charstr*  ps;
+      widestr*  pw;
+
+      if ( (ps = sParse( s, zv ).get_charstr()) == nullptr && (pw = zv.get_widestr()) == nullptr )
+        throw error( "string cannot be parsed (not a string)" );
+
+    // if a value is character string, check if it is an utf8 string; convert utf8
+    // to widechar string directly
+      if ( ps != nullptr )
+      {
+        return utf8::detect( *ps )
+          ? r = std::move( utf16::encode( *ps ) )
+          : r = std::move( utf16::expand( *ps ) );
+      }
+      if ( pw != nullptr )
+      {
+        return utf8::detect( *pw )
+          ? r = std::move( utf::encode( utf16::out(), utf8::in( *pw ) ) )
+          : r = std::move( *pw );
+      }
+      throw std::logic_error( "must not get control" );
+    }
 
   template <class V>
   auto  Parse( reader& stm, std::vector<V>& out, const zval* revive = nullptr ) -> std::vector<V>&
@@ -353,7 +553,12 @@ namespace parse {
       return pval != nullptr ? *pval : (unsigned)zval::z_untyped;
     }
 
-  auto  Parse( reader& s, zval& z, const zval* revive ) -> mtc::zval&
+  auto  Parse( reader& s, zmap& z, const zval* revive ) -> zmap&
+    {
+      return Parse( s, z, revive != nullptr ? revive->get_zmap() : nullptr );
+    }
+
+  auto  Parse( reader& s, zval& z, const zval* revive ) -> zval&
     {
       char        chnext;
       unsigned    v_type = zval::z_untyped;
@@ -459,18 +664,8 @@ namespace parse {
           return z;
 
         case '\"':
-          {
-            mtc::charstr  chrstr;
-            mtc::widestr  wcsstr;
+          return zsLoad( s.putback( chnext ), z );
 
-          // check if charstr or widestr
-            if ( wstrtostr( chrstr, Parse( s.putback( chnext ), wcsstr ) ) )
-              z.set_charstr( std::move( chrstr ) );
-            else
-              z.set_widestr( std::move( wcsstr ) );
-
-            return z;
-          }
         default:  break;
       }
       if ( is_int_char( chnext ) )
@@ -584,34 +779,35 @@ namespace parse {
   // char by char until end or '}'
     while ( (chnext = s.nospace()) != '\0' && chnext != '}' )
     {
-      unsigned      intkey = 0;
-      charstr       strkey;
-      widestr       wcskey;
-      zval*         newval = nullptr;
-      const zval*   revval = nullptr;
+      zval        zv_key;
+      zval*       newval = nullptr;
+      const zval* revval = nullptr;
 
     // get variable name as widestring
       try
-        {  Parse( s.putback( chnext ), wcskey );  }
+        {  Parse( s.putback( chnext ), zv_key );  }
       catch ( const error& jx )
         {  throw error( strprintf( "%s while parsing variable name", jx.what() ) );  }
 
-      if ( wstrtoint( intkey, wcskey ) )
-        {
-          newval = z.put( intkey );
-          revval = revive != nullptr ? revive->get( intkey ) : nullptr;
-        }
-      else
-      if ( wstrtostr( strkey, wcskey ) )
-        {
-          newval = z.put( strkey );
-          revval = revive != nullptr ? revive->get( strkey ) : nullptr;
-        }
-      else
-        {
-          newval = z.put( wcskey );
-          revval = revive != nullptr ? revive->get( wcskey ) : nullptr;
-        }
+      if ( zv_key.get_charstr() != nullptr )
+      {
+        newval = z.put( *zv_key.get_charstr() );
+        revval = revive != nullptr ? revive->get( *zv_key.get_charstr() ) : nullptr;
+      }
+        else
+      if ( zv_key.get_widestr() != nullptr )
+      {
+        newval = z.put( *zv_key.get_widestr() );
+        revval = revive != nullptr ? revive->get( *zv_key.get_widestr() ) : nullptr;
+      }
+        else
+      if ( zv_key.get_int32() != nullptr )
+      {
+        newval = z.put( *zv_key.get_int32() );
+        revval = revive != nullptr ? revive->get( *zv_key.get_int32() ) : nullptr;
+      }
+        else
+      throw error( "invalid key type" );
 
     // check for colon
       if ( (chnext = s.nospace()) != ':' )
@@ -621,7 +817,7 @@ namespace parse {
       try
         {  Parse( s, *newval, revval );  }
       catch ( const error& jx )
-        {  throw error( strprintf( "%s while parsing variable value", jx.what() ) );  }
+        {  throw error( strprintf( "%s -> %s", zv_key.to_string().c_str(), jx.what() ) );  }
 
     // check for comma
       if ( (chnext = s.nospace()) == ',' )
@@ -636,5 +832,36 @@ namespace parse {
 
     return z;
   }
+
+  auto  Parse( reader& src, array_char& out, const zval* revive ) -> array_char&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_byte& out, const zval* revive ) -> array_byte&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_int16& out, const zval* revive ) -> array_int16&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_word16& out, const zval* revive ) -> array_word16&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_int32& out,  const zval* revive ) -> array_int32&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_word32& out, const zval* revive ) -> array_word32&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_int64& out,  const zval* revive ) -> array_int64&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_word64& out, const zval* revive ) -> array_word64&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_float& out,  const zval* revive ) -> array_float&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_double& out, const zval* revive ) -> array_double&
+    {  return Parse<>( src, out, revive );  }
+
+  auto  Parse( reader& src, array_charstr& out, const zval* revive ) -> array_charstr&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_widestr& out, const zval* revive ) -> array_widestr&
+    {  return Parse<>( src, out, revive );  }
+
+  auto  Parse( reader& src, array_zmap& out, const zval* revive ) -> array_zmap&
+    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_zval& out, const zval* revive ) -> array_zval&
+    {  return Parse<>( src, out, revive );  }
 
 }}}

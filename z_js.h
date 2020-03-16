@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __mtc_z_js_h__ )
 # define __mtc_z_js_h__
 # include "zmap.h"
+# include "utf.hpp"
 # include <inttypes.h>
 
 namespace mtc {
@@ -115,33 +116,7 @@ namespace json {
             o = ::Serialize( o, repval[reppos - repsrc], nstore = strlen( repval[reppos - repsrc] ) );
           else if ( chnext < 0x20 )
             o = ::Serialize( o, chbuff, nstore = sprintf( chbuff, "\\u%04x", chnext ) );
-          else if ( chnext < 0x80 )
-            o = ::Serialize( o, chnext );
-          else
-            {
-              int   cbchar;
-              int   nleast;
-
-            /* detect the utf-8 unicode char byte count */
-              if ( (chnext & 0xe0) == 0xc0 )  {  nleast = 1;  }  else
-              if ( (chnext & 0xf0) == 0xe0 )  {  nleast = 2;  }  else
-              if ( (chnext & 0xf8) == 0xf0 )  {  nleast = 3;  }  else
-              if ( (chnext & 0xfc) == 0xf8 )  {  nleast = 4;  }  else
-              if ( (chnext & 0xfe) == 0xfc )  {  nleast = 5;  }  else nleast = 0;
-
-              for ( cbchar = 0; cbchar < nleast && s + cbchar < endptr && (s[cbchar] & 0xc0) == 0x80; ++cbchar )
-                (void)NULL;
-
-              if ( nleast == 0 || cbchar < nleast )
-                {
-                  o = ::Serialize( o, chbuff, nstore = sprintf( chbuff, "\\u%04x", chnext ) );
-                }
-              else
-                {
-                  o = ::Serialize( o, s - 1, cbchar + 1 );
-                  s += cbchar;
-                }
-            }
+          else o = ::Serialize( o, chnext );
         }
 
         return ::Serialize( o, '\"' );
@@ -166,10 +141,17 @@ namespace json {
         {
           if ( (*s & ~0x7f) == 0 && (reppos = strchr( repsrc, *s )) != nullptr )
             o = ::Serialize( o, repval[reppos - repsrc], (unsigned)strlen( repval[reppos - repsrc] ) );
-          else if ( *s >= 0x80 || *s < 0x20 )
+          else if ( *s < 0x20 )
             o = ::Serialize( o, chnext, sprintf( chnext, "\\u%04x", *s ) );
-          else
+          else if ( *s < 0x80 )
             o = ::Serialize( o, (char)*s );
+          else
+            {
+              auto  cnt = utf8::charsize( s, endptr - s );
+              auto  nch = utf8::encode( chnext, sizeof(chnext), s, cnt );
+
+              o = ::Serialize( o, chnext, nch );  s += cnt > 1 ? 1 : 0;
+            }
         }
 
         return ::Serialize( o, '\"' );
@@ -295,31 +277,32 @@ namespace json {
     o = decorate.Break( ::Serialize( decorate.Shift( o ), '{' ) );
 
     for ( auto beg = z.begin(), end = z.end(); beg != end; ++beg )
-    {
-      D   subdec( decorate );
-
-    // possible comma
-      if ( bcomma )
-        o = subdec.Break( ::Serialize( o, ',' ) );
-
-    // key
-      switch ( beg->first.type() )
+      if ( beg->second.get_type() != zval::z_untyped )
       {
-        case zmap::key::uint:
-          o = ::Serialize( Print( ::Serialize( subdec.Shift( o ), '"' ), (unsigned)beg->first ), '"' );
-          break;
-        case zmap::key::cstr:
-          o = print::charstr( subdec.Shift( o ), (const char*)beg->first );
-          break;
-        case zmap::key::wstr:
-          o = print::widestr( subdec.Shift( o ), (const widechar*)beg->first );
-          break;
-      }
+        D   subdec( decorate );
 
-    // value
-      o = Print( ::Serialize( o, ':' ), beg->second, subdec );
-      bcomma = true;
-    }
+      // possible comma
+        if ( bcomma )
+          o = subdec.Break( ::Serialize( o, ',' ) );
+
+      // key
+        switch ( beg->first.type() )
+        {
+          case zmap::key::uint:
+            o = ::Serialize( Print( ::Serialize( subdec.Shift( o ), '"' ), (unsigned)beg->first ), '"' );
+            break;
+          case zmap::key::cstr:
+            o = print::charstr( subdec.Shift( o ), (const char*)beg->first );
+            break;
+          case zmap::key::wstr:
+            o = print::widestr( subdec.Shift( o ), (const widechar*)beg->first );
+            break;
+        }
+
+      // value
+        o = Print( ::Serialize( o, ':' ), beg->second, subdec );
+        bcomma = true;
+      }
 
     return ::Serialize( decorate.Shift( bcomma ? decorate.Break( o ) : o ), '}' );
   }
@@ -356,6 +339,9 @@ namespace json {
         }
     };
 
+    template <class S>
+    auto  make_source( S* on ) -> source<S> {  return source<S>( on );  };
+
     /*
       json::intl::reader - ориентированный на json вычитыватель символов последовательно, с некоторыми
       удобными доработками для тетрад и пробелов
@@ -377,9 +363,51 @@ namespace json {
       bool    getfour( char* four );
     };
 
+    auto  Parse( reader&, byte_t&,   const zval* revive = nullptr ) -> byte_t&;
+    auto  Parse( reader&, uint16_t&, const zval* revive = nullptr ) -> uint16_t&;
+    auto  Parse( reader&, uint32_t&, const zval* revive = nullptr ) -> uint32_t&;
+    auto  Parse( reader&, uint64_t&, const zval* revive = nullptr ) -> uint64_t&;
+
+    auto  Parse( reader&, char_t& , const zval* revive = nullptr ) -> char_t&;
+    auto  Parse( reader&, int16_t&, const zval* revive = nullptr ) -> int16_t&;
+    auto  Parse( reader&, int32_t&, const zval* revive = nullptr ) -> int32_t&;
+    auto  Parse( reader&, int64_t&, const zval* revive = nullptr ) -> int64_t&;
+
+    auto  Parse( reader&, float&  , const zval* revive = nullptr ) -> float&;
+    auto  Parse( reader&, double& , const zval* revive = nullptr ) -> double&;
+
+    auto  Parse( reader&, charstr&, const zval* revive = nullptr ) -> charstr&;
+    auto  Parse( reader&, widestr&, const zval* revive = nullptr ) -> widestr&;
+
     auto  Parse( reader&, zval&, const zval* revive = nullptr ) -> zval&;
     auto  Parse( reader&, zmap&, const zmap* revive = nullptr ) -> zmap&;
 
+    auto  Parse( reader&, array_char&,   const zval* revive = nullptr ) -> array_char&;
+    auto  Parse( reader&, array_byte&,   const zval* revive = nullptr ) -> array_byte&;
+    auto  Parse( reader&, array_int16&,  const zval* revive = nullptr ) -> array_int16&;
+    auto  Parse( reader&, array_word16&, const zval* revive = nullptr ) -> array_word16&;
+    auto  Parse( reader&, array_int32&,  const zval* revive = nullptr ) -> array_int32&;
+    auto  Parse( reader&, array_word32&, const zval* revive = nullptr ) -> array_word32&;
+    auto  Parse( reader&, array_int64&,  const zval* revive = nullptr ) -> array_int64&;
+    auto  Parse( reader&, array_word64&, const zval* revive = nullptr ) -> array_word64&;
+    auto  Parse( reader&, array_float&,  const zval* revive = nullptr ) -> array_float&;
+    auto  Parse( reader&, array_double&, const zval* revive = nullptr ) -> array_double&;
+
+    auto  Parse( reader&, array_charstr&, const zval* revive = nullptr ) -> array_charstr&;
+    auto  Parse( reader&, array_widestr&, const zval* revive = nullptr ) -> array_widestr&;
+
+    auto  Parse( reader&, array_zmap&, const zval* revive = nullptr ) -> array_zmap&;
+    auto  Parse( reader&, array_zval&, const zval* revive = nullptr ) -> array_zval&;
+
+  }
+
+  template <class S, class T>
+  S*  Parse( S* s, T& t, const zval& revive = zmap() )
+  {
+    parse::source<S>  stream( s );
+    parse::reader     reader( stream );
+
+    return parse::Parse( reader, t, &revive ), stream;
   }
 
   template <class S>
