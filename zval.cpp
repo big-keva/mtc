@@ -185,7 +185,7 @@ namespace mtc
 
   // compare numeric values
   # define derive_compare( _type_ ) \
-  template <> auto  CompTo( const _type_& _1, const _type_& _2 ) -> unsigned {  return CmpRes( (_1 > _2) - (_1 < _2) );  }
+  template <> auto  CompTo( const _type_& _1, const _type_& _2 ) -> unsigned {  return CmpRes( ((_1 - _2) > 0) - ((_1 - _2) < 0) );  }
     derive_compare( char )
     derive_compare( byte )
     derive_compare( int16_t )
@@ -199,8 +199,8 @@ namespace mtc
   # undef derive_compare
 
   # define derive_compare( _t1_, _t2_ ) \
-  template <> auto  CompTo( const _t1_& _1, const _t2_& _2 ) -> unsigned {  return CmpRes( ((double)_1 > (double)_2) - ((double)_1 < (double)_2) );  } \
-  template <> auto  CompTo( const _t2_& _1, const _t1_& _2 ) -> unsigned {  return CmpRes( ((double)_1 > (double)_2) - ((double)_1 < (double)_2) );  }
+  template <> auto  CompTo( const _t1_& _1, const _t2_& _2 ) -> unsigned {  return CmpRes( ((_1 - _2) > 0) - ((_1 - _2) < 0) );  } \
+  template <> auto  CompTo( const _t2_& _1, const _t1_& _2 ) -> unsigned {  return CmpRes( ((_1 - _2) > 0) - ((_1 - _2) < 0) );  }
     derive_compare( char, byte )
     derive_compare( char, int16_t )
     derive_compare( char, int32_t )
