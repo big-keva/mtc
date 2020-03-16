@@ -69,6 +69,6 @@ install(
   DESTINATION include/mtc
 )
 
-enable_testing()
-add_subdirectory(tests)
+# enable_testing()
+# add_subdirectory(tests)
 
