@@ -182,7 +182,7 @@ namespace mtc
 
   // default compare functions
   template <class A, class B>
-  auto  CompTo( const A&, const B& ) -> unsigned {  return 0x00;  }
+  auto  CompTo( const A&, const B& ) -> unsigned;
 
   struct signed_unsigned
   {
