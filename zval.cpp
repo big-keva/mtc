@@ -185,7 +185,7 @@ namespace mtc
 
   // compare numeric values
   # define derive_compare( _type_ ) \
-  template <> auto  CompTo( const _type_& _1, const _type_& _2 ) -> unsigned {  return CmpRes( ((_1 - _2) > 0) - ((_1 - _2) < 0) );  }
+  template <> auto  CompTo( const _type_& _1, const _type_& _2 ) -> unsigned {  return CmpRes( (_1 > _2) - (_1 < _2) );  }
     derive_compare( char )
     derive_compare( byte )
     derive_compare( int16_t )
@@ -198,9 +198,53 @@ namespace mtc
     derive_compare( double )
   # undef derive_compare
 
+  struct signed_unsigned
+  {
+    template <class A, class B>
+    static  bool  diff( const A& a, const B& b )
+      {
+        static_assert( std::is_signed<A>::value && std::is_unsigned<B>::value,
+          "this template compares signed-to-unsigned only" );
+        return a >= 0 ? ((std::make_unsigned<A>::type)a > b) - ((std::make_unsigned<A>::type)a < b) : -1;
+      }
+  };
+
+  struct unsigned_signed
+  {
+    template <class A, class B>
+    static  bool  diff( const A& a, const B& b )
+      {
+        static_assert( std::is_unsigned<A>::value && std::is_signed<B>::value,
+          "this template compares unsigned-to-signed only" );
+        return b >= 0 ? (a > (std::make_unsigned<B>::type)b) - (a < (std::make_unsigned<B>::type)b) : 1;
+      }
+  };
+
+  struct same_sign_types
+  {
+    template <class A, class B>
+    static  bool  diff( const A& a, const B& b )
+      {
+        static_assert( std::is_signed<A>::value == std::is_signed<B>::value
+          || std::is_floating_point<A>::value
+          || std::is_floating_point<B>::value, "this template compares same-signed types only" );
+        return (a > b) - (a < b);
+      }
+  };
+
+  template <class A, class B>
+  auto  mkDiff( const A& a, const B& b ) -> int
+  {
+    return std::conditional<std::is_floating_point<A>::value || std::is_floating_point<B>::value,
+             same_sign_types,
+             std::conditional<std::is_signed<A>::value,
+               std::conditional<std::is_signed<B>::value, same_sign_types, signed_unsigned>::type,
+               std::conditional<std::is_signed<B>::value, unsigned_signed, same_sign_types>::type>::type>::type::diff( a, b );
+  }
+
   # define derive_compare( _t1_, _t2_ ) \
-  template <> auto  CompTo( const _t1_& _1, const _t2_& _2 ) -> unsigned {  return CmpRes( ((_1 - _2) > 0) - ((_1 - _2) < 0) );  } \
-  template <> auto  CompTo( const _t2_& _1, const _t1_& _2 ) -> unsigned {  return CmpRes( ((_1 - _2) > 0) - ((_1 - _2) < 0) );  }
+  template <> auto  CompTo( const _t1_& _1, const _t2_& _2 ) -> unsigned {  return CmpRes( mkDiff( _1, _2 ) );  } \
+  template <> auto  CompTo( const _t2_& _1, const _t1_& _2 ) -> unsigned {  return CmpRes( mkDiff( _1, _2 ) );  }
     derive_compare( char, byte )
     derive_compare( char, int16_t )
     derive_compare( char, int32_t )
