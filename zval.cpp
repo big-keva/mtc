@@ -1,5 +1,6 @@
 # include "zmap.h"
 # include "serialize.h"
+# include <type_traits>
 
 namespace mtc
 {
@@ -205,7 +206,7 @@ namespace mtc
       {
         static_assert( std::is_signed<A>::value && std::is_unsigned<B>::value,
           "this template compares signed-to-unsigned only" );
-        return a >= 0 ? ((std::make_unsigned<A>::type)a > b) - ((std::make_unsigned<A>::type)a < b) : -1;
+        return a >= 0 ? ((typename std::make_unsigned<A>::type)a > b) - ((typename std::make_unsigned<A>::type)a < b) : -1;
       }
   };
 
@@ -216,7 +217,7 @@ namespace mtc
       {
         static_assert( std::is_unsigned<A>::value && std::is_signed<B>::value,
           "this template compares unsigned-to-signed only" );
-        return b >= 0 ? (a > (std::make_unsigned<B>::type)b) - (a < (std::make_unsigned<B>::type)b) : 1;
+        return b >= 0 ? (a > (typename std::make_unsigned<B>::type)b) - (a < (typename std::make_unsigned<B>::type)b) : 1;
       }
   };
 
@@ -237,9 +238,9 @@ namespace mtc
   {
     return std::conditional<std::is_floating_point<A>::value || std::is_floating_point<B>::value,
              same_sign_types,
-             std::conditional<std::is_signed<A>::value,
-               std::conditional<std::is_signed<B>::value, same_sign_types, signed_unsigned>::type,
-               std::conditional<std::is_signed<B>::value, unsigned_signed, same_sign_types>::type>::type>::type::diff( a, b );
+             typename std::conditional<std::is_signed<A>::value,
+               typename std::conditional<std::is_signed<B>::value, same_sign_types, signed_unsigned>::type,
+               typename std::conditional<std::is_signed<B>::value, unsigned_signed, same_sign_types>::type>::type>::type::diff( a, b );
   }
 
   # define derive_compare( _t1_, _t2_ ) \
