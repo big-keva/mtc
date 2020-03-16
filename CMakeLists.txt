@@ -75,6 +75,6 @@ install(
   DESTINATION include/mtc/net
 )
 
-enable_testing()
-add_subdirectory(tests)
+# enable_testing()
+# add_subdirectory(tests)
 
