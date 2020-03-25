@@ -259,7 +259,7 @@ namespace parse {
   template <class header = noheader>
   auto  wFetch( reader& src, zval& val, const header& hdr = header() ) -> zval&
     {
-      auto& wc_str = *val.get_widestr();  assert( &wc_str != nullptr );
+      auto  wc_str = val.get_widestr();  assert( wc_str != nullptr );
       char  chnext;
       char  chprev;
 
@@ -278,21 +278,21 @@ namespace parse {
       // check regular char
         if ( chprev != '\\' )
         {
-          wc_str.push_back( (widechar)(unsigned char)chnext );
+          wc_str->push_back( (widechar)(unsigned char)chnext );
           continue;
         }
 
         switch ( chnext )
         {
-          case 'u':   wc_str.push_back( xFetch( src ) );  break;
-          case 'b':   wc_str.push_back( '\b' ); break;
-          case 't':   wc_str.push_back( '\t' ); break;
-          case 'n':   wc_str.push_back( '\n' ); break;
-          case 'f':   wc_str.push_back( '\f' ); break;
-          case 'r':   wc_str.push_back( '\r' ); break;
-          case '\"':  wc_str.push_back( '\"' ); break;
-          case '/':   wc_str.push_back( '/'  ); break;
-          case '\\':  wc_str.push_back( '\\' ); 
+          case 'u':   wc_str->push_back( xFetch( src ) );  break;
+          case 'b':   wc_str->push_back( '\b' ); break;
+          case 't':   wc_str->push_back( '\t' ); break;
+          case 'n':   wc_str->push_back( '\n' ); break;
+          case 'f':   wc_str->push_back( '\f' ); break;
+          case 'r':   wc_str->push_back( '\r' ); break;
+          case '\"':  wc_str->push_back( '\"' ); break;
+          case '/':   wc_str->push_back( '/'  ); break;
+          case '\\':  wc_str->push_back( '\\' ); 
                       chnext = '\0';            break;
           default:    throw error( "invalid escape sequence" );
         }
@@ -312,7 +312,7 @@ namespace parse {
   template <class header = noheader>
   auto  sFetch( reader& src, zval& val, const header& hdr = header() ) -> zval&
     {
-      auto& mb_str = *val.set_charstr();  assert( &mb_str != nullptr );
+      auto  mb_str = val.set_charstr();  assert( mb_str != nullptr );
       char  chnext;
       char  chprev;
 
@@ -331,7 +331,7 @@ namespace parse {
       // check regular char
         if ( chprev != '\\' )
         {
-          mb_str.push_back( chnext );
+          mb_str->push_back( chnext );
           continue;
         }
 
@@ -343,14 +343,14 @@ namespace parse {
         // check if encoded character has lower code; continue in this case
           if ( (uvalue & ~0x00ff) == 0 )
           {
-            mb_str.push_back( (char)uvalue );
+            mb_str->push_back( (char)uvalue );
             continue;
           }
             else
         // transform string to pseudo-unicode sequence by expanding previous characters;
         // finish loading as widestr
           {
-            auto  wc_str = utf16::expand( mb_str );
+            auto  wc_str = utf16::expand( *mb_str );
             
             wc_str.push_back( uvalue );
             return val.set_widestr( std::move( wc_str ) ), wFetch( src, val );
@@ -359,14 +359,14 @@ namespace parse {
           else
         switch ( chnext )
         {
-          case 'b':   mb_str.push_back( '\b' ); break;
-          case 't':   mb_str.push_back( '\t' ); break;
-          case 'n':   mb_str.push_back( '\n' ); break;
-          case 'f':   mb_str.push_back( '\f' ); break;
-          case 'r':   mb_str.push_back( '\r' ); break;
-          case '\"':  mb_str.push_back( '\"' ); break;
-          case '/':   mb_str.push_back( '/'  ); break;
-          case '\\':  mb_str.push_back( '\\' ); 
+          case 'b':   mb_str->push_back( '\b' ); break;
+          case 't':   mb_str->push_back( '\t' ); break;
+          case 'n':   mb_str->push_back( '\n' ); break;
+          case 'f':   mb_str->push_back( '\f' ); break;
+          case 'r':   mb_str->push_back( '\r' ); break;
+          case '\"':  mb_str->push_back( '\"' ); break;
+          case '/':   mb_str->push_back( '/'  ); break;
+          case '\\':  mb_str->push_back( '\\' ); 
                       chnext = '\0';            break;
           default:    throw error( "invalid escape sequence" );
         }

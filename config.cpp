@@ -39,10 +39,10 @@ namespace mtc
         (void)NULL;
       *pslash = 0;
 
-      getcwd( curdir, sizeof(curdir) );
-      chdir ( newdir );
-      getcwd( newdir, sizeof(newdir) );
-      chdir ( curdir );
+      (void)(getcwd( curdir, sizeof(curdir) ) != nullptr);
+      (void)(chdir ( newdir ) == 0);
+      (void)(getcwd( newdir, sizeof(newdir) ) != nullptr);
+      (void)(chdir ( curdir ) == 0);
 
       for ( pslash = (char*)psz + w_strlen( psz ); pslash > psz && !is_slash( pslash[-1] ); --pslash )
         (void)NULL;
@@ -81,11 +81,11 @@ namespace mtc
       *pslash = '\0';
 
     // save current 
-      getcwd( curdir, sizeof(curdir) );
-      chdir ( orgdir );
-      chdir ( getdir );
-      getcwd( newdir, sizeof(newdir) );
-      chdir ( curdir );
+      (void)(getcwd( curdir, sizeof(curdir) ) != nullptr );
+      (void)(chdir ( orgdir ) == 0 );
+      (void)(chdir ( getdir ) == 0 );
+      (void)(getcwd( newdir, sizeof(newdir) ) != nullptr );
+      (void)(chdir ( curdir ) == 0 );
 
       for ( pslash = (char*)psz + srclen; pslash > psz && !is_slash( *pslash ); --pslash )
         (void)NULL;

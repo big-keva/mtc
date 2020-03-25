@@ -322,7 +322,7 @@ namespace fs {
     {
       entry   out( data->w_path, string( data->p_name ), data->attr() );
         data->p_name = nullptr;
-      return std::move( out );
+      return out;
     }
     return entry();
   }
@@ -416,7 +416,7 @@ namespace fs {
     if ( (thedir.data->dirptr = opendir( thedir.data->w_path.charstr() )) == nullptr )
       return directory();
 
-    return std::move( thedir );
+    return thedir;
   }
 
   auto  directory::open( const widechar* dir, unsigned uflags ) -> directory

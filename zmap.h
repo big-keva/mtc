@@ -409,7 +409,7 @@ namespace mtc
 
         while ( *v != 0 ) out += (char)*v++;
 
-        return std::move( out );
+        return out;
       }
 
     auto  to_string( const zval& v ) const  ->  std::string {  return std::move( mtc::to_string( v ) );  }

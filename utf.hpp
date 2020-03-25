@@ -907,7 +907,7 @@ namespace mtc {
       for ( size_t pos = 0; pos != len; ++pos )
         out[pos] = (chartype)(unsigned char)*str++;
 
-      return std::move( out );
+      return out;
     }
   inline  auto  utf16::expand( const charstr& str ) -> string_t
     {  return expand( str.c_str(), str.length() );  }

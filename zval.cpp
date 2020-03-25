@@ -187,7 +187,10 @@ namespace mtc
       {
         static_assert( std::is_signed<A>::value && std::is_unsigned<B>::value,
           "this template compares signed-to-unsigned only" );
-        return a >= 0 ? ((typename std::make_unsigned<A>::type)a > b) - ((typename std::make_unsigned<A>::type)a < b) : -1;
+	if ( a >= 0 )
+          return ((typename std::make_unsigned<A>::type)a > b)
+	       - ((typename std::make_unsigned<A>::type)a < b);
+	else return -1;
       }
   };
 
@@ -198,7 +201,10 @@ namespace mtc
       {
         static_assert( std::is_unsigned<A>::value && std::is_signed<B>::value,
           "this template compares unsigned-to-signed only" );
-        return b >= 0 ? (a > (typename std::make_unsigned<B>::type)b) - (a < (typename std::make_unsigned<B>::type)b) : 1;
+	if ( b >= 0 )
+	  return (a > (typename std::make_unsigned<B>::type)b)
+               - (a < (typename std::make_unsigned<B>::type)b);
+        else return 1;
       }
   };
 

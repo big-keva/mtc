@@ -184,7 +184,7 @@ namespace mtc
       if ( pvalue != nullptr )
         mkcopy.pvalue = std::move( std::unique_ptr<zval>( new zval( *pvalue.get() ) ) );
 
-      return std::move( mkcopy );
+      return mkcopy;
     }
 
   auto  zmap::ztree_t::plain_branchlen() const -> int
