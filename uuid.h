@@ -52,7 +52,7 @@ SOFTWARE.
 # pragma once
 # if !defined( __mtc_uuid_h__ )
 # define __mtc_uuid_h__
-# include "serialize.decl.h"
+# include "serialize.h"
 # include "wcsstr.h"
 # include <stdexcept>
 # include <cstdint>
@@ -107,6 +107,13 @@ namespace mtc {
     bool  operator >= ( const uuid& rt ) const  {  return compare( rt ) >= 0;  }
     auto  compare( const uuid& rt ) const -> int
       {  return memcmp( ubytes, rt.ubytes, sizeof(ubytes) );  }
+
+  public:
+    auto  GetBufLen() const -> size_t  {  return size();  }
+    template <class O>
+    auto  Serialize( O* o ) const -> O* {  return ::Serialize( o, data(), size() );  }
+    template <class S>
+    auto  FetchFrom( S* s ) -> S* {  return ::FetchFrom( s, (uint8_t*)data(), size() );   }
 
   protected:
     uint8_t ubytes[length];
@@ -169,17 +176,11 @@ namespace mtc {
 
 }
 
-inline  size_t  GetBufLen( const mtc::uuid_t& uuid )
-  {  (void)uuid;  return 16;  }
-template <class O>
-inline  O*      Serialize( O* o, const mtc::uuid_t& uuid )
-  {
-    return ::Serialize( o, uuid.data(), uuid.size() );
-  }
-template <class S>
-inline  S*      FetchFrom( S* s, mtc::uuid_t& uuid )
-  {
-    return ::FetchFrom( s, (uint8_t*)uuid.data(), uuid.size() );
-  }
+template <> inline
+auto  GetBufLen( const mtc::uuid_t& uuid ) -> size_t {  return uuid.GetBufLen();  }
+template <class O> inline
+auto  Serialize( O* o, const mtc::uuid_t& uuid ) -> O*  {  return uuid.Serialize( o );  }
+template <class S> inline
+auto  FetchFrom( S* s, mtc::uuid_t& uuid ) -> S*  {  return uuid.FetchFrom( s );  }
 
 # endif   // __mtc_uuid_h__

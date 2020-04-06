@@ -54,6 +54,7 @@ SOFTWARE.
 # include <cstdint>
 # include <cassert>
 # include <string>
+# include <memory>
 # include <vector>
 
 # if defined( TEST_PATRICIA )
@@ -93,11 +94,103 @@ namespace patricia  {
 
   };
 
+  class tape_t
+  {
+    class page_t;
+    using page_p = std::unique_ptr<page_t>;
+
+  public:
+    class head_t;
+    class tail_t;
+
+  public:
+    auto  to_head( size_t l     ) -> head_t;
+    auto  to_tail( size_t l = 0 ) -> tail_t;
+
+  public:
+                        size_t  GetBufLen() const {  return cch;  }
+    template <class O>  O*      Serialize( O* o ) const;
+
+  protected:
+    page_p  top;
+    page_p* end = &top;
+    size_t  cch = 0;
+
+  };
+
+  class tape_t::page_t
+  {
+    friend class tape_t;
+
+    struct  gap
+    {
+      char*       top;
+      const char* end;
+    };
+
+    page_p  pchain;
+    size_t  nalloc;
+    gap     before;
+    gap     ending;
+
+  public:
+    page_t( size_t allocated, page_p&& next = nullptr ):
+      pchain( std::move( next ) ),
+      nalloc( allocated ),
+      before{ start(), start() },
+      ending{ start(), limit() }  {}
+    auto  start() -> char*              {  return (char*)(this + 1);  }
+    auto  start() const -> const char*  {  return (const char*)(this + 1);  }
+    auto  limit() -> char*              {  return nalloc + (char*)this;  }
+    auto  limit() const -> const char*  {  return nalloc + (const char*)this;  }
+    auto  space() const -> size_t       {  return ending.end - ending.top;  }
+  };
+
+  class tape_t::head_t
+  {
+    friend class  tape_t;
+
+    head_t( tape_t& p ): ps( p ), to( p.top.get() )  {}
+
+  public:
+    head_t( const head_t& h ): ps( h.ps ), to( h.to ) {}
+
+  public:
+    auto  operator ()( const void* p, size_t l ) -> head_t*;
+    auto  ptr() const -> head_t*  {  return (head_t*)this;  }
+
+  protected:
+    tape_t& ps;
+    page_t* to;
+
+  };
+
+  class tape_t::tail_t
+  {
+    friend class  tape_t;
+
+    tail_t( tape_t& p ): ps( p )  {}
+  public:
+    tail_t( const tail_t& b ): ps( b.ps ) {}
+
+  public:
+    auto  operator ()( const void* p, size_t l ) -> tail_t*;
+    auto  ptr() const -> tail_t*  {  return (tail_t*)this;  }
+
+  protected:
+    tape_t& ps;
+
+  };
+
 }}
 
-template <class O>
-inline  O*      Serialize( O* o, const mtc::patricia::key& key )  {  return key.Serialize( o );  }
-inline  size_t  GetBufLen(       const mtc::patricia::key& key )  {  return key.GetBufLen(   );  }
+template <>
+inline  auto  Serialize( mtc::patricia::tape_t::head_t* o, const void* p, size_t l ) -> mtc::patricia::tape_t::head_t*
+  {  return (*o)( p, l );  }
+
+template <>
+inline  auto  Serialize( mtc::patricia::tape_t::tail_t* o, const void* p, size_t l ) -> mtc::patricia::tape_t::tail_t*
+  {  return (*o)( p, l );  }
 
 namespace mtc       {
 namespace patricia  {
@@ -410,7 +503,89 @@ namespace patricia  {
 
   };
 
-  // patricia implementation
+    // tape_t::head_t implementation
+
+    inline  auto  tape_t::head_t::operator ()( const void* p, size_t l ) -> head_t*
+    {
+      const char* src = (const char*)p;
+      const char* end = src + l;
+
+      while ( src != end )
+      {
+        if ( to == nullptr || to->before.top >= to->before.end )
+          throw std::logic_error( "storage buffer was not allocated correctly, possible 0 or incorrect count in call to 'to_head'" );
+
+        while ( src != end && to->before.top != to->before.end )
+          *to->before.top++ = *src++;
+
+        if ( to->before.top == to->before.end )
+          to = to->pchain.get();
+      }
+
+      ps.cch += l;
+      return this;
+    }
+
+    // tape_t::tail_t implementation
+
+    inline  auto  tape_t::tail_t::operator ()( const void* p, size_t l ) -> tail_t*
+    {
+      const char* src = (const char*)p;
+      const char* end = src + l;
+
+      while ( src != end )
+      {
+        while ( *ps.end != nullptr && (*ps.end)->space() == 0 )
+          ps.end = &(*ps.end)->pchain;
+        if ( *ps.end == nullptr )
+          *ps.end = page_p( new ( new char[0x1000] ) page_t( 0x1000 ) );
+
+        while ( src != end && (*ps.end)->ending.top != (*ps.end)->ending.end )
+          *(*ps.end)->ending.top++ = *src++;
+      }
+
+      ps.cch += l;
+      return this;
+    }
+
+    // tape_t implementation
+
+    inline  auto  tape_t::to_head( size_t l ) -> head_t
+    {
+      while ( l != 0 )
+      {
+        size_t  cbpart;
+        size_t  cbmove;
+
+        if ( top == nullptr || top->space() == 0 )
+          top = page_p( new ( new char[0x1000] ) page_t( 0x1000, std::move( top ) ) );
+
+        cbpart = std::min( l, top->space() );
+        cbmove = top->ending.top - top->start();
+
+        memmove( top->start() + cbpart, top->start(), cbmove );
+        top->ending.top += cbpart;
+        top->before.top = top->start();
+        top->before.end = top->before.top + cbpart;
+        l -= cbpart;
+      }
+      return head_t( *this );
+    }
+
+    inline  auto  tape_t::to_tail( size_t l ) -> tail_t
+    {
+      return (void)l, tail_t( *this );
+    }
+
+    template <class O>
+    O*  tape_t::Serialize( O *o ) const
+    {
+      for ( auto p = &top; o != nullptr && *p != nullptr; p = &(*p)->pchain )
+        o = ::Serialize( o, (*p)->start(), (*p)->ending.top - (*p)->start() );
+      return o;
+    }
+
+    // patricia implementation
 
   template <class V>
   tree<V>::node::node( const unsigned char* key, size_t len, std::unique_ptr<node>&& nex ): _next( std::move( nex ) ), _sets( (uint32_t)len )
@@ -938,7 +1113,93 @@ namespace patricia  {
       return setkey();
     }
 
-  // patricia implementation
+    template <class V>
+    class sink
+    {
+      class value_t;
+      class chunk_t;
+
+      using chunk_p = std::unique_ptr<chunk_t>;
+
+    protected:
+      template <class chartype>
+      auto  insert( chartype* k, size_t l ) -> chunk_t*;
+
+    public:
+      V*  Insert( const key&, V&& );
+      V*  Insert( const key&, const V& );
+
+    public:
+      auto  GetBufLen() const
+      {  return pat != nullptr ? pat->GetBufLen() : ::GetBufLen( 0 ) + ::GetBufLen( 0 ) + ::GetBufLen( 0 );  }
+      template <class O>
+      O*    Serialize( O* o ) const
+      {  return pat != nullptr ? pat->Serialize( o ) : ::Serialize( ::Serialize( ::Serialize( o, 0 ), 0 ), 0 );  }
+
+    protected:
+      chunk_p   pat;
+
+    };
+
+    template <class V>
+    class sink<V>::value_t
+    {
+      using place = typename std::aligned_storage<sizeof(V), alignof(V)>::type;
+
+      place aval;
+      V*    pval;
+
+    public:
+      value_t(): pval( nullptr )  {}
+      ~value_t() {  clear();  }
+
+    public:
+      bool  isset() const {  return pval != nullptr;  }
+      void  clear();
+
+    public:
+      auto  operator = ( V&& v ) -> V*        {  return clear(), pval = new( &aval ) V( std::move( v ) );  }
+      auto  operator = ( const V& v ) -> V*   {  return clear(), pval = new( &aval ) V( v );  }
+
+    public:     // serialization
+      auto  GetBufLen() const -> size_t
+      {  return isset() ? ::GetBufLen( *pval ) : 0;  };
+      template <class O>
+      O*    Serialize( O* o ) const
+      {  return isset() ? ::Serialize( o, *pval ) : o;  }
+
+    };
+
+    template <class V>
+    class sink<V>::chunk_t
+    {
+      std::string key;
+      value_t     val;
+      tape_t      set;
+      size_t      cnt = 0;
+      chunk_p     sub;
+
+    public:
+      template <class chartype>
+      chunk_t( chartype* k, size_t l ): key( (const char*)k, l )  {}
+
+    public:
+      template <class chartype>
+      auto  insert( chartype* k, size_t l ) -> chunk_t*;
+      auto  setval( V&& v ) -> V* {  return val = std::move( v );  }
+      auto  setval( const V& v ) -> V*  {  return val = v;  }
+
+    public:     // serialization
+      auto  GetBufLen() const -> size_t;
+      template <class O>
+      O*    Serialize( O* ) const;
+
+    protected:
+      template <class chartype>
+      auto  lmatch( chartype* k, size_t l ) -> std::tuple<int, int>;
+    };
+
+    // patricia implementation
 
   template <class V>
   tree<V>::tree( tree&& p ):
@@ -1643,6 +1904,145 @@ namespace patricia  {
     }
     return serial;
   }
+
+  // sink<V>::value_t implementation
+
+  template <class V>
+  void  sink<V>::value_t::clear()
+  {
+    V*  pdel;
+
+    if ( (pdel = std::exchange( pval, nullptr )) != nullptr )
+      pdel->~V();
+  }
+
+  // sink<V>::chunk_t implementation
+
+  template <class V>
+  auto  sink<V>::chunk_t::GetBufLen() const ->size_t
+  {
+    auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2;
+    auto  ccjump = val.GetBufLen() + set.GetBufLen();
+
+    if ( sub != nullptr )
+    {
+      arrlen += 2;
+      ccjump += sub->GetBufLen();
+    }
+    return ::GetBufLen( key.size() ) + key.size()
+           + ::GetBufLen( arrlen )
+           + ::GetBufLen( ccjump ) + ccjump;
+  }
+
+  template <class V>
+  template <class O>
+  O*    sink<V>::chunk_t::Serialize( O* o ) const
+  {
+    auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2;
+    auto  ccjump = val.GetBufLen() + set.GetBufLen();
+
+    if ( sub != nullptr )
+    {
+      arrlen += 2;
+      ccjump += sub->GetBufLen();
+    }
+
+    o = set.Serialize( ::Serialize( ::Serialize( ::Serialize( ::Serialize( o, key.size() ), arrlen ),
+    key.c_str(), key.size() ), ccjump ) );
+
+    if ( sub != nullptr )
+      o = sub->Serialize( o );
+
+    return val.isset() ? val.Serialize( o ) : o;
+  }
+
+  template <class V>
+  template <class chartype>
+  auto  sink<V>::chunk_t::insert( chartype* k, size_t l ) -> chunk_t*
+  {
+    int   cmpres;
+    int   equlen;
+
+    std::tie( cmpres, equlen ) = lmatch( k, l );
+
+    // check complete match node key
+    if ( equlen == key.size() )
+    {
+      if ( l == equlen )
+        throw std::logic_error( "sink must receive keys in increasing order" );
+
+      if ( sub == nullptr )
+        return (sub = chunk_p( new chunk_t( k + equlen, l - equlen ) )).get();
+
+      if ( (chartype)sub->key.front() == k[equlen] )
+        return sub->insert( k + equlen, l - equlen );
+
+      // next character differs from next character in tree; move (possibly) existing
+      // 'sub'node to serialized set and create the new one
+      sub->Serialize( set.to_tail().ptr() );
+        ++cnt;
+      return (sub = chunk_p( new chunk_t( k + equlen, l - equlen ) )).get();
+    }
+    if ( cmpres <= 0 )
+      throw std::logic_error( "sink must receive keys in increasing order" );
+
+    // two cases:
+    //  - key is splitted to two keys;
+    //  - match length, is zero, the key changes completely
+    // have partial match; check if inserted key is strict greater than the node key
+    // split the key in two
+    {
+      auto  cchkey = ::GetBufLen( key.size() - equlen ) + key.size() - equlen;
+      auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2 + (sub != nullptr ? 2 : 0);
+      auto  ccjump = val.GetBufLen() + set.GetBufLen() + (sub != nullptr ? sub->GetBufLen() : 0);
+      auto  tohead = set.to_head( cchkey + ::GetBufLen( arrlen ) + ::GetBufLen( ccjump ) );
+      auto  totail = set.to_tail();
+
+      ::Serialize( ::Serialize( ::Serialize( ::Serialize( tohead.ptr(), key.size() - equlen ), arrlen ),
+        key.c_str() + equlen, key.size() - equlen ), ccjump );
+      if ( sub != nullptr )
+        sub->Serialize( totail.ptr() );
+      val.Serialize( totail.ptr() );
+      cnt = 1;
+    }
+    key.resize( equlen );
+    val.clear();
+
+    return (sub = chunk_p( new chunk_t( k + equlen, l - equlen ) )).get();
+  }
+
+  template <class V>
+  template <class chartype>
+  auto  sink<V>::chunk_t::lmatch( chartype* k, size_t l ) -> std::tuple<int, int>
+  {
+    auto  kptr = (const unsigned char*)key.c_str();
+    auto  kend = kptr + key.size();
+    auto  mptr = (const unsigned char*)k;
+    auto  mend = mptr + l;
+    int   rcmp;
+
+    for ( rcmp = 0; kptr != kend && mptr != mend && (rcmp = *mptr - *kptr) == 0; ++kptr, ++mptr )
+      (void)NULL;
+
+    return std::make_tuple( rcmp, kptr - (const unsigned char*)key.c_str() );
+  }
+
+  // sink<V> implementation
+
+  template <class V>
+  template <class chartype>
+  auto  sink<V>::insert( chartype* k, size_t l ) -> chunk_t*
+  {
+    if ( pat == nullptr )
+      pat = chunk_p( new chunk_t( (const char*)nullptr, 0 ) );
+    return pat->insert( k, l );
+  }
+
+  template <class V>
+  V*  sink<V>::Insert( const key& k, V&& v )         {  return insert( k.getptr(), k.getlen() )->setval( std::move( v ) );  }
+
+  template <class V>
+  V*  sink<V>::Insert( const key& k, const V& v )    {  return insert( k.getptr(), k.getlen() )->setval( v );  }
 
 }}
 

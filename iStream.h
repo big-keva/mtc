@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __mtc_istream_h__ )
 # define __mtc_istream_h__
 # include "platform.h"
+# include "serialize.h"
 # include "iBuffer.h"
 
 namespace mtc
@@ -77,24 +78,20 @@ namespace mtc
 
 }
 
-inline  mtc::IByteStream* Serialize( mtc::IByteStream* s, const void* p, size_t l )
-  {
-    return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
-  }
+template <> inline
+auto  Serialize( mtc::IByteStream* s, const void* p, size_t l ) -> mtc::IByteStream*
+  {  return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
 
-inline  mtc::IByteStream* FetchFrom( mtc::IByteStream* s, void* p, size_t l )
-  {
-    return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
-  }
+template <> inline
+auto  FetchFrom( mtc::IByteStream* s, void* p, size_t l ) -> mtc::IByteStream*
+  {  return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
 
-inline  mtc::IFlatStream* Serialize( mtc::IFlatStream* s, const void* p, size_t l )
-  {
-    return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
-  }
+template <> inline
+auto  Serialize( mtc::IFlatStream* s, const void* p, size_t l ) -> mtc::IFlatStream*
+  {  return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
 
-inline  mtc::IFlatStream* FetchFrom( mtc::IFlatStream* s, void* p, size_t l )
-  {
-    return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
-  }
+template <> inline
+auto  FetchFrom( mtc::IFlatStream* s, void* p, size_t l ) -> mtc::IFlatStream*
+  {  return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
 
 # endif  // __mtc_istream_h__
