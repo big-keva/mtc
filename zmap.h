@@ -52,7 +52,7 @@ SOFTWARE.
 # pragma once
 # if !defined( __zmap_hpp__ )
 # define __zmap_hpp__
-# include "serialize.decl.h"
+# include "serialize.h"
 # include "wcsstr.h"
 # include "uuid.h"
 # include <cassert>
@@ -117,6 +117,25 @@ namespace mtc
   using array_zval_t    = array_zval;
   using array_uuid_t    = array_uuid;
 
+}
+
+template <>  inline
+auto  GetBufLen( const mtc::zval& ) -> size_t;
+template <>  inline
+auto  GetBufLen( const mtc::zmap& ) -> size_t;
+
+template <class O>  inline
+auto  Serialize( O*, const mtc::zval& ) -> O*;
+template <class O>  inline
+auto  Serialize( O*, const mtc::zmap& ) -> O*;
+
+template <class S>  inline
+auto  FetchFrom( S*, mtc::zval& ) -> S*;
+template <class S>  inline
+auto  FetchFrom( S*, mtc::zmap& ) -> S*;
+
+namespace mtc
+{
   std::string to_string( const zval& );
   std::string to_string( const zmap& );
 
@@ -727,13 +746,13 @@ namespace mtc
 
 }
 
-inline  size_t  GetBufLen( const mtc::zval& v ) {  return v.GetBufLen();  }
-inline  size_t  GetBufLen( const mtc::zmap& m ) {  return m.GetBufLen();  }
+template <> inline  size_t  GetBufLen( const mtc::zval& v ) {  return v.GetBufLen();  }
+template <> inline  size_t  GetBufLen( const mtc::zmap& m ) {  return m.GetBufLen();  }
 
 template <class O>
-inline  O*      Serialize( O* o, const mtc::zval& v ) {  return v.Serialize( o );  }
+O*      Serialize( O* o, const mtc::zval& v ) {  return v.Serialize( o );  }
 template <class O>
-inline  O*      Serialize( O* o, const mtc::zmap& m ) {  return m.Serialize( o );  }
+O*      Serialize( O* o, const mtc::zmap& m ) {  return m.Serialize( o );  }
 
 template <class S>
 inline  S*      FetchFrom( S* s, mtc::zval& v ) {  return v.FetchFrom( s );  }
@@ -1861,7 +1880,5 @@ namespace mtc
   }
 
 }
-
-# include "serialize.h"
 
 # endif  // __zmap_hpp__

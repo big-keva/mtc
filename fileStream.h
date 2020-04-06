@@ -103,14 +103,11 @@ namespace mtc
 
 }
 
-inline  mtc::IFileStream* Serialize( mtc::IFileStream* s, const void* p, size_t l )
-  {
-    return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
-  }
-
-inline  mtc::IFileStream* FetchFrom( mtc::IFileStream* s, void* p, size_t l )
-  {
-    return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;
-  }
+template <> inline
+auto  Serialize( mtc::IFileStream* s, const void* p, size_t l ) -> mtc::IFileStream*
+  {  return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
+template <> inline
+auto  FetchFrom( mtc::IFileStream* s, void* p, size_t l ) -> mtc::IFileStream*
+  {  return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
 
 # endif  // __mtc_fileStream_h__
