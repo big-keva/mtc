@@ -183,26 +183,26 @@ namespace mtc
   struct signed_unsigned
   {
     template <class A, class B>
-    static  bool  diff( const A& a, const B& b )
+    static  int   diff( const A& a, const B& b )
       {
         static_assert( std::is_signed<A>::value && std::is_unsigned<B>::value,
           "this template compares signed-to-unsigned only" );
-	if ( a >= 0 )
+        if ( a >= 0 )
           return ((typename std::make_unsigned<A>::type)a > b)
-	       - ((typename std::make_unsigned<A>::type)a < b);
-	else return -1;
+               - ((typename std::make_unsigned<A>::type)a < b);
+          else return -1;
       }
   };
 
   struct unsigned_signed
   {
     template <class A, class B>
-    static  bool  diff( const A& a, const B& b )
+    static  int   diff( const A& a, const B& b )
       {
         static_assert( std::is_unsigned<A>::value && std::is_signed<B>::value,
           "this template compares unsigned-to-signed only" );
-	if ( b >= 0 )
-	  return (a > (typename std::make_unsigned<B>::type)b)
+        if ( b >= 0 )
+          return (a > (typename std::make_unsigned<B>::type)b)
                - (a < (typename std::make_unsigned<B>::type)b);
         else return 1;
       }
@@ -211,7 +211,7 @@ namespace mtc
   struct same_sign_types
   {
     template <class A, class B>
-    static  bool  diff( const A& a, const B& b )
+    static  int   diff( const A& a, const B& b )
       {
         static_assert( std::is_signed<A>::value == std::is_signed<B>::value
           || std::is_floating_point<A>::value
