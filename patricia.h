@@ -66,8 +66,9 @@ namespace patricia  {
 
   class key
   {
-    template <class V>  friend class tree;
-                        friend class dump;
+    template <class V>
+    friend class tree;
+    friend class dump;
 
     const unsigned char*  ptr;
     size_t                len;
@@ -85,8 +86,9 @@ namespace patricia  {
     auto    end()   const -> const unsigned char*   {  return getptr() + getlen();  }
 
   public:     // serialization
-                        size_t  GetBufLen(      ) const {  return ::GetBufLen( len ) + len;  }
-    template <class O>  O*      Serialize( O* o ) const {  return ::Serialize( ::Serialize( o, len ), ptr, len );  }
+    size_t  GetBufLen(      ) const {  return ::GetBufLen( len ) + len;  }
+    template <class O>
+    O*      Serialize( O* o ) const {  return ::Serialize( ::Serialize( o, len ), ptr, len );  }
 
   public:     // compare
     bool  operator == ( const key& k ) const  {  return len == k.len && (ptr == k.ptr || std::equal( ptr, ptr + len, k.ptr ));  }
@@ -484,8 +486,7 @@ namespace patricia  {
   protected:  // helpers
     const char* Search( const char* keystr,
                         size_t      keylen,
-                        const char* thedic,
-                        size_t      nnodes ) const;
+                        const char* thedic ) const;
     template <class _func_>
     int         Select( const char* dicstr, int         diclen,
                         const char* keystr, const char* keyend,
@@ -1130,7 +1131,7 @@ namespace patricia  {
       V*  Insert( const key&, const V& );
 
     public:
-      auto  GetBufLen() const
+      size_t  GetBufLen() const
       {  return pat != nullptr ? pat->GetBufLen() : ::GetBufLen( 0 ) + ::GetBufLen( 0 ) + ::GetBufLen( 0 );  }
       template <class O>
       O*    Serialize( O* o ) const
@@ -1672,7 +1673,7 @@ namespace patricia  {
   // dump implementation
 
   template <class _func_>
-  int           dump::Select( const void* k, size_t l, _func_ f ) const
+  int   dump::Select( const void* k, size_t l, _func_ f ) const
   {
     uint8_t       thekey[0x100];
     const char*   thedic;
@@ -1691,45 +1692,80 @@ namespace patricia  {
   }
 
   inline
-  const char* dump::Search( const key& k ) const
+  auto  dump::Search( const key& k ) const -> const char*
   {
-    const char* thedic;
-    size_t      nchars;
-    size_t      nnodes;
-    size_t      sublen;
-    auto        keyptr = k.ptr;
-    auto        keyend = k.ptr + k.len;
-
-    if ( (thedic = ::FetchFrom( ::FetchFrom( serial, nchars ), nnodes )) == nullptr )
-      return nullptr;
-
-    assert( nnodes <= 513 );
-    assert( nchars <= 256 * 4 );
-
-    if ( k.len < nchars )
-      return nullptr;
-
-    for ( auto dicend = thedic + nchars; thedic < dicend; )
-      if ( *keyptr++ != *thedic++ )
-        return nullptr;
-
-    if ( (thedic = ::FetchFrom( thedic, sublen )) == nullptr )
-      return nullptr;
-
-    return Search( (const char*)keyptr, keyend - keyptr, thedic, nnodes );
+    return Search( (const char*)k.getptr(), k.getlen(), serial );
   }
 
-  template <class _func_>
-  int           dump::Select( const char* dicstr, int         diclen,
-                                      const char* keystr, const char* keyend,
-                                      const char* thedic, int         nnodes,
-                                      _func_      addptr,
-                                      char*       buftop,
-                                      char*       bufend,
-                                      char*       bufptr ) const
+  inline
+  auto  dump::Search( const char* thekey,
+                      size_t      cchkey,
+                      const char* thedic ) const -> const char*
   {
-    bool    bvalue = (nnodes & 1) != 0;
-    int     nerror;
+    size_t  nchars;
+    size_t  nnodes;
+
+    for ( thedic = ::FetchFrom( ::FetchFrom( thedic, nchars ), nnodes ); ; )
+    {
+      size_t  sublen;
+      auto    hasval = (nnodes & 0x01) != 0;  nnodes >>= 1;
+
+      if ( nnodes > 256 )
+        throw std::logic_error( "node count may not be greater than 256" );
+
+      // check key match
+      if ( cchkey < nchars )
+        return nullptr;
+
+      for ( auto keyend = thedic + nchars; thedic != keyend; --cchkey )
+        if ( *thedic++ != *thekey++ )
+          return nullptr;
+
+      // check if value
+      if ( cchkey == 0 )
+        return hasval ? JumpOver( nnodes, ::FetchFrom( thedic, sublen ) ) : nullptr;
+
+      // loop over the nested nodes, select the node to contain the key
+      for ( thedic = ::FetchFrom( thedic, sublen ); nnodes != 0; --nnodes )
+      {
+        size_t  cchars;
+        size_t  cnodes;
+        int     rescmp;
+
+        thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
+        rescmp = (uint8_t)*thekey - (uint8_t)*thedic;
+
+        if ( rescmp > 0 )
+        {
+          thedic = ::FetchFrom( thedic + cchars, sublen );
+          thedic += sublen;
+        }
+          else
+        if ( rescmp == 0 )
+        {
+          nchars = cchars;
+          nnodes = cnodes;
+          break;
+        }
+          else
+        return nullptr;
+      }
+      if ( nnodes == 0 )
+        return nullptr;
+    }
+  }
+
+    template <class _func_>
+  int   dump::Select( const char* dicstr, int         diclen,
+                      const char* keystr, const char* keyend,
+                      const char* thedic, int         nnodes,
+                      _func_      addptr,
+                      char*       buftop,
+                      char*       bufend,
+                      char*       bufptr ) const
+  {
+    bool  bvalue = (nnodes & 1) != 0;
+    int   nerror;
 
     assert( diclen >= 0 );
     assert( keyend >= keystr );
@@ -1803,54 +1839,6 @@ namespace patricia  {
   }
 
   inline
-  const char* dump::Search( const char* thekey,
-                                    size_t      cchkey,
-                                    const char* thedic,
-                                    size_t      nnodes ) const
-  {
-    bool    bvalue = (nnodes & 1) != 0;
-    uint8_t  chfind;
-
-  // если строка кончилась, то узел должен иметь значение
-    if ( cchkey == 0 )
-      return bvalue ? JumpOver( (int)(nnodes >> 1), thedic ) : nullptr;
-
-    assert( cchkey > (size_t)0 );
-
-    for ( chfind = *thekey, nnodes >>= 1; nnodes-- > 0; )
-    {
-      size_t  cchars;
-      size_t  cnodes;
-      size_t  curlen;
-      int     rescmp;
-
-    // извлечь характеристики очередного узла
-      thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );
-
-    // проверить на совпадение
-      if ( (rescmp = (unsigned char)chfind - (unsigned char)*thedic) < 0 )
-        return nullptr;
-
-    // сравнить строку с текущим элементом; если не совпадает, завершить поиск
-      if ( rescmp == 0 )
-      {
-        if ( cchkey < cchars )
-          return nullptr;
-        while ( cchars > 0 && *thedic++ == *thekey++ )
-          {  --cchars;  --cchkey;  }
-
-      // есть совпадение, извлечь размер вложенного массива и значения
-        return cchars == 0 ? Search( thekey, cchkey, ::FetchFrom( thedic, curlen ), cnodes ) : nullptr;
-      }
-
-    // извлечь вложенный размер
-      thedic = ::FetchFrom( thedic + cchars, curlen ) + curlen;
-    }
-
-    return nullptr;
-  }
-
-  inline
   const char* dump::JumpOver( int nnodes, const char* thedic ) const
   {
     while ( nnodes-- > 0 )
@@ -1912,8 +1900,8 @@ namespace patricia  {
   {
     V*  pdel;
 
-    if ( (pdel = std::exchange( pval, nullptr )) != nullptr )
-      pdel->~V();
+    if ( (pdel = pval) != nullptr )
+      pval = nullptr, pdel->~V();
   }
 
   // sink<V>::chunk_t implementation
