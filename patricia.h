@@ -1921,9 +1921,10 @@ namespace patricia  {
       arrlen += 2;
       ccjump += sub->GetBufLen();
     }
+
     return ::GetBufLen( key.size() ) + key.size()
-           + ::GetBufLen( arrlen )
-           + ::GetBufLen( ccjump ) + ccjump;
+         + ::GetBufLen( arrlen )
+         + ::GetBufLen( ccjump ) + ccjump;
   }
 
   template <class V>
@@ -1940,7 +1941,7 @@ namespace patricia  {
     }
 
     o = set.Serialize( ::Serialize( ::Serialize( ::Serialize( ::Serialize( o, key.size() ), arrlen ),
-    key.c_str(), key.size() ), ccjump ) );
+      key.c_str(), key.size() ), ccjump ) );
 
     if ( sub != nullptr )
       o = sub->Serialize( o );
