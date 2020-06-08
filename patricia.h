@@ -497,7 +497,7 @@ namespace patricia  {
                         char*       bufptr ) const;
 
   protected:  // internals
-    const char* JumpOver( int nnodes, const char* dicptr ) const;
+    static  auto  JumpOver( int, const char* ) -> const char*;
 
   protected:  // variables
     const char* serial;
@@ -1152,7 +1152,7 @@ namespace patricia  {
 
     public:
       value_t(): pval( nullptr )  {}
-      ~value_t() {  clear();  }
+     ~value_t() {  clear();  }
 
     public:
       bool  isset() const {  return pval != nullptr;  }
@@ -1637,6 +1637,10 @@ namespace patricia  {
         }
 
       patkey = std::move( patricia::key( achars.data(), chrtop - achars.begin() ) );
+      if ( chrtop - achars.begin() != 0 )
+        patval = JumpOver( atrace.back().nnodes, atrace.back().dicptr );
+      else
+        patval = nullptr;
       return *this;
     }
 
@@ -1839,7 +1843,7 @@ namespace patricia  {
   }
 
   inline
-  const char* dump::JumpOver( int nnodes, const char* thedic ) const
+  auto  dump::JumpOver( int nnodes, const char* thedic ) -> const char*
   {
     while ( nnodes-- > 0 )
     {
@@ -1917,9 +1921,10 @@ namespace patricia  {
       arrlen += 2;
       ccjump += sub->GetBufLen();
     }
+
     return ::GetBufLen( key.size() ) + key.size()
-           + ::GetBufLen( arrlen )
-           + ::GetBufLen( ccjump ) + ccjump;
+         + ::GetBufLen( arrlen )
+         + ::GetBufLen( ccjump ) + ccjump;
   }
 
   template <class V>
@@ -1936,7 +1941,7 @@ namespace patricia  {
     }
 
     o = set.Serialize( ::Serialize( ::Serialize( ::Serialize( ::Serialize( o, key.size() ), arrlen ),
-    key.c_str(), key.size() ), ccjump ) );
+      key.c_str(), key.size() ), ccjump ) );
 
     if ( sub != nullptr )
       o = sub->Serialize( o );
