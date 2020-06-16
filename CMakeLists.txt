@@ -64,6 +64,7 @@ install(
     zarray.h
     config.h
     zmap.h
+    zmap-alias.h
     z_js.h
     zipStream.h
   DESTINATION include/mtc
