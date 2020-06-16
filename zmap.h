@@ -282,20 +282,6 @@ namespace mtc
     declare_init( array_zmap )
     declare_init( array_uuid )
 
-  public:     // access operators
-  /*
-    operator char_t   () const;
-    operator byte_t   () const;
-    operator int16_t  () const;
-    operator word32_t () const;
-    operator word64_t () const;
-    operator word16_t () const;
-    operator float_t  () const;
-    operator double_t () const;
-    operator charstr  () const;
-    operator widestr  () const;
-  */
-
   public:     // accessors
   # define  declare_access_type( _type_ )                                 \
     const _type_##_t*  get_##_type_() const;                              \
