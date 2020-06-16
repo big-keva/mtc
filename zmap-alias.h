@@ -54,93 +54,126 @@ SOFTWARE.
 # define __zmap_alias_h__
 # include "zmap.h"
 
-# define  zmap_view( name )                                       \
-  class name: public mtc::zmap                                    \
-  {                                                               \
-    using mtc::zmap::zmap;                                        \
-                                                                  \
-  protected:                                                      \
-    template <class T>                                            \
-    class array_view                                              \
-    {                                                             \
-      const T*  ptr;                                              \
-      size_t    len;                                              \
-    public:                                                       \
-      array_view() noexcept: ptr( nullptr ), len( 0 ) {}          \
-      array_view( const T* p, size_t l ) noexcept: ptr( p ), len( l ) {}  \
-      array_view( const array_view& v ) noexcept: ptr( v.ptr ), len( v.len ) {} \
-      array_view( const std::vector<T>& v ): array_view( v.data(), v.size() ) {}  \
-      const T&  operator[]( size_t i ) const noexcept {  return ptr[i];  }  \
-      const T&  at( size_t i ) const noexcept {  return ptr[i];  }\
-      size_t    size() const noexcept {  return len;  }           \
-      auto  begin() noexcept -> const T* {  return ptr;  }        \
-      auto  end() noexcept -> const T* {  return ptr + len;  }    \
-      auto  front() const -> const T&  {  return *ptr;  }         \
-      auto  back() const -> const T&  {  return ptr[len - 1];  }  \
-    };                                                            \
-  public:                                                         \
-    name() = default;                                             \
-    name( const mtc::zmap& z ): mtc::zmap( z ) {}                 \
-    auto  operator = ( const name& z ) -> name& {  return mtc::zmap::operator=( z ), *this;  } \
-    auto  operator = ( const mtc::zmap& z ) -> name& {  return mtc::zmap::operator=( z ), *this;  }
+namespace mtc {
 
-  # define  __zmap_impl_alias__( name, ctyp, ztyp, key )        \
-    public:                                                     \
-    auto  name() const -> ctyp                                  \
-    {                                                           \
-      return get_##ztyp( key, ctyp() );                         \
-    }                                                           \
-    auto  name( ) -> ctyp&                                      \
-    {                                                           \
-      auto  pval = get_##ztyp( key );                           \
-      return pval != nullptr ? *pval : *set_##ztyp( key, ctyp() );\
+  class alias_base: public mtc::zmap
+  {
+    using mtc::zmap::zmap;
+
+  protected:
+    template <class T>
+    class array_view
+    {
+      const T*  ptr;
+      size_t    len;
+    public:
+      array_view() noexcept: ptr( nullptr ), len( 0 ) {}
+      array_view( const T* p, size_t l ) noexcept: ptr( p ), len( l ) {}
+      array_view( const array_view& v ) noexcept: ptr( v.ptr ), len( v.len ) {}
+      array_view( const std::vector<T>& v ): array_view( v.data(), v.size() ) {}
+      const T&  operator[]( size_t i ) const noexcept {  return ptr[i];  }
+      const T&  at( size_t i ) const noexcept {  return ptr[i];  }
+      size_t    size() const noexcept {  return len;  }
+      auto  begin() noexcept -> const T* {  return ptr;  }
+      auto  end() noexcept -> const T* {  return ptr + len;  }
+      auto  front() const -> const T&  {  return *ptr;  }
+      auto  back() const -> const T&  {  return ptr[len - 1];  }
+    };
+
+    # define derive_get( type )                                                     \
+    static auto get_value( const type##_t*, const zval* v ) -> const type##_t*      \
+      {  return v != nullptr ? v->get_##type() : nullptr;  }                        \
+    static auto get_value( const type##_t*, zval* v ) -> type##_t*                  \
+      {  return v != nullptr ? v->get_##type() : nullptr;  }                        \
+    auto set_value( const type##_t*, const zmap::key& k ) -> type##_t*              \
+      {  return set_##type( k );  }
+
+    derive_get( char )
+    derive_get( byte )
+    derive_get( int16 )
+    derive_get( int32 )
+    derive_get( int64 )
+    derive_get( word16 )
+    derive_get( word32 )
+    derive_get( word64 )
+    derive_get( float )
+    derive_get( double )
+    derive_get( charstr )
+    derive_get( widestr )
+    derive_get( zmap )
+    derive_get( uuid )
+
+    derive_get( array_char )
+    derive_get( array_byte )
+    derive_get( array_int16 )
+    derive_get( array_int32 )
+    derive_get( array_int64 )
+    derive_get( array_word16 )
+    derive_get( array_word32 )
+    derive_get( array_word64 )
+    derive_get( array_float )
+    derive_get( array_double )
+    derive_get( array_charstr )
+    derive_get( array_widestr )
+    derive_get( array_zmap )
+    derive_get( array_zval )
+    derive_get( array_uuid )
+
+    # undef derive_get
+
+    template <class T>
+    auto  get_value( const T*, const mtc::zmap::key& key ) const -> T
+    {
+      auto  val = get_value( (const T*)nullptr, get( key ) );
+      return val != nullptr ? *val : T();
+    }
+    template <class T>
+    auto  get_value( const T*, const mtc::zmap::key& key ) -> T&
+    {
+      auto  val = get_value( (const T*)nullptr, get( key ) );
+      return val != nullptr ? *(T*)val : *(T*)set_value( (const T*)nullptr, key );
     }
 
-  # define  zmap_alias_float( name, key ) __zmap_impl_alias__( name, float, float, key )
-  # define  zmap_alias_double( name, key ) __zmap_impl_alias__( name, double, double, key )
-  # define  zmap_alias_int32( name, key ) __zmap_impl_alias__( name, int32_t, int32, key )
-  # define  zmap_alias_int64( name, key ) __zmap_impl_alias__( name, int64_t, int64, key )
-  # define  zmap_alias_uint32( name, key ) __zmap_impl_alias__( name, uint32_t, word32, key )
-  # define  zmap_alias_uint64( name, key ) __zmap_impl_alias__( name, uint64_t, word64, key )
+    template <class T>
+    auto  get_array( const T*, const mtc::zmap::key& key ) const -> array_view<T>
+    {
+      using element_type = typename std::conditional<std::is_base_of<mtc::zmap, T>::value, mtc::zmap, T>::type;
+      using created_type = std::vector<T>;
 
-  # define  zmap_alias_charstr( name, key ) __zmap_impl_alias__( name, mtc::charstr, charstr, key )
-  # define  zmap_alias_widestr( name, key ) __zmap_impl_alias__( name, mtc::widestr, widestr, key )
+      auto  val = (created_type*)get_value( (const std::vector<element_type>*)nullptr, get( key ) );
+      return val != nullptr ? *val : array_view<T>();
+    }
+    template <class T>
+    auto  get_array( const T*, const mtc::zmap::key& key ) -> std::vector<T>&
+    {
+      using element_type = typename std::conditional<std::is_base_of<mtc::zmap, T>::value, mtc::zmap, T>::type;
+      using created_type = std::vector<T>;
 
-  # define  zmap_alias_struct( name, type, key )                          \
-    public:                                                               \
-    auto  name() const -> type                                            \
-    {                                                                     \
-      auto  pval = get_zmap( key );                                       \
-      return pval != nullptr ? *pval : type();                            \
-    }                                                                     \
-    auto  name() -> type&                                                 \
-    {                                                                     \
-      auto  pval = get_zmap( key );                                       \
-      return pval != nullptr ? (type&)*pval : (type&)*set_zmap( key );    \
+      auto  val = (created_type*)get_value( (const std::vector<element_type>*)nullptr, get( key ) );
+      return val != nullptr ? *val : *(created_type*)set_value( (const std::vector<element_type>*)nullptr, key );
     }
 
-  # define  __zmap_impl_array_alias__( name, ctyp, ztyp, key )            \
-    public:                                                               \
-    auto  name() const -> array_view<ctyp>                                \
-    {                                                                     \
-      auto  pval = get_array_##ztyp( key );                               \
-      return pval != nullptr ? array_view<ctyp>( *(std::vector<ctyp>*)pval ) : array_view<ctyp>();\
-    }                                                                     \
-    auto  name() -> std::vector<ctyp>&                                    \
-    {                                                                     \
-      auto  pval = get_array_##ztyp( key );                               \
-      return pval != nullptr ? *(std::vector<ctyp>*)pval : *(std::vector<ctyp>*)set_array_##ztyp( key );  \
-    }
+  public:
+    alias_base() = default;
+    alias_base( const mtc::zmap& z ): mtc::zmap( z ) {}
+    alias_base( const alias_base& a ): mtc::zmap( a ) {}
+    auto  operator = ( const alias_base& z ) -> alias_base& {  return mtc::zmap::operator=( z ), *this;  }
+    auto  operator = ( const mtc::zmap& z ) -> alias_base& {  return mtc::zmap::operator=( z ), *this;  }
 
-  # define  zmap_alias_array_float( name, key )  __zmap_impl_array_alias__( name, float, float, key )
-  # define  zmap_alias_array_double( name, key )  __zmap_impl_array_alias__( name, double, double, key )
+  };
 
-  # define  zmap_alias_array_int32( name, key )  __zmap_impl_array_alias__( name, int32_t, int32, key )
-  # define  zmap_alias_array_int64( name, key )  __zmap_impl_array_alias__( name, int64_t, int64, key )
-  # define  zmap_alias_array_uint32( name, key )  __zmap_impl_array_alias__( name, uint32_t, word32, key )
-  # define  zmap_alias_array_uint64( name, key )  __zmap_impl_array_alias__( name, uint64_t, word64, key )
+}
 
-  # define  zmap_alias_array_struct( name, type, key )  __zmap_impl_array_alias__( name, type, zmap, key )
+# define  zmap_view( name ) \
+  class name: public mtc::alias_base {  using alias_base::alias_base;
+
+# define  zmap_value( type, name, key ) public:                                     \
+  auto  name() const -> type  {  return get_value( (const type*)nullptr, key );  }  \
+  auto  name() -> type& {  return get_value( (const type*)nullptr, key );  }
+
+# define  zmap_array( type, name, key ) public:                                                 \
+  auto  name() const -> array_view<type>  {  return get_array( (const type*)nullptr, key );  }  \
+  auto  name() -> std::vector<type>&  {  return get_array( (const type*)nullptr, key );  }
 
 # define  zmap_end  };
 
