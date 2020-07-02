@@ -156,6 +156,7 @@ namespace mtc {
   public:
     alias_base() = default;
     alias_base( const mtc::zmap& z ): mtc::zmap( z ) {}
+    alias_base( const mtc::zmap* z ): mtc::zmap() {  if ( z != nullptr )  *this = *z;  }
     alias_base( const alias_base& a ): mtc::zmap( a ) {}
     auto  operator = ( const alias_base& z ) -> alias_base& {  return mtc::zmap::operator=( z ), *this;  }
     auto  operator = ( const mtc::zmap& z ) -> alias_base& {  return mtc::zmap::operator=( z ), *this;  }
