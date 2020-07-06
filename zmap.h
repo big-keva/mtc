@@ -872,6 +872,7 @@ namespace mtc
       derive_get_smart( array_int64 )
       derive_get_smart( array_word64 )
       derive_get_smart( array_charstr )
+      derive_get_smart( array_widestr )
       derive_get_smart( array_zmap )
       derive_get_smart( array_zval )
       derive_get_smart( array_uuid )
