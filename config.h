@@ -23,8 +23,10 @@ namespace mtc {
   public:     // construction
     config();
     config( config&& );
+    config( const config& );
     config( const std::initializer_list<std::pair<zmap::key, zval>>& );
     config& operator = ( config&& );
+    config& operator = ( const config& );
 
   public:     // iterators
     auto  begin () const -> decltype(cfgmap.begin()) {  return cfgmap.begin();  }

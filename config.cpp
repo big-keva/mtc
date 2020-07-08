@@ -106,6 +106,8 @@ namespace mtc
 
   config::config( config&& c ): cfgmap( std::move( c.cfgmap ) ), origin( std::move( c.origin ) ) {}
 
+  config::config( const config& c ): cfgmap( c.cfgmap ), origin( c.origin ) {}
+
   config::config( zmap&& z, charstr&& s ): cfgmap( std::move( z ) ), origin( std::move( s ) ) {}
 
   config::config( const zmap& z, const charstr& s ): cfgmap( z ), origin( s ) {}
@@ -115,6 +117,11 @@ namespace mtc
   config& config::operator = ( config&& c )
     {
       return cfgmap = std::move( c.cfgmap ), *this;
+    }
+
+  config& config::operator = ( const config& c )
+    {
+      return cfgmap = c.cfgmap, origin = c.origin, *this;
     }
 
   auto  config::get_section( const zmap::key& key ) const -> config
