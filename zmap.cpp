@@ -235,6 +235,7 @@ namespace mtc
 
   auto  zmap::zdata_t::copyit() -> zdata_t*
     {
+      std::unique_lock<std::mutex>  aulock( _mutex );
       return new zdata_t( ztree_t::copyit(), n_vals );
     }
 
@@ -499,25 +500,6 @@ namespace mtc
       (p_data = p_copy)->attach();
 
       return p_data;
-    }
-
-  auto  zmap::make_private() -> zmap&
-    {
-      if ( p_data == nullptr )
-        return *this;
-
-      auto  lcount = (p_data->attach(), p_data->detach());
-      
-      if ( lcount == 1 )
-        return *this;
-
-      zdata_t*  p_copy = p_data->copyit();
-
-      p_data->detach();
-
-      (p_data = p_copy)->attach();
-
-      return *this;
     }
 
   auto  zmap::put( const key& k, zval&& v ) -> zval*

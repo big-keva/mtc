@@ -482,7 +482,6 @@ namespace mtc
 
   protected:
     auto  private_data() -> zdata_t*;
-    auto  make_private() -> zmap&;
 
   public:
     zmap();
