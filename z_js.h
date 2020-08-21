@@ -125,8 +125,8 @@ namespace json {
     template <class O>
     O*  widestr( O* o, const widechar* s, size_t l = (size_t)-1 )
       {
-        static char         repsrc[] = "\b\t\n\f\r\"/\\";
-        static const char*  repval[] = { "\\b", "\\t", "\\n", "\\f", "\\r", "\\\"", "\\/", "\\\\" };
+        static char         repsrc[] = "\b\t\n\f\r\"/\\\0";
+        static const char*  repval[] = { "\\b", "\\t", "\\n", "\\f", "\\r", "\\\"", "\\/", "\\\\", "\\u0000" };
         char*               reppos;
         auto                endptr = s;
         char                chnext[0x10];
