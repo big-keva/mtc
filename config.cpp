@@ -31,7 +31,7 @@ namespace mtc
       char    newdir[0x400];
       size_t  srclen = psz != nullptr ? w_strlen( psz ) : 0;
       char*   pslash;
-  
+
       if ( psz == nullptr || srclen >= sizeof(newdir) )
         return nullptr;
 
@@ -49,7 +49,7 @@ namespace mtc
 
       if ( cch < w_strlen( newdir ) + 1 + w_strlen( pslash ) + 1 )
         return nullptr;
-  
+
       return w_strcat( w_strcat( w_strcpy( out, newdir ), "/" ), pslash );
     }
 
@@ -83,7 +83,13 @@ namespace mtc
     // save current 
       (void)(getcwd( curdir, sizeof(curdir) ) != nullptr );
       (void)(chdir ( orgdir ) == 0 );
-      (void)(chdir ( getdir ) == 0 );
+
+      if ( chdir ( getdir ) != 0 )
+      {
+        (void)(chdir ( curdir ) == 0 );
+        throw config::error( mtc::strprintf( "could not locate path '%s'", getdir ) );
+      }
+
       (void)(getcwd( newdir, sizeof(newdir) ) != nullptr );
       (void)(chdir ( curdir ) == 0 );
 
@@ -98,6 +104,26 @@ namespace mtc
       return w_strcat( w_strcat( w_strcpy( out, newdir ), "/" ), pslash );
     }
 
+  }
+
+  template <class C>
+  bool  parse_double( double& val, const std::basic_string<C>& str,
+    const std::initializer_list<std::pair<const char*, double>>& suf )
+  {
+    C*    endp;
+    auto  dval = mtc::w_strtod( str.c_str(), &endp );
+
+    if ( endp != str.c_str() )
+      return false;
+
+    if ( *endp == (C)0 )
+      return val = dval, true;
+
+    for ( auto& s: suf )
+      if ( mtc::w_strcmp( s.first, endp ) == 0 )
+        return val = dval * s.second, true;
+
+    return false;
   }
 
   // config implementation
@@ -143,8 +169,30 @@ namespace mtc
   auto  config::get_uint64( const zmap::key& key, uint64_t def ) const -> uint64_t
     {  return cfgmap.get_word64( key, def );  }
 
-  auto  config::get_double( const zmap::key& key, double def ) const -> double
-    {  return cfgmap.get_double( key, def );  }
+  auto  config::get_double(
+      const zmap::key&  key,
+      double            def, const init<const char*, double>&  suf ) const -> double
+    {
+      auto    getval = cfgmap.get( key );
+      double  dblval;
+
+      if ( getval == nullptr )
+        return def;
+
+      switch ( getval->get_type() )
+      {
+        case zval::z_double:  return *getval->get_double();
+        case zval::z_word64:  return *getval->get_word64();
+        case zval::z_int64:   return *getval->get_int64();
+        case zval::z_word32:  return *getval->get_word32();
+        case zval::z_int32:   return *getval->get_int32();
+        case zval::z_word16:  return *getval->get_word16();
+        case zval::z_int16:   return *getval->get_int16();
+        case zval::z_charstr: return parse_double( dblval, *getval->get_charstr(), suf );
+        case zval::z_widestr: return parse_double( dblval, *getval->get_widestr(), suf );
+        default:              return def;
+      }
+    }
 
   auto  config::get_charstr( const zmap::key& key, const charstr& def ) const -> charstr
     {  return cfgmap.get_charstr( key, def );  }

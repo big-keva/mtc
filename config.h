@@ -12,6 +12,9 @@ namespace mtc {
     zmap    cfgmap;
     charstr origin;
 
+    template <class key, class val>
+    using init = std::initializer_list<std::pair<key, val>>;
+
   public:
     class error: public std::runtime_error
     {  using std::runtime_error::runtime_error;  };
@@ -24,7 +27,7 @@ namespace mtc {
     config();
     config( config&& );
     config( const config& );
-    config( const std::initializer_list<std::pair<zmap::key, zval>>& );
+    config( const init<zmap::key, zval>& );
     config& operator = ( config&& );
     config& operator = ( const config& );
 
@@ -42,7 +45,8 @@ namespace mtc {
     auto  get_uint32  ( const zmap::key&, uint32_t = 0 ) const -> uint32_t;
     auto  get_uint64  ( const zmap::key&, uint64_t = 0 ) const -> uint64_t;
 
-    auto  get_double  ( const zmap::key&, double = 0.0 ) const -> double;
+    auto  get_double  ( const zmap::key&, double = 0.0,
+      const init<const char*, double>& = {} ) const -> double;
 
     auto  get_charstr ( const zmap::key&, const charstr& = charstr() ) const -> charstr;
     auto  get_widestr ( const zmap::key&, const widestr& = widestr() ) const -> widestr;
