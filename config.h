@@ -39,11 +39,15 @@ namespace mtc {
   public:     // access
     auto  get_section ( const zmap::key& ) const -> config;
 
-    auto  get_int32   ( const zmap::key&, int32_t = 0 ) const -> int32_t;
-    auto  get_int64   ( const zmap::key&, int64_t = 0 ) const -> int64_t;
+    auto  get_int32   ( const zmap::key&, int32_t = 0,
+      const init<const char*, int32_t>& = {} ) const -> int32_t;
+    auto  get_int64   ( const zmap::key&, int64_t = 0,
+      const init<const char*, int64_t>& = {} ) const -> int64_t;
 
-    auto  get_uint32  ( const zmap::key&, uint32_t = 0 ) const -> uint32_t;
-    auto  get_uint64  ( const zmap::key&, uint64_t = 0 ) const -> uint64_t;
+    auto  get_uint32  ( const zmap::key&, uint32_t = 0,
+      const init<const char*, uint32_t>& = {} ) const -> uint32_t;
+    auto  get_uint64  ( const zmap::key&, uint64_t = 0,
+      const init<const char*, uint64_t>& = {} ) const -> uint64_t;
 
     auto  get_double  ( const zmap::key&, double = 0.0,
       const init<const char*, double>& = {} ) const -> double;
