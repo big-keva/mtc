@@ -113,7 +113,7 @@ namespace mtc
     C*    endp;
     auto  dval = mtc::w_strtod( str.c_str(), &endp );
 
-    if ( endp != str.c_str() )
+    if ( endp == str.c_str() )
       return false;
 
     if ( *endp == (C)0 )
