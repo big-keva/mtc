@@ -84,7 +84,7 @@ namespace mtc
       (void)(getcwd( curdir, sizeof(curdir) ) != nullptr );
       (void)(chdir ( orgdir ) == 0 );
 
-      if ( chdir ( getdir ) != 0 )
+      if ( getdir[0] != '\0' && chdir ( getdir ) != 0 )
       {
         (void)(chdir ( curdir ) == 0 );
         throw config::error( mtc::strprintf( "could not locate path '%s'", getdir ) );
