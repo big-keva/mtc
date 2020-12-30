@@ -15,6 +15,7 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
+
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
@@ -61,6 +62,7 @@ SOFTWARE.
 # else
 #   include <dirent.h>
 #   include <fnmatch.h>
+#   include <sys/stat.h>
 # endif
 
 namespace mtc
@@ -169,7 +171,16 @@ namespace mtc
     public:     // read
       unsigned    attrib() const
         {
-          return pentry != nullptr ? pentry->d_type == DT_DIR ? attr_dir : attr_file : 0;
+          if ( pentry != nullptr )
+          {
+            char        szpath[PATH_MAX];
+            struct stat fistat;
+
+            stat( strcat( strcpy( szpath, folder ), pentry->d_name ), &fistat );
+
+            return S_ISDIR( fistat.st_mode ) ? attr_dir : attr_file;
+          }
+          return 0;
         }
       char*       doread()
         {
