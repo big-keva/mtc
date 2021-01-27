@@ -348,9 +348,9 @@ namespace mtc
 
 # define  implement_lifetime_control                                \
   protected:  mtc::reference_counter lifetime_counter;              \
-    template <class T>                                              \
-    void delete_this( T* p )                                        \
-    {  p->~T();  free( p );  }                                      \
+    template <class _mtc_lifetime_counter_owner>                    \
+    void delete_this( _mtc_lifetime_counter_owner* p )              \
+    {  p->~_mtc_lifetime_counter_owner();  free( p );  }            \
   public:     virtual long  Attach()  noexcept override             \
     {  return ++lifetime_counter;  }                                \
   public:     virtual long  Detach()  noexcept override             \
