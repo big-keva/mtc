@@ -137,7 +137,7 @@ namespace mtc
 
   config::config(): cfgmap() {}
 
-  config::config( config&& c ): cfgmap( std::move( c.cfgmap ) ), origin( std::move( c.origin ) ) {}
+  config::config( const zmap& z ): cfgmap( z ) {}
 
   config::config( const config& c ): cfgmap( c.cfgmap ), origin( c.origin ) {}
 
@@ -147,8 +147,8 @@ namespace mtc
 
   config::config( const std::initializer_list<std::pair<zmap::key, zval>>& il ): cfgmap( il ) {}
 
-  config& config::operator = ( config&& c )
-  {  return cfgmap = std::move( c.cfgmap ), *this;  }
+  config& config::operator = ( const zmap& z )
+  {  return origin.clear(), cfgmap = z, *this;  }
 
   config& config::operator = ( const config& c )
   {  return cfgmap = c.cfgmap, origin = c.origin, *this;  }

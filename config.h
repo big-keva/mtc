@@ -25,10 +25,10 @@ namespace mtc {
 
   public:     // construction
     config();
-    config( config&& );
+    config( const zmap& );
     config( const config& );
     config( const init<zmap::key, zval>& );
-    config& operator = ( config&& );
+    config& operator = ( const zmap& );
     config& operator = ( const config& );
 
   public:     // iterators
