@@ -80,6 +80,21 @@ namespace mtc
         }
     }
 
+  auto  zmap::key::compare( const key& k ) const -> int
+    {
+      int   rc;
+
+      if ( (rc = _typ - k._typ) != 0 )
+        return rc;
+      switch ( _typ )
+        {
+          case uint:  return (unsigned)*this - (unsigned)k;
+          case cstr:  return w_strcmp( (const char*)*this, (const char*)k );
+          case wstr:  return w_strcmp( (const widechar*)*this, (const widechar*)k );
+          default  :  throw std::logic_error( "undefined key type for compare" );
+        }
+    }
+
   zmap::key::operator unsigned () const {  return _typ == uint ? keys::key_to_int( _ptr, _len ) : 0;  }
   zmap::key::operator const char* () const {  return _typ == cstr ? (const char*)_ptr : nullptr;  }
   zmap::key::operator const widechar* () const {  return _typ == wstr ? (const widechar*)_ptr : nullptr;  }
@@ -435,6 +450,12 @@ namespace mtc
     }
 
   zmap::zmap( const std::initializer_list<std::pair<key, zval>>& il ): p_data( nullptr )
+    {
+      for ( auto& keyval: il )
+        put( keyval.first, keyval.second );
+    }
+
+  zmap::zmap( const zmap& from, const std::initializer_list<std::pair<key, zval>>& il ): zmap( from )
     {
       for ( auto& keyval: il )
         put( keyval.first, keyval.second );

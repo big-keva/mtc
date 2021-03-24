@@ -345,6 +345,7 @@ namespace mtc
           array_zmap* set_array_zmap( array_zmap_t&& );
 
   public:     // operations
+    bool  empty() const;
     auto  clear() -> zval&;
     auto  get_type() const -> unsigned;
     auto  is_numeric() const -> bool;
@@ -377,10 +378,6 @@ namespace mtc
       compare_le = 0x05,
       compare_ge = 0x06
     };
-
-  protected:  // compare helpers
-    template <class B>
-    auto  CompTo( const B& ) const -> unsigned;
 
   public:
     auto  CompTo( const zval& x ) const -> unsigned;
@@ -488,6 +485,7 @@ namespace mtc
     zmap( zmap&& );
     zmap( const zmap& );
     zmap( const std::initializer_list<std::pair<key, zval>>& );
+    zmap( const zmap&, const std::initializer_list<std::pair<key, zval>>& );
     zmap& operator = ( zmap&& );
     zmap& operator = ( const zmap& );
     zmap& operator = ( const std::initializer_list<std::pair<key, zval>>& );
@@ -1013,6 +1011,8 @@ namespace mtc
   public:
     auto  operator == ( const key& k ) const -> bool;
     auto  operator != ( const key& k ) const -> bool {  return !(*this == k);  }
+
+    auto  compare( const key& ) const -> int;
 
   public:
     static
