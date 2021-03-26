@@ -16,8 +16,17 @@ namespace mtc {
     using init = std::initializer_list<std::pair<key, val>>;
 
   public:
+
     class error: public std::runtime_error
-    {  using std::runtime_error::runtime_error;  };
+    {
+      std::string sourcePath;
+
+      using std::runtime_error::runtime_error;
+    public:
+      auto  set_source_name( const std::string& s ) ->error& {  return sourcePath = s, *this;  }
+      auto  get_source_name() const -> const std::string& {  return sourcePath;  }
+
+    };
 
   protected:
     config( zmap&&, charstr&& );

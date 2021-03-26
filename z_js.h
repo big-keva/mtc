@@ -315,6 +315,21 @@ namespace json {
     class error: public std::runtime_error
     {
       using std::runtime_error::runtime_error;
+
+      int         codeLineId = -1;
+      int         jsonLineId = -1;
+      std::string sourcePath;
+
+    public:
+      auto  set_code_lineid( int line ) -> error& {  return codeLineId = line, *this;  }
+      auto  set_json_lineid( int line ) -> error& {  return jsonLineId = line, *this;  }
+      auto  set_source_path( const std::string& s ) -> error& {  return sourcePath = s, *this;  }
+
+    public:
+      int   get_code_lineid() const {  return codeLineId;  }
+      int   get_json_lineid() const {  return jsonLineId;  }
+      auto  get_source_path() const -> const std::string& {  return sourcePath;  }
+
     };
 
     struct stream
@@ -351,6 +366,7 @@ namespace json {
       stream& source;
       char    chbuff[3];
       size_t  buflen;
+      int     lineId = 1;
 
     public:     // construction
       reader( stream& s ): source( s ), chbuff{ 0 }, buflen( 0 )  {}
@@ -361,6 +377,7 @@ namespace json {
       bool    isspace( char ) const;
       char    nospace();
       bool    getfour( char* four );
+      int     getline() const {  return lineId;  }
     };
 
     auto  Parse( reader&, byte_t&,   const zval* revive = nullptr ) -> byte_t&;

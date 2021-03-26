@@ -62,15 +62,17 @@ namespace parse {
 
   auto  reader::getnext() -> char
     {
-      return buflen != 0 ? chbuff[--buflen] : source.get();
+      char  chnext = buflen != 0 ? chbuff[--buflen] : source.get();
+
+      return lineId += (chnext == '\n' ? 1 : 0), chnext;
     }
 
   auto  reader::putback( char ch ) -> reader&
     {
       if ( buflen > 1 )
-        throw error( "stream buffer overflow" );
+        throw error( "stream buffer overflow" ).set_code_lineid( __LINE__ );
 
-      return chbuff[buflen++] = ch, *this;
+      return lineId -= ((chbuff[buflen++] = ch) == '\n' ? 1 : 0), *this;
     }
 
   bool  reader::isspace( char ch ) const
@@ -181,7 +183,11 @@ namespace parse {
       char  chnext;
 
       if ( !is_num_char( chnext = stm.nospace() ) )
-        throw error( "0..9 expected" );
+      {
+        throw error( "0..9 expected" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( stm.getline() );
+      }
 
       for ( u = ((uint8_t)chnext - (uint8_t)'0'); is_num_char( chnext = stm.getnext() ); )
         u = u * 10 + (uint8_t)chnext - '0';
@@ -224,10 +230,18 @@ namespace parse {
       flo = (F)strtod( flobuf, &endptr );
 
       if ( floptr >= std::end(flobuf) )
-        throw error( "sequence too long to be float" );
+      {
+        throw error( "sequence too long to be float" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( stm.getline() );
+      }
 
       if ( endptr != floptr )
-        throw error( "invalid floating point value" );
+      {
+        throw error( "invalid floating point value" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( stm.getline() );
+      }
 
       return stm.putback( *floptr ), flo;
     }
@@ -242,12 +256,20 @@ namespace parse {
 
     // convert sequence to utf-16 code
       if ( !src.getfour( hexchr ) )
-        throw error( "4-digit hexadecimal character code expected" );
+      {
+        throw error( "4-digit hexadecimal character code expected" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( src.getline() );
+      }
 
       uvalue = (widechar)strtoul( hexchr, &endptr, 0x10 );
 
       if ( endptr - hexchr != 4 )
-        throw error( "4-digit hexadecimal character code expected" );
+      {
+        throw error( "4-digit hexadecimal character code expected" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( src.getline() );
+      }
 
       return uvalue;
     }
@@ -294,11 +316,15 @@ namespace parse {
           case '/':   wc_str->push_back( '/'  ); break;
           case '\\':  wc_str->push_back( '\\' ); 
                       chnext = '\0';            break;
-          default:    throw error( "invalid escape sequence" );
+          default:    throw error( "invalid escape sequence" )
+                        .set_code_lineid( __LINE__ )
+                        .set_json_lineid( src.getline() );
         }
         chprev = '\0';
       }
-      throw error( "unexpected end of stream" );
+      throw error( "unexpected end of stream" )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( src.getline() );
     }
     
  /*
@@ -368,11 +394,15 @@ namespace parse {
           case '/':   mb_str->push_back( '/'  ); break;
           case '\\':  mb_str->push_back( '\\' ); 
                       chnext = '\0';            break;
-          default:    throw error( "invalid escape sequence" );
+          default:    throw error( "invalid escape sequence" )
+            .set_code_lineid( __LINE__ )
+            .set_json_lineid( src.getline() );
         }
         chprev = '\0';
       }
-      throw error( "unexpected end of stream" );
+      throw error( "unexpected end of stream" )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( src.getline() );
     }
 
   auto  sParse( reader& src, zval& val ) -> zval&
@@ -380,7 +410,11 @@ namespace parse {
       return val.set_charstr(), sFetch( src, val, []( reader& src )
         {
           if ( src.nospace() != '"' )
-            throw error( "'\"' expected" );
+          {
+            throw error( "'\"' expected" )
+              .set_code_lineid( __LINE__ )
+              .set_json_lineid( src.getline() );
+          }
         } );
     }
 
@@ -389,7 +423,11 @@ namespace parse {
       return val.set_widestr(), wFetch( src, val, []( reader& src )
         {
           if ( src.nospace() != '"' )
-            throw error( "'\"' expected" );
+          {
+            throw error( "'\"' expected" )
+              .set_code_lineid( __LINE__ )
+              .set_json_lineid( src.getline() );
+          }
         } );
     }
 
@@ -456,7 +494,11 @@ namespace parse {
       zval  z;
 
       if ( sParse( s, z ).get_charstr() == nullptr )
-        throw error( "string cannot be parsed as simple character string" );
+      {
+        throw error( "string cannot be parsed as simple character string" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
 
       return r = std::move( *z.get_charstr() );
     }
@@ -468,7 +510,11 @@ namespace parse {
       widestr*  pw;
 
       if ( (ps = sParse( s, zv ).get_charstr()) == nullptr && (pw = zv.get_widestr()) == nullptr )
-        throw error( "string cannot be parsed (not a string)" );
+      {
+        throw error( "string cannot be parsed (not a string)" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
 
     // if a value is character string, check if it is an utf8 string; convert utf8
     // to widechar string directly
@@ -493,7 +539,11 @@ namespace parse {
       char  chnext;
 
       if ( (chnext = stm.nospace()) != '[' )
-        throw error( "'[' expected" );
+      {
+        throw error( "'[' expected" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( stm.getline() );
+      }
 
       while ( (chnext = stm.nospace()) != '\0' && chnext != ']' )
         {
@@ -504,11 +554,20 @@ namespace parse {
           if ( (chnext = stm.nospace()) == ',' )
             continue;
           if ( chnext == ']' )  stm.putback( chnext );
-            else throw error( "',' or ']' expected" );
+            else
+          {
+            throw error( "',' or ']' expected" )
+              .set_code_lineid( __LINE__ )
+              .set_json_lineid( stm.getline() );
+          }
         }
 
       if ( chnext != ']' )
-        throw error( "']' expected" );
+      {
+        throw error( "']' expected" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( stm.getline() );
+      }
 
       return out;
     }
@@ -685,7 +744,11 @@ namespace parse {
           if ( chnext == '.' )
           {
             if ( bpoint || bexpon )
-              throw error( "unexpected '.' in numeric format" );
+            {
+              throw error( "unexpected '.' in numeric format" )
+                .set_code_lineid( __LINE__ )
+                .set_json_lineid( s.getline() );
+            }
             cvalue.push_back( chprev = chnext );
               bpoint = true;
           }
@@ -693,7 +756,11 @@ namespace parse {
           if ( chnext == 'e' || chnext == 'E' )
           {
             if ( bexpon )
-              throw error( "unexpected 'e' in numeric format" );
+            {
+              throw error( "unexpected 'e' in numeric format" )
+                .set_code_lineid( __LINE__ )
+                .set_json_lineid( s.getline() );
+            }
             cvalue.push_back( chprev = chnext );
               bexpon = true;
           }
@@ -701,7 +768,11 @@ namespace parse {
           if ( chnext == '-' )
           {
             if ( chprev != 'e' && chprev != 'E' )
-              throw error( "unexpected '-' in numeric format" );
+            {
+              throw error( "unexpected '-' in numeric format" )
+                .set_code_lineid( __LINE__ )
+                .set_json_lineid( s.getline() );
+            }
             cvalue.push_back( chprev = chnext );
           }
             else
@@ -716,7 +787,11 @@ namespace parse {
           double  dvalue = strtod( cvalue.c_str(), &endptr );
 
           if ( *endptr != '\0' )
-            throw error( "invalid numeric format" );
+          {
+            throw error( "invalid numeric format" )
+              .set_code_lineid( __LINE__ )
+              .set_json_lineid( s.getline() );
+          }
           z.set_double( dvalue );
         }
           else
@@ -725,7 +800,11 @@ namespace parse {
           int32_t nvalue = strtol( cvalue.c_str(), &endptr, 10 );
 
           if ( *endptr != '\0' )
-            throw error( "invalid numeric format" );
+          {
+            throw error( "invalid numeric format" )
+              .set_code_lineid( __LINE__ )
+              .set_json_lineid( s.getline() );
+          }
           z.set_int32( nvalue );
         }
         return z;
@@ -737,7 +816,11 @@ namespace parse {
         if ( (chnext = s.getnext()) != 'r'
           || (chnext = s.getnext()) != 'u'
           || (chnext = s.getnext()) != 'e' )
-            throw( strprintf( "unexpected character '%c'", chnext ) );
+        {
+          throw error( strprintf( "unexpected character '%c'", chnext ) )
+            .set_code_lineid( __LINE__ )
+            .set_json_lineid( s.getline() );
+        }
         return z.set_byte( 1 ), z;
       }
         else
@@ -747,7 +830,11 @@ namespace parse {
           || (chnext = s.getnext()) != 'l'
           || (chnext = s.getnext()) != 's'
           || (chnext = s.getnext()) != 'e' )
-            throw error( strprintf( "unexpected character '%c'", chnext ) );
+        {
+          throw error( strprintf( "unexpected character '%c'", chnext ) )
+            .set_code_lineid( __LINE__ )
+            .set_json_lineid( s.getline() );
+        }
         return z.set_byte( 0 ), z;
       }
         else
@@ -756,11 +843,19 @@ namespace parse {
         if ( (chnext = s.getnext()) != 'u'
           || (chnext = s.getnext()) != 'l'
           || (chnext = s.getnext()) != 'l' )
-            throw error( strprintf( "unexpected character '%c'", chnext ) );
+        {
+          throw error( strprintf( "unexpected character '%c'", chnext ) )
+            .set_code_lineid( __LINE__ )
+            .set_json_lineid( s.getline() );
+        }
         return z.set_charstr(), z;
       }
         else
-      throw error( strprintf( "unexpected character '%c'", chnext ) );
+      {
+        throw error( strprintf( "unexpected character '%c'", chnext ) )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
     }
 
   auto  Parse( reader& s, zmap& z, const zmap* revive ) -> zmap&
@@ -774,7 +869,11 @@ namespace parse {
       return z;
 
     if ( chnext != '{' )
-      throw error( "'{' expected" );
+    {
+      throw error( "'{' expected" )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( s.getline() );
+    }
 
   // char by char until end or '}'
     while ( (chnext = s.nospace()) != '\0' && chnext != '}' )
@@ -785,9 +884,13 @@ namespace parse {
 
     // get variable name as widestring
       try
-        {  Parse( s.putback( chnext ), zv_key );  }
+      {  Parse( s.putback( chnext ), zv_key );  }
       catch ( const error& jx )
-        {  throw error( strprintf( "%s while parsing variable name", jx.what() ) );  }
+      {
+        throw error( strprintf( "%s while parsing variable name", jx.what() ) )
+          .set_code_lineid( jx.get_code_lineid() )
+          .set_json_lineid( jx.get_json_lineid() );
+      }
 
       if ( zv_key.get_charstr() != nullptr )
       {
@@ -807,28 +910,49 @@ namespace parse {
         revval = revive != nullptr ? revive->get( *zv_key.get_int32() ) : nullptr;
       }
         else
-      throw error( "invalid key type" );
+      {
+        throw error( "invalid key type" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
 
     // check for colon
       if ( (chnext = s.nospace()) != ':' )
-        throw error( "':' expected" );
+      {
+        throw error( "':' expected" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
 
     // get the value
       try
-        {  Parse( s, *newval, revval );  }
+      {  Parse( s, *newval, revval );  }
       catch ( const error& jx )
-        {  throw error( strprintf( "%s -> %s", zv_key.to_string().c_str(), jx.what() ) );  }
+      {
+        throw error( strprintf( "%s -> %s", zv_key.to_string().c_str(), jx.what() ) )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( jx.get_json_lineid() );
+      }
 
     // check for comma
       if ( (chnext = s.nospace()) == ',' )
         continue;
       if ( chnext == '}' )  s.putback( chnext );
-        else throw error( "'}' or ',' expected" );
+        else
+      {
+        throw error( "'}' or ',' expected" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
     }
 
   // check valid script
     if ( chnext != '}' )
-      throw error( "'}' expected" );
+    {
+      throw error( "'}' expected" )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( s.getline() );
+    }
 
     return z;
   }

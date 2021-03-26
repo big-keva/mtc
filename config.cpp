@@ -87,7 +87,8 @@ namespace mtc
       if ( getdir[0] != '\0' && chdir ( getdir ) != 0 )
       {
         (void)(chdir ( curdir ) == 0 );
-        throw config::error( mtc::strprintf( "could not locate path '%s'", getdir ) );
+        throw config::error( mtc::strprintf( "could not locate path '%s'", getdir ) )
+          .set_source_name( org );
       }
 
       (void)(getcwd( newdir, sizeof(newdir) ) != nullptr );
@@ -350,9 +351,20 @@ namespace mtc
     char    szpath[0x400];
 
     if ( lpfile == nullptr )
-      throw error( strprintf( "file '%s' not found", path ) );
+    {
+      throw error( strprintf( "file '%s' not found", path ) )
+        .set_source_name( path );
+    }
 
-    json::Parse( lpfile.ptr(), getcfg );
+    try
+    {
+      json::Parse( lpfile.ptr(), getcfg );
+    }
+    catch ( const json::parse::error& jx )
+    {
+      throw json::parse::error( jx )
+        .set_source_path( path );
+    }
 
     if ( __impl__::fullpath( szpath, sizeof(szpath), path ) == nullptr )
       throw error( strprintf( "could not create the full file path '%s'", path ) );
