@@ -1011,6 +1011,7 @@ namespace mtc
   public:
     auto  operator == ( const key& k ) const -> bool;
     auto  operator != ( const key& k ) const -> bool {  return !(*this == k);  }
+    bool  operator <  ( const key& k ) const  {  return compare( k ) < 0;  }
 
     auto  compare( const key& ) const -> int;
 
