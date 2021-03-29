@@ -197,15 +197,16 @@ namespace mtc
     struct is_vector {  static  constexpr bool  value = false;  };
     template <class V, class A> struct is_vector<std::vector<V, A>> {  static  constexpr bool  value = true;  };
 
-    struct gt_value { template <class A, class B> static int diff( const A&, const B& )  {  return 1;  } };
-    struct lt_value { template <class A, class B> static int diff( const A&, const B& )  {  return -1; } };
+    struct gt_value { template <class A, class B> static unsigned test( const A&, const B& )  {  return zval::compare_gt;  } };
+    struct lt_value { template <class A, class B> static unsigned test( const A&, const B& )  {  return zval::compare_lt;  } };
 
     class number_value
     {
       struct easy_diff
       {
         template <class A, class B>
-        static  int   diff( A a, B b )  {  return (a > b) - (a < b);  }
+        static  unsigned  test( A a, B b )
+          {  return  (a > b) ? zval::compare_gt : (a < b) ? zval::compare_lt : zval::compare_eq;  }
       };
 
       class signed_value
@@ -213,25 +214,25 @@ namespace mtc
         struct to_unsigned
         {
           template <class A, class B>
-          static  int   diff( A a, B b )
+          static  unsigned  test( A a, B b )
           {
             if ( a >= 0 )
             {
-              return (((typename std::make_unsigned<A>::type)a) > b)
-                   - (((typename std::make_unsigned<A>::type)a) < b);
+              return (((typename std::make_unsigned<A>::type)a) > b) ? zval::compare_gt :
+                     (((typename std::make_unsigned<A>::type)a) < b) ? zval::compare_lt : zval::compare_eq;
             }
-            return -1;
+            return zval::compare_lt;
           }
         };
 
       public:
         template <class A, class B>
-        static  int   diff( A a, const B& b )
+        static  unsigned  test( A a, const B& b )
         {
           using comparator_type =
             typename std::conditional<is_signed<B>::value || is_floating<B>::value, easy_diff, to_unsigned>::type;
 
-          return comparator_type::diff( a, b );
+          return comparator_type::test( a, b );
         };
       };
 
@@ -240,34 +241,42 @@ namespace mtc
         struct to_signed
         {
           template <class A, class B>
-          static  int   diff( A a, B b )  {  return 0 - compare::diff( b, a );  }
+          static  unsigned  test( A a, B b )
+          {
+            auto  tr = signed_value::test( b, a );
+
+            return tr == zval::compare_gt ? zval::compare_lt :
+                   tr == zval::compare_lt ? zval::compare_gt : zval::compare_eq;
+          }
         };
 
       public:
         template <class A, class B>
-        static  int   diff( A a, const B& b )
+        static  unsigned  test( A a, const B& b )
         {
           using comparator_type =
-            typename std::conditional<is_signed<B>::value || is_floating<B>::value, to_signed, easy_diff>::type;
+            typename std::conditional<is_signed<B>::value, to_signed, easy_diff>::type;
 
-          return comparator_type::diff( a, b );
+          return comparator_type::test( a, b );
         };
       };
 
     public:
       template <class A, class B>
-      static  int   diff( A a, const B& b )
+      static  unsigned  test( A a, const B& b )
       {
+        using any_is_float = std::integral_constant<bool,
+          is_floating<A>::value || is_floating<B>::value>;
         using comparator_type =
           typename std::conditional<is_zmap  <B>::value, lt_value,
           typename std::conditional<is_vector<B>::value, lt_value,
           typename std::conditional<is_string<B>::value, lt_value,
           typename std::conditional<is_uuid  <B>::value, lt_value,
-          typename std::conditional<is_floating<A>::value, easy_diff,
+          typename std::conditional<any_is_float::value, easy_diff,
           typename std::conditional<is_unsigned<A>::value, unsigned_value,
             signed_value>::type>::type>::type>::type>::type>::type;
 
-        return comparator_type::diff( a, b );
+        return comparator_type::test( a, b );
       }
     };
 
@@ -277,19 +286,25 @@ namespace mtc
       struct to_string
       {
         template <class S1, class S2>
-        static  int   diff( const S1& s1, const S2& s2 ) {  return w_strcmp( s1.c_str(), s2.c_str() );  }
+        static  unsigned  test( const S1& s1, const S2& s2 )
+        {
+          auto  rc = w_strcmp( s1.c_str(), s2.c_str() );
+
+          return rc > 0 ? zval::compare_gt :
+                 rc < 0 ? zval::compare_lt : zval::compare_eq;
+        }
       };
 
     public:
       template <class S, class B>
-      static  int   diff( const S& s, const B& b )
+      static  unsigned  test( const S& s, const B& b )
       {
         using comparator_type =
           typename std::conditional<is_number<B>::value, gt_value,
           typename std::conditional<is_uuid  <B>::value, gt_value,
           typename std::conditional<is_string<B>::value, to_string, lt_value>::type>::type>::type;
 
-        return comparator_type::diff( s, b );
+        return comparator_type::test( s, b );
       }
     };
 
@@ -299,28 +314,33 @@ namespace mtc
       struct to_vector
       {
         template <class V1, class V2>
-        static  int   diff( const V1& a, const V2& b )
+        static  unsigned  test( const V1& a, const V2& b )
         {
           auto  ia = a.begin();
           auto  ib = b.begin();
-          int   rc = 0;
+          auto  rc = (unsigned)0;
 
-          while ( ia != a.end() && ib != b.end() && (rc = compare::diff( *ia, *ib )) == 0 )
+          while ( ia != a.end() && ib != b.end() && (rc = compare::test( *ia, *ib )) == zval::compare_eq )
             {  ++ia;  ++ib;  }
 
-          return rc == 0 ? a.size() - b.size() : rc;
+          if ( rc == zval::compare_eq )
+          {
+            rc = a.size() > b.size() ? zval::compare_gt :
+                 a.size() < b.size() ? zval::compare_lt : zval::compare_eq;
+          }
+          return rc;
         }
       };
 
     public:
       template <class V, class B>
-      static  int   diff( const V& v, const B& b )
+      static  unsigned  test( const V& v, const B& b )
       {
         using comparator_type =
           typename std::conditional<is_zmap  <B>::value, lt_value,
           typename std::conditional<is_vector<B>::value, to_vector, gt_value>::type>::type;
 
-        return comparator_type::diff( v, b );
+        return comparator_type::test( v, b );
       }
     };
 
@@ -328,75 +348,83 @@ namespace mtc
     {
       struct to_zmap
       {
-        static  int   diff( const mtc::zmap& z1, const mtc::zmap& z2 )
+        static  unsigned  test( const mtc::zmap& z1, const mtc::zmap& z2 )
         {
           auto  i1 = z1.begin();
           auto  i2 = z2.begin();
+          int   rc;
 
-          for ( int rc = 0; i1 != z1.end() && i1 != z2.end(); ++i1, ++i2 )
+          for ( ; i1 != z1.end() && i1 != z2.end(); ++i1, ++i2 )
           {
-            if ( (rc = i1->first.compare( i2->first )) != 0 )
-              return rc;
-            if ( (rc = compare::diff( i1->second, i2->second )) )
-              return rc;
+            if ( (rc = i1->first.compare( i2->first )) == 0 )
+            {
+              auto  tr = compare::test( i1->second, i2->second );
+
+              if ( tr != zval::compare_eq )
+                return tr;
+            } else return rc > 0 ? zval::compare_gt : zval::compare_lt;
           }
 
-          return (i1 != z1.end()) - (i2 != z2.end());
+          if ( (rc = (i1 != z1.end()) - (i2 != z2.end())) != 0 )
+            return rc > 0 ? zval::compare_gt : zval::compare_lt;
+
+          return zval::compare_eq;
         }
       };
 
     public:
       template <class B>
-      static  int   diff( const zmap& z, const B& b )
+      static  unsigned  test( const zmap& z, const B& b )
       {
         using comparator_type =
           typename std::conditional<is_zmap<B>::value, to_zmap, gt_value>::type;
-        return comparator_type::diff( z, b );
+        return comparator_type::test( z, b );
       }
     };
 
     struct zval_value
     {
       template <class B>
-      static  int   diff( const zval& a, const B& b )
+      static  unsigned  test( const zval& a, const B& b )
       {
         switch ( a.get_type() )
         {
-          case zval::z_char:    return compare::diff( *a.get_char(), b );
-          case zval::z_byte:    return compare::diff( *a.get_byte(), b );
-          case zval::z_int16:   return compare::diff( *a.get_int16(), b );
-          case zval::z_int32:   return compare::diff( *a.get_int32(), b );
-          case zval::z_int64:   return compare::diff( *a.get_int64(), b );
-          case zval::z_float:   return compare::diff( *a.get_float(), b );
-          case zval::z_word16:  return compare::diff( *a.get_word16(), b );
-          case zval::z_word32:  return compare::diff( *a.get_word32(), b );
-          case zval::z_word64:  return compare::diff( *a.get_word64(), b );
-          case zval::z_double:  return compare::diff( *a.get_double(), b );
+          case zval::z_char:    return compare::test( *a.get_char(), b );
+          case zval::z_byte:    return compare::test( *a.get_byte(), b );
+          case zval::z_int16:   return compare::test( *a.get_int16(), b );
+          case zval::z_int32:   return compare::test( *a.get_int32(), b );
+          case zval::z_int64:   return compare::test( *a.get_int64(), b );
+          case zval::z_float:   return compare::test( *a.get_float(), b );
+          case zval::z_word16:  return compare::test( *a.get_word16(), b );
+          case zval::z_word32:  return compare::test( *a.get_word32(), b );
+          case zval::z_word64:  return compare::test( *a.get_word64(), b );
+          case zval::z_double:  return compare::test( *a.get_double(), b );
 
           case zval::z_uuid:    return compare::test( *a.get_uuid(), b );
 
-          case zval::z_charstr: return compare::diff( *a.get_charstr(), b );
-          case zval::z_widestr: return compare::diff( *a.get_widestr(), b );
+          case zval::z_charstr: return compare::test( *a.get_charstr(), b );
+          case zval::z_widestr: return compare::test( *a.get_widestr(), b );
 
-          case zval::z_zmap:    return compare::diff( *a.get_zmap(), b );
+          case zval::z_zmap:    return compare::test( *a.get_zmap(), b );
 
-          case zval::z_array_char:    return compare::diff( *a.get_char(), b );
-          case zval::z_array_byte:    return compare::diff( *a.get_array_byte(), b );
-          case zval::z_array_int16:   return compare::diff( *a.get_array_int16(), b );
-          case zval::z_array_word16:  return compare::diff( *a.get_array_int32(), b );
-          case zval::z_array_int32:   return compare::diff( *a.get_array_int64(), b );
-          case zval::z_array_word32:  return compare::diff( *a.get_array_float(), b );
-          case zval::z_array_int64:   return compare::diff( *a.get_array_word16(), b );
-          case zval::z_array_word64:  return compare::diff( *a.get_array_word32(), b );
-          case zval::z_array_float:   return compare::diff( *a.get_array_word64(), b );
-          case zval::z_array_double:  return compare::diff( *a.get_array_double(), b );
+          case zval::z_array_char:    return compare::test( *a.get_char(), b );
+          case zval::z_array_byte:    return compare::test( *a.get_array_byte(), b );
+          case zval::z_array_int16:   return compare::test( *a.get_array_int16(), b );
+          case zval::z_array_word16:  return compare::test( *a.get_array_int32(), b );
+          case zval::z_array_int32:   return compare::test( *a.get_array_int64(), b );
+          case zval::z_array_word32:  return compare::test( *a.get_array_float(), b );
+          case zval::z_array_int64:   return compare::test( *a.get_array_word16(), b );
+          case zval::z_array_word64:  return compare::test( *a.get_array_word32(), b );
+          case zval::z_array_float:   return compare::test( *a.get_array_word64(), b );
+          case zval::z_array_double:  return compare::test( *a.get_array_double(), b );
 
-          case zval::z_array_charstr: return compare::diff( *a.get_array_charstr(), b );
-          case zval::z_array_widestr: return compare::diff( *a.get_array_widestr(), b );
-          case zval::z_array_zval:    return compare::diff( *a.get_array_zval(), b );
-          case zval::z_array_zmap:    return compare::diff( *a.get_array_zmap(), b );
+          case zval::z_array_charstr: return compare::test( *a.get_array_charstr(), b );
+          case zval::z_array_widestr: return compare::test( *a.get_array_widestr(), b );
+          case zval::z_array_zval:    return compare::test( *a.get_array_zval(), b );
+          case zval::z_array_zmap:    return compare::test( *a.get_array_zmap(), b );
           case zval::z_array_uuid:    return compare::test( *a.get_uuid(), b );
-          default:  break;
+          case zval::z_untyped:       return 0x00;
+          default:                    break;
         }
         throw std::logic_error( strprintf( "compare operation for zval type '%s' not supported",
           zval::type_name( (zval::z_type)a.get_type() ) ) );
@@ -406,23 +434,31 @@ namespace mtc
     class uuid_value
     {
       struct to_uuid
-      {  static  int   diff( const uuid& u1, const uuid& u2 )  {  return u1.compare( u2 );  }  };
+      {
+        static  unsigned test( const uuid& u1, const uuid& u2 )
+        {
+          auto  tr = u1.compare( u2 );
+
+          return tr > 0 ? zval::compare_gt :
+                 tr < 0 ? zval::compare_lt : zval::compare_eq;
+        }
+      };
 
     public:
       template <class B>
-      static  int   diff( const uuid& u, const B& b )
+      static  unsigned  test( const uuid& u, const B& b )
       {
         using comparator_type =
           typename std::conditional<is_number<B>::value, gt_value,
           typename std::conditional<is_uuid  <B>::value, to_uuid, lt_value>::type>::type;
 
-        return comparator_type::diff( u, b );
+        return comparator_type::test( u, b );
       }
     };
 
   public:
     template <class T1, class T2>
-    static  int   diff( const T1& _1, const T2& _2 )
+    static  unsigned  test( const T1& _1, const T2& _2 )
     {
       using comparator_type =
         typename std::conditional<is_number<T1>::value, number_value,
@@ -431,59 +467,52 @@ namespace mtc
         typename std::conditional<is_uuid  <T1>::value, uuid_value,
         typename std::conditional<is_zval  <T1>::value, zval_value, zmap_value>::type>::type>::type>::type>::type;
 
-      return comparator_type::diff( _1, _2 );
+      return comparator_type::test( _1, _2 );
     }
     template <class T1>
-    static  int   diff( const T1& _1, const zval& _2 )
+    static  unsigned  test( const T1& _1, const zval& _2 )
     {
       switch ( _2.get_type() )
       {
-        case zval::z_char:    return compare::diff( _1, *_2.get_char() );
-        case zval::z_byte:    return compare::diff( _1, *_2.get_byte() );
-        case zval::z_int16:   return compare::diff( _1, *_2.get_int16() );
-        case zval::z_int32:   return compare::diff( _1, *_2.get_int32() );
-        case zval::z_int64:   return compare::diff( _1, *_2.get_int64() );
-        case zval::z_float:   return compare::diff( _1, *_2.get_float() );
-        case zval::z_word16:  return compare::diff( _1, *_2.get_word16() );
-        case zval::z_word32:  return compare::diff( _1, *_2.get_word32() );
-        case zval::z_word64:  return compare::diff( _1, *_2.get_word64() );
-        case zval::z_double:  return compare::diff( _1, *_2.get_double() );
+        case zval::z_char:    return compare::test( _1, *_2.get_char() );
+        case zval::z_byte:    return compare::test( _1, *_2.get_byte() );
+        case zval::z_int16:   return compare::test( _1, *_2.get_int16() );
+        case zval::z_int32:   return compare::test( _1, *_2.get_int32() );
+        case zval::z_int64:   return compare::test( _1, *_2.get_int64() );
+        case zval::z_float:   return compare::test( _1, *_2.get_float() );
+        case zval::z_word16:  return compare::test( _1, *_2.get_word16() );
+        case zval::z_word32:  return compare::test( _1, *_2.get_word32() );
+        case zval::z_word64:  return compare::test( _1, *_2.get_word64() );
+        case zval::z_double:  return compare::test( _1, *_2.get_double() );
 
         case zval::z_uuid:    return compare::test( _1, *_2.get_uuid() );
 
-        case zval::z_charstr: return compare::diff( _1, *_2.get_charstr() );
-        case zval::z_widestr: return compare::diff( _1, *_2.get_widestr() );
+        case zval::z_charstr: return compare::test( _1, *_2.get_charstr() );
+        case zval::z_widestr: return compare::test( _1, *_2.get_widestr() );
 
-        case zval::z_zmap:    return compare::diff( _1, *_2.get_zmap() );
+        case zval::z_zmap:    return compare::test( _1, *_2.get_zmap() );
 
-        case zval::z_array_char:    return compare::diff( _1, *_2.get_char() );
-        case zval::z_array_byte:    return compare::diff( _1, *_2.get_array_byte() );
-        case zval::z_array_int16:   return compare::diff( _1, *_2.get_array_int16() );
-        case zval::z_array_word16:  return compare::diff( _1, *_2.get_array_int32() );
-        case zval::z_array_int32:   return compare::diff( _1, *_2.get_array_int64() );
-        case zval::z_array_word32:  return compare::diff( _1, *_2.get_array_float() );
-        case zval::z_array_int64:   return compare::diff( _1, *_2.get_array_word16() );
-        case zval::z_array_word64:  return compare::diff( _1, *_2.get_array_word32() );
-        case zval::z_array_float:   return compare::diff( _1, *_2.get_array_word64() );
-        case zval::z_array_double:  return compare::diff( _1, *_2.get_array_double() );
+        case zval::z_array_char:    return compare::test( _1, *_2.get_char() );
+        case zval::z_array_byte:    return compare::test( _1, *_2.get_array_byte() );
+        case zval::z_array_int16:   return compare::test( _1, *_2.get_array_int16() );
+        case zval::z_array_word16:  return compare::test( _1, *_2.get_array_int32() );
+        case zval::z_array_int32:   return compare::test( _1, *_2.get_array_int64() );
+        case zval::z_array_word32:  return compare::test( _1, *_2.get_array_float() );
+        case zval::z_array_int64:   return compare::test( _1, *_2.get_array_word16() );
+        case zval::z_array_word64:  return compare::test( _1, *_2.get_array_word32() );
+        case zval::z_array_float:   return compare::test( _1, *_2.get_array_word64() );
+        case zval::z_array_double:  return compare::test( _1, *_2.get_array_double() );
 
-        case zval::z_array_charstr: return compare::diff( _1, *_2.get_array_charstr() );
-        case zval::z_array_widestr: return compare::diff( _1, *_2.get_array_widestr() );
-        case zval::z_array_zval:    return compare::diff( _1, *_2.get_array_zval() );
-        case zval::z_array_zmap:    return compare::diff( _1, *_2.get_array_zmap() );
+        case zval::z_array_charstr: return compare::test( _1, *_2.get_array_charstr() );
+        case zval::z_array_widestr: return compare::test( _1, *_2.get_array_widestr() );
+        case zval::z_array_zval:    return compare::test( _1, *_2.get_array_zval() );
+        case zval::z_array_zmap:    return compare::test( _1, *_2.get_array_zmap() );
         case zval::z_array_uuid:    return compare::test( _1, *_2.get_array_uuid() );
+        case zval::z_untyped:       return 0x00;
         default:  break;
       }
       throw std::logic_error( strprintf( "compare operation for zval type '%u' not supported",
         _2.get_type() ) );
-    }
-    template <class T1, class T2>
-    static  int   test( const T1& t1, const T2& t2 )
-    {
-      auto  rc = diff( t1, t2 );
-
-      return rc < 0 ? mtc::zval::compare_lt :
-             rc > 0 ? mtc::zval::compare_gt : mtc::zval::compare_eq;
     }
 
   };
