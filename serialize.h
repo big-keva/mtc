@@ -57,6 +57,24 @@ SOFTWARE.
 # include <vector>
 # include <map>
 
+/*
+ * values serialization/deserialization
+ */
+
+template <class T>
+size_t  GetBufLen( const T& );
+template <class O, class T>
+O*      Serialize( O*, const T& );
+template <class S, class T>
+S*      FetchFrom( S*, T& );
+
+/*
+ * common serialization templates declaration for base get/put operations   []
+ */
+
+template <class O>  O*  Serialize( O*, const void*, size_t );
+template <class S>  S*  FetchFrom( S*,       void*, size_t );
+
 namespace mtc
 {
   class sourcebuf
@@ -95,14 +113,92 @@ namespace mtc
     template <class O> O*  Serialize( O* o ) const;
   };
 
+  template <class T>
+  struct class_is_string
+  {
+    static const bool value = false;
+  };
+
+  template <class T>
+  struct class_is_string<std::basic_string<T>>
+  {
+    static const bool value = true;
+  };
+
+  struct value_as_scalar
+  {
+    template <class T> constexpr
+    static  size_t  GetBufLen( const T& t )  {  return ::GetBufLen( t );  }
+    template <class O, class T>
+    static  O*      Serialize( O* o, const T& t )  {  return ::Serialize( o, t );  }
+    template <class S, class T>
+    static  S*      FetchFrom( S* s, T& t )  {  return ::FetchFrom( s, t );  }
+  };
+
+  struct value_as_struct
+  {
+    template <class T> constexpr
+    static  size_t  GetBufLen( const T& t )  {  return t.GetBufLen();  }
+    template <class O, class T>
+    static  O*      Serialize( O* o, const T& t )  {  return t.Serialize( o );  }
+    template <class S, class T>
+    static  S*      FetchFrom( S* s, T& t )  {  return t.FetchFrom( s );  }
+  };
+
+  /*
+   * integer values serialization
+   */
+  struct integers final
+  {
+    template <class T>
+    static  inline  size_t  len( T dwdata )
+    {
+      T       bitest = 0x007f;
+      size_t  ncount = 1;
+
+      while ( (dwdata & ~bitest) != 0 )
+      {
+        bitest = (T)((bitest << 7) | 0x7f);
+        ++ncount;
+      }
+      return ncount;
+    }
+    template <class O, class T>
+    static  inline O*  put( O*  o, T t )
+    {
+      int   nshift = 0;
+      char  bstore;
+
+      do
+      {
+        unsigned  ushift = nshift++ * 7;
+
+        bstore = (char)(((t & (((T)0x7f) << ushift)) >> ushift) & 0x7f);
+          t &= ~(((T)0x7f) << ushift);
+        if ( t != 0 )
+          bstore |= 0x80;
+        o = Serialize( o, &bstore, sizeof(bstore) );
+      } while ( o != NULL && (bstore & 0x80) != 0 );
+
+      return o;
+    }
+    template <class S, class T>
+    static inline S*  get( S* s, T& t )
+    {
+      int   nshift = 0;
+      char  bfetch;
+
+      t = 0;
+      do  {
+        if ( (s = FetchFrom( s, &bfetch, sizeof(bfetch) )) == nullptr ) return nullptr;
+        else  t |= (((T)bfetch & 0x7f)) << (nshift++ * 7);
+      } while ( bfetch & 0x80 );
+
+      return s;
+    }
+  };
+
 }
-
-/*
- * common serialization templates declaration for base get/put operations   []
- */
-
-template <class O>  O*  Serialize( O*, const void*, size_t );
-template <class S>  S*  FetchFrom( S*,       void*, size_t );
 
 /*
  * base i/o specializations declarations
@@ -123,65 +219,66 @@ template <> inline  auto  FetchFrom( FILE* s, void* p, size_t l ) -> FILE*
   {  return s != nullptr && fread( p, sizeof(char), l, s ) == l ? s : nullptr;  }
 
 /*
- * values serialization/deserialization
+ * structures serialization/deserialization prototypes
  */
 
-template <class O, class T> O*  Serialize( O*, const T& );
-template <class S, class T> S*  FetchFrom( S*, T& );
-
-struct integers final
+template <class T>
+size_t  GetBufLen( const T& t )
 {
-  template <class O, class T>
-  static inline O*  put( O*  o, T t )
-  {
-    int   nshift = 0;
-    char  bstore;
+  using value_type = typename std::conditional<std::is_fundamental<T>::value || mtc::class_is_string<T>::value,
+    mtc::value_as_scalar,
+    mtc::value_as_struct>::type;
+  return value_type::GetBufLen( t );
+}
 
-    do
-    {
-      unsigned  ushift = nshift++ * 7;
+template <class O, class T>
+O*  Serialize( O* o, const T& t )
+{
+  using value_type = typename std::conditional<std::is_fundamental<T>::value || mtc::class_is_string<T>::value,
+    mtc::value_as_scalar,
+    mtc::value_as_struct>::type;
+  return value_type::Serialize( o, t );
+}
 
-      bstore = (char)(((t & (((T)0x7f) << ushift)) >> ushift) & 0x7f);
-        t &= ~(((T)0x7f) << ushift);
-      if ( t != 0 )
-        bstore |= 0x80;
-      o = Serialize( o, &bstore, sizeof(bstore) );
-    } while ( o != NULL && (bstore & 0x80) != 0 );
-
-    return o;
-  }
-  template <class S, class T>
-  static inline S*  get( S* s, T& t )
-  {
-    int   nshift = 0;
-    char  bfetch;
-
-    t = 0;
-    do  {
-      if ( (s = FetchFrom( s, &bfetch, sizeof(bfetch) )) == nullptr ) return nullptr;
-      else  t |= (((T)bfetch & 0x7f)) << (nshift++ * 7);
-    } while ( bfetch & 0x80 );
-
-    return s;
-  }
-};
+template <class S, class T>
+S*  FetchFrom( S* s, T& t )
+{
+  using value_type = typename std::conditional<std::is_fundamental<T>::value || mtc::class_is_string<T>::value,
+    mtc::value_as_scalar,
+    mtc::value_as_struct>::type;
+  return value_type::FetchFrom( s, t );
+}
 
 /*
  * values serialization/deserialization for standard types
  */
+template <>  constexpr inline  size_t GetBufLen( const char& )          {  return 1;  }
+template <>  constexpr inline  size_t GetBufLen( const unsigned char& ) {  return 1;  }
+template <>  constexpr inline  size_t GetBufLen( const float&  )        {  return sizeof(float);  }
+template <>  constexpr inline  size_t GetBufLen( const double& )        {  return sizeof(double);  }
+template <>  constexpr inline  size_t GetBufLen( const bool& )          {  return 1;  }
+
+template <>  inline  size_t GetBufLen( const int16_t& i )   {  return mtc::integers::len( i );  }
+template <>  inline  size_t GetBufLen( const int32_t& i )   {  return mtc::integers::len( i );  }
+template <>  inline  size_t GetBufLen( const int64_t& i )   {  return mtc::integers::len( i );  }
+
+template <>  inline  size_t GetBufLen( const uint16_t& i )  {  return mtc::integers::len( i );  }
+template <>  inline  size_t GetBufLen( const uint32_t& i )  {  return mtc::integers::len( i );  }
+template <>  inline  size_t GetBufLen( const uint64_t& i )  {  return mtc::integers::len( i );  }
+
 template <class O>  inline  O*  Serialize( O* o, const char& c )          {  return Serialize( o, &c, sizeof(c) );  }
 template <class O>  inline  O*  Serialize( O* o, const unsigned char& c ) {  return Serialize( o, &c, sizeof(c) );  }
 template <class O>  inline  O*  Serialize( O* o, const float&  f )        {  return Serialize( o, &f, sizeof(f) );  }
 template <class O>  inline  O*  Serialize( O* o, const double& d )        {  return Serialize( o, &d, sizeof(d) );  }
 template <class O>  inline  O*  Serialize( O* o, const bool& b )          {  return Serialize( o, (char)(b ? 1 : 0) );  }
 
-template <class O>  inline  O*  Serialize( O* o, const int16_t& i )   {  return integers::put( o, i );  }
-template <class O>  inline  O*  Serialize( O* o, const int32_t& i )   {  return integers::put( o, i );  }
-template <class O>  inline  O*  Serialize( O* o, const int64_t& i )   {  return integers::put( o, i );  }
+template <class O>  inline  O*  Serialize( O* o, const int16_t& i )   {  return mtc::integers::put( o, i );  }
+template <class O>  inline  O*  Serialize( O* o, const int32_t& i )   {  return mtc::integers::put( o, i );  }
+template <class O>  inline  O*  Serialize( O* o, const int64_t& i )   {  return mtc::integers::put( o, i );  }
 
-template <class O>  inline  O*  Serialize( O* o, const uint16_t& i )  {  return integers::put( o, i );  }
-template <class O>  inline  O*  Serialize( O* o, const uint32_t& i )  {  return integers::put( o, i );  }
-template <class O>  inline  O*  Serialize( O* o, const uint64_t& i )  {  return integers::put( o, i );  }
+template <class O>  inline  O*  Serialize( O* o, const uint16_t& i )  {  return mtc::integers::put( o, i );  }
+template <class O>  inline  O*  Serialize( O* o, const uint32_t& i )  {  return mtc::integers::put( o, i );  }
+template <class O>  inline  O*  Serialize( O* o, const uint64_t& i )  {  return mtc::integers::put( o, i );  }
 
 template <class S>  inline  S*  FetchFrom( S* s, char& c )          {  return FetchFrom( s, &c, sizeof(c) );  }
 template <class S>  inline  S*  FetchFrom( S* s, unsigned char& c ) {  return FetchFrom( s, &c, sizeof(c) );  }
@@ -194,17 +291,29 @@ template <class S>  inline  S*  FetchFrom( S* s, bool& b )
   return b = (s = FetchFrom( s, c )) != nullptr && c != 0, s;
 }
 
-template <class S>  inline  S*  FetchFrom( S* s, int16_t& i )   {  return integers::get( s, i );  }
-template <class S>  inline  S*  FetchFrom( S* s, int32_t& i )   {  return integers::get( s, i );  }
-template <class S>  inline  S*  FetchFrom( S* s, int64_t& i )   {  return integers::get( s, i );  }
+template <class S>  inline  S*  FetchFrom( S* s, int16_t& i )   {  return mtc::integers::get( s, i );  }
+template <class S>  inline  S*  FetchFrom( S* s, int32_t& i )   {  return mtc::integers::get( s, i );  }
+template <class S>  inline  S*  FetchFrom( S* s, int64_t& i )   {  return mtc::integers::get( s, i );  }
 
-template <class S>  inline  S*  FetchFrom( S* s, uint16_t& i )  {  return integers::get( s, i );  }
-template <class S>  inline  S*  FetchFrom( S* s, uint32_t& i )  {  return integers::get( s, i );  }
-template <class S>  inline  S*  FetchFrom( S* s, uint64_t& i )  {  return integers::get( s, i );  }
+template <class S>  inline  S*  FetchFrom( S* s, uint16_t& i )  {  return mtc::integers::get( s, i );  }
+template <class S>  inline  S*  FetchFrom( S* s, uint32_t& i )  {  return mtc::integers::get( s, i );  }
+template <class S>  inline  S*  FetchFrom( S* s, uint64_t& i )  {  return mtc::integers::get( s, i );  }
 
 /*
  * C strings serialization/deserialization specializations
  */
+template <>
+inline  size_t  GetBufLen( const char* const& string )
+{
+  auto length = strlen( string );
+
+  return sizeof(*string) * length + GetBufLen( length );
+}
+
+template <> inline
+size_t  GetBufLen( char* const& string )
+  {  return GetBufLen( (char * const&)string );  }
+
 template <class O>  inline  O*  Serialize( O* o, const char* const& s )
 {
   auto  length = strlen( s );
@@ -233,65 +342,23 @@ template <class S>  inline  S*  FetchFrom( S* s, const char*& r ) {  return Fetc
  * std:: types serialization/deserialization specializations
  */
 
+/*
+ * std::basic_string<>
+ */
+template <class C>
+size_t  GetBufLen( const std::basic_string<C>& s )
+{
+  return ::GetBufLen( s.length() ) + sizeof(C) * s.length();
+}
+
 template <class O,
 class C>  O*  Serialize( O* o, const std::basic_string<C>& s )
 {
   return ::Serialize( ::Serialize( o, s.length() ), s.c_str(), sizeof(C) * s.length() );
 }
 
-template <class T>
-struct class_is_string
-{
-  static const bool value = false;
-};
-
-template <class T>
-struct class_is_string<std::basic_string<T>>
-{
-  static const bool value = true;
-};
-
-struct store_as_scalar
-{
-  template <class O, class T>
-  O*  operator()( O* o, const T& t )  {  return ::Serialize( o, t );  }
-};
-
-struct store_as_serial
-{
-  template <class O, class T>
-  O*  operator()( O* o, const T& t )  {  return t.Serialize( o );  }
-};
-
-template <class O,
-class T>  O*  Serialize( O* o, const std::vector<T>& a )
-{
-  using serialize = typename std::conditional<std::is_fundamental<T>::value || class_is_string<T>::value,
-    store_as_scalar,
-    store_as_serial>::type;
-
-  o = ::Serialize( o, a.size() );
-
-  for ( auto& element: a )
-    o = serialize()( o, element );
-
-  return o;
-}
-
-template <class O,
-class K,
-class V>  O*  Serialize( O* o, const std::map<K, V>& m )
-{
-  o = ::Serialize( o, m.size() );
-
-  for ( auto ptr = m.begin(); o != nullptr && ptr != m.end(); ++ptr )
-    o = ::Serialize( ::Serialize( o, ptr->first ), ptr->second );
-
-  return o;
-}
-
-template <class S,
-class C>  S*  FetchFrom( S* s, std::basic_string<C>& o )
+template <class S, class C>
+S*  FetchFrom( S* s, std::basic_string<C>& o )
 {
   int   l;
 
@@ -310,44 +377,81 @@ class C>  S*  FetchFrom( S* s, std::basic_string<C>& o )
   return s;
 }
 
-struct fetch_as_scalar
+/*
+ * std::vector<>
+ */
+template <class T>
+size_t  GetBufLen( const std::vector<T>& v )
 {
-  template <class S, class T>
-  S*  operator()( S* s, T& t )  {  return ::FetchFrom( s, t );  }
-};
+  auto  value_size = ::GetBufLen( v.size() );
 
-struct fetch_as_serial
+  for ( auto& element: v )
+    value_size += ::GetBufLen( element );
+
+  return value_size;
+}
+
+template <class O, class T>
+O*  Serialize( O* o, const std::vector<T>& a )
 {
-  template <class S, class T>
-  S*  operator()( S* s, T& t )  {  return t.FetchFrom( s );  }
-};
+  o = ::Serialize( o, a.size() );
+
+  for ( auto& element: a )
+    o = ::Serialize( o, element );
+
+  return o;
+}
 
 template <class S,
-class T>  inline  S*  FetchFrom( S* s, std::vector<T>& a )
+class T>
+S*  FetchFrom( S* s, std::vector<T>& a )
 {
-  using fetchfrom = typename std::conditional<std::is_fundamental<T>::value || class_is_string<T>::value,
-    fetch_as_scalar,
-    fetch_as_serial>::type;
-
-  int   length;
+  size_t  array_size;
 
   a.clear();
 
-  if ( (s = ::FetchFrom( s, length )) == nullptr )
+  if ( (s = ::FetchFrom( s, array_size )) == nullptr )
     return s;
 
-  a.reserve( (length + 0x0f) & ~0x0f );
-  a.resize( length );
+  a.reserve( (array_size + 0x0f) & ~0x0f );
+  a.resize( array_size );
 
-  for ( auto i = 0; i < length && s != nullptr; ++i )
-    s = fetchfrom()( s, a.at( i ) );
+  for ( size_t i = 0; i < array_size && s != nullptr; ++i )
+    s = ::FetchFrom( s, a.at( i ) );
 
   return s;
 }
 
+/*
+ * std::map<>
+ */
+template <class K,
+          class V> inline
+size_t  GetBufLen( const std::map<K, V>& m )
+{
+  size_t  cch = ::GetBufLen( m.size() );
+
+  for ( auto ptr = m.begin(); ptr != m.end(); ++ptr )
+    cch += ::GetBufLen( ptr->first ) + ::GetBufLen( ptr->second );
+
+  return cch;
+}
+
+template <class O, class K, class V>
+O*  Serialize( O* o, const std::map<K, V>& m )
+{
+  o = ::Serialize( o, m.size() );
+
+  for ( auto ptr = m.begin(); o != nullptr && ptr != m.end(); ++ptr )
+    o = ::Serialize( ::Serialize( o, ptr->first ), ptr->second );
+
+  return o;
+}
+
 template <class S,
 class K,
-class V>  inline  S*  FetchFrom( S* s, std::map<K, V>& m )
+class V>
+S*  FetchFrom( S* s, std::map<K, V>& m )
 {
   size_t  len;
 
@@ -369,71 +473,6 @@ class V>  inline  S*  FetchFrom( S* s, std::map<K, V>& m )
  */
 template <> inline  auto  FetchFrom( mtc::sourcebuf* s, void* p, size_t l ) -> mtc::sourcebuf*
   {  return s != nullptr ? s->FetchFrom( p, l ) : nullptr;  }
-
-/*
- * GetBufLen() family
- */
-
-template <class T>
-size_t  GetBufLen( const T& );
-
-template <class T>  inline
-size_t  GetBufLen( const T& dwdata )
-{
-  T       bitest = 0x007f;
-  size_t  ncount = 1;
-
-  while ( (dwdata & ~bitest) != 0 )
-  {
-    bitest = (T)((bitest << 7) | 0x7f);
-    ++ncount;
-  }
-  return ncount;
-}
-
-template <> inline  size_t  GetBufLen( const char& )          {  return 1;  }
-template <> inline  size_t  GetBufLen( const unsigned char& ) {  return 1;  }
-template <> inline  size_t  GetBufLen( const bool& )          {  return 1;  }
-template <> inline  size_t  GetBufLen( const float& )         {  return sizeof(float);  }
-template <> inline  size_t  GetBufLen( const double& )        {  return sizeof(double);  }
-
-template <>
-inline  size_t  GetBufLen( const char* const& string )
-{
-  auto length = strlen( string );
-
-  return sizeof(*string) * length + GetBufLen( length );
-}
-
-template <> inline
-size_t  GetBufLen( char* const& string )
-  {  return GetBufLen( (char * const&)string );  }
-
-template <class C> inline
-size_t  GetBufLen( const std::basic_string<C>& s )  {  return ::GetBufLen( s.length() ) + sizeof(C) * s.length();  }
-
-template <class T> inline
-size_t  GetBufLen( const std::vector<T>& a )
-{
-  size_t  cc = ::GetBufLen( a.size() );
-
-  for ( auto& t: a )
-    cc += ::GetBufLen( t );
-
-  return cc;
-}
-
-template <class K,
-          class V> inline
-size_t  GetBufLen( const std::map<K, V>& m )
-{
-  size_t  cch = ::GetBufLen( m.size() );
-
-  for ( auto ptr = m.begin(); ptr != m.end(); ++ptr )
-    cch += ::GetBufLen( ptr->first ) + ::GetBufLen( ptr->second );
-
-  return cch;
-}
 
 namespace mtc
 {
