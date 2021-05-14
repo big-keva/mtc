@@ -433,6 +433,9 @@ namespace mtc
   auto  zmap::patch_place_t::operator= ( zval&& v ) -> zmap::patch_place_t&
     {  return owner.put( refer, std::move( v ) ), *this;  }
 
+  auto  zmap::patch_place_t::operator= ( const zval& v ) -> zmap::patch_place_t&
+    {  return owner.put( refer, v ), *this;  }
+
   /*
     zmap implementation
   */

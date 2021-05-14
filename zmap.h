@@ -1183,6 +1183,7 @@ namespace mtc
 
   public:
     auto  operator = ( zval&& ) -> patch_place_t&;
+    auto  operator = ( const zval& ) -> patch_place_t&;
 
   };
 
