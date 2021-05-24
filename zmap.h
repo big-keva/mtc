@@ -117,25 +117,6 @@ namespace mtc
   using array_zval_t    = array_zval;
   using array_uuid_t    = array_uuid;
 
-}
-
-template <>  inline
-auto  GetBufLen( const mtc::zval& ) -> size_t;
-template <>  inline
-auto  GetBufLen( const mtc::zmap& ) -> size_t;
-
-template <class O>  inline
-auto  Serialize( O*, const mtc::zval& ) -> O*;
-template <class O>  inline
-auto  Serialize( O*, const mtc::zmap& ) -> O*;
-
-template <class S>  inline
-auto  FetchFrom( S*, mtc::zval& ) -> S*;
-template <class S>  inline
-auto  FetchFrom( S*, mtc::zmap& ) -> S*;
-
-namespace mtc
-{
   std::string to_string( const zval& );
   std::string to_string( const zmap& );
 
@@ -175,6 +156,8 @@ namespace mtc
     union inner_t;
 
   public:     // z_%%% types
+    class dump;
+
     enum z_type: byte_t
     {
       z_char    = 1,
@@ -351,9 +334,13 @@ namespace mtc
     auto  is_numeric() const -> bool;
 
   public:     // serialization
-                        size_t  GetBufLen(    ) const;
-    template <class O>  O*      Serialize( O* ) const;
-    template <class S>  S*      FetchFrom( S* );
+    size_t  GetBufLen(    ) const;
+    template <class O>
+    O*      Serialize( O* ) const;
+    template <class S>
+    S*      FetchFrom( S* );
+    template <class S> static
+    S*      SkipToEnd( S* );
 
   public:     // arithmetic
     zval  operator *  ( const zval& r ) const;
@@ -463,6 +450,7 @@ namespace mtc
     class iterator;
     class const_iterator;
     class serial;
+    class dump;
 
   protected:
     template <class value>
@@ -479,6 +467,8 @@ namespace mtc
 
   protected:
     auto  private_data() -> zdata_t*;
+    static
+    auto  fragment_len( word32_t u ) -> size_t {  assert( (u & 0x0400) != 0 );  return (u & 0x1ff) | ((u >> 2) & ~0x1ff);  }
 
   public:
     zmap();
@@ -492,9 +482,14 @@ namespace mtc
    ~zmap();
 
   public:     // serialization
-                        size_t  GetBufLen(    ) const;
-    template <class O>  O*      Serialize( O* o ) const;
-    template <class S>  S*      FetchFrom( S* );
+    size_t  GetBufLen(    ) const;
+    template <class O>
+    O*      Serialize( O* o ) const;
+    template <class S>
+    S*      FetchFrom( S* );
+    template <class S> static
+    S*  SkipToEnd( S* );
+
 
   public:     // put family
     auto  put( const key&, zval&& )               -> zval*;
@@ -685,65 +680,515 @@ namespace mtc
 
   };
 
-  /*
-    serial::*() methods
-
-    static methods allowing direct access to the field of serialized zmap structure
-
-    special fast implementation for 'const char*' source also provided
+ /*
+  * zmap::key
+  *
+  * mutable associative key
   */
-  class zmap::serial
+  class zmap::key
+  {
+    friend class zmap;
+    template <class value, class z_iterator>
+    friend class iterator_base;
+
+  private:
+    unsigned        _typ;
+    const uint8_t*  _ptr;
+    size_t          _len;
+
+  private:
+    uint8_t         _buf[4];
+
+  public:     // key types
+    enum: uint8_t
+    {
+      uint = 0,
+      cstr = 1,
+      wstr = 2,
+      none = (uint8_t)-1
+    };
+
+  protected:
+    key();
+    key( unsigned typ, const uint8_t* buf, size_t len );
+
+  public: // construction
+    key( unsigned );
+    key( const char* );
+    key( const widechar* );
+    key( const char*, size_t );
+    key( const widechar*, size_t );
+    key( const charstr& );
+    key( const widestr& );
+    key( const key& );
+    key& operator = ( const key& );
+
+  public:
+    auto  operator == ( const key& k ) const -> bool;
+    auto  operator != ( const key& k ) const -> bool {  return !(*this == k);  }
+    bool  operator <  ( const key& k ) const  {  return compare( k ) < 0;  }
+
+    auto  compare( const key& ) const -> int;
+
+  public:
+    static
+    auto  null() -> key {  return key();  }
+
+  public: // data
+    auto  type() const  -> unsigned       {  return _typ;  }
+    auto  data() const  -> const uint8_t* {  return _ptr;  }
+    auto  size() const  -> size_t         {  return _len;  }
+
+  public: // operators
+    operator unsigned () const;
+    operator const char* () const;
+    operator const widechar* () const;
+
+  public: // accessors
+    auto  is_charstr() const -> bool  {  return _typ == cstr;  }
+    auto  is_widestr() const -> bool  {  return _typ == wstr;  }
+    auto  to_charstr() const -> const char* {  return (const char*)*this;  }
+    auto  to_widestr() const -> const widechar* {  return (const widechar*)*this;  }
+
+  };
+
+ /*
+  * zval::dump class declaration
+  *
+  * Доступ к сериализованным данным без тотальной десериализации.
+  */
+  class zval::dump
+  {
+    const char* source;
+
+    template <class T> class value_t;
+
+    template <unsigned z_type, class T>
+    auto  get() const -> value_t<T>;
+
+  public:
+    template <class T> class array_t;
+
+  public:
+    dump( const char* s = nullptr ): source( s )  {}
+
+  public:
+    auto  get_type() const -> unsigned;
+
+  public:     // access
+    auto  get_char() const -> value_t<char>;
+    auto  get_byte() const -> value_t<byte>;
+    auto  get_int16() const -> value_t<int16_t>;
+    auto  get_int32() const -> value_t<int32_t>;
+    auto  get_int64() const -> value_t<int64_t>;
+    auto  get_word16() const -> value_t<word16_t>;
+    auto  get_word32() const -> value_t<word32_t>;
+    auto  get_word64() const -> value_t<word64_t>;
+    auto  get_float() const -> value_t<float>;
+    auto  get_double() const -> value_t<double>;
+    auto  get_charstr() const -> value_t<charstr>;
+    auto  get_widestr() const -> value_t<widestr>;
+    auto  get_uuid() const -> value_t<uuid>;
+    auto  get_zmap() const -> value_t<zmap::dump>;
+
+    auto  get_array_char() const -> value_t<array_t<char>>;
+    auto  get_array_byte() const -> value_t<array_t<byte>>;
+    auto  get_array_int16() const -> value_t<array_t<int16_t>>;
+    auto  get_array_int32() const -> value_t<array_t<int32_t>>;
+    auto  get_array_int64() const -> value_t<array_t<int64_t>>;
+    auto  get_array_word16() const -> value_t<array_t<word16_t>>;
+    auto  get_array_word32() const -> value_t<array_t<word32_t>>;
+    auto  get_array_word64() const -> value_t<array_t<word64_t>>;
+    auto  get_array_float() const -> value_t<array_t<float>>;
+    auto  get_array_double() const -> value_t<array_t<double>>;
+    auto  get_array_charstr() const -> value_t<array_t<charstr>>;
+    auto  get_array_widestr() const -> value_t<array_t<widestr>>;
+    auto  get_array_uuid() const -> value_t<array_t<uuid>>;
+    auto  get_array_zval() const -> value_t<array_t<zval::dump>>;
+    auto  get_array_zmap() const -> value_t<array_t<zmap::dump>>;
+
+  public:
+    bool  operator == ( const zval& v ) const;
+    bool  operator != ( const zval& v ) const {  return !(*this == v);  }
+
+  public:
+    auto  to_zval() const -> zval  {  zval v;  v.FetchFrom( source );  return v;  }
+
+  public:
+    const char* FetchFrom( const char* s )  {  return ::SkipToEnd( source = s, (const zval*)nullptr );  }
+    static
+    const char* SkipToEnd( const char* s )  {  return ::SkipToEnd( s, (const zval*)nullptr );  }
+
+  };
+
+ /*
+  * zmap::dump
+  */
+  class zmap::dump
+  {
+    template <class T>  using value_t = zval::dump::value_t<T>;
+    template <class T>  using array_t = zval::dump::array_t<T>;
+
+    class view;
+
+    const char* source;
+
+    auto  get( const key& ) const -> zval::dump;
+    template <class T> static
+    auto  get( const value_t<T>&, const T& ) -> T;
+
+    class const_iterator;
+
+  public:
+    dump( const char* s = nullptr ): source( s )  {}
+
+  public:
+    auto  get_char( const key& ) const -> value_t<char>;
+    auto  get_byte( const key& ) const -> value_t<byte>;
+    auto  get_int16( const key& ) const -> value_t<int16_t>;
+    auto  get_int32( const key& ) const -> value_t<int32_t>;
+    auto  get_int64( const key& ) const -> value_t<int64_t>;
+    auto  get_word16( const key& ) const -> value_t<word16_t>;
+    auto  get_word32( const key& ) const -> value_t<word32_t>;
+    auto  get_word64( const key& ) const -> value_t<word64_t>;
+    auto  get_float( const key& ) const -> value_t<float>;
+    auto  get_double( const key& ) const -> value_t<double>;
+    auto  get_charstr( const key& ) const -> value_t<charstr>;
+    auto  get_widestr( const key& ) const -> value_t<widestr>;
+    auto  get_uuid( const key& ) const -> value_t<uuid>;
+    auto  get_zmap( const key& ) const -> value_t<zmap::dump>;
+
+    auto  get_char( const key&, char ) const -> char;
+    auto  get_byte( const key&, byte ) const -> byte;
+    auto  get_int16( const key&, int16_t ) const -> int16_t;
+    auto  get_int32( const key&, int32_t ) const -> int32_t;
+    auto  get_int64( const key&, int64_t ) const -> int64_t;
+    auto  get_word16( const key&, word16_t ) const -> word16_t;
+    auto  get_word32( const key&, word32_t ) const -> word32_t;
+    auto  get_word64( const key&, word64_t ) const -> word64_t;
+    auto  get_float( const key&, float ) const -> float;
+    auto  get_double( const key&, double ) const -> double;
+    auto  get_charstr( const key&, const charstr& ) const -> charstr;
+    auto  get_widestr( const key&, const widestr& ) const -> widestr;
+    auto  get_uuid( const key&, const uuid& ) const -> uuid;
+    auto  get_zmap( const key&, const zmap& ) const -> view;
+    
+    auto  get_array_char( const key& ) const -> value_t<array_t<char>>;
+    auto  get_array_byte( const key& ) const -> value_t<array_t<byte>>;
+    auto  get_array_int16( const key& ) const -> value_t<array_t<int16_t>>;
+    auto  get_array_int32( const key& ) const -> value_t<array_t<int32_t>>;
+    auto  get_array_int64( const key& ) const -> value_t<array_t<int64_t>>;
+    auto  get_array_word16( const key& ) const -> value_t<array_t<word16_t>>;
+    auto  get_array_word32( const key& ) const -> value_t<array_t<word32_t>>;
+    auto  get_array_word64( const key& ) const -> value_t<array_t<word64_t>>;
+    auto  get_array_float( const key& ) const -> value_t<array_t<float>>;
+    auto  get_array_double( const key& ) const -> value_t<array_t<double>>;
+    auto  get_array_charstr( const key& ) const -> value_t<array_t<charstr>>;
+    auto  get_array_widestr( const key& ) const -> value_t<array_t<widestr>>;
+    auto  get_array_uuid( const key& ) const -> value_t<array_t<uuid>>;
+    auto  get_array_zval( const key& ) const -> value_t<array_t<zval::dump>>;
+    auto  get_array_zmap( const key& ) const -> value_t<array_t<zmap::dump>>;
+
+  public:
+    auto  begin() const -> const_iterator;
+    auto  end() const -> const_iterator;
+
+  public:
+    bool  operator == ( const zmap& v ) const;
+    bool  operator != ( const zmap& v ) const {  return !(*this == v);  }
+
+  public:
+    auto  to_zmap() const -> zmap  {  zmap v;  v.FetchFrom( source );  return v;  }
+
+  public:     // serialization support
+    const char* FetchFrom( const char* s )  {  return ::SkipToEnd( source = s, (const zmap*)nullptr );  }
+    static
+    const char* SkipToEnd( const char* s )  {  return ::SkipToEnd( s, (const zmap*)nullptr );  }
+
+  };
+
+ /*
+  * zmap::dump::view - сочетание дампа zmap и реального
+  */
+  class zmap::dump::view: protected zmap::dump, protected zmap
+  {
+    template <class T>  static  auto  make_value( const T* t ) -> value_t<T>;
+    template <class T>  static  auto  make_view( const value_t<T> t ) -> value_t<view>;
+    template <class T>  static  auto  make_view( const T* t ) -> value_t<view>;
+
+  public:
+    view() = default;
+    view( const zmap& z ): zmap( z )  {}
+    view( const zmap::dump& d ): zmap::dump( d )  {}
+    view( const zmap::dump& d, const zmap& z ): zmap::dump( d ), zmap( z )  {}
+
+  public:
+    auto  get_char( const key& ) const -> value_t<char>;
+    auto  get_byte( const key& ) const -> value_t<byte>;
+    auto  get_int16( const key& ) const -> value_t<int16_t>;
+    auto  get_int32( const key& ) const -> value_t<int32_t>;
+    auto  get_int64( const key& ) const -> value_t<int64_t>;
+    auto  get_word16( const key& ) const -> value_t<word16_t>;
+    auto  get_word32( const key& ) const -> value_t<word32_t>;
+    auto  get_word64( const key& ) const -> value_t<word64_t>;
+    auto  get_float( const key& ) const -> value_t<float>;
+    auto  get_double( const key& ) const -> value_t<double>;
+    auto  get_charstr( const key& ) const -> value_t<charstr>;
+    auto  get_widestr( const key& ) const -> value_t<widestr>;
+    auto  get_uuid( const key& ) const -> value_t<uuid>;
+    auto  get_zmap( const key& ) const -> value_t<view>;
+
+    auto  get_char( const key&, char ) const -> char;
+    auto  get_byte( const key&, byte ) const -> byte;
+    auto  get_int16( const key&, int16_t ) const -> int16_t;
+    auto  get_int32( const key&, int32_t ) const -> int32_t;
+    auto  get_int64( const key&, int64_t ) const -> int64_t;
+    auto  get_word16( const key&, word16_t ) const -> word16_t;
+    auto  get_word32( const key&, word32_t ) const -> word32_t;
+    auto  get_word64( const key&, word64_t ) const -> word64_t;
+    auto  get_float( const key&, float ) const -> float;
+    auto  get_double( const key&, double ) const -> double;
+    auto  get_charstr( const key&, const charstr& ) const -> charstr;
+    auto  get_widestr( const key&, const widestr& ) const -> widestr;
+    auto  get_uuid( const key&, const uuid& ) const -> uuid;
+    auto  get_zmap( const key&, const zmap& ) const -> view;
+
+    auto  get_array_char( const key& ) const -> value_t<array_t<char>>;
+    auto  get_array_byte( const key& ) const -> value_t<array_t<byte>>;
+    auto  get_array_int16( const key& ) const -> value_t<array_t<int16_t>>;
+    auto  get_array_int32( const key& ) const -> value_t<array_t<int32_t>>;
+    auto  get_array_int64( const key& ) const -> value_t<array_t<int64_t>>;
+    auto  get_array_word16( const key& ) const -> value_t<array_t<word16_t>>;
+    auto  get_array_word32( const key& ) const -> value_t<array_t<word32_t>>;
+    auto  get_array_word64( const key& ) const -> value_t<array_t<word64_t>>;
+    auto  get_array_float( const key& ) const -> value_t<array_t<float>>;
+    auto  get_array_double( const key& ) const -> value_t<array_t<double>>;
+    auto  get_array_charstr( const key& ) const -> value_t<array_t<charstr>>;
+    auto  get_array_widestr( const key& ) const -> value_t<array_t<widestr>>;
+    auto  get_array_uuid( const key& ) const -> value_t<array_t<uuid>>;
+    auto  get_array_zval( const key& ) const -> value_t<array_t<zval::dump>>;
+    auto  get_array_zmap( const key& ) const -> value_t<array_t<zmap::dump>>;
+
+  public:
+    const char* FetchFrom( const char* s )  {  return dump::FetchFrom( s );  }
+
+  };
+
+  class zmap::dump::const_iterator
+  {
+    struct iterator_node
+    {
+      const char* ptr;  // next serialized element
+      size_t      cnt;  // siblings in sequense
+      const char* str;  // string fragment
+      size_t      len;  // fragment length
+      const char* val;  // the val serialization
+      byte        key;  // key settings type
+
+    public:
+      static auto init( const char* ) -> iterator_node;
+      const char* load( const char* );
+      const char* next();
+    };
+
+    struct iterator_data
+    {
+      zmap::key   first;
+      zval::dump  second;
+    };
+
+    using element_stack = std::vector<iterator_node>;
+
+    element_stack tree;
+    array_byte    buff;
+    iterator_data data;
+
+  protected:
+    void  setkey();
+
+  public:
+    const_iterator( const char* s = nullptr );
+    const_iterator( const_iterator&& s ): tree( std::move( s.tree ) ) {}
+    const_iterator( const const_iterator& s ): tree( s.tree ) {}
+
+  public:
+    bool  operator == ( const const_iterator& it ) const {  return data.first == it.data.first;  }//!!! && data.second == it.data.second; }
+    bool  operator != ( const const_iterator& it ) const {  return !(*this == it);  }
+
+  public:
+    auto  operator ++() -> const_iterator&;
+    auto  operator ++(int) -> const_iterator
+      {
+        auto  prev( *this );
+        return operator ++(), prev;
+      }
+  public:
+    auto  operator -> () const -> const iterator_data*  {  return &data;  }
+
+  };
+
+ /*
+  * serial::*() methods
+  *
+  * static methods allowing direct access to the field of serialized zmap structure
+  * special fast implementation for 'const char*' source also provided
+  */
+  class zmap::serial final
   {
     template <class S>  static  S*    find( S*, const byte_t*, size_t, unsigned );
 
   public:     // serial::* family
-    class skip;
+    struct skip;
 
     template <class S>  static  S*    find(        S*, const key& );
     template <class S>  static  S*    load( zval&, S*, const key& );
     template <class S>  static  zval  load(        S*, const key& );
   };
 
-  class zmap::serial::skip
+  struct zmap::serial::skip final
   {
-    template <class T,
-              class S>  static  S*  array_vals( S* );
-    template <class C,
-              class S>  static  S*  array_strs( S* );
-    template <class S>  static  S*  array_zmap( S* );
-    template <class S>  static  S*  array_zval( S* );
-
-  public:
-    template <class S>  static  auto  size( S*, size_t ) -> S*;
-    template <class S>  static  auto  zval( S*         ) -> S*;
-    template <class S>  static  auto  zmap( S*         ) -> S*;
-
-  public:
-                        static  auto  size( const char*, size_t ) -> const char*;
-                        static  auto  zval( const char*         ) -> const char*;
-                        static  auto  zmap( const char*         ) -> const char*;
+    template <class S>  static auto  size( S* s, size_t l ) -> S*  {  return ::SkipBytes( s, l );  }
+    template <class S>  static auto  zval( S* s ) -> S*  {  return ::SkipToEnd( s, (const mtc::zval*)nullptr );  }
+    template <class S>  static auto  zmap( S* s ) -> S*  {  return ::SkipToEnd( s, (const mtc::zmap*)nullptr );  }
   };
+
+  template <class T>
+  class zval::dump::value_t
+  {
+    class value
+    {
+      using placement = typename std::aligned_storage<sizeof(T)>::type;
+
+    public:
+      value(): stored( (const char*)-1 ), rcount( 1 ) {}
+      value( T&& t ): stored( nullptr ), rcount( 1 )  {  new( &tvalue )T( std::move( t ) );  }
+      value( const T& t ): stored( nullptr ), rcount( 1 )  {  new( &tvalue )T( t );  }
+      value( const char* s ): stored( s ), rcount( 1 )  {}
+     ~value()
+        {
+          if ( stored == nullptr )
+            ((T&)tvalue).~T();
+        }
+      auto  fetch() -> const T&
+        {
+          if ( stored == nullptr )
+            return (const T&)tvalue;
+          if ( stored != (const char*)-1 )
+            stored = (::FetchFrom( stored, *new( &tvalue )T() ), nullptr);
+          return (const T&)tvalue;
+        }
+    public:
+      placement       tvalue;
+      const char*     stored;
+      std::atomic_int rcount;
+
+    };
+    value*  p;
+
+  public:
+    value_t(): p( nullptr ) {}
+    value_t( T&& t ): p( new value( std::move( t ) ) )  {}
+    value_t( const T& t ): p( new value( t ) )  {}
+    value_t( const value_t& t ) {  if ( (p = t.p) != nullptr )  ++p->rcount;  }
+    value_t( const char* s ): p( new value( s ) ) {}
+   ~value_t() {  if ( p != nullptr && --p->rcount == 0 )  delete p;  }
+    value_t& operator = ( const value_t& t )
+      {
+        if ( p != nullptr && --p->rcount == 0 )
+          delete p;
+        if ( (p = t.p) != nullptr )
+          ++p->rcount;
+        return *this;
+      }
+
+  public:
+    auto  operator * () const -> const T& {  return p->fetch();  }
+    auto  operator -> () const -> const T*  {  return &p->fetch();  }
+
+  public:
+    bool  operator == ( nullptr_t ) const {  return p == nullptr;  }
+    bool  operator != ( nullptr_t ) const {  return !(*this == nullptr);  }
+  };
+
+  template <class T>
+  class zval::dump::array_t
+  {
+    const char* source = nullptr;
+    size_t      ncount = 0;
+
+    class const_iterator
+    {
+      const char* first;
+      size_t      count;
+
+      struct as_struct: public T
+      {
+        auto  operator -> () const -> const T*  {  return this;  }
+        auto  FetchFrom( const char* s ) -> const char* {  return ::FetchFrom( s, (T&)*this );  }
+      };
+
+      using element = typename std::conditional<std::is_fundamental<T>::value,
+        T, as_struct>::type;
+
+      auto  get_element() const -> element;
+
+    public:
+      const_iterator( const char* f = nullptr, size_t s = 0 ): first( f ), count( s )  {}
+
+    public:
+      auto  operator ++() -> const_iterator&
+      {
+        if ( first == nullptr )
+          throw std::invalid_argument( "invalid iterator" );
+        if ( count > 0 )
+          first = --count == 0 ? nullptr : ::SkipToEnd( first, (const T*)nullptr );
+        return *this;
+      }
+      auto  operator ++( int ) -> const_iterator
+      {
+        auto  it( *this );
+        return operator ++(), it;
+      }
+
+      bool  operator == ( const const_iterator& i ) const {  return first == i.first && count == i.count;  }
+      bool  operator != ( const const_iterator& i ) const {  return !(*this == i);  }
+
+      auto  operator *() const -> element {  return get_element();  }
+      auto  operator -> () const -> element {  return get_element();  }
+    };
+
+  public:
+    array_t( const char* = nullptr ): source( nullptr ), ncount( 0 )  {}
+    array_t( const array_t& t ): source( t.source ), ncount( t.ncount ) {}
+    array_t& operator = ( const array_t& t )  {  return source = t.source, ncount = t.ncount, *this;  }
+
+  public:
+    size_t  size() const {  return ncount;  }
+    bool    empty() const {  return ncount == 0;  }
+
+  public:
+    const_iterator  begin() const {  return { source, ncount };  }
+    const_iterator  end() const {  return {};  }
+
+  public:
+    const char* FetchFrom( const char* s )  {  return source = ::FetchFrom( s, ncount );  }
+
+  };
+
+  template <class T>
+  auto  zval::dump::array_t<T>::const_iterator::get_element() const -> element
+  {
+    element el;
+
+    if ( first == nullptr || count == 0 )
+      throw std::range_error( "iterator limits out of bounds" );
+    return ::FetchFrom( first, el ), std::move( el );
+  }
+
 
   inline  std::string to_string( const zval& z ) {  return std::move( z.to_string() );  }
           std::string to_string( const zmap::key& );
 
-}
-
-template <> inline  size_t  GetBufLen( const mtc::zval& v ) {  return v.GetBufLen();  }
-template <> inline  size_t  GetBufLen( const mtc::zmap& m ) {  return m.GetBufLen();  }
-
-template <class O>
-O*      Serialize( O* o, const mtc::zval& v ) {  return v.Serialize( o );  }
-template <class O>
-O*      Serialize( O* o, const mtc::zmap& m ) {  return m.Serialize( o );  }
-
-template <class S>
-inline  S*      FetchFrom( S* s, mtc::zval& v ) {  return v.FetchFrom( s );  }
-template <class S>
-inline  S*      FetchFrom( S* s, mtc::zmap& m ) {  return m.FetchFrom( s );  }
-
-namespace mtc
-{
   // zval implementation
 
   union zval::inner_t
@@ -880,6 +1325,50 @@ namespace mtc
     }
   }
 
+  template <class S>
+  S*  zval::SkipToEnd( S* s )
+  {
+    byte_t    vxtype;
+
+    if ( (s = ::FetchFrom( s, vxtype )) == nullptr )
+      return nullptr;
+    switch ( vxtype )
+    {
+      case zval::z_char:    return ::SkipBytes( s, sizeof(char) );
+      case zval::z_byte:    return ::SkipBytes( s, sizeof(byte) );
+      case zval::z_int16:   return ::SkipToEnd( s, (const int16_t*)nullptr );
+      case zval::z_int32:   return ::SkipToEnd( s, (const int32_t*)nullptr );
+      case zval::z_int64:   return ::SkipToEnd( s, (const int64_t*)nullptr );
+      case zval::z_word16:  return ::SkipToEnd( s, (const word16_t*)nullptr );
+      case zval::z_word32:  return ::SkipToEnd( s, (const word32_t*)nullptr );
+      case zval::z_word64:  return ::SkipToEnd( s, (const word64_t*)nullptr );
+      case zval::z_float:   return ::SkipToEnd( s, (const float*)nullptr );
+      case zval::z_double:  return ::SkipToEnd( s, (const double*)nullptr );
+      case zval::z_charstr: return ::SkipToEnd( s, (const charstr*)nullptr );
+      case zval::z_widestr: return ::SkipToEnd( s, (const widestr*)nullptr );
+      case zval::z_uuid:    return ::SkipToEnd( s, (const uuid*)nullptr );
+      case zval::z_zmap:    return ::SkipToEnd( s, (const mtc::zmap*)nullptr );
+
+      case zval::z_array_char:    return ::SkipToEnd( s, (const array_char*)nullptr );
+      case zval::z_array_byte:    return ::SkipToEnd( s, (const array_byte*)nullptr );
+      case zval::z_array_int16:   return ::SkipToEnd( s, (const array_int16*)nullptr );
+      case zval::z_array_int32:   return ::SkipToEnd( s, (const array_int32*)nullptr );
+      case zval::z_array_int64:   return ::SkipToEnd( s, (const array_int64*)nullptr );
+      case zval::z_array_word16:  return ::SkipToEnd( s, (const array_word16*)nullptr );
+      case zval::z_array_word32:  return ::SkipToEnd( s, (const array_word32*)nullptr );
+      case zval::z_array_word64:  return ::SkipToEnd( s, (const array_word64*)nullptr );
+      case zval::z_array_float:   return ::SkipToEnd( s, (const array_float*)nullptr );
+      case zval::z_array_double:  return ::SkipToEnd( s, (const array_double*)nullptr );
+      case zval::z_array_charstr: return ::SkipToEnd( s, (const array_charstr*)nullptr );
+      case zval::z_array_widestr: return ::SkipToEnd( s, (const array_widestr*)nullptr );
+      case zval::z_array_zmap:    return ::SkipToEnd( s, (const mtc::array_zmap*)nullptr );
+      case zval::z_array_zval:    return ::SkipToEnd( s, (const mtc::array_zval*)nullptr );
+      case zval::z_array_uuid:    return ::SkipToEnd( s, (const array_uuid*)nullptr );
+      case zval::z_untyped:       return s;
+      default:                    return nullptr;
+    }
+  }
+
   // zmap:: classes
 
   /*
@@ -924,7 +1413,6 @@ namespace mtc
   protected:  // helpers
             auto  plain_branchlen() const -> int;
             auto  plain_ctl_bytes() const -> word32_t;
-    static  auto  plain_ctl_bytes( word32_t encode ) -> size_t;
 
   };
 
@@ -967,73 +1455,6 @@ namespace mtc
     auto  back() const -> char;
     auto  size() const -> size_t;
     auto  data() const -> const char*;
-
-  };
-
-  class zmap::key
-  {
-    friend class zmap;
-    template <class value, class z_iterator>
-    friend class iterator_base;
-
-  private:
-    unsigned        _typ;
-    const uint8_t*  _ptr;
-    size_t          _len;
-
-  private:
-    uint8_t         _buf[4];
-
-  public:     // key types
-    enum: uint8_t
-    {
-      uint = 0,
-      cstr = 1,
-      wstr = 2,
-      none = (uint8_t)-1
-    };
-
-  protected:
-    key();
-    key( unsigned typ, const uint8_t* buf, size_t len );
-
-  public: // construction
-    key( unsigned );
-    key( const char* );
-    key( const widechar* );
-    key( const char*, size_t );
-    key( const widechar*, size_t );
-    key( const charstr& );
-    key( const widestr& );
-    key( const key& );
-    key& operator = ( const key& );
-
-  public:
-    auto  operator == ( const key& k ) const -> bool;
-    auto  operator != ( const key& k ) const -> bool {  return !(*this == k);  }
-    bool  operator <  ( const key& k ) const  {  return compare( k ) < 0;  }
-
-    auto  compare( const key& ) const -> int;
-
-  public:
-    static
-    auto  null() -> key {  return key();  }
-
-  public: // data
-    auto  type() const  -> unsigned       {  return _typ;  }
-    auto  data() const  -> const uint8_t* {  return _ptr;  }
-    auto  size() const  -> size_t         {  return _len;  }
-
-  public: // operators
-    operator unsigned () const;
-    operator const char* () const;
-    operator const widechar* () const;
-
-  public: // accessors
-    auto  is_charstr() const -> bool  {  return _typ == cstr;  }
-    auto  is_widestr() const -> bool  {  return _typ == wstr;  }
-    auto  to_charstr() const -> const char* {  return (const char*)*this;  }
-    auto  to_widestr() const -> const widechar* {  return (const widechar*)*this;  }
 
   };
 
@@ -1276,7 +1697,7 @@ namespace mtc
     {
       ztree_t*  pbeg = this;
 
-      for ( auto  size = plain_ctl_bytes( lfetch ); size-- > 0; pbeg = &pbeg->back() )
+      for ( auto  size = fragment_len( lfetch ); size-- > 0; pbeg = &pbeg->back() )
       {
         byte_t  chnext;
 
@@ -1329,6 +1750,40 @@ namespace mtc
     (p_data = new zdata_t())->attach();
 
     return p_data->FetchFrom( s, p_data->n_vals );
+  }
+
+  template <class S>
+  S*  zmap::SkipToEnd( S* s )
+  {
+    size_t  lfetch;
+
+    if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
+      return nullptr;
+
+  /*  check if value is stored before other data; either skip or return */
+    if ( (lfetch & 0x0200) != 0 )
+    {
+      byte  keyset;
+
+      if ( (s = zval::SkipToEnd( ::FetchFrom( s, keyset ) )) == nullptr )
+        return nullptr;
+    }
+
+  /*  check if branch is patricia-like: check exact match               */
+    if ( (lfetch & 0x0400) != 0 )
+      return (s = ::SkipBytes( s, fragment_len( lfetch ) )) != nullptr ? SkipToEnd( s ) : nullptr;
+
+    for ( auto arrlen = lfetch & 0x1ff; arrlen-- > 0; )
+    {
+      unsigned  sublen;
+      byte_t    chnext;
+
+      if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
+        return nullptr;
+      if ( (s = ::SkipBytes( s, sublen )) == nullptr )
+        return nullptr;
+    }
+    return s;
   }
 
   /* zmap::iterator_base inline implementation */
@@ -1556,233 +2011,6 @@ namespace mtc
       return pval != nullptr && *pval >= z;
     }
 
-  /* zmap::serial::skip implementation */
-
-  template <class T, class S>
-  S*  zmap::serial::skip::array_vals( S* s )
-  {
-    int   nitems;
-    T     itnext;
-
-    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
-      return nullptr;
-    while ( nitems-- > 0 && (s = ::FetchFrom( s, itnext )) != nullptr )
-      (void)0;
-    return s;
-  }
-
-  template <class C, class S>
-  S*  zmap::serial::skip::array_strs( S* s )
-  {
-    int     nitems;
-    size_t  itelen;
-
-    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
-      return nullptr;
-    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = size( s, sizeof(C) * itelen )) != nullptr )
-      (void)0;
-    return s;
-  }
-
-  template <class S>
-  S*  zmap::serial::skip::array_zmap( S* s )
-  {
-    int     nitems;
-    size_t  itelen;
-
-    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
-      return nullptr;
-    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = skip::zmap( s )) != nullptr )
-      (void)0;
-    return s;
-  }
-
-  template <class S>
-  S*  zmap::serial::skip::array_zval( S* s )
-  {
-    int     nitems;
-    size_t  itelen;
-
-    if ( (s = ::FetchFrom( s, nitems )) == nullptr )
-      return nullptr;
-    while ( nitems-- > 0 && (s = ::FetchFrom( s, itelen )) != nullptr && (s = skip::zval( s )) != nullptr )
-      (void)0;
-    return s;
-  }
-
-  template <class S>  S*  zmap::serial::skip::size( S* s, size_t l )
-  {
-    char      slocal[0x100];
-    unsigned  cbpart;
-
-    while ( (cbpart = l < sizeof(slocal) ? l : sizeof(slocal)) > 0 )
-      if ( (s = ::FetchFrom( s, slocal, cbpart )) != nullptr )  l -= cbpart;
-        else return nullptr;
-    return s;
-  }
-
-  template <class S>  S*  zmap::serial::skip::zval( S* s )
-  {
-    byte_t    vxtype;
-    unsigned  sublen;
-
-    if ( (s = ::FetchFrom( s, vxtype )) == nullptr )
-      return nullptr;
-    switch ( vxtype )
-    {
-    # define  derive_skip_plain( _type_ ) case zval::z_##_type_: return skip::size( s, sizeof(_type_##_t) );
-    # define  derive_skip_smart( _type_ ) case zval::z_##_type_: {  _type_##_t  t;  return ::FetchFrom( s, t ); }
-      derive_skip_plain( char )
-      derive_skip_plain( byte )
-      derive_skip_plain( int16 )
-      derive_skip_plain( word16 )
-
-      derive_skip_smart( int32 )
-      derive_skip_smart( int64 )
-      derive_skip_smart( word32 )
-      derive_skip_smart( word64 )
-      derive_skip_smart( float )
-      derive_skip_smart( double )
-    # undef derive_skip_smart
-    # undef derive_skip_plain
-
-      case zval::z_charstr: return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sublen ) : nullptr;
-      case zval::z_widestr: return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sizeof(widechar) * sublen ) : nullptr;
-      case zval::z_zmap:    return skip::zmap( s );
-      case zval::z_uuid:    return skip::size( s, uuid::length );
-
-    # define  derive_skip_array_plain( _type_ ) case zval::z_array_##_type_:  \
-        return (s = ::FetchFrom( s, sublen )) != nullptr ? skip::size( s, sublen * sizeof(_type_##_t) ) : nullptr;
-      derive_skip_array_plain( char )
-      derive_skip_array_plain( byte )
-      derive_skip_array_plain( float )
-      derive_skip_array_plain( double )
-    # undef derive_skip_array_plain
-
-      case zval::z_array_int16:   return array_vals<int16_t>  ( s );
-      case zval::z_array_int32:   return array_vals<int32_t>  ( s );
-      case zval::z_array_int64:   return array_vals<int64_t>  ( s );
-      case zval::z_array_word16:  return array_vals<word16_t> ( s );
-      case zval::z_array_word32:  return array_vals<word32_t> ( s );
-      case zval::z_array_word64:  return array_vals<word64_t> ( s );
-      case zval::z_array_charstr: return array_strs<char>     ( s );
-      case zval::z_array_widestr: return array_strs<widechar> ( s );
-      case zval::z_array_zmap:    return array_zmap( s );
-      case zval::z_array_zval:    return array_zval( s );
-      case zval::z_array_uuid:    return array_vals<uuid_t>   ( s );
-      case zval::z_untyped:       return s;
-      default:
-        return nullptr;
-    }
-  }
-
-  template <class S>  S*  zmap::serial::skip::zmap( S* s )
-  {
-    word32_t  lfetch;
-
-    if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
-      return nullptr;
-
-  /*  check if value is stored before other data; either skip or return */
-    if ( (lfetch & 0x0200) != 0 )
-    {
-      char  keyset;
-
-      if ( (s = skip::zval( ::FetchFrom( s, keyset ) )) == nullptr )
-        return nullptr;
-    }
-
-  /*  check if branch is patricia-like: check exact match               */
-    if ( (lfetch & 0x0400) != 0 )
-      return (s = skip::size( s, ztree_t::plain_ctl_bytes( lfetch ) )) != nullptr ? skip::zmap( s ) : nullptr;
-
-    for ( auto arrlen = lfetch & 0x1ff; arrlen-- > 0; )
-    {
-      unsigned  sublen;
-      byte_t    chnext;
-
-      if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
-        return nullptr;
-      if ( (s = skip::size( s, sublen )) == nullptr )
-        return nullptr;
-    }
-    return s;
-  }
-
-  /* zmap::serial::skip* secialization for 'const char*' */
-
-  inline  const char* zmap::serial::skip::size( const char* s, size_t l )
-  {
-    return s + l;
-  }
-
-  inline  const char* zmap::serial::skip::zval( const char* s )
-  {
-    auto    vatype = (unsigned char)*s++;
-    size_t  sublen;
-
-    switch ( vatype )
-    {
-      case zval::z_char:    return s + sizeof(char);
-      case zval::z_byte:    return s + sizeof(byte_t);
-      case zval::z_int16:   return s + sizeof(int16_t);
-      case zval::z_word16:  return s + sizeof(word16_t);
-      case zval::z_float:   return s + sizeof(float);
-      case zval::z_double:  return s + sizeof(double);
-
-      case zval::z_int32:
-      case zval::z_int64:
-      case zval::z_word32:
-      case zval::z_word64:  while ( *s++ & 0x80 ) (void)0;  return s;
-
-      case zval::z_charstr: return ::FetchFrom( s, sublen ) + sublen;
-      case zval::z_widestr: return ::FetchFrom( s, sublen ) + sizeof(widechar) * sublen;
-      case zval::z_zmap:    return skip::zmap( s );
-
-      case zval::z_array_char:    return ::FetchFrom( s, sublen ) + sublen;
-      case zval::z_array_byte:    return ::FetchFrom( s, sublen ) + sublen;
-      case zval::z_array_float:   return ::FetchFrom( s, sublen ) + sublen * sizeof(float);
-      case zval::z_array_double:  return ::FetchFrom( s, sublen ) + sublen * sizeof(double);
-
-      case zval::z_array_int16:   return array_vals<int16_t>( s );
-      case zval::z_array_int32:   return array_vals<int32_t>( s );
-      case zval::z_array_int64:   return array_vals<int64_t>( s );
-      case zval::z_array_word16:  return array_vals<word16_t>( s );
-      case zval::z_array_word32:  return array_vals<word32_t>( s );
-      case zval::z_array_word64:  return array_vals<word64_t>( s );
-
-      case zval::z_array_charstr: return array_strs<char>( s );
-      case zval::z_array_widestr: return array_strs<widechar>( s );
-      case zval::z_array_zmap:    return array_zmap( s );
-      case zval::z_array_zval:    return array_zval( s );
-      case zval::z_untyped:       return s;
-      default:
-        return nullptr;
-    }
-  }
-
-  inline  const char* zmap::serial::skip::zmap( const char* s )
-  {
-    word32_t  lfetch;
-    size_t    sublen;
-
-  /* get control length */
-    s = ::FetchFrom( s, lfetch );
-
-  /*  check if value is stored before other data; either skip or return */
-    if ( (lfetch & 0x0200) != 0 )
-      s = skip::zval( ++s );
-
-  /*  check if branch is patricia-like: check exact match               */
-    if ( (lfetch & 0x0400) != 0 )
-      return skip::zmap( s + ztree_t::plain_ctl_bytes( lfetch ) );
-
-    for ( auto arrlen = lfetch & 0x1ff; arrlen-- > 0; s += sublen )
-      s = ::FetchFrom( ++s, sublen );
-
-    return s;
-  }
-
   /* zmap::serial getters */
 
   template <class S>
@@ -1796,7 +2024,7 @@ namespace mtc
   /*  check if value is stored before other data; either skip or return */
     if ( (lfetch & 0x0200) != 0 )
     {
-      char  keyset;
+      byte  keyset;
 
       if ( (s = ::FetchFrom( s, keyset )) == nullptr )
         return nullptr;
@@ -1810,7 +2038,7 @@ namespace mtc
   /*  check if branch is patricia-like: check exact match               */
     if ( (lfetch & 0x0400) != 0 )
     {
-      auto    patlen = ztree_t::plain_ctl_bytes( lfetch );
+      auto    patlen = fragment_len( lfetch );
       byte_t  chload;
 
       while ( patlen-- > 0 && l > 0 )
@@ -1868,5 +2096,25 @@ namespace mtc
   }
 
 }
+
+template <class T1, class T2>
+bool  operator == ( const mtc::zval::dump::array_t<T1>& _1, const std::vector<T2>& _2 )
+{
+  if ( _1.size() != _2.size() ) return false;
+    else
+  {
+    auto  i1 = _1.begin();
+    auto  i2 = _2.begin();
+
+    while ( i1 != _1.end() )
+      if ( *i1++ != *i2++ ) return false;
+
+    return true;
+  }
+}
+
+template <class T1, class T2>
+bool  operator == ( const std::vector<T1>& _1, const mtc::zval::dump::array_t<T2>& _2 )
+{  return _2 == _1;  }
 
 # endif  // __zmap_hpp__
