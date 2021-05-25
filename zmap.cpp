@@ -204,59 +204,73 @@ namespace mtc
   * zmap::dump::const_iterator
   */
 
-  auto  zmap::dump::const_iterator::iterator_node::init( const char* s ) -> iterator_node
-  {
-    auto  node = iterator_node();
-    return node.load( s ), node;
-  }
-
  /*
-  * iterator_node::load()
+  * iterator_node::iterator_node( source )
   *
   * загружает сериализованный узел дерева ztree, переводит ptr на следующий элемент
   * или nullptr, если в этой ветке более нечего грузить, и возвращает указатель
   * на первый вложенный элемент.
   */
-  auto  zmap::dump::const_iterator::iterator_node::load( const char* s ) -> const char*
+  bool  zmap::dump::const_iterator::iterator_node::init_element( const char* s )
   {
     word32_t  lfetch;
     size_t    sublen;
 
-    ptr = ::FetchFrom( s, lfetch );
+    s = ::FetchFrom( s, lfetch );
 
     if ( (lfetch & 0x0200) != 0 )       // check if value at node; save value pointer
-      ptr = zval::SkipToEnd( val = ::FetchFrom( ptr, key ) );
-    else {  val = nullptr; key = (byte)-1;  }
+      s = zval::SkipToEnd( value = ::FetchFrom( s, xtype ) );
+    else {  value = nullptr; xtype = (byte)-1;  }
 
     if ( (lfetch & 0x0400) != 0 )       // check if patricia-style element
-      return cnt = 0, ptr = (str = ptr) + (len = fragment_len( lfetch ));   // ret -> nested tree
-
-    if ( (cnt = lfetch & 0x1ff) == 0 )
-      return ptr = nullptr;
-
-    return ptr = ::FetchFrom( (str = ptr) + (len = 1), sublen );
+    {
+      pnext = nullptr;
+      count = 0;
+      level = (ptext = s) + (ltext = fragment_len( lfetch ));
+    }
+      else
+    if ( (count = lfetch & 0x1ff) != 0 )
+    {
+      --count;
+        level = ::FetchFrom( (ptext = s) + (ltext = 1), sublen );
+        pnext += sublen;
+    }
+      else
+    {
+      ptext = pnext = level = nullptr;
+      ltext = 0;
+    }
+    return true;
   }
 
-  auto  zmap::dump::const_iterator::iterator_node::next() -> const char*
+  bool  zmap::dump::const_iterator::iterator_node::move_to_next()
   {
     size_t  sublen;
 
-    return cnt != 0 ? --cnt, ptr = ::FetchFrom( (str = ptr) + (len = 1), sublen ) : nullptr;
+    if ( count != 0 )
+    {
+      --count;
+        level = ::FetchFrom( ptext = pnext, sublen );
+        pnext += sublen;
+      return true;
+    }
+
+    return false;
   }
 
   zmap::dump::const_iterator::const_iterator( const char* s )
   {
     if ( s != nullptr )
     {
-      do  tree.push_back( iterator_node::init( s ) ), s = tree.back().ptr;
-        while ( tree.back().val == nullptr && s != nullptr );
+      do  s = (tree.push_back( iterator_node( s ) ), tree.back().level);
+        while ( tree.back().value == nullptr && s != nullptr );
 
       for ( auto it = tree.begin(); it != tree.end() - 1; ++it )
-        buff.insert( buff.end(), it->str, it->str + it->len );
+        buff.insert( buff.end(), it->ptext, it->ptext + it->ltext );
 
       buff.push_back( '\0' );
-        data.first = key( tree.back().key, buff.data(), buff.size() - 1 );
-        data.second = zval::dump( tree.back().val );
+        data.first = key( tree.back().xtype, buff.data(), buff.size() - 1 );
+        data.second = zval::dump( tree.back().value );
     }
   }
 
@@ -266,40 +280,21 @@ namespace mtc
     {
       buff.resize( buff.size() - (buff.empty() ? 0 : 1) );  // remove trailing '\0'
 
-    // up the tree until value or no more data available
-      if ( tree.back().ptr != nullptr ) do
+      for ( ; !tree.empty(); )
       {
-        buff.insert( buff.end(), tree.back().str, tree.back().str + tree.back().len );
-          tree.push_back( iterator_node::init( tree.back().ptr ) );
-      } while ( tree.back().ptr != nullptr && tree.back().val == nullptr );
-
-    // check if found
-      if ( tree.back().val != nullptr )
-      {
-        buff.push_back( '\0' );
-          data.first = key( tree.back().key, buff.data(), buff.size() - 1 );
-          data.second = zval::dump( tree.back().val );
-        return *this;
-      }
-
-    // move to next element in the list
-
-
-      if ( tree.back().val != nullptr )
-      if ( tree.back().cnt != 0 )       // go up by the branch until next element is found
-      {
-        do {
-          --tree.back().cnt;
-            buff.insert( buff.end(), tree.back().str, tree.back().str + tree.back().len );
-          tree.push_back( iterator_node::init( tree.back().ptr ) );
-        } while ( tree.back().val == nullptr && tree.back().cnt != 0 );
-
-        if ( tree.back().val != nullptr )
+        if ( tree.back().move_to_next() )
         {
-          buff.push_back( '\0' );
-            data.first = key( tree.back().key, buff.data(), buff.size() - 1 );
-            data.second = zval::dump( tree.back().val );
-          return *this;
+          buff.back() = *tree.back().ptext;
+
+          while ( tree.back().value == nullptr && tree.back().level != nullptr )
+            tree.push_back( iterator_node( tree.back().level ) );
+
+          break;
+        }
+          else
+        {
+          tree.pop_back();
+          buff.resize( buff.size() - (tree.empty() ? 0 : tree.back().ltext) );
         }
       }
     }

@@ -978,17 +978,20 @@ namespace mtc
   {
     struct iterator_node
     {
-      const char* ptr;  // next serialized element
-      size_t      cnt;  // siblings in sequense
-      const char* str;  // string fragment
-      size_t      len;  // fragment length
-      const char* val;  // the val serialization
-      byte        key;  // key settings type
+      const char* pnext;  // next serialized element in list
+      size_t      count;  // siblings in sequense
+      const char* ptext;  // string fragment
+      size_t      ltext;  // fragment length
+      const char* value;  // the val serialization
+      byte        xtype;  // key settings type
+      const char* level;  // the next level
 
     public:
-      static auto init( const char* ) -> iterator_node;
-      const char* load( const char* );
-      const char* next();
+      iterator_node( const char* s )  {  init_element( s );  }
+
+    public:
+      bool  init_element( const char* );
+      bool  move_to_next();
     };
 
     struct iterator_data
