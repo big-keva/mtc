@@ -80,8 +80,8 @@ namespace mtc {
       {  return std::copy( std::begin( rt.ubytes ), std::end( rt.ubytes ), std::begin( ubytes ) ), *this;  }
 
   public:
-    auto  data() const -> const uint8_t*  {  return ubytes;  }
-    auto  size() const -> size_t          {  return 16;  }
+            auto  data() const -> const uint8_t*  {  return ubytes;  }
+    static  auto  size() -> size_t  {  return 16;  }
 
   public:
     static  uuid  get_uuid( const char* s, const char* e = nullptr )  {  return get_uuid<char>( s, e );  }
@@ -114,6 +114,8 @@ namespace mtc {
     auto  Serialize( O* o ) const -> O* {  return ::Serialize( o, data(), size() );  }
     template <class S>
     auto  FetchFrom( S* s ) -> S* {  return ::FetchFrom( s, (uint8_t*)data(), size() );   }
+    template <class S> static
+    auto  SkipToEnd( S* s ) -> S* {  return ::SkipBytes( s, size() );   }
 
   protected:
     uint8_t ubytes[length];

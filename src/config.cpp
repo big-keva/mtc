@@ -1,7 +1,7 @@
-# include "config.h"
-# include "wcsstr.h"
-# include "z_js.h"
-# include "file.h"
+# include "../config.h"
+# include "../wcsstr.h"
+# include "../z_js.h"
+# include "../file.h"
 
 # if defined( _WIN32 )
 #   include <direct.h>

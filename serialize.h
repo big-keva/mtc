@@ -67,6 +67,8 @@ template <class O, class T>
 O*      Serialize( O*, const T& );
 template <class S, class T>
 S*      FetchFrom( S*, T& );
+template <class S, class T>
+S*      SkipToEnd( S*, const T* );
 
 /*
  * common serialization templates declaration for base get/put operations   []
@@ -74,6 +76,7 @@ S*      FetchFrom( S*, T& );
 
 template <class O>  O*  Serialize( O*, const void*, size_t );
 template <class S>  S*  FetchFrom( S*,       void*, size_t );
+template <class S>  S*  SkipBytes( S*, size_t );
 
 namespace mtc
 {
@@ -133,6 +136,8 @@ namespace mtc
     static  O*      Serialize( O* o, const T& t )  {  return ::Serialize( o, t );  }
     template <class S, class T>
     static  S*      FetchFrom( S* s, T& t )  {  return ::FetchFrom( s, t );  }
+    template <class S, class T>
+    static  S*      SkipToEnd( S* s, const T* ) {  return ::SkipToEnd( s, (const T*)nullptr );  }
   };
 
   struct value_as_struct
@@ -143,6 +148,8 @@ namespace mtc
     static  O*      Serialize( O* o, const T& t )  {  return t.Serialize( o );  }
     template <class S, class T>
     static  S*      FetchFrom( S* s, T& t )  {  return t.FetchFrom( s );  }
+    template <class S, class T>
+    static  S*      SkipToEnd( S* s, const T* )  {  return T::SkipToEnd( s );  }
   };
 
   /*
@@ -196,6 +203,14 @@ namespace mtc
 
       return s;
     }
+    template <class S, class T>
+    static inline S*  end( S* s, const T* )
+    {
+      char  bfetch;
+      while ( (s = FetchFrom( s, &bfetch, sizeof(bfetch) )) != nullptr && (bfetch & 0x80) != 0 )
+        (void)NULL;
+      return s;
+    }
   };
 
 }
@@ -217,6 +232,13 @@ template <> inline  auto  FetchFrom( const unsigned char* s, void* p, size_t l )
   {  return s != nullptr ? (memcpy( p, s, l ), l + s) : nullptr;  }
 template <> inline  auto  FetchFrom( FILE* s, void* p, size_t l ) -> FILE*
   {  return s != nullptr && fread( p, sizeof(char), l, s ) == l ? s : nullptr;  }
+
+template <> inline  auto  SkipBytes( const char* s, size_t l ) -> const char*
+  {  return s != nullptr ? s + l : s;  }
+template <> inline  auto  SkipBytes( const unsigned char* s, size_t l ) -> const unsigned char*
+  {  return s != nullptr ? s + l : s;  }
+template <> inline  auto  SkipBytes( FILE* s, size_t l ) -> FILE*
+  {  return s != nullptr && fseek( s, l, SEEK_CUR ) == 0 ? s : nullptr;  }
 
 /*
  * structures serialization/deserialization prototypes
@@ -247,6 +269,15 @@ S*  FetchFrom( S* s, T& t )
     mtc::value_as_scalar,
     mtc::value_as_struct>::type;
   return value_type::FetchFrom( s, t );
+}
+
+template <class S, class T>
+S*  SkipToEnd( S* s, const T* )
+{
+  using value_type = typename std::conditional<std::is_fundamental<T>::value || mtc::class_is_string<T>::value,
+    mtc::value_as_scalar,
+    mtc::value_as_struct>::type;
+  return value_type::SkipToEnd( s, (const T*)nullptr );
 }
 
 /*
@@ -298,6 +329,20 @@ template <class S>  inline  S*  FetchFrom( S* s, int64_t& i )   {  return mtc::i
 template <class S>  inline  S*  FetchFrom( S* s, uint16_t& i )  {  return mtc::integers::get( s, i );  }
 template <class S>  inline  S*  FetchFrom( S* s, uint32_t& i )  {  return mtc::integers::get( s, i );  }
 template <class S>  inline  S*  FetchFrom( S* s, uint64_t& i )  {  return mtc::integers::get( s, i );  }
+
+template <class S>  inline  S*  SkipToEnd( S* o, const char* )          {  return SkipBytes( o, sizeof(char) );  }
+template <class S>  inline  S*  SkipToEnd( S* o, const unsigned char* ) {  return SkipBytes( o, sizeof(char) );  }
+template <class S>  inline  S*  SkipToEnd( S* o, const float* )         {  return SkipBytes( o, sizeof(float) );  }
+template <class S>  inline  S*  SkipToEnd( S* o, const double* )        {  return SkipBytes( o, sizeof(double) );  }
+template <class S>  inline  S*  SkipToEnd( S* o, const bool* )          {  return SkipBytes( o, sizeof(char) );  }
+
+template <class S>  inline  S*  SkipToEnd( S* s, const int16_t* )   {  return mtc::integers::end( s, (const int16_t*)nullptr );  }
+template <class S>  inline  S*  SkipToEnd( S* s, const int32_t* )   {  return mtc::integers::end( s, (const int32_t*)nullptr );  }
+template <class S>  inline  S*  SkipToEnd( S* s, const int64_t* )   {  return mtc::integers::end( s, (const int64_t*)nullptr );  }
+
+template <class S>  inline  S*  SkipToEnd( S* s, const uint16_t* )   {  return mtc::integers::end( s, (const uint16_t*)nullptr );  }
+template <class S>  inline  S*  SkipToEnd( S* s, const uint32_t* )   {  return mtc::integers::end( s, (const uint32_t*)nullptr );  }
+template <class S>  inline  S*  SkipToEnd( S* s, const uint64_t* )   {  return mtc::integers::end( s, (const uint64_t*)nullptr );  }
 
 /*
  * C strings serialization/deserialization specializations
@@ -377,6 +422,14 @@ S*  FetchFrom( S* s, std::basic_string<C>& o )
   return s;
 }
 
+template <class S, class C>
+S*  SkipToEnd( S* s, const std::basic_string<C>* )
+{
+  int   l;
+
+  return (s = FetchFrom( s, l )) != nullptr ? SkipBytes( s, l * sizeof(C) ) : s;
+}
+
 /*
  * std::vector<>
  */
@@ -419,6 +472,16 @@ S*  FetchFrom( S* s, std::vector<T>& a )
   for ( size_t i = 0; i < array_size && s != nullptr; ++i )
     s = ::FetchFrom( s, a.at( i ) );
 
+  return s;
+}
+
+template <class S, class T>
+S*  SkipToEnd( S* s, const std::vector<T>* )
+{
+  int   l;
+
+  for ( s = ::FetchFrom( s, l ); s != nullptr && l-- > 0; s = SkipToEnd( s, (const T*)nullptr ) )
+    (void)NULL;
   return s;
 }
 
@@ -468,11 +531,26 @@ S*  FetchFrom( S* s, std::map<K, V>& m )
   return s;
 }
 
+template <class S,
+class K,
+class V>
+S*  SkipToEnd( S* s, std::map<K, V>& m )
+{
+  size_t  len;
+
+  for ( s = ::FetchFrom( s, len ); s != nullptr && len-- > 0;
+    s = SkipToEnd( SkipToEnd( s, (const K*)nullptr ), (const V*)nullptr ) ) (void)NULL;
+
+  return s;
+}
+
 /*
  * helpers for buffers
  */
 template <> inline  auto  FetchFrom( mtc::sourcebuf* s, void* p, size_t l ) -> mtc::sourcebuf*
-  {  return s != nullptr ? s->FetchFrom( p, l ) : nullptr;  }
+  {  return s != nullptr ? s->FetchFrom( p, l ) : s;  }
+template <> inline  auto  SkipBytes( mtc::sourcebuf* s, size_t l ) -> mtc::sourcebuf*
+  {  return s != nullptr ? s->skipto( l ) : s;  }
 
 namespace mtc
 {
