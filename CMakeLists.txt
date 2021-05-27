@@ -10,15 +10,16 @@ else()
 endif()
 
 add_library(mtc STATIC
-  byteBuffer.cpp
+  src/byteBuffer.cpp
+  src/fileStream.cpp
+  src/config.cpp
+  src/zval.cpp
+  src/zmap.cpp
+
   dirtools.cpp
-  fileStream.cpp
   netStream.cpp
   zipStream.cpp
-  config.cpp
   dir.cpp
-  zval.cpp
-  zmap.cpp
   z_js.cpp
 
   net/sockets.cpp
