@@ -49,10 +49,8 @@ SOFTWARE.
 С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
 
 */
-# include "fileStream.h"
-# include "stdlog.h"
-# include "autoptr.h"
-# include "wcsstr.h"
+# include "../fileStream.h"
+# include "../wcsstr.h"
 # include <assert.h>
 # include <stdlib.h>
 # include <string.h>

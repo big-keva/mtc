@@ -85,24 +85,6 @@ auto  CreateDump( const mtc::zmap& z ) -> std::vector<char>
 
 int main()
 {
-auto  test = CreateDump( {
-  { "key", "value" },
-  { "one", "string" } } );
-
-auto  tmap = mtc::zmap();
-      tmap.FetchFrom( (const char*)test.data() );
-
-auto  view = mtc::zmap::dump( test.data() );
-  for ( auto it = view.begin(); it != view.end(); ++it )
-  {
-    if ( it->first.is_charstr() ) fprintf( stdout, "%s", it->first.to_charstr() );  else
-    if ( it->first.is_widestr() ) fprintf( stdout, "%s", mtc::utf::encode( it->first.to_widestr() ).c_str() );  else
-                                  fprintf( stdout, "%u", (unsigned)it->first );
-
-    fprintf( stdout, "\n" );
-  }
-
-return 0;
   auto  buff = CreateDump( {
     { "char", 'c' },
     { "charstr", "string" },

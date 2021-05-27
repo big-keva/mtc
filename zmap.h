@@ -1027,6 +1027,10 @@ namespace mtc
       }
   public:
     auto  operator -> () const -> const iterator_data*  {  return &data;  }
+    auto  operator * () const -> const iterator_data&  {  return data;  }
+
+  protected:
+    void  make_data();
 
   };
 

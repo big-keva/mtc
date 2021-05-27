@@ -1,5 +1,5 @@
-# include "zmap.h"
-# include "serialize.h"
+# include "../zmap.h"
+# include "../serialize.h"
 
 namespace mtc
 {
@@ -233,7 +233,7 @@ namespace mtc
     {
       --count;
         level = ::FetchFrom( (ptext = s) + (ltext = 1), sublen );
-        pnext += sublen;
+        pnext = level + sublen;
     }
       else
     {
@@ -250,8 +250,8 @@ namespace mtc
     if ( count != 0 )
     {
       --count;
-        level = ::FetchFrom( ptext = pnext, sublen );
-        pnext += sublen;
+        level = ::FetchFrom( (ptext = pnext) + 1, sublen );
+        pnext = level + sublen;
       return true;
     }
 
@@ -268,9 +268,7 @@ namespace mtc
       for ( auto it = tree.begin(); it != tree.end() - 1; ++it )
         buff.insert( buff.end(), it->ptext, it->ptext + it->ltext );
 
-      buff.push_back( '\0' );
-        data.first = key( tree.back().xtype, buff.data(), buff.size() - 1 );
-        data.second = zval::dump( tree.back().value );
+      buff.push_back( '\0' ), make_data();
     }
   }
 
@@ -284,10 +282,11 @@ namespace mtc
       {
         if ( tree.back().move_to_next() )
         {
-          buff.back() = *tree.back().ptext;
-
           while ( tree.back().value == nullptr && tree.back().level != nullptr )
+          {
+            buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
             tree.push_back( iterator_node( tree.back().level ) );
+          }
 
           break;
         }
@@ -297,8 +296,16 @@ namespace mtc
           buff.resize( buff.size() - (tree.empty() ? 0 : tree.back().ltext) );
         }
       }
+      if ( buff.size() != 0 )
+        return buff.push_back( '\0' ), make_data(), *this;
     }
     return data = { key(), zval::dump() }, *this;
+  }
+
+  void  zmap::dump::const_iterator::make_data()
+  {
+    if ( tree.empty() != 0 )  data = { key(), zval::dump() };
+      else data = { key( tree.back().xtype, buff.data(), buff.size() - 1 ), zval::dump( tree.back().value ) };
   }
 
  /*
