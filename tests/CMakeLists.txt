@@ -16,11 +16,16 @@ add_executable(test-config
 add_executable(test-zmap
         test-zmap.cpp)
 
+add_executable(mtc-test-wcsstr
+        test-wcsstr.cpp)
+
 target_link_libraries(test-directory
 	mtc)
 target_link_libraries(test-config
 	mtc)
 target_link_libraries(test-zmap
+	mtc)
+target_link_libraries(mtc-test-wcsstr
 	mtc)
 
 add_test(NAME test-patricia COMMAND test-patricia)

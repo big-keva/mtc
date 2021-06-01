@@ -66,7 +66,6 @@ SOFTWARE.
 # include <assert.h>
 # include <string>
 # include "platform.h"
-# include "autoptr.h"
 
 # if !defined( __widechar_defined__ )
 # define  __widechar_defined__
@@ -89,50 +88,187 @@ namespace mtc
   using widestr = std::basic_string<widechar>;
 # endif
 
-  namespace impl
+  struct getwidechar
   {
-  
-    template <class chartype>
-    inline  bool  w_in_lim( chartype ch, chartype lo, chartype hi )
-    {
-      return ch >= lo && ch <= hi;
-    }
+    widechar  operator ()( const char*& s ) const     {  return (widechar)(unsigned char)*s++;  }
+    widechar  operator ()( const widechar*& s ) const {  return *s++;  }
+  };
 
-    template <class chartype, class compchar>
-    inline  bool  w_is_chr( chartype ch, compchar cn )
-    {
-      return ch == (chartype)cn;
-    }
+  template <class Allocator = std::allocator<char>>
+  auto  w_strdup( const Allocator& m, const char* s, size_t l = (size_t)-1 ) -> char*;
+  template <class Allocator = std::allocator<widechar>>
+  auto  w_strdup( const Allocator& m, const widechar* s, size_t l = (size_t)-1 ) -> widechar*;
 
-    template <class chartype, class compchar, class... charlist>
-    inline  bool  w_is_chr( chartype ch, compchar cn, charlist... cl )
-    {
-      return ch == (chartype)cn || w_is_chr( ch, cl... );
-    }
+  template <class getchr = getwidechar>
+  auto  w_strcpy( widechar*, const char*, getchr = getchr() ) -> widechar*;
 
-    template <class chartype>
-    inline  bool  w_is_num( chartype ch )
-    {
-      return w_in_lim( ch, (chartype)'0', (chartype)'9' );
-    }
+  template <class getchr = getwidechar>
+  auto  w_strncpy( widechar*, const char*, size_t, getchr = getchr() ) -> widechar*;
 
-    struct getwidechar
+  template <class getchr = getwidechar>
+  auto  w_strcat( widechar*, const char*, getchr = getchr() ) -> widechar*;
+
+  template <class getchr = getwidechar>
+  int   w_strcmp( const char* s, const widechar* m, getchr = getchr() );
+  template <class getchr = getwidechar>
+  int   w_strcmp( const widechar* s, const char* m, getchr = getchr() );
+
+  template <class getchr = getwidechar>
+  int   w_strncmp( const char*, const widechar*, size_t, getchr = getchr() );
+  template <class getchr = getwidechar>
+  int   w_strncmp( const widechar*, const char*, size_t, getchr = getchr() );
+
+  template <class getchr = getwidechar>
+  int   w_strcasecmp( const widechar*, const char*, getchr = getchr() );
+  template <class getchr = getwidechar>
+  int   w_strcasecmp( const char*, const widechar*, getchr = getchr() );
+
+  template <class getchr = getwidechar>
+  int   w_strncasecmp( const char*, const widechar*, size_t, getchr = getchr() );
+  template <class getchr = getwidechar>
+  int   w_strncasecmp( const widechar*, const char*, size_t, getchr = getchr() );
+
+  template <class getchr = getwidechar>
+  const char*     w_strstr( const char*, const widechar*, getchr = getchr() );
+  template <class getchr = getwidechar>
+  const widechar* w_strstr( const widechar*, const char*, getchr = getchr() );
+
+  class __impl_strings final
+  {
+    template <class Allocator>
+    class string_formatter
     {
-      widechar  operator ()( const char*& s ) const
-        {  return (widechar)(unsigned char)*s++;  }
-      widechar  operator ()( const widechar*& s ) const
-        {  return *s++;  }
+      Allocator allocator;
+
+    public:
+      using string_type = std::basic_string<char, std::char_traits<char>, Allocator>;
+
+    public:
+      string_formatter( const Allocator& alloc ): allocator( alloc )  {}
+      string_formatter( const string_formatter& alloc ): allocator( alloc.allocator )  {}
+
+    protected:
+      auto  length( const char* format, va_list vaargs ) const -> size_t
+        {
+          va_list v;
+          size_t  l;
+
+          va_copy( v, vaargs );
+            l = vsnprintf( nullptr, 0, format, v );
+          va_end( v );
+
+          return l;
+        }
+      auto  strdup( const char* format, va_list vaargs ) const -> char*
+        {
+          auto    a( allocator );
+          auto    l = length( format, vaargs );
+          char*   p;
+
+          p = a.allocate( l + 1 );
+
+          return vsnprintf( p, l + 1, format, vaargs ), p;
+        }
+      auto  format( const char* format, va_list vaargs ) const -> string_type
+        {
+          auto    o = std::basic_string<char, std::char_traits<char>, Allocator>( allocator );
+          auto    l = length( format, vaargs );
+
+          return o.resize( l ), vsnprintf( (char*)o.c_str(), l + 1, format, vaargs ), o;
+        }
     };
 
+    template <class Allocator>
+    class strprintf: protected string_formatter<Allocator>
+    {
+      using string_formatter<Allocator>::string_formatter;
+
+    public:
+      auto  operator () ( const char* format, ... ) const -> typename string_formatter<Allocator>::string_type
+      {
+        va_list vaargs;
+
+        va_start( vaargs, format );
+          auto  out = this->format( format, vaargs );
+        va_end( vaargs );
+
+        return out;
+      }
+    };
+
+    template <class Allocator>
+    class vstrprintf: protected string_formatter<Allocator>
+    {
+      using string_formatter<Allocator>::string_formatter;
+
+    public:
+      auto  operator () ( const char* format, va_list vaargs ) const -> typename string_formatter<Allocator>::string_type
+        {  return string_formatter<Allocator>::format( format, vaargs );  }
+    };
+
+    template <class Allocator>
+    class strduprintf: protected string_formatter<Allocator>
+    {
+      using string_formatter<Allocator>::string_formatter;
+
+    public:
+      auto  operator () ( const char* format, ... ) const -> char*
+        {
+          va_list vaargs;
+
+          va_start( vaargs, format );
+            auto  out = this->format( format, vaargs );
+          va_end( vaargs );
+
+          return out;
+        }
+    };
+
+    template <class Allocator>
+    class vstrduprintf: protected string_formatter<Allocator>
+    {
+      using string_formatter<Allocator>::string_formatter;
+
+    public:
+      auto  operator () ( const char* format, va_list vaargs ) const -> char*
+        {  return string_formatter<Allocator>::strdup( format, vaargs );  }
+    };
+
+    template <class Allocator>
+    friend  auto  strprintf( const Allocator& ) -> strprintf<Allocator>;
+    template <class Allocator>
+    friend  auto  vstrprintf( const Allocator& ) -> vstrprintf<Allocator>;
+    template <class Allocator>
+    friend  auto  strduprintf( const Allocator& ) -> strduprintf<Allocator>;
+    template <class Allocator>
+    friend  auto  vstrduprintf( const Allocator& ) -> vstrduprintf<Allocator>;
+
+  private:
+    template <class chartype, class comptype>
+    static  bool  w_in_lim( chartype ch, comptype lo, comptype hi )
+      {
+        using uctype = typename std::make_unsigned<chartype>::type;
+        using cmtype = typename std::make_unsigned<comptype>::type;
+
+        return ((uctype)ch) >= ((cmtype)lo) && ((uctype)ch) <= ((cmtype)hi);
+      }
+    template <class chartype, class compchar>
+    static  bool  w_is_chr( chartype ch, compchar cn )
+      {  return ch == (chartype)cn;  }
+    template <class chartype, class compchar, class... charlist>
+    static  bool  w_is_chr( chartype ch, compchar cn, charlist... cl )
+      {  return ch == (chartype)cn || w_is_chr( ch, cl... );  }
+    template <class chartype>
+    static  bool  w_is_num( chartype ch )
+      {  return w_in_lim( ch, (chartype)'0', (chartype)'9' );  }
 
     template <class getchar>
     class to_low_case
     {
-      getchar&  getc;
+      getchar  getc;
 
     public:
-      to_low_case( getchar& get ): getc( get )
-        {}
+      to_low_case( const getchar& get ): getc( get )  {}
 
     public:
       widechar  operator ()( const char*& s ) const {  return to_lower( getc( s ) );  }
@@ -149,7 +285,7 @@ namespace mtc
     //
     // strlen() family
     //
-    template <class C>  size_t  strlen( const C* s )
+    template <class C>  static  size_t  strlen( const C* s )
     {
       auto o = s;
         while ( *s++ != (C)0 )  (void)0;
@@ -159,15 +295,15 @@ namespace mtc
     //
     // strdup() family
     //
-    template <class C, class M>  C* strdup( M& m, const C* s, size_t l )
+    template <class C, class Allocator>  static C*  strdup( Allocator& a, const C* s, size_t l )
     {
-      C*  o;
-      C*  p;
+      C*    o;
+      C*    p;
 
       if ( l == (size_t)-1 )
         for ( l = 0; s != nullptr && s[l] != (C)0; ++l )  (void)0;
 
-      if ( (o = p = (C*)m.alloc( sizeof(C) * (l + 1) )) != nullptr )
+      if ( (o = p = a.allocate( l + 1 )) != nullptr )
         {  while ( l-- > 0 ) *p++ = *s++;  *p = (C)0;  }
 
       return o;
@@ -176,14 +312,14 @@ namespace mtc
     //
     // strcpy() family
     //
-    template <class C>  C*  strcpy( C* o, const C* s )
+    template <class C>  static  C*  strcpy( C* o, const C* s )
     {
       for ( auto p = o; (*p++ = *s++) != (C)0; )
         (void)0;
       return o;
     }
 
-    template <class C, class L> widechar* strcpy( widechar* o, const C* s, L l )
+    template <class C, class L> static  widechar* strcpy( widechar* o, const C* s, L l )
     {
       for ( auto p = o; (*p++ = l( s )) != (widechar)0; )
         (void)0;
@@ -193,7 +329,7 @@ namespace mtc
     //
     // strncpy() family
     //
-    template <class C> C* strncpy( C* o, const C* s, size_t n )
+    template <class C> static  C* strncpy( C* o, const C* s, size_t n )
     {
       auto p = o;
 
@@ -204,7 +340,7 @@ namespace mtc
       return o;
     }
 
-    template <class C, class L> widechar* strncpy( widechar* o, const C* s, size_t n, L l )
+    template <class C, class L> static  widechar* strncpy( widechar* o, const C* s, size_t n, L l )
     {
       auto p = o;
 
@@ -218,7 +354,7 @@ namespace mtc
     //
     // strcat() family
     //
-    template <class C> C*  strcat( C* o, const C* s )
+    template <class C> static  C*  strcat( C* o, const C* s )
     {
       auto  p = o;
 
@@ -227,7 +363,7 @@ namespace mtc
       return strcpy( p, s ), o;
     }
 
-    template <class C, class L> widechar* strcat( widechar* o, const C* s, L l )
+    template <class C, class L> static  widechar* strcat( widechar* o, const C* s, L l )
     {
       auto  p = o;
 
@@ -239,7 +375,7 @@ namespace mtc
     //
     // strcmp() family
     //
-    template <class A, class B, class L = getwidechar>  int strcmp( const A* s, const B* m, L l = L() )
+    template <class A, class B, class L = getwidechar>  static  int strcmp( const A* s, const B* m, L l = L() )
     {
       int       rc;
       widechar  lc;
@@ -249,7 +385,7 @@ namespace mtc
       return rc;
     }
 
-    template <class A, class B, class L = getwidechar>  int strncmp( const A* s, const B* m, size_t n, L l = L() )
+    template <class A, class B, class L = getwidechar>  static  int strncmp( const A* s, const B* m, size_t n, L l = L() )
     {
       int       rc = 0;
       widechar  lc;
@@ -262,14 +398,14 @@ namespace mtc
     //
     // strchr() family
     //
-    template <class C>  C*  strchr( const C* s, int c )
+    template <class C>  static  C*  strchr( const C* s, int c )
     {
       while ( c != *s && *s != (C)0 )
         ++s;
       return c == *s ? (C*)s : nullptr;
     }
 
-    template <class C>  C*  strrchr( const C* s, int c )
+    template <class C>  static  C*  strrchr( const C* s, int c )
     {
       auto  p = s;
 
@@ -283,7 +419,7 @@ namespace mtc
     //
     // strstr family
     //
-    template <class S, class M, class L = getwidechar>  const S*  strstr( const S* s, const M* m, L l = L() )
+    template <class S, class M, class L = getwidechar>  static  auto  strstr( const S* s, const M* m, L l = L() ) -> const S*
     {
       const S*  s1;
       const M*  m1;
@@ -307,39 +443,38 @@ namespace mtc
     }
 
     //
-    // strtoll family
+    // strtox family
     //
-    template <class chartype>
-    unsigned long long strtoull( const chartype* str, chartype**  end, int dwbase )
+    template <class val_type, class chartype>
+    static  auto  strtou( const chartype* str, chartype**  end, int dwbase ) -> val_type
     {
-      long long result = 0;
+      using u_type = typename std::make_unsigned<chartype>::type;
 
-      if ( dwbase == 0 || dwbase == 16 )
+      val_type result = 0;
+
+      if ( dwbase == 0 )
       {
-        if ( str[0] == (chartype)'0' && impl::w_is_chr( str[1], 'x', 'X' ) )
-        {
-          dwbase = 16;
-          str += 2;
-        }
+        if ( w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
+          {  dwbase = 16; str += 2;  }
         if ( dwbase == 0 )
-          dwbase = 10;
+          {  dwbase = 10;  }
       }
 
       if ( dwbase == 10 )
       {
-        while ( impl::w_is_num( *str ) )
-          result = result * 10 + *str++ - '0';
+        while ( w_is_num( *str ) )
+          result = result * 10 + ((u_type)*str++) - '0';
       }
         else
       if ( dwbase == 16 )
       {
         for ( ; ; )
         {
-          if ( impl::w_in_lim( *str, (chartype)'0', (chartype)'9' ) ) result = result * 16 + *str++ - '0';
+          if ( w_in_lim( *str, '0', '9' ) ) result = result * 16 + ((u_type)*str++) - '0';
             else
-          if ( impl::w_in_lim( *str, (chartype)'A', (chartype)'F' ) ) result = result * 16 + *str++ - 'A' + 10;
+          if ( w_in_lim( *str, 'A', 'F' ) ) result = result * 16 + ((u_type)*str++) - 'A' + 10;
             else
-          if ( impl::w_in_lim( *str, (chartype)'a', (chartype)'f' ) ) result = result * 16 + *str++ - 'a' + 10;
+          if ( w_in_lim( *str, 'a', 'f' ) ) result = result * 16 + ((u_type)*str++) - 'a' + 10;
             else
           break;
         }
@@ -349,141 +484,268 @@ namespace mtc
       return result;
     }
 
-  }
+    template <class val_type, class chartype>
+    static  auto  strtoi( const chartype* str, chartype**  end, int dwbase ) -> val_type
+    {
+      using u_type = typename std::make_unsigned<chartype>::type;
+        static_assert( sizeof(u_type) == sizeof(chartype), "invlid type conversion" );
+
+      val_type result = 0;
+      val_type imulti = 1;
+
+      if ( w_is_chr( *str, '-' ) )
+        {  imulti = -1;  ++str;  }
+
+      if ( dwbase == 16 )
+      {
+        if ( w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
+          str += 2;
+      }
+        else
+      if ( dwbase == 0 )
+      {
+        if ( w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
+          {  dwbase = 16; str += 2;  }
+        else dwbase = 10;
+      }
+
+      if ( dwbase == 10 )
+      {
+        while ( w_is_num( *str ) )
+          result = result * 10 + ((u_type)*str++) - '0';
+      }
+        else
+      if ( dwbase == 16 )
+      {
+        for ( ; ; )
+        {
+          if ( w_in_lim( *str, '0', '9' ) ) result = result * 16 + ((u_type)*str++) - '0';
+            else
+          if ( w_in_lim( *str, 'A', 'F' ) ) result = result * 16 + ((u_type)*str++) - 'A' + 10;
+            else
+          if ( w_in_lim( *str, 'a', 'f' ) ) result = result * 16 + ((u_type)*str++) - 'a' + 10;
+            else
+          break;
+        }
+      }
+      if ( end != NULL )
+        *end = (chartype*)str;
+      return imulti * result;
+    }
+
+    friend  size_t w_strlen( const widechar* );
+    friend  size_t w_strlen( const char* );
+
+    template <class Allocator>
+    friend  auto  w_strdup( const Allocator& m, const char* s, size_t l ) -> char*;
+    template <class Allocator>
+    friend  auto  w_strdup( const Allocator& m, const widechar* s, size_t l ) -> widechar*;
+
+    friend  auto  w_strcpy( widechar* o, const widechar* s ) -> widechar*;
+    friend  auto  w_strcpy( char* o, const char* s ) -> char*;
+
+    template <class getchr>
+    friend  auto  w_strcpy( widechar*, const char*, getchr l ) -> widechar*;
+
+    friend  auto  w_strncpy( char*, const char*, size_t ) -> char*;
+    friend  auto  w_strncpy( widechar*, const widechar*, size_t ) -> widechar*;
+
+    template <class getchr>
+    friend  auto  w_strncpy( widechar*, const char*, size_t n, getchr ) -> widechar*;
+
+    friend  auto  w_strcat( widechar* o, const widechar* s ) -> widechar*;
+    friend  auto  w_strcat( char* o, const char* s ) -> char*;
+
+    template <class getchr>
+    friend  auto  w_strcat( widechar*, const char*, getchr ) -> widechar*;
+
+    friend  int   w_strcmp( const char*, const char* );
+    friend  int   w_strcmp( const widechar*, const widechar* );
+
+    template <class getchr>
+    friend  int   w_strcmp( const char*, const widechar*, getchr l );
+    template <class getchr>
+    friend  int   w_strcmp( const widechar*, const char*, getchr l );
+
+    friend  int   w_strncmp( const char*, const char*, size_t );
+    friend  int   w_strncmp( const widechar*, const widechar*, size_t );
+
+    template <class getchr>
+    friend  int   w_strncmp( const char*, const widechar*, size_t, getchr );
+    template <class getchr>
+    friend  int   w_strncmp( const widechar*, const char*, size_t, getchr );
+
+    friend  int   w_strcasecmp( const char*, const char* );
+    friend  int   w_strcasecmp( const widechar*, const widechar* );
+
+    template <class getchr>
+    friend  int   w_strcasecmp( const widechar*, const char*, getchr );
+    template <class getchr>
+    friend  int   w_strcasecmp( const char*, const widechar*, getchr );
+
+    friend  int   w_strncasecmp( const char*, const char*, size_t );
+    friend  int   w_strncasecmp( const widechar*, const widechar*, size_t );
+
+    template <class getchr>
+    friend  int   w_strncasecmp( const char*, const widechar*, size_t, getchr );
+    template <class getchr>
+    friend  int   w_strncasecmp( const widechar*, const char*, size_t, getchr );
+
+    template <class getchr>
+    friend  int   w_strncasecmp( const char*, const widechar*, size_t, getchr );
+    template <class getchr>
+    friend  int   w_strncasecmp( const widechar*, const char*, size_t, getchr );
+
+    friend  char*     w_strchr( const char*, int );
+    friend  widechar* w_strchr( const widechar*, int );
+  
+    friend  char*     w_strrchr( const char*, int );
+    friend  widechar* w_strrchr( const widechar*, int );
+
+    friend  const char*     w_strstr( const char*, const char* );
+    friend  const widechar* w_strstr( const widechar*, const widechar* );
+
+    template <class getchr>
+    friend  const char*     w_strstr( const char*, const widechar*, getchr );
+    template <class getchr>
+    friend  const widechar* w_strstr( const widechar*, const char*, getchr );
+
+    template <class chartype>
+    friend  double    w_strtod( const chartype*, chartype** );
+
+    friend  auto  w_strtol( const char*, char**, int ) -> long int;
+    friend  auto  w_strtol( const widechar*, widechar**, int ) -> long int;
+
+    friend  auto  w_strtoul( const char*, char**, int ) -> unsigned long int;
+    friend  auto  w_strtoul( const widechar*, widechar**, int ) -> unsigned long int;
+
+    friend  auto  w_strtoll( const char*, char**, int ) -> long long int;
+    friend  auto  w_strtoll( const widechar*, widechar**, int ) -> long long int;
+
+    friend  auto  w_strtoull( const char*, char**, int ) -> unsigned long long int;
+    friend  auto  w_strtoull( const widechar*, widechar**, int ) -> unsigned long long int;
+  };
 
   //
   // strlen() family
   //
-  inline  size_t w_strlen( const widechar* s )  {  return impl::strlen( s );  }
-  inline  size_t w_strlen( const char* s )      {  return impl::strlen( s );  }
+  inline  size_t w_strlen( const widechar* s )  {  return __impl_strings::strlen( s );  }
+  inline  size_t w_strlen( const char* s )      {  return __impl_strings::strlen( s );  }
 
   //
   // strdup() family
   //
-  template <class M>
-  inline  widechar* w_strdup( M& m, const widechar* s, size_t l = (size_t)-1 )
+  template <class Allocator>
+  auto  w_strdup( const Allocator& m, const char* s, size_t l ) -> char*
     {
-      return s != nullptr ? impl::strdup( m, s, l ) : nullptr;
+      auto  a( m );
+      return s != nullptr ? __impl_strings::strdup( a, s, l ) : nullptr;
     }
 
-  template <class M>
-  inline  char*     w_strdup( M& m, const char* s, size_t l = (size_t)-1 )
+  template <class Allocator>
+  auto  w_strdup( const Allocator& m, const widechar* s, size_t l ) -> widechar*
     {
-      return s != nullptr ? impl::strdup( m, s, l ) : nullptr;
+      auto  a( m );
+      return s != nullptr ? __impl_strings::strdup( a, s, l ) : nullptr;
     }
 
-  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1 )  
-    {
-      def_alloc m;
-      return w_strdup( m, s, l );
-    }
-
+  inline  char*     w_strdup( const char* s, size_t l = (size_t)-1 )
+    {  return w_strdup( std::allocator<char>(), s, l );  }
   inline  widechar* w_strdup( const widechar* s, size_t l = (size_t)-1 )
-    {
-      def_alloc m;
-      return w_strdup( m, s, l );
-    }
+    {  return w_strdup( std::allocator<widechar>(), s, l );  }
 
   //
   // strcpy() family
   //
-  inline  widechar* w_strcpy( widechar* o, const widechar* s )  {  return impl::strcpy( o, s );  }
-  inline  char*     w_strcpy( char* o, const char* s )          {  return impl::strcpy( o, s );  }
+  inline  widechar* w_strcpy( widechar* o, const widechar* s )  {  return __impl_strings::strcpy( o, s );  }
+  inline  char*     w_strcpy( char* o, const char* s )          {  return __impl_strings::strcpy( o, s );  }
 
-  template <class getchr = impl::getwidechar>
-  inline  widechar* w_strcpy( widechar* o, const char* s, getchr l = getchr() ) {  return impl::strcpy( o, s, l );  }
+  template <class getchr>
+  inline  widechar* w_strcpy( widechar* o, const char* s, getchr l ) {  return __impl_strings::strcpy( o, s, l );  }
 
-  inline  widechar* w_strncpy( widechar* o, const widechar* s, size_t n )  {  return impl::strncpy( o, s, n );  }
-  inline  char*     w_strncpy( char* o, const char* s, size_t n )          {  return impl::strncpy( o, s, n );  }
+  inline  widechar* w_strncpy( widechar* o, const widechar* s, size_t n )  {  return __impl_strings::strncpy( o, s, n );  }
+  inline  char*     w_strncpy( char* o, const char* s, size_t n )          {  return __impl_strings::strncpy( o, s, n );  }
 
-  template <class getchr = impl::getwidechar>
-  inline  widechar* w_strncpy( widechar* o, const char* s, size_t n, getchr l = getchr() ) {  return impl::strncpy( o, s, n, l );  }
+  template <class getchr>
+  inline  widechar* w_strncpy( widechar* o, const char* s, size_t n, getchr l ) {  return __impl_strings::strncpy( o, s, n, l );  }
 
   //
   // strcat() family
   //
-  inline  widechar* w_strcat( widechar* o, const widechar* s )    {  return impl::strcat( o, s );  }
-  inline  char*     w_strcat( char* o, const char* s )            {  return impl::strcat( o, s );  }
+  inline  widechar* w_strcat( widechar* o, const widechar* s )    {  return __impl_strings::strcat( o, s );  }
+  inline  char*     w_strcat( char* o, const char* s )            {  return __impl_strings::strcat( o, s );  }
 
-  template <class getchr = impl::getwidechar>
-  inline  widechar* w_strcat( widechar* o, const char* s, getchr l = getchr() ) {  return impl::strcat( o, s, l );  }
+  template <class getchr>
+  inline  widechar* w_strcat( widechar* o, const char* s, getchr l ) {  return __impl_strings::strcat( o, s, l );  }
 
   //
   // strcmp() family
   //
-  inline  int   w_strcmp( const char* s, const char* m )  {  return impl::strcmp( s, m, impl::getwidechar() );  }
-  inline  int   w_strcmp( const widechar* s, const widechar* m )  {  return impl::strcmp( s, m, impl::getwidechar() );  }
+  inline  int   w_strcmp( const char* s, const char* m )  {  return __impl_strings::strcmp( s, m, getwidechar() );  }
+  inline  int   w_strcmp( const widechar* s, const widechar* m )  {  return __impl_strings::strcmp( s, m, getwidechar() );  }
 
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strcmp( const char* s, const widechar* m, getchr l = getchr() )       {  return impl::strcmp( s, m, l );  }
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strcmp( const widechar* s, const char* m, getchr l = getchr() )       {  return impl::strcmp( s, m, l );  }
+  template <class getchr>
+  inline  int   w_strcmp( const char* s, const widechar* m, getchr l )       {  return __impl_strings::strcmp( s, m, l );  }
+  template <class getchr>
+  inline  int   w_strcmp( const widechar* s, const char* m, getchr l )       {  return __impl_strings::strcmp( s, m, l );  }
 
   //
   // strncmp() family
   //
-  inline  int   w_strncmp( const char* s, const char* m, size_t n ) {  return impl::strncmp( s, m, n, impl::getwidechar() );  }
-  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n ) {  return impl::strncmp( s, m, n, impl::getwidechar() );  }
+  inline  int   w_strncmp( const char* s, const char* m, size_t n ) {  return __impl_strings::strncmp( s, m, n, getwidechar() );  }
+  inline  int   w_strncmp( const widechar* s, const widechar* m, size_t n ) {  return __impl_strings::strncmp( s, m, n, getwidechar() );  }
 
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncmp( const char* s, const widechar* m, size_t n, getchr l = getchr() )      {  return impl::strncmp( s, m, n, l );  }
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncmp( const widechar* s, const char* m, size_t n, getchr l = getchr() )      {  return impl::strncmp( s, m, n, l );  }
+  template <class getchr>
+  inline  int   w_strncmp( const char* s, const widechar* m, size_t n, getchr l ) {  return __impl_strings::strncmp( s, m, n, l );  }
+  template <class getchr>
+  inline  int   w_strncmp( const widechar* s, const char* m, size_t n, getchr l ) {  return __impl_strings::strncmp( s, m, n, l );  }
 
   //
   // strcasecmp() family
   //
   inline  int   w_strcasecmp( const char* s, const char* m )
-    {
-      impl::getwidechar getter;
-      return impl::strcmp( s, m, impl::to_low_case<impl::getwidechar>( getter ) );
-    }
+    {  return __impl_strings::strcmp( s, m, __impl_strings::to_low_case<getwidechar>( getwidechar() ) );  }
   inline  int   w_strcasecmp( const widechar* s, const widechar* m )
-    {
-      impl::getwidechar getter;
-      return impl::strcmp( s, m, impl::to_low_case<impl::getwidechar>( getter ) );
-    }
+    {  return __impl_strings::strcmp( s, m, __impl_strings::to_low_case<getwidechar>( getwidechar() ) );  }
 
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strcasecmp( const widechar* s, const char* m, getchr l = getchr() ) {  return impl::strcmp( s, m, impl::to_low_case<getchr>( l ) ); }
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strcasecmp( const char* s, const widechar* m, getchr l = getchr() ) {  return impl::strcmp( s, m, impl::to_low_case<getchr>( l ) ); }
+  template <class getchr>
+  inline  int   w_strcasecmp( const widechar* s, const char* m, getchr l )
+    {  return __impl_strings::strcmp( s, m, __impl_strings::to_low_case<getchr>( l ) ); }
+  template <class getchr>
+  inline  int   w_strcasecmp( const char* s, const widechar* m, getchr l )
+    {  return __impl_strings::strcmp( s, m, __impl_strings::to_low_case<getchr>( l ) ); }
 
   inline  int   w_strncasecmp( const char* s, const char* m, size_t n )
-    {
-      impl::getwidechar getter;
-      return impl::strncmp( s, m, n, impl::to_low_case<impl::getwidechar>( getter ) );
-    }
+    {  return __impl_strings::strncmp( s, m, n, __impl_strings::to_low_case<getwidechar>( getwidechar() ) );  }
   inline  int   w_strncasecmp( const widechar* s, const widechar* m, size_t n ) 
-    {
-      impl::getwidechar getter;
-      return impl::strncmp( s, m, n, impl::to_low_case<impl::getwidechar>( getter ) );
-    }
+    {  return __impl_strings::strncmp( s, m, n, __impl_strings::to_low_case<getwidechar>( getwidechar() ) );  }
 
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncasecmp( const char* s, const widechar* m, size_t n, getchr l = getchr() )  {  return impl::strncmp( s, m, n, impl::to_low_case<getchr>( l ) ); }
-  template <class getchr = impl::getwidechar>
-  inline  int   w_strncasecmp( const widechar* s, const char* m, size_t n, getchr l = getchr() )  {  return impl::strncmp( s, m, n, impl::to_low_case<getchr>( l ) ); }
+  template <class getchr>
+  inline  int   w_strncasecmp( const char* s, const widechar* m, size_t n, getchr l )
+    {  return __impl_strings::strncmp( s, m, n, __impl_strings::to_low_case<getchr>( l ) ); }
+  template <class getchr>
+  inline  int   w_strncasecmp( const widechar* s, const char* m, size_t n, getchr l )
+    {  return __impl_strings::strncmp( s, m, n, __impl_strings::to_low_case<getchr>( l ) ); }
 
   //
   // strchr() family
   //
-  inline  char*     w_strchr( const char* s, int c )      {  return impl::strchr( s, c ); }
-  inline  widechar* w_strchr( const widechar* s, int c )  {  return impl::strchr( s, c ); }
+  inline  char*     w_strchr( const char* s, int c )      {  return __impl_strings::strchr( s, c ); }
+  inline  widechar* w_strchr( const widechar* s, int c )  {  return __impl_strings::strchr( s, c ); }
 
-  inline  char*     w_strrchr( const char* s, int c )     {  return impl::strrchr( s, c ); }
-  inline  widechar* w_strrchr( const widechar* s, int c ) {  return impl::strrchr( s, c ); }
+  inline  char*     w_strrchr( const char* s, int c )     {  return __impl_strings::strrchr( s, c ); }
+  inline  widechar* w_strrchr( const widechar* s, int c ) {  return __impl_strings::strrchr( s, c ); }
 
   //
   // strstr family
   //
-  inline  const char*     w_strstr( const char* s, const char* m )  {  return impl::strstr( s, m ); }
-  inline  const widechar* w_strstr( const widechar* s, const widechar* m )  {  return impl::strstr( s, m ); }
+  inline  const char*     w_strstr( const char* s, const char* m )  {  return __impl_strings::strstr( s, m ); }
+  inline  const widechar* w_strstr( const widechar* s, const widechar* m )  {  return __impl_strings::strstr( s, m ); }
 
-  template <class getchr = impl::getwidechar>
-  inline  const char*     w_strstr( const char* s, const widechar* m, getchr l = getchr() )     {  return impl::strstr( s, m, l );  }
-  template <class getchr = impl::getwidechar>
-  inline  const widechar* w_strstr( const widechar* s, const char* m, getchr l = getchr() )     {  return impl::strstr( s, m, l );  }
+  template <class getchr>
+  inline  const char*     w_strstr( const char* s, const widechar* m, getchr l )  {  return __impl_strings::strstr( s, m, l );  }
+  template <class getchr>
+  inline  const widechar* w_strstr( const widechar* s, const char* m, getchr l )  {  return __impl_strings::strstr( s, m, l );  }
 
   //
   // strtod family
@@ -495,7 +757,7 @@ namespace mtc
     double  decone;
     double  decpow;
 
-    while ( impl::w_is_num( *str ) )
+    while ( __impl_strings::w_is_num( *str ) )
       bigger = (bigger * 10) + *str++ - chartype('0');
 
     if ( *str++ != '.' )
@@ -508,7 +770,7 @@ namespace mtc
     decpow = 1.0;
     decone = 0.0;
 
-    while ( impl::w_is_num( *str ) )
+    while ( __impl_strings::w_is_num( *str ) )
     {
       decone = (decone * 10) + *str++ - chartype('0');
       decpow *= 10.0;
@@ -523,132 +785,72 @@ namespace mtc
   inline  double  w_strtod( const widechar* str, widechar** end ) {  return w_strtod<widechar>( str, end );  }
 
   //
-  // strtoup family
+  // strtox family
   //
-  inline  unsigned long w_strtoul( const widechar* pwsstr, widechar**  pwsend, int dwbase )
-  {
-    unsigned long result = 0;
+  inline  auto  w_strtol( const char* s, char** e, int base ) -> long int
+    {  return __impl_strings::strtoi<long int>( s, e, base );  }
+  inline  auto  w_strtol( const widechar* s, widechar** e, int base ) -> long int
+    {  return __impl_strings::strtoi<long int>( s, e, base );  }
 
-    if ( dwbase == 0 || dwbase == 16 )
-    {
-      if ( pwsstr[0] == (widechar)'0' && (pwsstr[1] == (widechar)'x'
-        || pwsstr[1] == (widechar)'X') )
-      {
-        dwbase = 16;
-        pwsstr += 2;
-      }
-      if ( dwbase == 0 )
-        dwbase = 10;
-    }
+  inline  auto  w_strtoul( const char* s, char** e, int base ) -> unsigned long int
+    {  return __impl_strings::strtoi<unsigned long int>( s, e, base );  }
+  inline  auto  w_strtoul( const widechar* s, widechar** e, int base ) -> unsigned long int
+    {  return __impl_strings::strtoi<unsigned long int>( s, e, base );  }
 
-    if ( dwbase == 10 )
-    {
-      while ( *pwsstr >= (widechar)'0' && *pwsstr <= (widechar)'9' )
-        result = result * 10 + *pwsstr++ - (widechar)'0';
-    }
-      else
-    if ( dwbase == 16 )
-    {
-      for ( ; ; )
-      {
-        if ( *pwsstr >= (widechar)'0' && *pwsstr <= (widechar)'9' )
-        {
-          result = result * 16 + *pwsstr++ - (widechar)'0';
-        }
-          else
-        if ( *pwsstr >= (widechar)'A' && *pwsstr <= (widechar)'F' )
-        {
-          result = result * 16 + *pwsstr++ - (widechar)'A' + 10;
-        }
-          else
-        if ( *pwsstr >= (widechar)'a' && *pwsstr <= (widechar)'f' )
-        {
-          result = result * 16 + *pwsstr++ - (widechar)'a' + 10;
-        }
-          else
-        break;
-      }
-    }
-    if ( pwsend != NULL )
-      *pwsend = (widechar*)pwsstr;
-    return result;
-  }
+  inline  auto  w_strtoll( const char* s, char** e, int base ) -> long long int
+    {  return __impl_strings::strtoi<long long int>( s, e, base );  }
+  inline  auto  w_strtoll( const widechar* s, widechar** e, int base ) -> long long int
+    {  return __impl_strings::strtoi<long long int>( s, e, base );  }
 
-  inline  unsigned long w_strtoul( const char* pszstr, char**  pszend, int dwbase )
-  {
-    return ::strtoul( pszstr, pszend, dwbase );
-  }
-
-  //
-  // strtol family
-  //
-  inline  long          w_strtol( const widechar* pwsstr, widechar**  pwsend, int dwbase )
-  {
-    if ( *pwsstr == (widechar)'-' )
-      return 0 - w_strtoul( ++pwsstr, pwsend, dwbase );
-    return w_strtoul( pwsstr, pwsend, dwbase );
-  }
-
-  inline  long          w_strtol( const char*     pszstr, char**  pszend, int dwbase )
-  {
-    return ::strtol( pszstr, pszend, dwbase );
-  }
-
-  //
-  // strtoll family
-  //
-  inline  unsigned long long w_strtoull( const widechar* s, widechar** e, int base )  {  return impl::strtoull( s, e, base );  }
-  inline  unsigned long long w_strtoull( const char* s, char** e, int base )          {  return impl::strtoull( s, e, base );  }
+  inline  auto  w_strtoull( const char* s, char** e, int base ) -> unsigned long long int
+    {  return __impl_strings::strtoi<unsigned long long int>( s, e, base );  }
+  inline  auto  w_strtoull( const widechar* s, widechar** e, int base ) -> unsigned long long int
+    {  return __impl_strings::strtoi<unsigned long long int>( s, e, base );  }
 
   //
   // char* strduprintf( format, ... ) family
   //
+  template <class Allocator>
+  inline  auto  vstrduprintf( const Allocator& alloc ) -> __impl_strings::vstrduprintf<Allocator>
+    {  return __impl_strings::vstrduprintf<Allocator>( alloc );  }
+  template <class Allocator>
+  inline  auto  strduprintf( const Allocator& alloc ) -> __impl_strings::strduprintf<Allocator>
+    {  return __impl_strings::strduprintf<Allocator>( alloc );  }
+
   inline  char* vstrduprintf( const char* format, va_list vaargs )
-  {
-    def_alloc m;
-    va_list   v;
-    char*     p;
-    int       l;
-
-    va_copy( v, vaargs );
-      p = (char*)m.alloc( l = vsnprintf( nullptr, 0, format, v ) + 1 );
-    va_end( v );
-
-    if ( p != nullptr )
-      vsnprintf( p, l, format, vaargs );
-
-    return p;
-  }
+    {  return vstrduprintf( std::allocator<char>() )( format, vaargs );  }
 
   inline  char* strduprintf( const char* format, ... )
-  {
-    va_list   vaargs;
+    {
+      va_list   vaargs;
 
-    va_start( vaargs, format );
-      auto output = vstrduprintf( format, vaargs );
-    va_end( vaargs );
+      va_start( vaargs, format );
+        auto output = vstrduprintf( format, vaargs );
+      va_end( vaargs );
 
-    return output;
-  }
+      return output;
+    }
 
-  inline  std::string vstrprintf( const char* format, va_list vaargs )
-  {
-    _auto_<char>  output = vstrduprintf( format, vaargs );
+  template <class Allocator>
+  auto  vstrprintf( const Allocator& alloc ) -> __impl_strings::vstrprintf<Allocator>
+    {  return __impl_strings::vstrprintf<Allocator>( alloc );  }
+  template <class Allocator>
+  auto  strprintf( const Allocator& alloc ) -> __impl_strings::strprintf<Allocator>
+    {  return __impl_strings::strprintf<Allocator>( alloc );  }
 
-    return output != nullptr ? std::string( output.ptr() ) : "";
-  }
+  auto  vstrprintf( const char* format, va_list vaargs ) -> std::string
+    {  return mtc::vstrprintf( std::allocator<char>() )( format, vaargs );  }
 
-  inline  std::string strprintf( const char* format, ... )
-  {
-    va_list       vaargs;
-    _auto_<char>  output;
+  auto  strprintf( const char* format, ... ) -> std::string
+    {
+      va_list vaargs;
 
-    va_start( vaargs, format );
-      output = vstrduprintf( format, vaargs );
-    va_end( vaargs );
+      va_start( vaargs, format );
+        auto  out = vstrprintf( format, vaargs );
+      va_end( vaargs );
 
-    return output.ptr();
-  }
+      return out;
+    }
 
 // ltrim
   inline  bool        isspace( char c )
