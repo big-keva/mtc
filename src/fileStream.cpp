@@ -51,7 +51,6 @@ SOFTWARE.
 */
 # include "../fileStream.h"
 # include "../wcsstr.h"
-# include "../autoptr.h"
 # include <assert.h>
 # include <stdlib.h>
 # include <string.h>
@@ -133,11 +132,21 @@ namespace mtc
       filebuffer( word32_t l ): length( l ) {}
           
     public:     // overridables
-      virtual const char* GetPtr() const noexcept override {  return buffer;  }
-      virtual word32_t    GetLen() const noexcept override {  return length;  }
-      virtual int         SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
-      virtual int         SetLen( word32_t ) noexcept override {  return EINVAL;  }
-    
+      const char*   GetPtr() const noexcept override {  return buffer;  }
+      word32_t      GetLen() const noexcept override {  return length;  }
+      int           SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
+      int           SetLen( word32_t ) noexcept override {  return EINVAL;  }
+
+    public:
+      static  auto  Create( word32_t length ) -> api<filebuffer>
+      {
+        filebuffer* palloc;
+
+        if ( (palloc = (filebuffer*)malloc( sizeof(filebuffer) + length - 1 )) == nullptr )
+          return (filebuffer*)error()( std::bad_alloc() );
+        return new( palloc ) filebuffer( length );
+      }
+
     protected:  // variables
       word32_t  length;
       char      buffer[1];
@@ -293,8 +302,8 @@ namespace mtc
   template <class error>
   api<IByteBuffer>  FileStream<error>::MemMap( int64_t off, word32_t len )
   {
-    _auto_<FileMemmap<error>> memmap;
-    int                       nerror;
+    api<FileMemmap<error>>  memmap;
+    int                     nerror;
 
     if ( (memmap = allocate<FileMemmap<error>>()) == nullptr )
       return nullptr;
@@ -302,35 +311,34 @@ namespace mtc
     if ( (nerror = memmap->Create( this, off, len )) != 0 )
       return nullptr;
 
-    return memmap.detach();
+    return memmap.ptr();
   }
 
   template <class error>
   api<IByteBuffer>  FileStream<error>::Load()
   {
-    _auto_<filebuffer>  buf;
-    int64_t             len = Size();
+    api<filebuffer> buf;
+    int64_t         len = Size();
 
     if ( len > std::numeric_limits<int64_t>::max() )
       return nullptr;
 
-    if ( (buf = (filebuffer*)def_alloc().alloc( (size_t)(sizeof(filebuffer) + len - 1) )) == nullptr )
+    if ( (buf = filebuffer::Create( len )) == nullptr )
       return nullptr;
 
-    return PosGet( (char*)(new( buf.ptr() ) filebuffer( (word32_t)len ))->GetPtr(), 0, (word32_t)len ) == len ? buf.detach() : nullptr;
+    return PosGet( (char*)buf->GetPtr(), 0, (word32_t)len ) == len ? buf.ptr() : nullptr;
   }
 
   template <class error>
   int       FileStream<error>::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
   {
-    _auto_<filebuffer>  buffer;
+    api<filebuffer> buffer;
 
-    if ( (buffer = (filebuffer*)malloc( sizeof(filebuffer) + len - 1 )) == nullptr )
+    if ( (buffer = filebuffer::Create( len )) == nullptr )
       return ENOMEM;
-    if ( PosGet( (char*)(new( buffer.ptr() ) filebuffer( len ))->GetPtr(), off, len ) != len )
+    if ( PosGet( (char*)buffer->GetPtr(), off, len ) != len )
       return EACCES;
-    (*ppi = buffer.detach())->Attach();
-      return 0;
+    return (*ppi = buffer.ptr())->Attach(), 0;
   }
 
 # if defined( _WIN32 )
@@ -583,10 +591,10 @@ namespace mtc
   };
 
   template <class error>
-  _auto_<FileStream<error>> openFileObject( const char* lpname, unsigned dwmode )
+  auto  openFileObject( const char* lpname, unsigned dwmode ) -> api<FileStream<error>>
   {
-    _auto_<FileStream<error>> stream;
-    int                       nerror;
+    api<FileStream<error>>  stream;
+    int                     nerror;
 
     if ( lpname == nullptr || *lpname == '\0' )
       return (FileStream<error>*)error()( std::invalid_argument( strprintf( "invalid argument: empty file name @" __FILE__ ":%u", __LINE__ ) ) );
@@ -602,12 +610,12 @@ namespace mtc
 
   api<IFileStream>  OpenFileStream( const char* szname, unsigned dwmode, const enable_exceptions_t& )
     {
-      return openFileObject<report_error_exception>( szname, dwmode ).detach();
+      return openFileObject<report_error_exception>( szname, dwmode ).ptr();
     }
 
   api<IFileStream>  OpenFileStream( const char* szname, unsigned dwmode, const disable_exceptions_t& )
     {
-      return openFileObject<report_error_no_except>( szname, dwmode ).detach();
+      return openFileObject<report_error_no_except>( szname, dwmode ).ptr();
     }
 
   api<IByteBuffer>  LoadFileBuffer( const char* szname, const enable_exceptions_t& )
