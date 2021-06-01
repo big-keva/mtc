@@ -1,7 +1,6 @@
 # if !defined( __mtc_zipStream_h__ )
 # define __mtc_zipStream_h__
 # include "iStream.h"
-# include "stdlog.h"
 
 namespace mtc
 {
