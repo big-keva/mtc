@@ -62,9 +62,9 @@ namespace mtc
 
   class recursive_shared_mutex
   {
-    std::recursive_mutex        thrdLock;
-    std::condition_variable_any w_Reader;
-    std::condition_variable_any w_Writer;
+    std::recursive_mutex        dataLock;
+    std::mutex                  waitLock;
+    std::condition_variable_any w_Events;
     int                         nReaders = 0;
     int                         nWriters = 0;
     std::thread::id             writerId;
@@ -165,56 +165,50 @@ namespace mtc
   inline
   void  recursive_shared_mutex::lock()
     {
-      auto  u_lock = make_unique_lock( thrdLock );
-      auto  thrdId = std::this_thread::get_id();
+      auto  w_lock = make_unique_lock( waitLock );
+      auto  thread = std::this_thread::get_id();
 
-      if ( thrdId != writerId )
-        w_Writer.wait( u_lock, [&](){  return nWriters == 0;  } );
+      interlocked( make_unique_lock( dataLock ),  // force readers to wait infinite - tanks ride
+        [this](){  ++nWriters;  } );
 
-      writerId = thrdId;
-        ++nWriters;
+      w_Events.wait( w_lock, [&](){  return interlocked( make_unique_lock( dataLock ), [&]()
+        {
+          if ( nWriters > 1 && thread == writerId )   // рекурсивный вызов
+            return true;
 
-      w_Reader.wait( u_lock, [&](){  return nReaders == 0;  } );
+          return nReaders == 0 && nWriters == 1 ? (writerId = thread), true : false;
+        } );  } );
     }
 
   inline
   void  recursive_shared_mutex::unlock()
     {
-      auto  aulock = make_unique_lock( thrdLock );
-
-      if ( --nWriters == 0 )
-        w_Writer.notify_all();
+      interlocked( make_unique_lock( dataLock ), [this]()
+        {  if ( --nWriters == 0 ) writerId = std::thread::id();  } );
+      w_Events.notify_all();
     }
 
   inline
   void  recursive_shared_mutex::lock_shared()
     {
-      auto  u_lock = make_unique_lock( thrdLock );
-      auto  thrdId = std::this_thread::get_id();
+      auto  w_lock = make_unique_lock( waitLock );
+      auto  thread = std::this_thread::get_id();
 
-      if ( thrdId != writerId )
-        w_Writer.wait( u_lock, [&](){  return nReaders < INT_MAX && (nWriters == 0 || nReaders > 0);  } );
-      ++nReaders;
+      w_Events.wait( w_lock, [&](){  return interlocked( make_unique_lock( dataLock ), [&]()
+        {
+          if ( nWriters == 0 )
+            return ++nReaders, true;
+          if ( thread == writerId )
+            return ++nReaders, true;
+          return false;
+        } );  } );
     }
 
   inline
   void  recursive_shared_mutex::unlock_shared()
     {
-      auto  aulock = make_unique_lock( thrdLock );
-
-      if ( --nReaders, nWriters != 0 )
-      {
-      // writer is waiting, and this thread is a last reader
-        if ( nReaders == 0 )
-          w_Reader.notify_one();
-      }
-        else
-      {
-      // Nobody is waiting for shared locks to clear, if we were at the max
-      // capacity, release one thread waiting to obtain a shared lock in lock_shared().
-        if ( nReaders == INT_MAX - 1 )
-          w_Writer.notify_one();
-      }
+      if ( interlocked( make_unique_lock( dataLock ), [this](){  return --nReaders == 0;  } ) )
+        w_Events.notify_all();
     }
 
 }

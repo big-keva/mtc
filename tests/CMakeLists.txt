@@ -22,6 +22,9 @@ add_executable(mtc-test-wcsstr
 add_executable(mtc-test-fileStream
         test-fileStream.cpp)
 
+add_executable(mtc-test-sharedMutex
+	test-sharedMutex.cpp)
+
 target_link_libraries(mtc-test-directory
 	mtc)
 target_link_libraries(mtc-test-config
@@ -32,6 +35,9 @@ target_link_libraries(mtc-test-wcsstr
 	mtc)
 target_link_libraries(mtc-test-fileStream
 	mtc)
+target_link_libraries(mtc-test-sharedMutex
+	mtc
+        pthread)
 
 add_test(NAME test-patricia COMMAND test-patricia)
 add_test(NAME test-directory COMMAND test-directory)
