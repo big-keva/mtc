@@ -832,16 +832,16 @@ namespace mtc
     }
 
   template <class Allocator>
-  auto  vstrprintf( const Allocator& alloc ) -> __impl_strings::vstrprintf<Allocator>
+  inline  auto  vstrprintf( const Allocator& alloc ) -> __impl_strings::vstrprintf<Allocator>
     {  return __impl_strings::vstrprintf<Allocator>( alloc );  }
   template <class Allocator>
-  auto  strprintf( const Allocator& alloc ) -> __impl_strings::strprintf<Allocator>
+  inline  auto  strprintf( const Allocator& alloc ) -> __impl_strings::strprintf<Allocator>
     {  return __impl_strings::strprintf<Allocator>( alloc );  }
 
-  auto  vstrprintf( const char* format, va_list vaargs ) -> std::string
+  inline  auto  vstrprintf( const char* format, va_list vaargs ) -> std::string
     {  return mtc::vstrprintf( std::allocator<char>() )( format, vaargs );  }
 
-  auto  strprintf( const char* format, ... ) -> std::string
+  inline  auto  strprintf( const char* format, ... ) -> std::string
     {
       va_list vaargs;
 
