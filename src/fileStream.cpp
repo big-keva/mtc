@@ -51,6 +51,7 @@ SOFTWARE.
 */
 # include "../fileStream.h"
 # include "../wcsstr.h"
+# include "../utf.hpp"
 # include <assert.h>
 # include <stdlib.h>
 # include <string.h>
@@ -162,20 +163,20 @@ namespace mtc
     static  auto      Create( const char* szname, size_t ccname = (size_t)-1 ) -> FileStream*;
 
   public:     // overridables from IStream
-    virtual word32_t  Get (       void*,   word32_t ) noexcept override;
-    virtual word32_t  Put ( const void*,   word32_t ) noexcept override;
+    word32_t  Get (       void*,   word32_t ) noexcept override;
+    word32_t  Put ( const void*,   word32_t ) noexcept override;
 
   public:     // overridables from IFlatStream
-    virtual int       GetBuf( IByteBuffer**, int64_t, word32_t ) noexcept override;
-    virtual word32_t  PosGet(       void*,   int64_t, word32_t ) noexcept override;
-    virtual word32_t  PosPut( const void*,   int64_t, word32_t ) noexcept override;
-    virtual int64_t   Seek  ( int64_t                          ) noexcept override;
-    virtual int64_t   Size  (                                  ) noexcept override;
-    virtual int64_t   Tell  (                                  ) noexcept override;       
+    int       GetBuf( IByteBuffer**, int64_t, word32_t ) noexcept override;
+    word32_t  PosGet(       void*,   int64_t, word32_t ) noexcept override;
+    word32_t  PosPut( const void*,   int64_t, word32_t ) noexcept override;
+    int64_t   Seek  ( int64_t                          ) noexcept override;
+    int64_t   Size  (                                  ) noexcept override;
+    int64_t   Tell  (                                  ) noexcept override;
 
   public:     // overridables from IFileStream
-    virtual api<IByteBuffer>  MemMap( int64_t, uint32_t ) override;
-    virtual bool              SetLen( int64_t ) noexcept override;
+    api<IByteBuffer>  MemMap( int64_t, uint32_t ) override;
+    bool              SetLen( int64_t ) noexcept override;
 
   public:     // creation
     auto  Open( unsigned ) -> int;
@@ -614,14 +615,16 @@ namespace mtc
     }
 
   api<IFileStream>  OpenFileStream( const char* szname, unsigned dwmode, const disable_exceptions_t& )
-    {
-      return openFileObject<report_error_no_except>( szname, dwmode ).ptr();
-    }
+    {  return openFileObject<report_error_no_except>( szname, dwmode ).ptr();  }
+
+  api<IFileStream>  OpenFileStream( const widechar* szname, unsigned dwmode, const disable_exceptions_t& )
+    {  return OpenFileStream( utf::encode( szname ).c_str(), dwmode, disable_exceptions );  }
 
   api<IByteBuffer>  LoadFileBuffer( const char* szname, const enable_exceptions_t& )
-    {
-      return openFileObject<report_error_exception>( szname, O_RDONLY )->Load();
-    }
+    {  return openFileObject<report_error_exception>( szname, O_RDONLY )->Load();  }
+
+  api<IFileStream>  OpenFileStream( const widechar* szname, unsigned dwmode, const enable_exceptions_t& )
+    {  return OpenFileStream( utf::encode( szname ).c_str(), dwmode, enable_exceptions );  }
 
   api<IByteBuffer>  LoadFileBuffer( const char* szname, const disable_exceptions_t& )
     {
@@ -629,5 +632,8 @@ namespace mtc
 
       return lpfile != nullptr ? lpfile->Load() : nullptr;
     }
+
+  api<IByteBuffer>  LoadFileBuffer( const widechar* szname, const enable_exceptions_t& )
+    {  return LoadFileBuffer( utf::encode( szname ).c_str(), enable_exceptions );  }
 
 }  // mtc namespace
