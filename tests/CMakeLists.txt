@@ -19,6 +19,9 @@ add_executable(test-zmap
 add_executable(mtc-test-wcsstr
         test-wcsstr.cpp)
 
+add_executable(mtc-test-fileStream
+        test-fileStream.cpp)
+
 target_link_libraries(test-directory
 	mtc)
 target_link_libraries(test-config
@@ -27,9 +30,10 @@ target_link_libraries(test-zmap
 	mtc)
 target_link_libraries(mtc-test-wcsstr
 	mtc)
+target_link_libraries(mtc-test-fileStream
+	mtc)
 
 add_test(NAME test-patricia COMMAND test-patricia)
 add_test(NAME test-directory COMMAND test-directory)
 add_test(NAME test-config COMMAND test-config)
 add_test(NAME test-zmap COMMAND test-zmap)
-
