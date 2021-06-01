@@ -4,16 +4,16 @@ project(mtc)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
 
-add_executable(test-patricia
+add_executable(mtc-test-patricia
 	test-patricia.cpp)
 
-add_executable(test-directory
+add_executable(mtc-test-directory
 	test-directory.cpp)
 
-add_executable(test-config
+add_executable(mtc-test-config
         test-config.cpp)
 
-add_executable(test-zmap
+add_executable(mtc-test-zmap
         test-zmap.cpp)
 
 add_executable(mtc-test-wcsstr
@@ -22,11 +22,11 @@ add_executable(mtc-test-wcsstr
 add_executable(mtc-test-fileStream
         test-fileStream.cpp)
 
-target_link_libraries(test-directory
+target_link_libraries(mtc-test-directory
 	mtc)
-target_link_libraries(test-config
+target_link_libraries(mtc-test-config
 	mtc)
-target_link_libraries(test-zmap
+target_link_libraries(mtc-test-zmap
 	mtc)
 target_link_libraries(mtc-test-wcsstr
 	mtc)
