@@ -2,112 +2,130 @@
 # include <vector>
 # include <assert.h>
 
-int   main()
+mtc::recursive_shared_mutex   mx;
+std::mutex                    _w;
+
+void  TestLockIsRecursive()
 {
-  mtc::recursive_shared_mutex   mx;
-  std::mutex                    _m;
-  std::condition_variable       cv;
+  fprintf( stderr, ""
+    "*****  unique_lock() is recursive()  *****\n" );
 
-// test lock() in different threads
-  {
-    auto  xc = mtc::make_unique_lock( mx );
-    auto  x2 = mtc::make_unique_lock( mx );   // recursive
-    auto  x3 = mtc::make_unique_lock( mx );   // recursive
-    auto  xs = std::string( "start value" );
-    auto  _l = mtc::make_unique_lock( _m );
+  auto  l1 = mtc::make_unique_lock( mx );
+    fprintf( stderr, "#1\tgot unique_lock\n" );
+  auto  l2 = mtc::make_unique_lock( mx );
+    fprintf( stderr, "#1\tgot one more unique_lock\n" );
+  auto  l3 = mtc::make_shared_lock( mx );
+    fprintf( stderr, "#1\tgot shared_lock\n" );
+  auto  l4 = mtc::make_unique_lock( mx );
+    fprintf( stderr, "#1\tgot one more unique_lock\n" );
+}
 
-    fprintf( stderr, "set start string value = '%s'\n", xs.c_str() );
+void  TestMultipleSharedLocks()
+{
+  std::vector<std::thread>  ts;
 
-    auto  th = std::thread( [&]()
+  fprintf( stderr, "*****  multiple threads can lock_shared  *****\n" );
+
+  for ( auto i = 0; i != 10; ++i )
+    ts.push_back( std::thread( [&, i]()
     {
-      auto  lc = mtc::make_unique_lock( mx );
+      auto  ls = mtc::make_shared_lock( mx );
+        fprintf( stderr, "#%d\tgot shared_lock()\n", i );
+      std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+    } ) );
 
-      fprintf( stderr, "patch string value to '%s'\n", (xs = "changed value").c_str() );
+  for ( auto& t: ts ) t.join();
+}
 
-      cv.notify_one();
-    } );
+void  TestUniqueLockBlocksAllLocks()
+{
+  fprintf( stderr, "*****  unique_lock() blocks other threads from unique_lock() and shared_lock()  *****\n" );
+  fprintf( stderr, "#1\tafter unlock() in 100 ms first will be #2 with unique_lock, than #3 with shared_lock\n" );
 
-    assert( xs == "start value" );
+  auto  ex = mtc::make_unique_lock( mx );
 
-    fprintf( stderr, "wait 1 second\n" );
-      std::this_thread::sleep_for( std::chrono::seconds( 1 ) );
-
-    fprintf( stderr, "unlock first lock...\n" );
-      xc.unlock();
-    fprintf( stderr, "unlock second lock...\n" );
-      x2.unlock();
-    fprintf( stderr, "unlock third lock...\n" );
-      x3.unlock();
-
-    fprintf( stderr, "wait for patch...\n" );
-
-    cv.wait( _l );
-
-    assert( xs == "changed value" );
-
-    th.join();
-  }
-
-// test lock_shared()
+  auto  t1 = std::thread( [&]()
   {
-    fprintf( stderr, "multiple threads can lock_shared...\n" );
-    {
-      std::vector<std::thread>  ts;
-
-      for ( auto i = 0; i != 10; ++i )
-        ts.push_back( std::thread( [&, i]()
-        {
-          auto  ls = mtc::make_shared_lock( mx );
-          fprintf( stderr, "\tgot lock %u\n", i );
-        } ) );
-
-      while ( ts.size() != 0 )
-      {
-        ts.back().join();
-        ts.pop_back();
-      }
-    }
-    fprintf( stderr, "OK\n" );
-  }
-
-// while lock()ed, lock_shared() blocks
+    fprintf( stderr, "#2\ttry receive unique_lock()\n" );
+      auto  sh = mtc::make_unique_lock( mx );
+    fprintf( stderr, "#2\tgot unique_lock()\n" );
+  } );
+  auto  t2 = std::thread( [&]()
   {
-    auto  ex = mtc::make_unique_lock( mx );
-    auto  _l = mtc::make_unique_lock( _m );
-    auto  th = std::thread( [&]()
-    {
-      auto  lc = mtc::make_shared_lock( mx );
-      auto  _w = mtc::make_unique_lock( _m );
-
-      fprintf( stderr, "2) received shared lock, notify main thread\n" );
-        cv.notify_one();
-    } );
-
-    fprintf( stderr, "1) unique-locked, unlock\n" );
-      ex.unlock();
-      cv.wait( _l );
-    fprintf( stderr, "3) waiting for thread finish\n" );
-
-    th.join();
-  }
-  /*
-  auto  l1 = mtc::make_shared_lock(  mx );
-
-  auto  th = std::thread( [&]()
-  {
-    auto  lx = mtc::make_unique_lock( mx );
-
-    fprintf( stderr, "unique\n" );
+    fprintf( stderr, "#3\ttry receive shared_lock()\n" );
+      auto  sh = mtc::make_shared_lock( mx );
+    fprintf( stderr, "#3\tgot shared_lock()\n" );
   } );
 
-  auto  l2 = mtc::make_shared_lock(  mx );
+    std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+    ex.unlock();
 
-  l1.unlock();
-  l2.unlock();
+  t1.join();
+  t2.join();
+}
 
-  fprintf( stderr, "unlocked\n" );
+void  TestLockSharedLocksAttemptToUniqueLock()
+{
+  fprintf( stderr, "*****  shared_lock() blocks other threads from unique_lock()  *****\n" );
+  fprintf( stderr, "#1\tafter unlock_shared() in 100 ms the unique lock will unblock\n" );
+
+  auto  sh = mtc::make_shared_lock( mx );
+
+  auto  tx = std::thread( [&]()
+  {
+    fprintf( stderr, "#2\ttry receive unique_lock()\n" );
+      auto  sh = mtc::make_unique_lock( mx );
+    fprintf( stderr, "#2\tgot unique_lock()\n" );
+  } );
+
+  std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
+  sh.unlock();
+
+  tx.join();
+}
+
+void  TestUniqueLockOverSharedLockBlocksSharedLocks()
+{
+  fprintf( stderr, "*****  unique_lock() request over shared_locks() blocks following attempts to lock_shared()  *****\n" );
+
+  auto  sh = mtc::make_shared_lock( mx );
+    fprintf( stderr, "#1\tcreated shared lock\n" );
+  auto  th = std::thread( [&]()
+    {
+      fprintf( stderr, "#2\tkeeping unique_lock() request...\n" );
+      auto  exlock = mtc::make_unique_lock( mx );
+
+      fprintf( stderr, "#2\tgot unique_lock() request for 500ms...\n" );
+      std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
+
+      fprintf( stderr, "#2\tunloging unique_lock...\n" );
+    } );
+
+  std::this_thread::sleep_for( std::chrono::milliseconds( 500 ) );
+
+  fprintf( stderr, "#1\tunlocking shared_lock()\n" );
+
+  sh.unlock();
+
+  auto  tstart= std::chrono::steady_clock::now();
+  std::this_thread::sleep_for( std::chrono::milliseconds( 10 ) );
+  fprintf( stderr, "#1\ttry get shared_lock again...\n" );
+
+  sh.lock();
+
+  fprintf( stderr, "#1\tgot shared_lock in %d ms...\n", std::chrono::duration_cast<std::chrono::milliseconds>(
+    std::chrono::steady_clock::now() - tstart ).count() );
 
   th.join();
-  */
+}
+
+int   main()
+{
+  TestLockIsRecursive();
+  TestMultipleSharedLocks();
+  TestUniqueLockBlocksAllLocks();
+  TestLockSharedLocksAttemptToUniqueLock();
+  TestUniqueLockOverSharedLockBlocksSharedLocks();
+
   return 0;
 }

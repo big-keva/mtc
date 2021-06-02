@@ -62,12 +62,24 @@ namespace mtc
 
   class recursive_shared_mutex
   {
-    std::recursive_mutex        dataLock;
-    std::mutex                  waitLock;
-    std::condition_variable_any w_Events;
-    int                         nReaders = 0;
-    int                         nWriters = 0;
-    std::thread::id             writerId;
+    struct wait_variable: protected std::condition_variable_any
+    {
+      template <class _Predicate>
+      void  wait( std::mutex& x, _Predicate p )
+      {
+        std::unique_lock<std::mutex>  lock( x );
+        std::condition_variable_any::wait( lock, p );
+      }
+      void notify_all() {  std::condition_variable_any::notify_all();  }
+      void notify_one() {  std::condition_variable_any::notify_one();  }
+    };
+
+    std::recursive_mutex  dataLock;
+    std::mutex            waitLock;
+    wait_variable         w_Events;
+    int                   nReaders = 0;
+    int                   nWriters = 0;
+    std::thread::id       writerId;
 
   public:     // constructors
     recursive_shared_mutex()  {}
@@ -165,13 +177,12 @@ namespace mtc
   inline
   void  recursive_shared_mutex::lock()
     {
-      auto  w_lock = make_unique_lock( waitLock );
       auto  thread = std::this_thread::get_id();
 
       interlocked( make_unique_lock( dataLock ),  // force readers to wait infinite - tanks ride
         [this](){  ++nWriters;  } );
 
-      w_Events.wait( w_lock, [&](){  return interlocked( make_unique_lock( dataLock ), [&]()
+      w_Events.wait( waitLock, [&](){  return interlocked( make_unique_lock( dataLock ), [&]()
         {
           if ( nWriters > 1 && thread == writerId )   // рекурсивный вызов
             return true;
@@ -191,10 +202,9 @@ namespace mtc
   inline
   void  recursive_shared_mutex::lock_shared()
     {
-      auto  w_lock = make_unique_lock( waitLock );
       auto  thread = std::this_thread::get_id();
 
-      w_Events.wait( w_lock, [&](){  return interlocked( make_unique_lock( dataLock ), [&]()
+      w_Events.wait( waitLock, [&](){  return interlocked( make_unique_lock( dataLock ), [&]()
         {
           if ( nWriters == 0 )
             return ++nReaders, true;
