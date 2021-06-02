@@ -12,13 +12,13 @@ endif()
 add_library(mtc STATIC
   src/byteBuffer.cpp
   src/fileStream.cpp
+  src/zipStream.cpp
   src/config.cpp
   src/zval.cpp
   src/zmap.cpp
 
   dirtools.cpp
   netStream.cpp
-  zipStream.cpp
   dir.cpp
   z_js.cpp
 
@@ -77,5 +77,5 @@ install(
 )
 
 # enable_testing()
-# add_subdirectory(tests)
+add_subdirectory(tests)
 
