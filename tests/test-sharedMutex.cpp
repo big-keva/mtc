@@ -6,7 +6,6 @@ int   main()
 {
   mtc::recursive_shared_mutex   mx;
   std::mutex                    _m;
-  std::unique_lock<std::mutex>  _l( _m );
   std::condition_variable       cv;
 
 // test lock() in different threads
@@ -15,6 +14,7 @@ int   main()
     auto  x2 = mtc::make_unique_lock( mx );   // recursive
     auto  x3 = mtc::make_unique_lock( mx );   // recursive
     auto  xs = std::string( "start value" );
+    auto  _l = mtc::make_unique_lock( _m );
 
     fprintf( stderr, "set start string value = '%s'\n", xs.c_str() );
 
@@ -72,6 +72,23 @@ int   main()
 
 // while lock()ed, lock_shared() blocks
   {
+    auto  ex = mtc::make_unique_lock( mx );
+    auto  _l = mtc::make_unique_lock( _m );
+    auto  th = std::thread( [&]()
+    {
+      auto  lc = mtc::make_shared_lock( mx );
+      auto  _w = mtc::make_unique_lock( _m );
+
+      fprintf( stderr, "2) received shared lock, notify main thread\n" );
+        cv.notify_one();
+    } );
+
+    fprintf( stderr, "1) unique-locked, unlock\n" );
+      ex.unlock();
+      cv.wait( _l );
+    fprintf( stderr, "3) waiting for thread finish\n" );
+
+    th.join();
   }
   /*
   auto  l1 = mtc::make_shared_lock(  mx );
