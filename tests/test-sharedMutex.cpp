@@ -89,7 +89,8 @@ void  TestUniqueLockOverSharedLockBlocksSharedLocks()
   fprintf( stderr, "*****  unique_lock() request over shared_locks() blocks following attempts to lock_shared()  *****\n" );
 
   auto  sh = mtc::make_shared_lock( mx );
-    fprintf( stderr, "#1\tcreated shared lock\n" );
+
+  fprintf( stderr, "#1\tcreated shared lock\n" );
   auto  th = std::thread( [&]()
     {
       fprintf( stderr, "#2\tkeeping unique_lock() request...\n" );

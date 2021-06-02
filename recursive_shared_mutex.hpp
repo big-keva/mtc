@@ -74,12 +74,12 @@ namespace mtc
       void notify_one() {  std::condition_variable_any::notify_one();  }
     };
 
-    std::recursive_mutex  dataLock;
-    std::mutex            waitLock;
-    wait_variable         w_Events;
-    int                   nReaders = 0;
-    int                   nWriters = 0;
-    std::thread::id       writerId;
+    std::mutex      dataLock;
+    std::mutex      waitLock;
+    wait_variable   w_Events;
+    int             nReaders = 0;
+    int             nWriters = 0;
+    std::thread::id writerId;
 
   public:     // constructors
     recursive_shared_mutex()  {}
@@ -87,12 +87,12 @@ namespace mtc
 
   public:     // exclusive locking
     void    lock();
-//    bool    try_lock();
+    bool    try_lock();
     void    unlock();
 
   public:     // shared locking
     void    lock_shared();
-//    bool    try_lock_shared();
+    bool    try_lock_shared();
     void    unlock_shared();
 
   };
@@ -192,6 +192,17 @@ namespace mtc
     }
 
   inline
+  bool  recursive_shared_mutex::try_lock()
+    {
+      auto  thread = std::this_thread::get_id();
+      auto  x_lock = make_unique_lock( dataLock );
+
+      if ( (nReaders == 0 && nWriters == 0) || (nReaders == 0 && writerId == thread) )
+        return ++nWriters, writerId = thread, true;
+      return false;
+    }
+
+  inline
   void  recursive_shared_mutex::unlock()
     {
       interlocked( make_unique_lock( dataLock ), [this]()
@@ -212,6 +223,17 @@ namespace mtc
             return ++nReaders, true;
           return false;
         } );  } );
+    }
+
+  inline
+  bool  recursive_shared_mutex::try_lock_shared()
+    {
+      auto  thread = std::this_thread::get_id();
+      auto  x_lock = make_unique_lock( dataLock );
+
+      if ( (nReaders != 0 || nWriters == 0) || (nWriters != 0 && thread == writerId) )
+        return ++nReaders, true;
+      return false;
     }
 
   inline
