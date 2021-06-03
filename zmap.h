@@ -157,6 +157,7 @@ namespace mtc
 
   public:     // z_%%% types
     class dump;
+    class view;
 
     enum z_type: byte_t
     {
@@ -451,6 +452,7 @@ namespace mtc
     class const_iterator;
     class serial;
     class dump;
+    class view;
 
   protected:
     template <class value>
@@ -759,6 +761,8 @@ namespace mtc
   */
   class zval::dump
   {
+    friend class zval::view;
+
     const char* source;
 
     template <class T> class value_t;
@@ -821,15 +825,81 @@ namespace mtc
 
   };
 
+  class zval::view
+  {
+    using key = zmap::key;
+    template <class T>  using value_t = dump::value_t<T>;
+    template <class T>  using array_t = dump::array_t<T>;
+
+    template <class T>
+    static  auto  make_value( const T* t ) -> value_t<T>;
+//    template <class T>
+//    static  auto  make_view( const value_t<T>& t ) -> value_t<view>;
+//    template <class T>
+//    static  auto  make_view( const T* t ) -> value_t<view>;
+//    static  auto  make_view( const value_t<dump>& t ) -> value_t<view>;
+    static  auto  make_view( const value_t<zmap::dump>& ) -> value_t<view>;
+    static  auto  make_view( const mtc::zmap* ) -> value_t<view>;
+
+  public:
+    view() = default;
+    view( const zval* z ): asZval( *z )  {}
+    view( const dump& d ): asDump( d )  {}
+    view( const dump& d, const zval& z ): asDump( d ), asZval( z )  {}
+
+  public:
+    auto  get_char() const -> value_t<char>;
+    auto  get_byte() const -> value_t<byte>;
+    auto  get_int16() const -> value_t<int16_t>;
+    auto  get_int32() const -> value_t<int32_t>;
+    auto  get_int64() const -> value_t<int64_t>;
+    auto  get_word16() const -> value_t<word16_t>;
+    auto  get_word32() const -> value_t<word32_t>;
+    auto  get_word64() const -> value_t<word64_t>;
+    auto  get_float() const -> value_t<float>;
+    auto  get_double() const -> value_t<double>;
+    auto  get_charstr() const -> value_t<charstr>;
+    auto  get_widestr() const -> value_t<widestr>;
+    auto  get_uuid() const -> value_t<uuid>;
+    auto  get_zmap() const -> value_t<view>;
+
+    auto  get_array_char() const -> value_t<array_t<char>>;
+    auto  get_array_byte() const -> value_t<array_t<byte>>;
+    auto  get_array_int16() const -> value_t<array_t<int16_t>>;
+    auto  get_array_int32() const -> value_t<array_t<int32_t>>;
+    auto  get_array_int64() const -> value_t<array_t<int64_t>>;
+    auto  get_array_word16() const -> value_t<array_t<word16_t>>;
+    auto  get_array_word32() const -> value_t<array_t<word32_t>>;
+    auto  get_array_word64() const -> value_t<array_t<word64_t>>;
+    auto  get_array_float() const -> value_t<array_t<float>>;
+    auto  get_array_double() const -> value_t<array_t<double>>;
+    auto  get_array_charstr() const -> value_t<array_t<charstr>>;
+    auto  get_array_widestr() const -> value_t<array_t<widestr>>;
+    auto  get_array_uuid() const -> value_t<array_t<uuid>>;
+    auto  get_array_zval() const -> value_t<array_t<zval::dump>>;
+    auto  get_array_zmap() const -> value_t<array_t<zmap::dump>>;
+
+  public:
+    operator zval() const;
+
+  public:
+    const char* FetchFrom( const char* s )  {  return asDump.FetchFrom( s );  }
+
+  protected:
+    dump  asDump;
+    zval  asZval;
+  };
+
  /*
   * zmap::dump
   */
   class zmap::dump
   {
+    friend class zmap::view;
+    friend class zval::view;
+
     template <class T>  using value_t = zval::dump::value_t<T>;
     template <class T>  using array_t = zval::dump::array_t<T>;
-
-    class view;
 
     const char* source;
 
@@ -908,19 +978,25 @@ namespace mtc
   };
 
  /*
-  * zmap::dump::view - сочетание дампа zmap и реального
+  * zmap::view - сочетание дампа zmap и реального
   */
-  class zmap::dump::view: protected zmap::dump, protected zmap
+  class zmap::view
   {
+    template <class T>  using value_t = zval::dump::value_t<T>;
+    template <class T>  using array_t = zval::dump::array_t<T>;
+
     template <class T>  static  auto  make_value( const T* t ) -> value_t<T>;
-    template <class T>  static  auto  make_view( const value_t<T> t ) -> value_t<view>;
+    template <class T>  static  auto  make_view( const value_t<T>& t ) -> value_t<view>;
     template <class T>  static  auto  make_view( const T* t ) -> value_t<view>;
 
   public:
     view() = default;
-    view( const zmap& z ): zmap( z )  {}
-    view( const zmap::dump& d ): zmap::dump( d )  {}
-    view( const zmap::dump& d, const zmap& z ): zmap::dump( d ), zmap( z )  {}
+    view( const zmap& z ): asZmap( z )  {}
+    view( const zmap::dump& d ): asDump( d )  {}
+    view( const zmap::dump& d, const zmap& z ): asDump( d ), asZmap( z )  {}
+
+  public:
+    auto  get( const key& ) const -> value_t<zval::view>;
 
   public:
     auto  get_char( const key& ) const -> value_t<char>;
@@ -970,7 +1046,14 @@ namespace mtc
     auto  get_array_zmap( const key& ) const -> value_t<array_t<zmap::dump>>;
 
   public:
-    const char* FetchFrom( const char* s )  {  return dump::FetchFrom( s );  }
+    operator zmap() const;
+
+  public:
+    const char* FetchFrom( const char* s )  {  return asDump.FetchFrom( s );  }
+
+  protected:
+    zmap::dump  asDump;
+    zmap        asZmap;
 
   };
 
@@ -1062,43 +1145,62 @@ namespace mtc
   template <class T>
   class zval::dump::value_t
   {
+    friend class zval::dump;
+    friend class zmap::dump;
+    friend class zval::view;
+    friend class zmap::view;
+
     class value
     {
-      using placement = typename std::aligned_storage<sizeof(T)>::type;
+      value( const char* s, const T* p ): stored( s ), pvalue( (T*)p ), rcount( 1 )  {}
 
     public:
-      value(): stored( (const char*)-1 ), rcount( 1 ) {}
-      value( T&& t ): stored( nullptr ), rcount( 1 )  {  new( &tvalue )T( std::move( t ) );  }
-      value( const T& t ): stored( nullptr ), rcount( 1 )  {  new( &tvalue )T( t );  }
-      value( const char* s ): stored( s ), rcount( 1 )  {}
+      static  auto  as_src( const char* s ) -> value*
+        {  return new value( s, nullptr );  }
+      static  auto  as_ptr( const T* p ) -> value*
+        {  return new value( (char*)-1, p );  }
+
+    public:
      ~value()
         {
-          if ( stored == nullptr )
-            ((T&)tvalue).~T();
+          if ( stored == nullptr && pvalue != nullptr )
+            delete pvalue;
         }
       auto  fetch() -> const T&
         {
-          if ( stored == nullptr )
-            return (const T&)tvalue;
-          if ( stored != (const char*)-1 )
-            stored = (::FetchFrom( stored, *new( &tvalue )T() ), nullptr);
-          return (const T&)tvalue;
+          if ( pvalue == nullptr )
+          {
+            if ( stored == nullptr )
+              throw std::logic_error( "zero source with uninitialized pointer!" );
+            stored = (::FetchFrom( stored, *(pvalue = new T()) ), nullptr);
+          }
+          return *pvalue;
         }
+
     public:
-      placement       tvalue;
       const char*     stored;
+      T*              pvalue;
       std::atomic_int rcount;
 
     };
     value*  p;
 
+  protected:
+    value_t( value* pval ): p( pval ) {}
+
+  protected:
+    static  auto  as_ptr( const T* t ) -> value_t  {  return value_t( value::as_ptr( t ) );  }
+    static  auto  as_src( const char* s ) -> value_t  {  return value_t( value::as_src( s ) );  }
+
   public:
     value_t(): p( nullptr ) {}
-    value_t( T&& t ): p( new value( std::move( t ) ) )  {}
-    value_t( const T& t ): p( new value( t ) )  {}
-    value_t( const value_t& t ) {  if ( (p = t.p) != nullptr )  ++p->rcount;  }
-    value_t( const char* s ): p( new value( s ) ) {}
-   ~value_t() {  if ( p != nullptr && --p->rcount == 0 )  delete p;  }
+    value_t( const value_t& t )
+      {  if ( (p = t.p) != nullptr )  ++p->rcount;  }
+   ~value_t()
+      {
+        if ( p != nullptr && --p->rcount == 0 )
+          delete p;
+      }
     value_t& operator = ( const value_t& t )
       {
         if ( p != nullptr && --p->rcount == 0 )

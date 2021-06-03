@@ -1071,4 +1071,154 @@ namespace mtc
       return *this;
     }
 
+  // zval::dump implementation
+
+  template <unsigned z_type, class T>
+  auto  zval::dump::get() const -> value_t<T>
+    {
+      return source != nullptr && (byte)*source == z_type ? value_t<T>::as_src( 1 + source ) : value_t<T>();
+    }
+
+  auto  zval::dump::get_type() const -> unsigned  {  unsigned t = z_untyped;  ::FetchFrom( source, t ); return t;  }
+
+  auto  zval::dump::get_char() const -> value_t<char> {  return get<z_char, char>();  }
+  auto  zval::dump::get_byte() const -> value_t<byte> {  return get<z_byte, byte>();  }
+  auto  zval::dump::get_int16() const -> value_t<int16_t> {  return get<z_int16, int16_t>();  }
+  auto  zval::dump::get_int32() const -> value_t<int32_t> {  return get<z_int32, int32_t>();  }
+  auto  zval::dump::get_int64() const -> value_t<int64_t> {  return get<z_int64, int64_t>();  }
+  auto  zval::dump::get_word16() const -> value_t<word16_t> {  return get<z_word16, word16_t>();  }
+  auto  zval::dump::get_word32() const -> value_t<word32_t> {  return get<z_word32, word32_t>();  }
+  auto  zval::dump::get_word64() const -> value_t<word64_t> {  return get<z_word64, word64_t>();  }
+  auto  zval::dump::get_float() const -> value_t<float> {  return get<z_float, float>();  }
+  auto  zval::dump::get_double() const -> value_t<double> {  return get<z_double, double>();  }
+  auto  zval::dump::get_charstr() const -> value_t<charstr> {  return get<z_charstr, charstr>();  }
+  auto  zval::dump::get_widestr() const -> value_t<widestr> {  return get<z_widestr, widestr>();  }
+  auto  zval::dump::get_uuid() const -> value_t<uuid> {  return get<z_uuid, uuid>();  }
+  auto  zval::dump::get_zmap() const -> value_t<zmap::dump> {  return get<z_zmap, zmap::dump>();  }
+
+  auto  zval::dump::get_array_char() const -> value_t<array_t<char>>  {  return get<z_array_char, array_t<char>>();  }
+  auto  zval::dump::get_array_byte() const -> value_t<array_t<byte>> {  return get<z_array_byte, array_t<byte>>();  }
+  auto  zval::dump::get_array_int16() const -> value_t<array_t<int16_t>> {  return get<z_array_int16, array_t<int16_t>>();  }
+  auto  zval::dump::get_array_int32() const -> value_t<array_t<int32_t>> {  return get<z_array_int32, array_t<int32_t>>();  }
+  auto  zval::dump::get_array_int64() const -> value_t<array_t<int64_t>> {  return get<z_array_int64, array_t<int64_t>>();  }
+  auto  zval::dump::get_array_word16() const -> value_t<array_t<word16_t>> {  return get<z_array_word16, array_t<word16_t>>();  }
+  auto  zval::dump::get_array_word32() const -> value_t<array_t<word32_t>> {  return get<z_array_word32, array_t<word32_t>>();  }
+  auto  zval::dump::get_array_word64() const -> value_t<array_t<word64_t>> {  return get<z_array_word64, array_t<word64_t>>();  }
+  auto  zval::dump::get_array_float() const -> value_t<array_t<float>> {  return get<z_array_float, array_t<float>>();  }
+  auto  zval::dump::get_array_double() const -> value_t<array_t<double>> {  return get<z_array_double, array_t<double>>();  }
+  auto  zval::dump::get_array_charstr() const -> value_t<array_t<charstr>> {  return get<z_array_charstr, array_t<charstr>>();  }
+  auto  zval::dump::get_array_widestr() const -> value_t<array_t<widestr>> {  return get<z_array_widestr, array_t<widestr>>();  }
+  auto  zval::dump::get_array_uuid() const -> value_t<array_t<uuid>> {  return get<z_array_uuid, array_t<uuid>>();  }
+  auto  zval::dump::get_array_zval() const -> value_t<array_t<zval::dump>> {  return get<z_array_zval, array_t<zval::dump>>();  }
+  auto  zval::dump::get_array_zmap() const -> value_t<array_t<zmap::dump>> {  return get<z_array_zmap, array_t<zmap::dump>>();  }
+
+  bool  zval::dump::operator==( const zval& v ) const
+    {
+      auto  mytype = get_type();
+
+      if ( mytype != v.get_type() )
+        return false;
+
+      switch ( mytype )
+      {
+        case z_char:      return *get_char() == *v.get_char();
+        case z_byte:      return *get_byte() == *v.get_byte();
+        case z_int16:     return *get_int16() == *v.get_int16();
+        case z_int32:     return *get_int32() == *v.get_int32();
+        case z_int64:     return *get_int64() == *v.get_int64();
+        case z_word16:    return *get_word16() == *v.get_word16();
+        case z_word32:    return *get_word32() == *v.get_word32();
+        case z_word64:    return *get_word64() == *v.get_word64();
+        case z_float:     return *get_float() == *v.get_float();
+        case z_double:    return *get_double() == *v.get_double();
+        case z_charstr:   return *get_charstr() == *v.get_charstr();
+        case z_widestr:   return *get_widestr() == *v.get_widestr();
+        case z_uuid:      return *get_uuid() == *v.get_uuid();
+        case z_zmap:      return *get_zmap() == *v.get_zmap();
+
+        case z_array_char:      return *get_array_char() == *v.get_array_char();
+        case z_array_byte:      return *get_array_byte() == *v.get_array_byte();
+        case z_array_int16:     return *get_array_int16() == *v.get_array_int16();
+        case z_array_int32:     return *get_array_int32() == *v.get_array_int32();
+        case z_array_int64:     return *get_array_int64() == *v.get_array_int64();
+        case z_array_word16:    return *get_array_word16() == *v.get_array_word16();
+        case z_array_word32:    return *get_array_word32() == *v.get_array_word32();
+        case z_array_word64:    return *get_array_word64() == *v.get_array_word64();
+        case z_array_float:     return *get_array_float() == *v.get_array_float();
+        case z_array_double:    return *get_array_double() == *v.get_array_double();
+        case z_array_charstr:   return *get_array_charstr() == *v.get_array_charstr();
+        case z_array_widestr:   return *get_array_widestr() == *v.get_array_widestr();
+        case z_array_uuid:      return *get_array_uuid() == *v.get_array_uuid();
+        case z_array_zval:      return *get_array_zval() == *v.get_array_zval();
+        case z_array_zmap:      return *get_array_zmap() == *v.get_array_zmap();
+
+        default:  return false;
+      }
+    }
+
+  // zval::view implementation
+
+  template <class T>  auto  zval::view::make_value( const T* t ) -> value_t<T>
+    {  return t != nullptr ? value_t<T>::as_ptr( t ) : value_t<T>();  }
+/*
+  auto  zval::view::make_view( const value_t<zmap::dump>& s ) -> value_t<view>
+    {  return s->source != nullptr ? value_t<view>( dump( s->source ) ) : value_t<view>();  }
+  auto  zval::view::make_view( const mtc::zmap* zmap ) -> value_t<view>
+    {  return zmap != nullptr ? value_t<view>( zval( *zmap ) ) : value_t<view>();  }*/
+//  template <class T>  auto  zval::view::make_view( const value_t<T>& t ) -> value_t<view>
+//    {  return t != nullptr ? value_t<view>( *t ) : value_t<view>();  }
+//  template <class T>  auto  zmap::view::make_view( const T* t ) -> value_t<view>
+//    {  return t != nullptr ? value_t<view>( *t ) : value_t<view>();  }
+//  auto  zval::view::make_view( const value_t<dump>& t ) -> value_t<view>
+//    {  return t != nullptr ? value_t<view>( *t ) : value_t<view>();  }
+
+  auto  zval::view::get_char() const -> value_t<char>
+    {  return asDump.source != nullptr ? asDump.get_char() : make_value( asZval.get_char() );  }
+  auto  zval::view::get_byte() const -> value_t<byte>
+    {  return asDump.source != nullptr ? asDump.get_byte() : make_value( asZval.get_byte() );  }
+  auto  zval::view::get_int16() const -> value_t<int16_t>
+    {  return asDump.source != nullptr ? asDump.get_int16() : make_value( asZval.get_int16() );  }
+  auto  zval::view::get_int32() const -> value_t<int32_t>
+    {  return asDump.source != nullptr ? asDump.get_int32() : make_value( asZval.get_int32() );  }
+  auto  zval::view::get_int64() const -> value_t<int64_t>
+    {  return asDump.source != nullptr ? asDump.get_int64() : make_value( asZval.get_int64() );  }
+  auto  zval::view::get_word16() const -> value_t<word16_t>
+    {  return asDump.source != nullptr ? asDump.get_word16() : make_value( asZval.get_word16() );  }
+  auto  zval::view::get_word32() const -> value_t<word32_t>
+    {  return asDump.source != nullptr ? asDump.get_word32() : make_value( asZval.get_word32() );  }
+  auto  zval::view::get_word64() const -> value_t<word64_t>
+    {  return asDump.source != nullptr ? asDump.get_word64() : make_value( asZval.get_word64() );  }
+  auto  zval::view::get_float() const -> value_t<float>
+    {  return asDump.source != nullptr ? asDump.get_float() : make_value( asZval.get_float() );  }
+  auto  zval::view::get_double() const -> value_t<double>
+    {  return asDump.source != nullptr ? asDump.get_double() : make_value( asZval.get_double() );  }
+  auto  zval::view::get_charstr() const -> value_t<charstr>
+    {  return asDump.source != nullptr ? asDump.get_charstr() : make_value( asZval.get_charstr() );  }
+  auto  zval::view::get_widestr() const -> value_t<widestr>
+    {  return asDump.source != nullptr ? asDump.get_widestr() : make_value( asZval.get_widestr() );  }
+  auto  zval::view::get_uuid() const -> value_t<uuid>
+    {  return asDump.source != nullptr ? asDump.get_uuid() : make_value( asZval.get_uuid() );  }
+  auto  zval::view::get_zmap() const -> value_t<view>
+    {  return asDump.source != nullptr ? make_view( asDump.get_zmap() ) : make_view( asZval.get_zmap() );  }
+  /*
+  auto  zval::view::get_char( const key& k, char c ) const -> char  {  return dump::get( get_char(), c );  }
+  auto  zval::view::get_byte( const key& k, byte b ) const -> byte  {  return dump::get( get_byte(), b );  }
+  auto  zval::view::get_int16( const key& k, int16_t i ) const -> int16_t  {  return dump::get( get_int16(), i );  }
+  auto  zval::view::get_int32( const key& k, int32_t i ) const -> int32_t  {  return dump::get( get_int32(), i );  }
+  auto  zval::view::get_int64( const key& k, int64_t i ) const -> int64_t  {  return dump::get( get_int64(), i );  }
+  auto  zval::view::get_word16( const key& k, word16_t w ) const -> word16_t  {  return dump::get( get_word16(), w );  }
+  auto  zval::view::get_word32( const key& k, word32_t w ) const -> word32_t  {  return dump::get( get_word32(), w );  }
+  auto  zval::view::get_word64( const key& k, word64_t w ) const -> word64_t  {  return dump::get( get_word64(), w );  }
+  auto  zval::view::get_float( const key& k, float f ) const -> float  {  return dump::get( get_float(), f );  }
+  auto  zval::view::get_double( const key& k, double d ) const -> double  {  return dump::get( get_double(), d );  }
+  auto  zval::view::get_charstr( const key& k, const charstr& s ) const -> charstr  {  return dump::get( get_charstr(), s );  }
+  auto  zval::view::get_widestr( const key& k, const widestr& w ) const -> widestr  {  return dump::get( get_widestr(), w );  }
+  auto  zval::view::get_uuid( const key& k, const uuid& w ) const -> uuid  {  return dump::get( get_uuid(), w );  }
+  auto  zval::view::get_zmap( const key& k, const zmap& w ) const -> view
+    {
+      auto  pd = get_zmap( k );
+
+      return pd != nullptr ? view( *pd ) : view( w );
+    }*/
+
 }

@@ -15,67 +15,6 @@ byte_counter* Serialize( byte_counter* bc, const void*, size_t l )
     bc->length += l;
   return bc;
 }
-/*
-class val_t
-{
-    int   t;
-public:
-  val_t( int v ): t( v )  {}
-
-  operator const int& () const {  return t;  }
-  auto  operator * () const -> const int& {  return t;  }
-};
-
-template <class T>
-class cls_t
-{
-  T t;
-public:
-  cls_t( const T& s ): t( s ) {}
-
-  operator const T& () const {  return t;  }
-
-  auto  operator * () const -> const T& {  return t;  }
-
-  auto  operator -> () const -> const T*  {  return &t;  }
-};
-
-template <class T>
-class class_ptr
-{
-  struct value
-  {
-    T               t;
-    std::atomic_int c;
-  public:
-    template <class ... Args>
-    value( Args ... args ): t( std::move( args... ) ) {  c = 1;  }
-  };
-
-  value*  p = nullptr;
-
-public:
-  class_ptr() = default;
-  class_ptr( const class_ptr& s ) {  if ( (p = s.p) != nullptr )  ++p->c;  }
-  template <class ... Args>
-  class_ptr( Args... args ): p( new value( args ... ) ) {}
-
-public:
-  auto  operator * () const -> const T& {  return p->t.operator *();  }
-  auto  operator -> () const -> const T&  {  return p->t;  }
-};
-
-template <class T, class ... Args>
-class_ptr<T>  make_ptr( Args ... args ) {  return class_ptr<T>( args... );  }
-
-template <class T>
-using cls_p = class_ptr<cls_t<T>>;
-using val_p = class_ptr<val_t>;
-*/
-/*
-template <class T, class V>
-bool  operator == ( const cls_t<T>& s, V v ) {  return ((const T&)s) == v;  }
-*/
 
 auto  CreateDump( const mtc::zmap& z ) -> std::vector<char>
 {
@@ -95,6 +34,18 @@ int main()
     { "zmap", mtc::zmap{
         { "int", 9 }
       } } } );
+
+  {
+    auto  zval = mtc::zval( 1 );
+      auto  vbuf = std::vector<char>( zval.GetBufLen() );
+      zval.Serialize( vbuf.data() );
+    auto  zv_1 = mtc::zval::view( mtc::zval::dump( vbuf.data() ) );
+    auto  zv_2 = mtc::zval::view( zval );
+
+    assert( zv_1.get_int32() != nullptr );
+    assert( zv_2.get_int32() != nullptr );
+    assert( *zv_1.get_int32() == *zv_2.get_int32() );
+  }
 
   auto  dump = mtc::zmap::dump( buff.data() );
   {
