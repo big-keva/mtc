@@ -407,7 +407,7 @@ namespace mtc
 
           case zval::z_zmap:    return compare::test( *a.get_zmap(), b );
 
-          case zval::z_array_char:    return compare::test( *a.get_char(), b );
+          case zval::z_array_char:    return compare::test( *a.get_array_char(), b );
           case zval::z_array_byte:    return compare::test( *a.get_array_byte(), b );
           case zval::z_array_int16:   return compare::test( *a.get_array_int16(), b );
           case zval::z_array_word16:  return compare::test( *a.get_array_int32(), b );
