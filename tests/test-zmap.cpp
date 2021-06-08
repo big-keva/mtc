@@ -24,7 +24,21 @@ auto  CreateDump( const mtc::zmap& z ) -> std::vector<char>
 
 int main()
 {
-  auto  buff = CreateDump( {
+  auto  zmap = mtc::zmap{
+    { "char", 'c' },
+    { "charstr", "string" },
+    { "int", 9 },
+    { "key", "value" } };
+
+  auto  buff = CreateDump( zmap );
+  auto  dump = mtc::zmap::dump( buff.data() );
+
+  ::FetchFrom( (const char*)buff.data(), zmap );
+
+  for ( auto it: dump )
+    fprintf( stdout, "%s\n", it.first.to_charstr() );
+# if 0
+  auto  zmap = mtc::zmap{
     { "char", 'c' },
     { "charstr", "string" },
     { "array_charstr", mtc::array_charstr{ "s1", "t2", "u3" } },
@@ -32,22 +46,120 @@ int main()
     { "array_zval", mtc::array_zval{ 1, "aaa", 3.7, mtc::zmap{ { "key", "value" } } } },
     { "array_zmap", mtc::array_zmap{ { { "key", "value" }, { "int", 9 } } } },
     { "zmap", mtc::zmap{
-        { "int", 9 }
-      } } } );
+        { "int", 9 },
+        { "float", (float)9.0 } } } };
+
+  auto  buff = CreateDump( zmap );
+
+  auto  dump = mtc::zmap::dump( buff.data() );
+
+  mtc::json::Print( stdout, dump, mtc::json::print::decorated() );
+
+    assert( dump == zmap );
+
+ /*
+  * test pointer access to values
+  */
+  {
+    assert( dump.get_char( "char" ) != nullptr );
+      assert( *dump.get_char( "char" ) == 'c' );
+    assert( dump.get_charstr( "charstr" ) != nullptr );
+      assert( *dump.get_charstr( "charstr" ) == "string" );
+    assert( dump.get_array_charstr( "array_charstr" ) != nullptr );
+      assert( (*dump.get_array_charstr( "array_charstr" ) == mtc::array_charstr{ "s1", "t2", "u3" }) );
+    assert( dump.get_array_int32( "array_int32" ) != nullptr );
+      assert( (*dump.get_array_int32( "array_int32" ) == mtc::array_int32{ 1, 2, 3 }) );
+    assert( dump.get_array_zval( "array_zval" ) != nullptr );
+      assert( (*dump.get_array_zval( "array_zval" ) == mtc::array_zval{ 1, "aaa", 3.7, mtc::zmap{ { "key", "value" } } }) );
+    assert( dump.get_array_zmap( "array_zmap" ) != nullptr );
+      assert( (*dump.get_array_zmap( "array_zmap" ) == mtc::array_zmap{ { { "key", "value" }, { "int", 9 } } }) );
+    assert( dump.get_zmap( "zmap" ) != nullptr );
+      assert( (*dump.get_zmap( "zmap" ) == mtc::zmap{ { "int", 9 }, { "float", (float)9.0 } }) );
+  }
+
+ /*
+  * test value access
+  */
+  {
+    assert( dump.get_char( "char", 'a' ) == 'c' );
+      assert( dump.get_char( "?char", 'a' ) == 'a' );
+    assert( dump.get_charstr( "charstr", "non-string" ) == "string" );
+      assert( dump.get_charstr( "?charstr", "non-string" ) == "non-string" );
+    assert( (dump.get_zmap( "zmap", { { "int", 5 } } ) == mtc::zmap{
+      { "int", 9 },
+      { "float", (float)9.0 } }) );
+    assert( (dump.get_zmap( "?zmap", { { "int", 5 } } ) == mtc::zmap{
+      { "int", 5 } }) );
+  }
 
   {
     auto  zval = mtc::zval( 1 );
       auto  vbuf = std::vector<char>( zval.GetBufLen() );
       zval.Serialize( vbuf.data() );
-    auto  zv_1 = mtc::zval::view( mtc::zval::dump( vbuf.data() ) );
-    auto  zv_2 = mtc::zval::view( zval );
+    auto  zv_1 = mtc::zval::dump( vbuf.data() );
+    auto  zv_2 = zval;
 
     assert( zv_1.get_int32() != nullptr );
     assert( zv_2.get_int32() != nullptr );
     assert( *zv_1.get_int32() == *zv_2.get_int32() );
   }
 
-  auto  dump = mtc::zmap::dump( buff.data() );
+  // test zmap::dump::get()
+  // должна возвращать zval::dump
+  {
+    auto  pval = dump.get( "charstr" );
+      assert( pval != nullptr );
+    auto  pnul = dump.get( "charstr-xxx" );
+      assert( pnul == nullptr );
+
+    assert( pval->get_type() == mtc::zval::z_charstr );
+    assert( pval->get_charstr() != nullptr );
+    assert( *pval->get_charstr() == "string" );
+    assert( *pval == "string" );
+  }
+
+  // test zmap::view::get()
+  // должна возвращать zval::view
+  {
+    auto  view = dump.get_zmap( "zmap", { { "int", 8 }, { "float", (float)8.0 } } );
+      auto  pint = view.get( "int" );
+        assert( pint != nullptr );
+        assert( *pint->get_int32() == 9 );
+      // assert( *pint == 9 );
+      auto  pflo = view.get( "float" );
+        assert( pflo != nullptr );
+        assert( *pflo->get_float() == 9.0 );
+      auto  pnul = view.get( "none" );
+        assert( pnul == nullptr );
+  }
+  {
+    auto  view = dump.get_zmap( "zxxx", { { "int", 8 }, { "float", (float)8.0 } } );
+      auto  pint = view.get( "int" );
+        assert( pint != nullptr );
+        assert( *pint->get_int32() == 8 );
+      // assert( *pint == 9 );
+      auto  pflo = view.get( "float" );
+        assert( pflo != nullptr );
+        assert( *pflo->get_float() == 8.0 );
+      auto  pnul = view.get( "none" );
+        assert( pnul == nullptr );
+  }
+
+  // setting new values to zval::view
+  {
+    auto  view = dump.get_zmap( "zmap", {} );
+      auto  pnul = view.get( "int_" );
+      auto  zval = mtc::zval( 7 );
+      auto  pint = view.get_int32( "int" );
+      auto  i_32 = (int32_t)1;
+
+      if ( pint == nullptr )
+        pint = &i_32;
+
+      if ( pnul == nullptr )
+        pnul = &zval;
+  }
+
   {
     auto  pchar = dump.get_char( "char" );  fprintf( stdout, "%c\n", *pchar );
 //    auto  pbyte = dump.get_byte( "char" );  fprintf( stdout, "%c\n", *pbyte );
@@ -79,9 +191,6 @@ int main()
     fprintf( stdout, "%d\n", zget.get_int32( "int", 0 ) );
 
     {
-      auto  test = zget.get_zmap( "zmap" );
-        fprintf( stdout, "%s\n", test->get_charstr( "key", "" ).c_str() );
-
       auto  view = zget.get_zmap( "zmap", {} );
         fprintf( stdout, "%s\n", view.get_charstr( "key", "" ).c_str() );
     }
@@ -275,6 +384,6 @@ int main()
 
     assert( bc.length == zm.GetBufLen() );
   }
-
+# endif
   return 0;
 }

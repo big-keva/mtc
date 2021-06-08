@@ -158,8 +158,8 @@ namespace json {
       }
   }
 
-  template <class O, class D = print::compact>  O*  Print( O*, const zval&, const D& decorate = D() );
-  template <class O, class D = print::compact>  O*  Print( O*, const zmap&, const D& decorate = D() );
+  template <class O, class D = print::compact>  O*  Print( O*, const zval::dump&, const D& decorate = D() );
+  template <class O, class D = print::compact>  O*  Print( O*, const zmap::dump&, const D& decorate = D() );
 
   template <class O, class D = print::compact>  O*  Print( O* o, const charstr& s, const D& deco = D() )
     {  (void)deco;  return print::charstr( o, s.c_str(), s.length() );  }
@@ -218,7 +218,22 @@ namespace json {
     auto  ptop = a.begin();
     auto  pend = a.end();
 
-    for ( o = ::Serialize( o, '[' ); o != nullptr && ptop < pend; ++ptop )
+    for ( o = ::Serialize( o, '[' ); o != nullptr && ptop != pend; ++ptop )
+    {
+      if ( ptop != a.begin() )
+        o = ::Serialize( o, ',' );
+      o = Print( decorate.Break( o ), *ptop, D( decorate ) );
+    }
+    return ::Serialize( decorate.Shift( decorate.Break( o ) ), ']' );
+  }
+
+  template <class O, class T1, class T2, class D = print::compact>
+  O*  Print( O* o, const zval::dump::array_t<T1, T2>& a, const D& decorate = D() )
+  {
+    auto  ptop = a.begin();
+    auto  pend = a.end();
+
+    for ( o = ::Serialize( o, '[' ); o != nullptr && ptop != pend; ++ptop )
     {
       if ( ptop != a.begin() )
         o = ::Serialize( o, ',' );
@@ -228,7 +243,7 @@ namespace json {
   }
 
   template <class O, class D>
-  O*  Print( O* o, const zval& v, const D& decorate )
+  O*  Print( O* o, const zval::dump& v, const D& decorate )
   {
     switch ( v.get_type() )
     {
@@ -270,7 +285,7 @@ namespace json {
   }
 
   template <class O, class D>
-  O*  Print( O* o, const zmap& z, const D& decorate )
+  O*  Print( O* o, const zmap::dump& z, const D& decorate )
   {
     bool  bcomma = false;
 
