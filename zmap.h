@@ -823,11 +823,32 @@ namespace mtc
     auto  get_array_zmap() const -> value_t<array_t<zmap::dump, zmap>>;
 
   public:
-    bool  operator == ( const zval& v ) const;
+    /*
+    auto  CompTo( const dump& x ) const -> unsigned;
+
+    bool  lt( const dump& z ) const {  return CompTo( z ) == compare_lt;  }
+    bool  gt( const dump& z ) const {  return CompTo( z ) == compare_gt;  }
+    bool  eq( const dump& z ) const {  return CompTo( z ) == compare_eq;  }
+    bool  le( const dump& z ) const {  return (CompTo( z ) & compare_le) != 0;  }
+    bool  ge( const dump& z ) const {  return (CompTo( z ) & compare_ge) != 0;  }
+    bool  ne( const dump& z ) const {  return !eq( z );  }
+    */
+    
+  public:
+    bool  operator == ( const dump& v ) const;
+    bool  operator != ( const dump& v ) const {  return !(*this == v);  }
+
+    bool  operator == ( const zval& v ) const {  return *this == dump( &v );  }
     bool  operator != ( const zval& v ) const {  return !(*this == v);  }
 
+    bool  operator == ( const char* s ) const {  return *this == charstr( s );  }
+    bool  operator != ( const char* s ) const {  return !(*this == s);  }
+
+    bool  operator == ( const widechar* w ) const {  return *this == widestr( w );  }
+    bool  operator != ( const widechar* w ) const {  return !(*this == w);  }
+
   public:
-    auto  to_zval() const -> zval  {  zval v;  v.FetchFrom( source );  return v;  }
+    operator  zval() const;
 
   public:
     const char* FetchFrom( const char* s )  {  return ::SkipToEnd( source = s, (const zval*)nullptr );  }
@@ -928,11 +949,13 @@ namespace mtc
     auto  cend() const -> const_iterator;
 
   public:
-    bool  operator == ( const zmap& v ) const;
+    bool  operator == ( const dump& v ) const;
+    bool  operator == ( const zmap& v ) const {  return *this == dump( &v );  }
+    bool  operator != ( const dump& v ) const {  return !(*this == v);  }
     bool  operator != ( const zmap& v ) const {  return !(*this == v);  }
 
   public:
-    auto  to_zmap() const -> zmap  {  zmap v;  v.FetchFrom( source );  return v;  }
+    operator zmap() const;
 
   public:     // serialization support
     const char* FetchFrom( const char* s )  {  return ::SkipToEnd( source = s, (const zmap*)nullptr );  }
@@ -1107,7 +1130,8 @@ namespace mtc
 
       const char* first = nullptr;
       size_t      count = 0;
-      iterator    citer;
+      iterator    a_beg;
+      iterator    a_end;
 
       struct as_struct: public T1
       {
@@ -1128,15 +1152,17 @@ namespace mtc
       const_iterator( const array_t& a ):
         first( a.source ),
         count( a.ncount ),
-        citer( a.parray != nullptr ? a.parray->begin() : iterator() ) {}
+        a_beg( a.parray != nullptr ? a.parray->begin() : iterator() ),
+        a_end( a.parray != nullptr ? a.parray->end() : iterator() ) {}
 
     public:
       auto  operator ++() -> const_iterator&
       {
-        if ( first == nullptr && citer == iterator() )
+        if ( first == nullptr && a_beg == a_end )
           throw std::invalid_argument( "invalid iterator operation" );
         if ( count > 0 )  first = --count == 0 ? nullptr : ::SkipToEnd( first, (const T1*)nullptr );
-          else ++citer;
+          else
+        if ( ++a_beg == a_end ) a_beg = a_end = iterator();
         return *this;
       }
       auto  operator ++( int ) -> const_iterator
@@ -1145,7 +1171,12 @@ namespace mtc
         return operator ++(), it;
       }
 
-      bool  operator == ( const const_iterator& i ) const {  return first == i.first && count == i.count && citer == i.citer;  }
+      bool  operator == ( const const_iterator& i ) const
+        {
+          return first == i.first
+              && count == i.count
+              && a_beg == i.a_beg;
+        }
       bool  operator != ( const const_iterator& i ) const {  return !(*this == i);  }
 
       auto  operator *() const -> element {  return get_element();  }
@@ -1154,9 +1185,24 @@ namespace mtc
 
   public:
     array_t() = default;
-    array_t( const array_t& t ): source( t.source ), ncount( t.ncount ), parray( t.parray ) {}
-    array_t& operator = ( const array_t& t )  {  return source = t.source, ncount = t.ncount, parray = t.parray, *this;  }
-    array_t( const vector_t* a ): source( nullptr ), ncount( 0 ), parray( a ) {}
+    array_t( const array_t& t ):
+      source( t.source ),
+      ncount( t.ncount ),
+      parray( t.parray ) {}
+    array_t( const vector_t* a ):
+      source( nullptr ),
+      ncount( 0 ),
+      parray( a ) {}
+    array_t& operator = ( const array_t& t )
+      {
+        return source = t.source,
+               ncount = t.ncount,
+               parray = t.parray, *this;
+      }
+
+  public:
+    bool  operator == ( const array_t& a ) const;
+    bool  operator != ( const array_t& a ) const;
 
   public:
     size_t  size() const {  return parray != nullptr ? parray->size() : ncount;  }
@@ -1172,13 +1218,39 @@ namespace mtc
   };
 
   template <class T1, class T2>
+  bool  zval::dump::array_t<T1, T2>::operator == ( const array_t& a ) const
+    {
+      auto  mp = begin(), me = end();
+      auto  ap = a.begin(), ae = a.end();
+
+      while ( mp != me && ap != ae )
+        if ( *mp != *ap ) return false;
+          else { ++mp; ++ap; }
+
+      return mp == me && ap == ae;
+    }
+
+  template <class T1, class T2>
+  bool  zval::dump::array_t<T1, T2>::operator != ( const array_t& a ) const
+    {
+      auto  mp = begin(), me = end();
+      auto  ap = a.begin(), ae = a.end();
+
+      while ( mp != me && ap != ae )
+        if ( *mp != *ap ) return true;
+          else { ++mp; ++ap; }
+
+      return mp != me || ap != ae;
+    }
+
+  template <class T1, class T2>
   auto  zval::dump::array_t<T1, T2>::const_iterator::get_element() const -> element
   {
     element el;
 
-    if ( (first == nullptr || count == 0) && citer == iterator() )
+    if ( (first == nullptr || count == 0) && a_beg == a_end )
       throw std::range_error( "iterator limits out of bounds" );
-    if ( citer != iterator() ) return (T1)*citer;
+    if ( a_beg != a_end ) return (T1)*a_beg;
       else return ::FetchFrom( first, el ), std::move( el );
   }
 
@@ -1479,6 +1551,7 @@ namespace mtc
 
   public:
     iterator_base();
+    iterator_base( iterator_base&& );
     iterator_base( const iterator_base& );
 
   public:
@@ -1792,11 +1865,14 @@ namespace mtc
     {}
 
   template <class value, class z_iterator>
+  zmap::iterator_base<value, z_iterator>::iterator_base( iterator_base&& it ):
+    zstack( std::move( it.zstack ) ),
+    keybuf( std::move( it.keybuf ) ) {  init();  }
+
+  template <class value, class z_iterator>
   zmap::iterator_base<value, z_iterator>::iterator_base( const iterator_base& it ):
-      zvalue( it.zvalue ),
-      zstack( it.zstack ),
-      keybuf( it.keybuf )
-    {}
+    zstack( it.zstack ),
+    keybuf( it.keybuf ) {  init();  }
 
   template <class value, class z_iterator>
   zmap::iterator_base<value, z_iterator>::iterator_base( z_iterator beg, z_iterator end )
@@ -2112,8 +2188,16 @@ bool  operator == ( const mtc::zval::dump::array_t<T1, T2>& _1, const std::vecto
   }
 }
 
+inline
+bool  operator == ( const mtc::zval& _1, const mtc::zval::dump& _2 )
+  {  return _2 == _1;  }
+
+inline
+bool  operator == ( const mtc::zmap& _1, const mtc::zmap::dump& _2 )
+  {  return _2 == _1;  }
+
 template <class T1, class T2, class T3>
 bool  operator == ( const std::vector<T1>& _1, const mtc::zval::dump::array_t<T2, T3>& _2 )
-{  return _2 == _1;  }
+  {  return _2 == _1;  }
 
 # endif  // __zmap_hpp__

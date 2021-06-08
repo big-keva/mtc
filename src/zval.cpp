@@ -1217,10 +1217,8 @@ namespace mtc
         return value_t<array_t<zmap::dump, zmap>>( 1 + source, nullptr );
       return value_t<array_t<zmap::dump, zmap>>();
     }
-/*
-  auto  zval::dump::get_array_zmap() const -> value_t<array_t<zmap::dump>> derive_get_dump( z_array_zmap, array_t<zmap::dump> )
-*/
-  bool  zval::dump::operator==( const zval& v ) const
+
+  bool  zval::dump::operator==( const dump& v ) const
     {
       auto  mytype = get_type();
 
@@ -1264,4 +1262,17 @@ namespace mtc
       }
     }
 
+  zval::dump::operator zval() const
+    {
+      if ( pvalue == nullptr )
+      {
+        zval v;
+
+        if ( source != nullptr )
+          v.FetchFrom( source );
+
+        return v;
+      }
+      return *pvalue;
+    }
 }

@@ -200,7 +200,7 @@ namespace mtc
   auto  zmap::dump::get_array_zval( const key& k ) const -> value_t<array_t<zval::dump, zval>> {  return get_dump( k ).get_array_zval();  }
   auto  zmap::dump::get_array_zmap( const key& k ) const -> value_t<array_t<zmap::dump, zmap>> {  return get_dump( k ).get_array_zmap();  }
 
-  bool  zmap::dump::operator == ( const zmap& z ) const
+  bool  zmap::dump::operator == ( const dump& z ) const
     {
       auto  mp = begin();
       auto  zp = z.begin();
@@ -212,16 +212,29 @@ namespace mtc
       return mp == end() && zp == z.end();
     }
 
+  zmap::dump::operator zmap() const
+    {
+      if ( pvalue == nullptr )
+      {
+        zmap  v;
+
+        if ( source != nullptr )
+          v.FetchFrom( source );
+        return v;
+      }
+      return *pvalue;
+    }
+
   auto  zmap::dump::begin() const -> const_iterator
     {
-      if ( source != nullptr )
-        return { source };
       if ( pvalue != nullptr )
       {
         auto  it = pvalue->cbegin();
 
         if ( it != pvalue->cend() ) return { it };
       }
+      if ( source != nullptr && source != (const char*)-1 )
+        return { source };
       return const_iterator();
     }
 
@@ -246,7 +259,7 @@ namespace mtc
         auto& me = this->asDump != nullptr ? this->asDump->getvalue() : this->asZmap->getvalue();
         auto& to = match.asDump != nullptr ? match.asDump->getvalue() : match.asZmap->getvalue();
 
-        return me.first == to.first/*!!! && me.second == to.second*/;
+        return me.first == to.first && me.second == to.second;
       }
       return is_empty() && match.is_empty();
     }
@@ -364,7 +377,7 @@ namespace mtc
             while ( tree.back().value == nullptr && tree.back().level != nullptr )
             {
               buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
-              tree.push_back( iterator_node( tree.back().level ) );
+              tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
             }
 
             break;
