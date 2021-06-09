@@ -823,7 +823,6 @@ namespace mtc
     auto  get_array_zmap() const -> value_t<array_t<zmap::dump, zmap>>;
 
   public:
-    /*
     auto  CompTo( const dump& x ) const -> unsigned;
 
     bool  lt( const dump& z ) const {  return CompTo( z ) == compare_lt;  }
@@ -832,8 +831,7 @@ namespace mtc
     bool  le( const dump& z ) const {  return (CompTo( z ) & compare_le) != 0;  }
     bool  ge( const dump& z ) const {  return (CompTo( z ) & compare_ge) != 0;  }
     bool  ne( const dump& z ) const {  return !eq( z );  }
-    */
-    
+
   public:
     bool  operator == ( const dump& v ) const;
     bool  operator != ( const dump& v ) const {  return !(*this == v);  }

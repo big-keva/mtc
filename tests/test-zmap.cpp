@@ -22,6 +22,12 @@ auto  CreateDump( const mtc::zmap& z ) -> std::vector<char>
   return z.Serialize( stored.data() ), std::move( stored );
 }
 
+auto  CreateDump( const mtc::zval& z ) -> std::vector<char>
+{
+  auto  stored = std::vector<char>( z.GetBufLen() );
+  return z.Serialize( stored.data() ), std::move( stored );
+}
+
 int main()
 {
   auto  zmap = mtc::zmap{
@@ -43,6 +49,17 @@ int main()
     "\n" );
 
     assert( dump == zmap );
+
+  {
+    auto  zv = mtc::zval( 1 );
+    auto  zb = CreateDump( zv );
+    auto  dp = mtc::zval::dump( zb.data() );
+
+    auto  zc = zv.CompTo( zv );
+    auto  dc = dp.CompTo( dp );
+
+    assert( zc == dc );
+  }
 
  /*
   * test pointer access to values

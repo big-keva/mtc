@@ -175,8 +175,9 @@ namespace mtc
   template <class C> struct is_zmap {  static  constexpr bool  value = false;  };
   template <> struct is_zmap<zmap> {  static  constexpr bool  value = true;  };
 
-  template <class C> struct is_zval {  static  constexpr bool  value = false;  };
-  template <> struct is_zval<zval> {  static  constexpr bool  value = true;  };
+  template <class C> struct is_view {  static  constexpr bool  value = false;  };
+  template <> struct is_view<zval> {  static  constexpr bool  value = true;  };
+  template <> struct is_view<zval::dump> {  static  constexpr bool  value = true;  };
 
   template <class C> struct is_uuid {  static  constexpr bool  value = false;  };
   template <> struct is_uuid<uuid> {  static  constexpr bool  value = true;  };
@@ -196,6 +197,7 @@ namespace mtc
     template <class C>
     struct is_vector {  static  constexpr bool  value = false;  };
     template <class V, class A> struct is_vector<std::vector<V, A>> {  static  constexpr bool  value = true;  };
+    template <class T1, class T2> struct is_vector<zval::dump::array_t<T1, T2>> {  static  constexpr bool  value = true;  };
 
     struct gt_value { template <class A, class B> static unsigned test( const A&, const B& )  {  return zval::compare_gt;  } };
     struct lt_value { template <class A, class B> static unsigned test( const A&, const B& )  {  return zval::compare_lt;  } };
@@ -229,6 +231,11 @@ namespace mtc
         template <class A, class B>
         static  unsigned  test( A a, const B& b )
         {
+          static_assert( is_signed<A>::value || is_floating<A>::value,
+            "invalid template instantiation logics, first argument must be signed or floating-point" );
+          static_assert( is_signed<B>::value || is_floating<B>::value || is_unsigned<B>::value,
+            "invalid template instantiation logics, second argument must be numeric or floating-point" );
+
           using comparator_type =
             typename std::conditional<is_signed<B>::value || is_floating<B>::value, easy_diff, to_unsigned>::type;
 
@@ -254,6 +261,11 @@ namespace mtc
         template <class A, class B>
         static  unsigned  test( A a, const B& b )
         {
+          static_assert( is_unsigned<A>::value,
+            "invalid template instantiation logics, first argument must be unsigned" );
+          static_assert( is_signed<B>::value || is_floating<B>::value || is_unsigned<B>::value,
+            "invalid template instantiation logics, second argument must be numeric or floating-point" );
+
           using comparator_type =
             typename std::conditional<is_signed<B>::value, to_signed, easy_diff>::type;
 
@@ -265,6 +277,9 @@ namespace mtc
       template <class A, class B>
       static  unsigned  test( A a, const B& b )
       {
+        static_assert( is_signed<A>::value || is_floating<A>::value || is_unsigned<A>::value,
+          "invalid template instantiation logics, first argument must be numeric or floating-point" );
+
         using any_is_float = std::integral_constant<bool,
           is_floating<A>::value || is_floating<B>::value>;
         using comparator_type =
@@ -382,10 +397,11 @@ namespace mtc
       }
     };
 
-    struct zval_value
+    template <class View>
+    struct view_value
     {
       template <class B>
-      static  unsigned  test( const zval& a, const B& b )
+      static  unsigned  test( const View& a, const B& b )
       {
         switch ( a.get_type() )
         {
@@ -465,7 +481,7 @@ namespace mtc
         typename std::conditional<is_string<T1>::value, string_value,
         typename std::conditional<is_vector<T1>::value, vector_value,
         typename std::conditional<is_uuid  <T1>::value, uuid_value,
-        typename std::conditional<is_zval  <T1>::value, zval_value, zmap_value>::type>::type>::type>::type>::type;
+        typename std::conditional<is_view  <T1>::value, view_value<T1>, zmap_value>::type>::type>::type>::type>::type;
 
       return comparator_type::test( _1, _2 );
     }
@@ -1216,6 +1232,11 @@ namespace mtc
       if ( source != nullptr && (byte)*source == z_array_zmap )
         return value_t<array_t<zmap::dump, zmap>>( 1 + source, nullptr );
       return value_t<array_t<zmap::dump, zmap>>();
+    }
+
+  auto  zval::dump::CompTo( const dump& x ) const -> unsigned
+    {
+      return compare::test( *this, x );
     }
 
   bool  zval::dump::operator==( const dump& v ) const
