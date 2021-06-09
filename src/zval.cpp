@@ -174,6 +174,7 @@ namespace mtc
   */
   template <class C> struct is_zmap {  static  constexpr bool  value = false;  };
   template <> struct is_zmap<zmap> {  static  constexpr bool  value = true;  };
+  template <> struct is_zmap<zmap::dump> {  static  constexpr bool  value = true;  };
 
   template <class C> struct is_view {  static  constexpr bool  value = false;  };
   template <> struct is_view<zval> {  static  constexpr bool  value = true;  };
@@ -331,11 +332,14 @@ namespace mtc
         template <class V1, class V2>
         static  unsigned  test( const V1& a, const V2& b )
         {
+          using V1_t = typename V1::value_type;
+          using V2_t = typename V2::value_type;
+
           auto  ia = a.begin();
           auto  ib = b.begin();
           auto  rc = (unsigned)0;
 
-          while ( ia != a.end() && ib != b.end() && (rc = compare::test( *ia, *ib )) == zval::compare_eq )
+          while ( ia != a.end() && ib != b.end() && (rc = compare::test( (V1_t)*ia, (V2_t)*ib )) == zval::compare_eq )
             {  ++ia;  ++ib;  }
 
           if ( rc == zval::compare_eq )
@@ -359,11 +363,13 @@ namespace mtc
       }
     };
 
+    template <class View>
     class zmap_value
     {
+      template <class Pair>
       struct to_zmap
       {
-        static  unsigned  test( const mtc::zmap& z1, const mtc::zmap& z2 )
+        static  unsigned  test( const View& z1, const Pair& z2 )
         {
           auto  i1 = z1.begin();
           auto  i2 = z2.begin();
@@ -389,10 +395,10 @@ namespace mtc
 
     public:
       template <class B>
-      static  unsigned  test( const zmap& z, const B& b )
+      static  unsigned  test( const View& z, const B& b )
       {
         using comparator_type =
-          typename std::conditional<is_zmap<B>::value, to_zmap, gt_value>::type;
+          typename std::conditional<is_zmap<B>::value, to_zmap<B>, gt_value>::type;
         return comparator_type::test( z, b );
       }
     };
@@ -472,21 +478,8 @@ namespace mtc
       }
     };
 
-  public:
-    template <class T1, class T2>
-    static  unsigned  test( const T1& _1, const T2& _2 )
-    {
-      using comparator_type =
-        typename std::conditional<is_number<T1>::value, number_value,
-        typename std::conditional<is_string<T1>::value, string_value,
-        typename std::conditional<is_vector<T1>::value, vector_value,
-        typename std::conditional<is_uuid  <T1>::value, uuid_value,
-        typename std::conditional<is_view  <T1>::value, view_value<T1>, zmap_value>::type>::type>::type>::type>::type;
-
-      return comparator_type::test( _1, _2 );
-    }
-    template <class T1>
-    static  unsigned  test( const T1& _1, const zval& _2 )
+    template <class T, class View>
+    static  unsigned  test_with_view( const T& _1, const View& _2 )
     {
       switch ( _2.get_type() )
       {
@@ -530,6 +523,25 @@ namespace mtc
       throw std::logic_error( strprintf( "compare operation for zval type '%u' not supported",
         _2.get_type() ) );
     }
+  public:
+    template <class T1, class T2>
+    static  unsigned  test( const T1& _1, const T2& _2 )
+    {
+      using comparator_type =
+        typename std::conditional<is_number<T1>::value, number_value,
+        typename std::conditional<is_string<T1>::value, string_value,
+        typename std::conditional<is_vector<T1>::value, vector_value,
+        typename std::conditional<is_uuid  <T1>::value, uuid_value,
+        typename std::conditional<is_view  <T1>::value, view_value<T1>, zmap_value<T1>>::type>::type>::type>::type>::type;
+
+      return comparator_type::test( _1, _2 );
+    }
+    template <class T1>
+    static  unsigned  test( const T1& _1, const zval& _2 )
+      {  return test_with_view( _1, _2 );  }
+    template <class T1>
+    static  unsigned  test( const T1& _1, const zval::dump& _2 )
+      {  return test_with_view( _1, _2 );  }
 
   };
 

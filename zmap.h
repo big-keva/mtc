@@ -946,6 +946,8 @@ namespace mtc
     auto  cbegin() const -> const_iterator;
     auto  cend() const -> const_iterator;
 
+    bool  empty() const {  return pvalue == nullptr && source == nullptr;  }
+
   public:
     bool  operator == ( const dump& v ) const;
     bool  operator == ( const zmap& v ) const {  return *this == dump( &v );  }
@@ -1122,6 +1124,10 @@ namespace mtc
     size_t          ncount = 0;
     const vector_t* parray = nullptr;
 
+  public:
+    typedef   T1  value_type;
+
+  protected:
     class const_iterator
     {
       using iterator = typename vector_t::const_iterator;
@@ -1177,7 +1183,7 @@ namespace mtc
         }
       bool  operator != ( const const_iterator& i ) const {  return !(*this == i);  }
 
-      auto  operator *() const -> element {  return get_element();  }
+      auto  operator * () const -> element {  return get_element();  }
       auto  operator -> () const -> element {  return get_element();  }
     };
 
