@@ -43,7 +43,6 @@ install(
     iBuffer.h
     interfaces.h
     iStream.h
-    jsconfig.h
     jsonTools.h
     json.h
     netListen.h
