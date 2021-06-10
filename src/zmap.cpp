@@ -41,113 +41,156 @@ namespace mtc
 
   }
 
-  // zval implementation
-
-  template <unsigned z_type, class T>
-  auto  zval::dump::get() const -> value_t<T>
+ /*
+  * dump::const_iterator::dump_iterator
+  * Реализация итератора по zmap::dump
+  */
+  class zmap::dump::const_iterator::dump_iterator
+  {
+    struct iterator_node
     {
-      return source != nullptr && (byte)*source == z_type ? value_t<T>( 1 + source ) : value_t<T>();
-    }
+      const char* pnext;  // next serialized element in list
+      size_t      count;  // siblings in sequense
+      const char* ptext;  // string fragment
+      size_t      ltext;  // fragment length
+      const char* value;  // the val serialization
+      byte        xtype;  // key settings type
+      const char* level;  // the next level
 
-  auto  zval::dump::get_type() const -> unsigned  {  unsigned t = z_untyped;  ::FetchFrom( source, t ); return t;  }
+    public:
+      iterator_node( const char* s )  {  init_element( s );  }
 
-  auto  zval::dump::get_char() const -> value_t<char> {  return get<z_char, char>();  }
-  auto  zval::dump::get_byte() const -> value_t<byte> {  return get<z_byte, byte>();  }
-  auto  zval::dump::get_int16() const -> value_t<int16_t> {  return get<z_int16, int16_t>();  }
-  auto  zval::dump::get_int32() const -> value_t<int32_t> {  return get<z_int32, int32_t>();  }
-  auto  zval::dump::get_int64() const -> value_t<int64_t> {  return get<z_int64, int64_t>();  }
-  auto  zval::dump::get_word16() const -> value_t<word16_t> {  return get<z_word16, word16_t>();  }
-  auto  zval::dump::get_word32() const -> value_t<word32_t> {  return get<z_word32, word32_t>();  }
-  auto  zval::dump::get_word64() const -> value_t<word64_t> {  return get<z_word64, word64_t>();  }
-  auto  zval::dump::get_float() const -> value_t<float> {  return get<z_float, float>();  }
-  auto  zval::dump::get_double() const -> value_t<double> {  return get<z_double, double>();  }
-  auto  zval::dump::get_charstr() const -> value_t<charstr> {  return get<z_charstr, charstr>();  }
-  auto  zval::dump::get_widestr() const -> value_t<widestr> {  return get<z_widestr, widestr>();  }
-  auto  zval::dump::get_uuid() const -> value_t<uuid> {  return get<z_uuid, uuid>();  }
-  auto  zval::dump::get_zmap() const -> value_t<zmap::dump> {  return get<z_zmap, zmap::dump>();  }
+    public:
+      bool  init_element( const char* );
+      bool  move_to_next();
+    };
 
-  auto  zval::dump::get_array_char() const -> value_t<array_t<char>>  {  return get<z_array_char, array_t<char>>();  }
-  auto  zval::dump::get_array_byte() const -> value_t<array_t<byte>> {  return get<z_array_byte, array_t<byte>>();  }
-  auto  zval::dump::get_array_int16() const -> value_t<array_t<int16_t>> {  return get<z_array_int16, array_t<int16_t>>();  }
-  auto  zval::dump::get_array_int32() const -> value_t<array_t<int32_t>> {  return get<z_array_int32, array_t<int32_t>>();  }
-  auto  zval::dump::get_array_int64() const -> value_t<array_t<int64_t>> {  return get<z_array_int64, array_t<int64_t>>();  }
-  auto  zval::dump::get_array_word16() const -> value_t<array_t<word16_t>> {  return get<z_array_word16, array_t<word16_t>>();  }
-  auto  zval::dump::get_array_word32() const -> value_t<array_t<word32_t>> {  return get<z_array_word32, array_t<word32_t>>();  }
-  auto  zval::dump::get_array_word64() const -> value_t<array_t<word64_t>> {  return get<z_array_word64, array_t<word64_t>>();  }
-  auto  zval::dump::get_array_float() const -> value_t<array_t<float>> {  return get<z_array_float, array_t<float>>();  }
-  auto  zval::dump::get_array_double() const -> value_t<array_t<double>> {  return get<z_array_double, array_t<double>>();  }
-  auto  zval::dump::get_array_charstr() const -> value_t<array_t<charstr>> {  return get<z_array_charstr, array_t<charstr>>();  }
-  auto  zval::dump::get_array_widestr() const -> value_t<array_t<widestr>> {  return get<z_array_widestr, array_t<widestr>>();  }
-  auto  zval::dump::get_array_uuid() const -> value_t<array_t<uuid>> {  return get<z_array_uuid, array_t<uuid>>();  }
-  auto  zval::dump::get_array_zval() const -> value_t<array_t<zval::dump>> {  return get<z_array_zval, array_t<zval::dump>>();  }
-  auto  zval::dump::get_array_zmap() const -> value_t<array_t<zmap::dump>> {  return get<z_array_zmap, array_t<zmap::dump>>();  }
+    using element_stack = std::vector<iterator_node>;
 
-  bool  zval::dump::operator==( const zval& v ) const
-    {
-      auto  mytype = get_type();
+    element_stack tree;
+    array_byte    buff;
+    iterator_data data;
 
-      if ( mytype != v.get_type() )
-        return false;
+  public:
+    dump_iterator( const char* s = nullptr );
+    dump_iterator( dump_iterator&& s ): tree( std::move( s.tree ) ) {}
+    dump_iterator( const dump_iterator& s ): tree( s.tree ) {}
 
-      switch ( mytype )
+  public:
+    auto  getvalue() const -> const iterator_data&  {  return data;  }
+    bool  jumpnext();
+    void  makedata();
+
+    template <class T> static
+    auto  exchange( T& t, const T& n ) -> T
       {
-        case z_char:      return *get_char() == *v.get_char();
-        case z_byte:      return *get_byte() == *v.get_byte();
-        case z_int16:     return *get_int16() == *v.get_int16();
-        case z_int32:     return *get_int32() == *v.get_int32();
-        case z_int64:     return *get_int64() == *v.get_int64();
-        case z_word16:    return *get_word16() == *v.get_word16();
-        case z_word32:    return *get_word32() == *v.get_word32();
-        case z_word64:    return *get_word64() == *v.get_word64();
-        case z_float:     return *get_float() == *v.get_float();
-        case z_double:    return *get_double() == *v.get_double();
-        case z_charstr:   return *get_charstr() == *v.get_charstr();
-        case z_widestr:   return *get_widestr() == *v.get_widestr();
-        case z_uuid:      return *get_uuid() == *v.get_uuid();
-        case z_zmap:      return *get_zmap() == *v.get_zmap();
-
-        case z_array_char:      return *get_array_char() == *v.get_array_char();
-        case z_array_byte:      return *get_array_byte() == *v.get_array_byte();
-        case z_array_int16:     return *get_array_int16() == *v.get_array_int16();
-        case z_array_int32:     return *get_array_int32() == *v.get_array_int32();
-        case z_array_int64:     return *get_array_int64() == *v.get_array_int64();
-        case z_array_word16:    return *get_array_word16() == *v.get_array_word16();
-        case z_array_word32:    return *get_array_word32() == *v.get_array_word32();
-        case z_array_word64:    return *get_array_word64() == *v.get_array_word64();
-        case z_array_float:     return *get_array_float() == *v.get_array_float();
-        case z_array_double:    return *get_array_double() == *v.get_array_double();
-        case z_array_charstr:   return *get_array_charstr() == *v.get_array_charstr();
-        case z_array_widestr:   return *get_array_widestr() == *v.get_array_widestr();
-        case z_array_uuid:      return *get_array_uuid() == *v.get_array_uuid();
-        case z_array_zval:      return *get_array_zval() == *v.get_array_zval();
-        case z_array_zmap:      return *get_array_zmap() == *v.get_array_zmap();
-
-        default:  return false;
+        auto  r( t );
+        return t = n, r;
       }
-    }
+  };
+
+ /*
+  * dump::const_iterator::zmap_iterator
+  * Реализация обёртки итератора по zmap
+  */
+  class zmap::dump::const_iterator::zmap_iterator
+  {
+    zmap::const_iterator  iter;
+    mutable iterator_data data;
+
+  public:
+    zmap_iterator( const zmap::const_iterator& zcit ): iter( zcit )  {}
+    zmap_iterator( zmap_iterator&& s ): iter( std::move( s.iter ) ) {}
+    zmap_iterator( const zmap_iterator& s ): iter( s.iter ) {}
+
+  public:
+    auto  getvalue() const -> const iterator_data&  {  return (data = { iter->first, iter->second });  }
+    bool  jumpnext();
+  };
 
   // zmap::dump implementation
 
-  auto  zmap::dump::get( const key& k ) const -> zval::dump
-    {  return zval::dump( serial::find( source, k ) );  }
+  zmap::dump::dump( const dump& s ): source( s.source ), pvalue( s.pvalue )
+    {
+      if ( source != (const char*)-1 && pvalue != nullptr )
+        ++*(int*)(1 + pvalue);
+    }
+
+  zmap::dump::dump( const zmap& z ): source( nullptr )
+    {
+      *(int*)(1 + (pvalue = new( new char[sizeof(zmap) + sizeof(int)] ) zmap( z ))) = 1;
+    }
+
+  zmap::dump::dump( const zmap* p ): source( (const char*)-1 ), pvalue( (zmap*)p )
+    {}
+
+  zmap::dump::~dump()
+    {
+      if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
+        delete pvalue;
+    }
+
+  auto  zmap::dump::operator = ( const dump& d ) -> dump&
+    {
+      if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
+        delete pvalue;
+
+      source = d.source;
+      pvalue = d.pvalue;
+
+      if ( pvalue != nullptr && source != (const char*)-1 )
+        ++*(int*)(1 + pvalue);
+
+      return *this;
+    }
+
+  auto  zmap::dump::operator = ( const zmap& z ) -> dump&
+    {
+      if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
+        delete pvalue;
+
+      *(int*)(1 + (pvalue = new( new char[sizeof(zmap) + sizeof(int)] ) zmap( z ))) = 1;
+
+      return source = nullptr, *this;
+    }
+
+  auto  zmap::dump::operator = ( const zmap* z ) -> dump&
+    {
+      return source = (const char*)-1, pvalue = (zmap*)z, *this;
+    }
+
+  auto  zmap::dump::get_dump( const key& k ) const -> zval::dump
+    {
+      auto  pval = pvalue != nullptr ? pvalue->get( k ) : nullptr;
+
+      return pval != nullptr ? zval::dump( pval ) : zval::dump( serial::find( source, k ) );
+    }
+    
   template <class T>
   auto  zmap::dump::get( const value_t<T>& v, const T& t ) -> T
     {  return v != nullptr ? *v : t;  }
 
-  auto  zmap::dump::get_char( const key& k ) const -> value_t<char> {  return get( k ).get_char();  }
-  auto  zmap::dump::get_byte( const key& k ) const -> value_t<byte> {  return get( k ).get_byte();  }
-  auto  zmap::dump::get_int16( const key& k ) const -> value_t<int16_t> {  return get( k ).get_int16();  }
-  auto  zmap::dump::get_int32( const key& k ) const -> value_t<int32_t> {  return get( k ).get_int32();  }
-  auto  zmap::dump::get_int64( const key& k ) const -> value_t<int64_t> {  return get( k ).get_int64();  }
-  auto  zmap::dump::get_word16( const key& k ) const -> value_t<word16_t> {  return get( k ).get_word16();  }
-  auto  zmap::dump::get_word32( const key& k ) const -> value_t<word32_t> {  return get( k ).get_word32();  }
-  auto  zmap::dump::get_word64( const key& k ) const -> value_t<word64_t> {  return get( k ).get_word64();  }
-  auto  zmap::dump::get_float( const key& k ) const -> value_t<float> {  return get( k ).get_float();  }
-  auto  zmap::dump::get_double( const key& k ) const -> value_t<double> {  return get( k ).get_double();  }
-  auto  zmap::dump::get_charstr( const key& k ) const -> value_t<charstr> {  return get( k ).get_charstr();  }
-  auto  zmap::dump::get_widestr( const key& k ) const -> value_t<widestr> {  return get( k ).get_widestr();  }
-  auto  zmap::dump::get_uuid( const key& k ) const -> value_t<uuid> {  return get( k ).get_uuid();  }
-  auto  zmap::dump::get_zmap( const key& k ) const -> value_t<dump> {  return get( k ).get_zmap();  }
+  auto  zmap::dump::get( const key& k ) const -> zview_t
+    {
+      if ( pvalue != nullptr && pvalue->get( k ) != nullptr )
+        return zview_t( nullptr, pvalue->get( k ) );
+      return zview_t( serial::find( source, k ), nullptr );
+    }
+
+  auto  zmap::dump::get_char( const key& k ) const -> value_t<char> {  return get_dump( k ).get_char();  }
+  auto  zmap::dump::get_byte( const key& k ) const -> value_t<byte> {  return get_dump( k ).get_byte();  }
+  auto  zmap::dump::get_int16( const key& k ) const -> value_t<int16_t> {  return get_dump( k ).get_int16();  }
+  auto  zmap::dump::get_int32( const key& k ) const -> value_t<int32_t> {  return get_dump( k ).get_int32();  }
+  auto  zmap::dump::get_int64( const key& k ) const -> value_t<int64_t> {  return get_dump( k ).get_int64();  }
+  auto  zmap::dump::get_word16( const key& k ) const -> value_t<word16_t> {  return get_dump( k ).get_word16();  }
+  auto  zmap::dump::get_word32( const key& k ) const -> value_t<word32_t> {  return get_dump( k ).get_word32();  }
+  auto  zmap::dump::get_word64( const key& k ) const -> value_t<word64_t> {  return get_dump( k ).get_word64();  }
+  auto  zmap::dump::get_float( const key& k ) const -> value_t<float> {  return get_dump( k ).get_float();  }
+  auto  zmap::dump::get_double( const key& k ) const -> value_t<double> {  return get_dump( k ).get_double();  }
+  auto  zmap::dump::get_charstr( const key& k ) const -> value_t<charstr> {  return get_dump( k ).get_charstr();  }
+  auto  zmap::dump::get_widestr( const key& k ) const -> value_t<widestr> {  return get_dump( k ).get_widestr();  }
+  auto  zmap::dump::get_uuid( const key& k ) const -> value_t<uuid> {  return get_dump( k ).get_uuid();  }
+  auto  zmap::dump::get_zmap( const key& k ) const -> value_t<dump> {  return get_dump( k ).get_zmap();  }
 
   auto  zmap::dump::get_char( const key& k, char c ) const -> char  {  return get( get_char( k ), c );  }
   auto  zmap::dump::get_byte( const key& k, byte b ) const -> byte  {  return get( get_byte( k ), b );  }
@@ -162,47 +205,113 @@ namespace mtc
   auto  zmap::dump::get_charstr( const key& k, const charstr& s ) const -> charstr  {  return get( get_charstr( k ), s );  }
   auto  zmap::dump::get_widestr( const key& k, const widestr& w ) const -> widestr  {  return get( get_widestr( k ), w );  }
   auto  zmap::dump::get_uuid( const key& k, const uuid& w ) const -> uuid  {  return get( get_uuid( k ), w );  }
-  auto  zmap::dump::get_zmap( const key& k, const zmap& w ) const -> view
-  {
-    auto  pd = get_zmap( k );
 
-    return pd != nullptr ? view( *pd, w ) : view( {}, w );
-  }
+  auto  zmap::dump::get_zmap( const key& k, const zmap& w ) const -> dump
+    {
+      auto  pd = get_zmap( k );
 
-  auto  zmap::dump::get_array_char( const key& k ) const -> value_t<array_t<char>> {  return get( k ).get_array_char();  }
-  auto  zmap::dump::get_array_byte( const key& k ) const -> value_t<array_t<byte>> {  return get( k ).get_array_byte();  }
-  auto  zmap::dump::get_array_int16( const key& k ) const -> value_t<array_t<int16_t>> {  return get( k ).get_array_int16();  }
-  auto  zmap::dump::get_array_int32( const key& k ) const -> value_t<array_t<int32_t>> {  return get( k ).get_array_int32();  }
-  auto  zmap::dump::get_array_int64( const key& k ) const -> value_t<array_t<int64_t>> {  return get( k ).get_array_int64();  }
-  auto  zmap::dump::get_array_word16( const key& k ) const -> value_t<array_t<word16_t>> {  return get( k ).get_array_word16();  }
-  auto  zmap::dump::get_array_word32( const key& k ) const -> value_t<array_t<word32_t>> {  return get( k ).get_array_word32();  }
-  auto  zmap::dump::get_array_word64( const key& k ) const -> value_t<array_t<word64_t>> {  return get( k ).get_array_word64();  }
-  auto  zmap::dump::get_array_float( const key& k ) const -> value_t<array_t<float>> {  return get( k ).get_array_float();  }
-  auto  zmap::dump::get_array_double( const key& k ) const -> value_t<array_t<double>> {  return get( k ).get_array_double();  }
-  auto  zmap::dump::get_array_charstr( const key& k ) const -> value_t<array_t<charstr>> {  return get( k ).get_array_charstr();  }
-  auto  zmap::dump::get_array_widestr( const key& k ) const -> value_t<array_t<widestr>> {  return get( k ).get_array_widestr();  }
-  auto  zmap::dump::get_array_uuid( const key& k ) const -> value_t<array_t<uuid>> {  return get( k ).get_array_uuid();  }
-  auto  zmap::dump::get_array_zval( const key& k ) const -> value_t<array_t<zval::dump>> {  return get( k ).get_array_zval();  }
-  auto  zmap::dump::get_array_zmap( const key& k ) const -> value_t<array_t<zmap::dump>> {  return get( k ).get_array_zmap();  }
+      return pd != nullptr ? *pd : dump( w );
+    }
 
-  bool  zmap::dump::operator == ( const zmap& z ) const
-  {
-    auto  mp = begin();
-    auto  zp = z.begin();
+  auto  zmap::dump::get_array_char( const key& k ) const -> value_t<array_t<char>> {  return get_dump( k ).get_array_char();  }
+  auto  zmap::dump::get_array_byte( const key& k ) const -> value_t<array_t<byte>> {  return get_dump( k ).get_array_byte();  }
+  auto  zmap::dump::get_array_int16( const key& k ) const -> value_t<array_t<int16_t>> {  return get_dump( k ).get_array_int16();  }
+  auto  zmap::dump::get_array_int32( const key& k ) const -> value_t<array_t<int32_t>> {  return get_dump( k ).get_array_int32();  }
+  auto  zmap::dump::get_array_int64( const key& k ) const -> value_t<array_t<int64_t>> {  return get_dump( k ).get_array_int64();  }
+  auto  zmap::dump::get_array_word16( const key& k ) const -> value_t<array_t<word16_t>> {  return get_dump( k ).get_array_word16();  }
+  auto  zmap::dump::get_array_word32( const key& k ) const -> value_t<array_t<word32_t>> {  return get_dump( k ).get_array_word32();  }
+  auto  zmap::dump::get_array_word64( const key& k ) const -> value_t<array_t<word64_t>> {  return get_dump( k ).get_array_word64();  }
+  auto  zmap::dump::get_array_float( const key& k ) const -> value_t<array_t<float>> {  return get_dump( k ).get_array_float();  }
+  auto  zmap::dump::get_array_double( const key& k ) const -> value_t<array_t<double>> {  return get_dump( k ).get_array_double();  }
+  auto  zmap::dump::get_array_charstr( const key& k ) const -> value_t<array_t<charstr>> {  return get_dump( k ).get_array_charstr();  }
+  auto  zmap::dump::get_array_widestr( const key& k ) const -> value_t<array_t<widestr>> {  return get_dump( k ).get_array_widestr();  }
+  auto  zmap::dump::get_array_uuid( const key& k ) const -> value_t<array_t<uuid>> {  return get_dump( k ).get_array_uuid();  }
+  auto  zmap::dump::get_array_zval( const key& k ) const -> value_t<array_t<zval::dump, zval>> {  return get_dump( k ).get_array_zval();  }
+  auto  zmap::dump::get_array_zmap( const key& k ) const -> value_t<array_t<zmap::dump, zmap>> {  return get_dump( k ).get_array_zmap();  }
 
-    while ( mp != end() && zp != z.end() )
-      if ( mp->first != zp->first || mp->second != zp->second ) return false;
-        else ++mp, ++zp;
+  bool  zmap::dump::operator == ( const dump& z ) const
+    {
+      auto  mp = begin();
+      auto  zp = z.begin();
 
-    return mp == end() && zp == z.end();
-  }
+      while ( mp != end() && zp != z.end() )
+        if ( mp->first != zp->first || mp->second != zp->second ) return false;
+          else ++mp, ++zp;
 
-  auto  zmap::dump::begin() const -> const_iterator {  return const_iterator( source );  }
+      return mp == end() && zp == z.end();
+    }
+
+  zmap::dump::operator zmap() const
+    {
+      if ( pvalue == nullptr )
+      {
+        zmap  v;
+
+        if ( source != nullptr )
+          v.FetchFrom( source );
+        return v;
+      }
+      return *pvalue;
+    }
+
+  auto  zmap::dump::begin() const -> const_iterator
+    {
+      if ( pvalue != nullptr )
+      {
+        auto  it = pvalue->cbegin();
+
+        if ( it != pvalue->cend() ) return { it };
+      }
+      if ( source != nullptr && source != (const char*)-1 )
+        return { source };
+      return const_iterator();
+    }
+
   auto  zmap::dump::end() const -> const_iterator {  return {};  }
+  auto  zmap::dump::cbegin() const -> const_iterator {  return begin();  }
+  auto  zmap::dump::cend() const -> const_iterator {  return {};  }
 
  /*
   * zmap::dump::const_iterator
   */
+
+  zmap::dump::const_iterator::const_iterator( const char* source )
+    {  asDump = std::make_shared<dump_iterator>( source );  }
+
+  zmap::dump::const_iterator::const_iterator( const zmap::const_iterator& zi )
+    {  asZmap = std::make_shared<zmap_iterator>( zi );  }
+
+  bool  zmap::dump::const_iterator::operator == ( const const_iterator& match ) const
+    {
+      if ( !is_empty() && !match.is_empty() )
+      {
+        auto& me = this->asDump != nullptr ? this->asDump->getvalue() : this->asZmap->getvalue();
+        auto& to = match.asDump != nullptr ? match.asDump->getvalue() : match.asZmap->getvalue();
+
+        return me.first == to.first && me.second == to.second;
+      }
+      return is_empty() && match.is_empty();
+    }
+
+  auto  zmap::dump::const_iterator::operator ++() -> const_iterator&
+    {
+      if ( asDump != nullptr )  {  if ( !asDump->jumpnext() ) asDump = nullptr;  }
+        else
+      if ( asZmap != nullptr )  {  if ( !asZmap->jumpnext() ) asZmap = nullptr;  }
+        else  throw std::logic_error( "invalid iterator call" );
+      return *this;
+    }
+
+  auto  zmap::dump::const_iterator::operator ++(int) -> const_iterator
+    {
+      auto  prev( *this );  return operator ++(), prev;
+    }
+
+  auto  zmap::dump::const_iterator::operator -> () const -> const iterator_data*
+    {  return asDump != nullptr ? &asDump->getvalue() : &asZmap->getvalue();  }
+
+  auto  zmap::dump::const_iterator::operator * () const -> const iterator_data&
+    {  return asDump != nullptr ? asDump->getvalue() : asZmap->getvalue();  }
 
  /*
   * iterator_node::iterator_node( source )
@@ -211,162 +320,117 @@ namespace mtc
   * или nullptr, если в этой ветке более нечего грузить, и возвращает указатель
   * на первый вложенный элемент.
   */
-  bool  zmap::dump::const_iterator::iterator_node::init_element( const char* s )
-  {
-    word32_t  lfetch;
-    size_t    sublen;
-
-    s = ::FetchFrom( s, lfetch );
-
-    if ( (lfetch & 0x0200) != 0 )       // check if value at node; save value pointer
-      s = zval::SkipToEnd( value = ::FetchFrom( s, xtype ) );
-    else {  value = nullptr; xtype = (byte)-1;  }
-
-    if ( (lfetch & 0x0400) != 0 )       // check if patricia-style element
+  bool  zmap::dump::const_iterator::dump_iterator::iterator_node::init_element( const char* s )
     {
-      pnext = nullptr;
-      count = 0;
-      level = (ptext = s) + (ltext = fragment_len( lfetch ));
-    }
-      else
-    if ( (count = lfetch & 0x1ff) != 0 )
-    {
-      --count;
-        level = ::FetchFrom( (ptext = s) + (ltext = 1), sublen );
-        pnext = level + sublen;
-    }
-      else
-    {
-      ptext = pnext = level = nullptr;
-      ltext = 0;
-    }
-    return true;
-  }
+      word32_t  lfetch;
+      size_t    sublen;
 
-  bool  zmap::dump::const_iterator::iterator_node::move_to_next()
-  {
-    size_t  sublen;
+      s = ::FetchFrom( s, lfetch );
 
-    if ( count != 0 )
-    {
-      --count;
-        level = ::FetchFrom( (ptext = pnext) + 1, sublen );
-        pnext = level + sublen;
+      if ( (lfetch & 0x0200) != 0 )       // check if value at node; save value pointer
+        s = zval::SkipToEnd( value = ::FetchFrom( s, xtype ) );
+      else {  value = nullptr; xtype = (byte)-1;  }
+
+      if ( (lfetch & 0x0400) != 0 )       // check if patricia-style element
+      {
+        pnext = nullptr;
+        count = 0;
+        level = (ptext = s) + (ltext = fragment_len( lfetch ));
+      }
+        else
+      if ( (count = lfetch & 0x1ff) != 0 )
+      {
+        --count;
+          level = ::FetchFrom( (ptext = s) + (ltext = 1), sublen );
+          pnext = level + sublen;
+      }
+        else
+      {
+        ptext = pnext = level = nullptr;
+        ltext = 0;
+      }
       return true;
     }
 
-    return false;
-  }
-
-  zmap::dump::const_iterator::const_iterator( const char* s )
-  {
-    if ( s != nullptr )
+  bool  zmap::dump::const_iterator::dump_iterator::iterator_node::move_to_next()
     {
-      do  s = (tree.push_back( iterator_node( s ) ), tree.back().level);
-        while ( tree.back().value == nullptr && s != nullptr );
+      size_t  sublen;
 
-      for ( auto it = tree.begin(); it != tree.end() - 1; ++it )
-        buff.insert( buff.end(), it->ptext, it->ptext + it->ltext );
-
-      buff.push_back( '\0' ), make_data();
-    }
-  }
-
-  auto  zmap::dump::const_iterator::operator ++() -> const_iterator&
-  {
-    if ( !tree.empty() )
-    {
-      buff.resize( buff.size() - (buff.empty() ? 0 : 1) );  // remove trailing '\0'
-
-      for ( ; !tree.empty(); )
+      if ( count != 0 )
       {
-        if ( tree.back().move_to_next() )
+        --count;
+          level = ::FetchFrom( (ptext = pnext) + 1, sublen );
+          pnext = level + sublen;
+        return true;
+      }
+
+      return false;
+    }
+
+  zmap::dump::const_iterator::dump_iterator::dump_iterator( const char* s )
+    {
+      if ( s != nullptr )
+      {
+        tree.push_back( iterator_node( s ) );
+
+        while ( tree.back().value == nullptr && tree.back().level != nullptr )
         {
-          while ( tree.back().value == nullptr && tree.back().level != nullptr )
+          buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
+          tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
+        }
+
+        buff.push_back( '\0' ), makedata();
+      }
+    }
+
+  bool  zmap::dump::const_iterator::dump_iterator::jumpnext()
+    {
+      if ( !tree.empty() )
+      {
+        buff.resize( buff.size() - (buff.empty() ? 0 : 1) );  // remove trailing '\0'
+
+        for ( ; !tree.empty(); )
+        {
+          if ( tree.back().level != nullptr )
           {
-            buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
-            tree.push_back( iterator_node( tree.back().level ) );
+            do  {
+              buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
+              tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
+            } while ( tree.back().value == nullptr && tree.back().level != nullptr );
+
+            break;
           }
 
-          break;
+          if ( tree.back().move_to_next() )
+          {
+            while ( tree.back().value == nullptr && tree.back().level != nullptr )
+            {
+              buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
+              tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
+            }
+
+            break;
+          }
+            else
+          {
+            tree.pop_back();
+            buff.resize( buff.size() - (tree.empty() ? 0 : tree.back().ltext) );
+          }
         }
-          else
-        {
-          tree.pop_back();
-          buff.resize( buff.size() - (tree.empty() ? 0 : tree.back().ltext) );
-        }
+        if ( buff.size() != 0 )
+          return buff.push_back( '\0' ), makedata(), true;
       }
-      if ( buff.size() != 0 )
-        return buff.push_back( '\0' ), make_data(), *this;
+      return false;
     }
-    return data = { key(), zval::dump() }, *this;
-  }
 
-  void  zmap::dump::const_iterator::make_data()
-  {
-    if ( tree.empty() != 0 )  data = { key(), zval::dump() };
-      else data = { key( tree.back().xtype, buff.data(), buff.size() - 1 ), zval::dump( tree.back().value ) };
-  }
-
- /*
-  * zmap::dump::view
-  */
-
-  template <class T>  auto  zmap::dump::view::make_value( const T* t ) -> value_t<T>
-    {  return t != nullptr ? value_t<T>( *t ) : value_t<T>();  }
-  template <class T>  auto  zmap::dump::view::make_view( const value_t<T> t ) -> value_t<view>
-    {  return t != nullptr ? value_t<view>( *t ) : value_t<view>();  }
-  template <class T>  auto  zmap::dump::view::make_view( const T* t ) -> value_t<view>
-    {  return t != nullptr ? value_t<view>( *t ) : value_t<view>();  }
-
-  auto  zmap::dump::view::get_char( const key& k ) const -> value_t<char>
-    {  return dump::source != nullptr ? dump::get_char( k ) : make_value( zmap::get_char( k ) );  }
-  auto  zmap::dump::view::get_byte( const key& k ) const -> value_t<byte>
-    {  return dump::source != nullptr ? dump::get_byte( k ) : make_value( zmap::get_byte( k ) );  }
-  auto  zmap::dump::view::get_int16( const key& k ) const -> value_t<int16_t>
-    {  return dump::source != nullptr ? dump::get_int16( k ) : make_value( zmap::get_int16( k ) );  }
-  auto  zmap::dump::view::get_int32( const key& k ) const -> value_t<int32_t>
-    {  return dump::source != nullptr ? dump::get_int32( k ) : make_value( zmap::get_int32( k ) );  }
-  auto  zmap::dump::view::get_int64( const key& k ) const -> value_t<int64_t>
-    {  return dump::source != nullptr ? dump::get_int64( k ) : make_value( zmap::get_int64( k ) );  }
-  auto  zmap::dump::view::get_word16( const key& k ) const -> value_t<word16_t>
-    {  return dump::source != nullptr ? dump::get_word16( k ) : make_value( zmap::get_word16( k ) );  }
-  auto  zmap::dump::view::get_word32( const key& k ) const -> value_t<word32_t>
-    {  return dump::source != nullptr ? dump::get_word32( k ) : make_value( zmap::get_word32( k ) );  }
-  auto  zmap::dump::view::get_word64( const key& k ) const -> value_t<word64_t>
-    {  return dump::source != nullptr ? dump::get_word64( k ) : make_value( zmap::get_word64( k ) );  }
-  auto  zmap::dump::view::get_float( const key& k ) const -> value_t<float>
-    {  return dump::source != nullptr ? dump::get_float( k ) : make_value( zmap::get_float( k ) );  }
-  auto  zmap::dump::view::get_double( const key& k ) const -> value_t<double>
-    {  return dump::source != nullptr ? dump::get_double( k ) : make_value( zmap::get_double( k ) );  }
-  auto  zmap::dump::view::get_charstr( const key& k ) const -> value_t<charstr>
-    {  return dump::source != nullptr ? dump::get_charstr( k ) : make_value( zmap::get_charstr( k ) );  }
-  auto  zmap::dump::view::get_widestr( const key& k ) const -> value_t<widestr>
-    {  return dump::source != nullptr ? dump::get_widestr( k ) : make_value( zmap::get_widestr( k ) );  }
-  auto  zmap::dump::view::get_uuid( const key& k ) const -> value_t<uuid>
-    {  return dump::source != nullptr ? dump::get_uuid( k ) : make_value( zmap::get_uuid( k ) );  }
-  auto  zmap::dump::view::get_zmap( const key& k ) const -> value_t<view>
-    {  return dump::source != nullptr ? make_view( dump::get_zmap( k ) ) : make_view( zmap::get_zmap( k ) );  }
-
-  auto  zmap::dump::view::get_char( const key& k, char c ) const -> char  {  return dump::get( get_char( k ), c );  }
-  auto  zmap::dump::view::get_byte( const key& k, byte b ) const -> byte  {  return dump::get( get_byte( k ), b );  }
-  auto  zmap::dump::view::get_int16( const key& k, int16_t i ) const -> int16_t  {  return dump::get( get_int16( k ), i );  }
-  auto  zmap::dump::view::get_int32( const key& k, int32_t i ) const -> int32_t  {  return dump::get( get_int32( k ), i );  }
-  auto  zmap::dump::view::get_int64( const key& k, int64_t i ) const -> int64_t  {  return dump::get( get_int64( k ), i );  }
-  auto  zmap::dump::view::get_word16( const key& k, word16_t w ) const -> word16_t  {  return dump::get( get_word16( k ), w );  }
-  auto  zmap::dump::view::get_word32( const key& k, word32_t w ) const -> word32_t  {  return dump::get( get_word32( k ), w );  }
-  auto  zmap::dump::view::get_word64( const key& k, word64_t w ) const -> word64_t  {  return dump::get( get_word64( k ), w );  }
-  auto  zmap::dump::view::get_float( const key& k, float f ) const -> float  {  return dump::get( get_float( k ), f );  }
-  auto  zmap::dump::view::get_double( const key& k, double d ) const -> double  {  return dump::get( get_double( k ), d );  }
-  auto  zmap::dump::view::get_charstr( const key& k, const charstr& s ) const -> charstr  {  return dump::get( get_charstr( k ), s );  }
-  auto  zmap::dump::view::get_widestr( const key& k, const widestr& w ) const -> widestr  {  return dump::get( get_widestr( k ), w );  }
-  auto  zmap::dump::view::get_uuid( const key& k, const uuid& w ) const -> uuid  {  return dump::get( get_uuid( k ), w );  }
-  auto  zmap::dump::view::get_zmap( const key& k, const zmap& w ) const -> view
+  void  zmap::dump::const_iterator::dump_iterator::makedata()
     {
-      auto  pd = get_zmap( k );
-
-      return pd != nullptr ? view( *pd ) : view( w );
+      if ( tree.empty() != 0 )  data = { key(), zval::dump() };
+        else data = { key( tree.back().xtype, buff.data(), buff.size() - 1 ), zval::dump( tree.back().value ) };
     }
+
+  bool  zmap::dump::const_iterator::zmap_iterator::jumpnext()
+    {  return iter != zmap::const_iterator() && ++iter != zmap::const_iterator();  }
 
   // zmap::key implementation
 

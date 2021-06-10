@@ -15,67 +15,6 @@ byte_counter* Serialize( byte_counter* bc, const void*, size_t l )
     bc->length += l;
   return bc;
 }
-/*
-class val_t
-{
-    int   t;
-public:
-  val_t( int v ): t( v )  {}
-
-  operator const int& () const {  return t;  }
-  auto  operator * () const -> const int& {  return t;  }
-};
-
-template <class T>
-class cls_t
-{
-  T t;
-public:
-  cls_t( const T& s ): t( s ) {}
-
-  operator const T& () const {  return t;  }
-
-  auto  operator * () const -> const T& {  return t;  }
-
-  auto  operator -> () const -> const T*  {  return &t;  }
-};
-
-template <class T>
-class class_ptr
-{
-  struct value
-  {
-    T               t;
-    std::atomic_int c;
-  public:
-    template <class ... Args>
-    value( Args ... args ): t( std::move( args... ) ) {  c = 1;  }
-  };
-
-  value*  p = nullptr;
-
-public:
-  class_ptr() = default;
-  class_ptr( const class_ptr& s ) {  if ( (p = s.p) != nullptr )  ++p->c;  }
-  template <class ... Args>
-  class_ptr( Args... args ): p( new value( args ... ) ) {}
-
-public:
-  auto  operator * () const -> const T& {  return p->t.operator *();  }
-  auto  operator -> () const -> const T&  {  return p->t;  }
-};
-
-template <class T, class ... Args>
-class_ptr<T>  make_ptr( Args ... args ) {  return class_ptr<T>( args... );  }
-
-template <class T>
-using cls_p = class_ptr<cls_t<T>>;
-using val_p = class_ptr<val_t>;
-*/
-/*
-template <class T, class V>
-bool  operator == ( const cls_t<T>& s, V v ) {  return ((const T&)s) == v;  }
-*/
 
 auto  CreateDump( const mtc::zmap& z ) -> std::vector<char>
 {
@@ -83,9 +22,15 @@ auto  CreateDump( const mtc::zmap& z ) -> std::vector<char>
   return z.Serialize( stored.data() ), std::move( stored );
 }
 
+auto  CreateDump( const mtc::zval& z ) -> std::vector<char>
+{
+  auto  stored = std::vector<char>( z.GetBufLen() );
+  return z.Serialize( stored.data() ), std::move( stored );
+}
+
 int main()
 {
-  auto  buff = CreateDump( {
+  auto  zmap = mtc::zmap{
     { "char", 'c' },
     { "charstr", "string" },
     { "array_charstr", mtc::array_charstr{ "s1", "t2", "u3" } },
@@ -93,63 +38,191 @@ int main()
     { "array_zval", mtc::array_zval{ 1, "aaa", 3.7, mtc::zmap{ { "key", "value" } } } },
     { "array_zmap", mtc::array_zmap{ { { "key", "value" }, { "int", 9 } } } },
     { "zmap", mtc::zmap{
-        { "int", 9 }
-      } } } );
+        { "int", 9 },
+        { "float", (float)9.0 } } } };
+
+  auto  buff = CreateDump( zmap );
 
   auto  dump = mtc::zmap::dump( buff.data() );
+
+  fprintf( mtc::json::Print( stdout, dump, mtc::json::print::decorated() ),
+    "\n" );
+
+    assert( dump == zmap );
+
   {
-    auto  pchar = dump.get_char( "char" );  fprintf( stdout, "%c\n", *pchar );
+    auto  zv = mtc::zval( 1 );
+    auto  zb = CreateDump( zv );
+    auto  dp = mtc::zval::dump( zb.data() );
+
+    auto  zc = zv.CompTo( zv );
+    auto  dc = dp.CompTo( dp );
+
+    assert( zc == dc );
+  }
+
+ /*
+  * test pointer access to values
+  */
+  {
+    assert( dump.get_char( "char" ) != nullptr );
+      assert( *dump.get_char( "char" ) == 'c' );
+    assert( dump.get_charstr( "charstr" ) != nullptr );
+      assert( *dump.get_charstr( "charstr" ) == "string" );
+    assert( dump.get_array_charstr( "array_charstr" ) != nullptr );
+      assert( (*dump.get_array_charstr( "array_charstr" ) == mtc::array_charstr{ "s1", "t2", "u3" }) );
+    assert( dump.get_array_int32( "array_int32" ) != nullptr );
+      assert( (*dump.get_array_int32( "array_int32" ) == mtc::array_int32{ 1, 2, 3 }) );
+    assert( dump.get_array_zval( "array_zval" ) != nullptr );
+      assert( (*dump.get_array_zval( "array_zval" ) == mtc::array_zval{ 1, "aaa", 3.7, mtc::zmap{ { "key", "value" } } }) );
+    assert( dump.get_array_zmap( "array_zmap" ) != nullptr );
+      assert( (*dump.get_array_zmap( "array_zmap" ) == mtc::array_zmap{ { { "key", "value" }, { "int", 9 } } }) );
+    assert( dump.get_zmap( "zmap" ) != nullptr );
+      assert( (*dump.get_zmap( "zmap" ) == mtc::zmap{ { "int", 9 }, { "float", (float)9.0 } }) );
+  }
+
+ /*
+  * test value access
+  */
+  {
+    assert( dump.get_char( "char", 'a' ) == 'c' );
+      assert( dump.get_char( "?char", 'a' ) == 'a' );
+    assert( dump.get_charstr( "charstr", "non-string" ) == "string" );
+      assert( dump.get_charstr( "?charstr", "non-string" ) == "non-string" );
+    assert( (dump.get_zmap( "zmap", { { "int", 5 } } ) == mtc::zmap{
+      { "int", 9 },
+      { "float", (float)9.0 } }) );
+    assert( (dump.get_zmap( "?zmap", { { "int", 5 } } ) == mtc::zmap{
+      { "int", 5 } }) );
+  }
+
+  {
+    auto  zval = mtc::zval( 1 );
+      auto  vbuf = std::vector<char>( zval.GetBufLen() );
+      zval.Serialize( vbuf.data() );
+    auto  zv_1 = mtc::zval::dump( vbuf.data() );
+    auto  zv_2 = zval;
+
+    assert( zv_1.get_int32() != nullptr );
+    assert( zv_2.get_int32() != nullptr );
+    assert( *zv_1.get_int32() == *zv_2.get_int32() );
+  }
+
+  // test zmap::dump::get()
+  // должна возвращать zval::dump
+  {
+    auto  pchr = dump.get( "char" );
+    auto  pstr = dump.get( "charstr" );
+    auto  parr = dump.get( "array_int32" );
+    auto  pnul = dump.get( "charstr-xxx" );
+      assert( pchr != nullptr );
+      assert( pstr != nullptr );
+      assert( parr != nullptr );
+      assert( pnul == nullptr );
+
+      assert( pchr->get_type() == mtc::zval::z_char );
+      assert( pchr->get_char() != nullptr );
+      assert( *pchr->get_char() == 'c' );
+      assert( *pchr == 'c' );
+
+      assert( parr->get_type() == mtc::zval::z_array_int32 );
+      assert( parr->get_array_int32() != nullptr );
+      assert( (*parr->get_array_int32() == mtc::array_int32{ 1, 2, 3 }) );
+      assert( (*parr == mtc::array_int32{ 1, 2, 3 }) );
+
+      assert( pstr->get_type() == mtc::zval::z_charstr );
+      assert( pstr->get_charstr() != nullptr );
+      assert( *pstr->get_charstr() == "string" );
+      assert( *pstr == "string" );
+  }
+
+  // test zmap::view::get()
+  // должна возвращать zval::view
+  {
+    auto  view = dump.get_zmap( "zmap", { { "int", 8 }, { "float", (float)8.0 } } );
+      auto  pint = view.get( "int" );
+        assert( pint != nullptr );
+        assert( *pint->get_int32() == 9 );
+      // assert( *pint == 9 );
+      auto  pflo = view.get( "float" );
+        assert( pflo != nullptr );
+        assert( *pflo->get_float() == 9.0 );
+      auto  pnul = view.get( "none" );
+        assert( pnul == nullptr );
+  }
+  {
+    auto  view = dump.get_zmap( "zxxx", { { "int", 8 }, { "float", (float)8.0 } } );
+      auto  pint = view.get( "int" );
+        assert( pint != nullptr );
+        assert( *pint->get_int32() == 8 );
+      // assert( *pint == 9 );
+      auto  pflo = view.get( "float" );
+        assert( pflo != nullptr );
+        assert( *pflo->get_float() == 8.0 );
+      auto  pnul = view.get( "none" );
+        assert( pnul == nullptr );
+  }
+
+  // setting new values to zval::view
+  {
+    auto  view = dump.get_zmap( "zmap", {} );
+      auto  pnul = view.get( "int_" );
+      auto  zval = mtc::zval( 7 );
+      auto  pint = view.get_int32( "int" );
+      auto  i_32 = (int32_t)1;
+
+      if ( pint == nullptr )
+        pint = &i_32;
+
+      if ( pnul == nullptr )
+        pnul = &zval;
+  }
+
+  {
+    auto  v = mtc::zval( 1 );
+      fprintf( stdout, "zval as int32 -> " );
+      fprintf( mtc::json::Print( stdout, v ), "\n" );
+  }
+  {
+    auto  v = mtc::array_int32{ 1, 2, 3 };
+      fprintf( stdout, "zval as array_int32 -> " );
+      fprintf( mtc::json::Print( stdout, v ), "\n" );
+  }
+  {
+    fprintf( stdout, "===== access to fields =====\n" );
+
+    auto  pchar = dump.get_char( "char" );
+      fprintf( stdout, "'char' -> '%c'\n", *pchar );
+
 //    auto  pbyte = dump.get_byte( "char" );  fprintf( stdout, "%c\n", *pbyte );
     auto  pstrs = dump.get_array_charstr( "array_charstr" );
-      fprintf( stdout, "%u\n", (unsigned)pstrs->size() );
-
-      for ( auto it: *pstrs )
-        fprintf( stdout, "\'%s\'\n", it.c_str() );
-      for ( auto it = pstrs->begin(); it != pstrs->end(); ++it )
-        fprintf( stdout, "\'%s\'\n", it->c_str() );
+      fprintf( stdout, "'array_charstr' -> " );
+      fprintf( mtc::json::Print( stdout, *pstrs ), "\n" );
 
     auto  pints = dump.get_array_int32( "array_int32" );
-      fprintf( stdout, "%u\n", (unsigned)pints->size() );
+      fprintf( stdout, "'array_int32' -> " );
+      fprintf( mtc::json::Print( stdout, *pints ), "\n" );
 
-      for ( auto it: *pints )
-        fprintf( stdout, "\'%d\'\n", it );
-      for ( auto it = pints->begin(); it != pints->end(); ++it )
-        fprintf( stdout, "\'%d\'\n", *it );
+    auto  pzmap = dump.get_zmap( "zmap" );
+      fprintf( stdout, "'zmap' -> " );
+      fprintf( mtc::json::Print( stdout, *pzmap ), "\n" );
 
-    auto  pmap = dump.get_zmap( "zmap" );
-      fprintf( stdout, "%d\n", pmap->get_int32( "int", 0 ) );
-
-    auto  zget = dump.get_zmap( "dump", {
+    auto  azmap = dump.get_zmap( "dump", {
       { "int", 91 },
       { "zmap", mtc::zmap{
         { "key", "str" } } },
       { "float", 9.97 } } );
+    fprintf( stdout, "default value of 'zmap' -> " );
+    fprintf( mtc::json::Print( stdout, azmap ), "\n" );
 
-    fprintf( stdout, "%d\n", zget.get_int32( "int", 0 ) );
+    auto  pzarr = dump.get_array_zmap( "array_zmap" );
+      fprintf( stdout, "'array_zmap' -> " );
+      fprintf( mtc::json::Print( stdout, *pzarr ), "\n" );
 
-    {
-      auto  test = zget.get_zmap( "zmap" );
-        fprintf( stdout, "%s\n", test->get_charstr( "key", "" ).c_str() );
-
-      auto  view = zget.get_zmap( "zmap", {} );
-        fprintf( stdout, "%s\n", view.get_charstr( "key", "" ).c_str() );
-    }
-
-    auto  varr = dump.get_array_zval( "array_zval" );
-      for ( auto it: *varr )
-      {
-        fprintf(
-          mtc::json::Print( stdout, it.to_zval() ), "\n" );
-      }
-
-    assert( (*varr == mtc::array_zval{ 1, "aaa", 3.7, mtc::zmap{ { "key", "value" } } }) );
-
-    auto  zarr = dump.get_array_zmap( "array_zmap" );
-      for ( auto it: *zarr )
-      {
-        fprintf(
-          mtc::json::Print( stdout, it.to_zmap() ), "\n" );
-      }
+    auto  pvarr = dump.get_array_zval( "array_zval" );
+      fprintf( stdout, "'array_zval' -> " );
+      fprintf( mtc::json::Print( stdout, *pvarr ), "\n" );
+    assert( (*pvarr == mtc::array_zval{ 1, "aaa", 3.7, mtc::zmap{ { "key", "value" } } }) );
 
 /*
     pmap = dump.get_zmap( "dump", {

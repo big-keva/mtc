@@ -174,9 +174,11 @@ namespace mtc
   */
   template <class C> struct is_zmap {  static  constexpr bool  value = false;  };
   template <> struct is_zmap<zmap> {  static  constexpr bool  value = true;  };
+  template <> struct is_zmap<zmap::dump> {  static  constexpr bool  value = true;  };
 
-  template <class C> struct is_zval {  static  constexpr bool  value = false;  };
-  template <> struct is_zval<zval> {  static  constexpr bool  value = true;  };
+  template <class C> struct is_view {  static  constexpr bool  value = false;  };
+  template <> struct is_view<zval> {  static  constexpr bool  value = true;  };
+  template <> struct is_view<zval::dump> {  static  constexpr bool  value = true;  };
 
   template <class C> struct is_uuid {  static  constexpr bool  value = false;  };
   template <> struct is_uuid<uuid> {  static  constexpr bool  value = true;  };
@@ -196,6 +198,7 @@ namespace mtc
     template <class C>
     struct is_vector {  static  constexpr bool  value = false;  };
     template <class V, class A> struct is_vector<std::vector<V, A>> {  static  constexpr bool  value = true;  };
+    template <class T1, class T2> struct is_vector<zval::dump::array_t<T1, T2>> {  static  constexpr bool  value = true;  };
 
     struct gt_value { template <class A, class B> static unsigned test( const A&, const B& )  {  return zval::compare_gt;  } };
     struct lt_value { template <class A, class B> static unsigned test( const A&, const B& )  {  return zval::compare_lt;  } };
@@ -229,6 +232,11 @@ namespace mtc
         template <class A, class B>
         static  unsigned  test( A a, const B& b )
         {
+          static_assert( is_signed<A>::value || is_floating<A>::value,
+            "invalid template instantiation logics, first argument must be signed or floating-point" );
+          static_assert( is_signed<B>::value || is_floating<B>::value || is_unsigned<B>::value,
+            "invalid template instantiation logics, second argument must be numeric or floating-point" );
+
           using comparator_type =
             typename std::conditional<is_signed<B>::value || is_floating<B>::value, easy_diff, to_unsigned>::type;
 
@@ -254,6 +262,11 @@ namespace mtc
         template <class A, class B>
         static  unsigned  test( A a, const B& b )
         {
+          static_assert( is_unsigned<A>::value,
+            "invalid template instantiation logics, first argument must be unsigned" );
+          static_assert( is_signed<B>::value || is_floating<B>::value || is_unsigned<B>::value,
+            "invalid template instantiation logics, second argument must be numeric or floating-point" );
+
           using comparator_type =
             typename std::conditional<is_signed<B>::value, to_signed, easy_diff>::type;
 
@@ -265,6 +278,9 @@ namespace mtc
       template <class A, class B>
       static  unsigned  test( A a, const B& b )
       {
+        static_assert( is_signed<A>::value || is_floating<A>::value || is_unsigned<A>::value,
+          "invalid template instantiation logics, first argument must be numeric or floating-point" );
+
         using any_is_float = std::integral_constant<bool,
           is_floating<A>::value || is_floating<B>::value>;
         using comparator_type =
@@ -316,11 +332,14 @@ namespace mtc
         template <class V1, class V2>
         static  unsigned  test( const V1& a, const V2& b )
         {
+          using V1_t = typename V1::value_type;
+          using V2_t = typename V2::value_type;
+
           auto  ia = a.begin();
           auto  ib = b.begin();
           auto  rc = (unsigned)0;
 
-          while ( ia != a.end() && ib != b.end() && (rc = compare::test( *ia, *ib )) == zval::compare_eq )
+          while ( ia != a.end() && ib != b.end() && (rc = compare::test( (V1_t)*ia, (V2_t)*ib )) == zval::compare_eq )
             {  ++ia;  ++ib;  }
 
           if ( rc == zval::compare_eq )
@@ -344,11 +363,13 @@ namespace mtc
       }
     };
 
+    template <class View>
     class zmap_value
     {
+      template <class Pair>
       struct to_zmap
       {
-        static  unsigned  test( const mtc::zmap& z1, const mtc::zmap& z2 )
+        static  unsigned  test( const View& z1, const Pair& z2 )
         {
           auto  i1 = z1.begin();
           auto  i2 = z2.begin();
@@ -374,18 +395,19 @@ namespace mtc
 
     public:
       template <class B>
-      static  unsigned  test( const zmap& z, const B& b )
+      static  unsigned  test( const View& z, const B& b )
       {
         using comparator_type =
-          typename std::conditional<is_zmap<B>::value, to_zmap, gt_value>::type;
+          typename std::conditional<is_zmap<B>::value, to_zmap<B>, gt_value>::type;
         return comparator_type::test( z, b );
       }
     };
 
-    struct zval_value
+    template <class View>
+    struct view_value
     {
       template <class B>
-      static  unsigned  test( const zval& a, const B& b )
+      static  unsigned  test( const View& a, const B& b )
       {
         switch ( a.get_type() )
         {
@@ -407,7 +429,7 @@ namespace mtc
 
           case zval::z_zmap:    return compare::test( *a.get_zmap(), b );
 
-          case zval::z_array_char:    return compare::test( *a.get_char(), b );
+          case zval::z_array_char:    return compare::test( *a.get_array_char(), b );
           case zval::z_array_byte:    return compare::test( *a.get_array_byte(), b );
           case zval::z_array_int16:   return compare::test( *a.get_array_int16(), b );
           case zval::z_array_word16:  return compare::test( *a.get_array_int32(), b );
@@ -456,21 +478,8 @@ namespace mtc
       }
     };
 
-  public:
-    template <class T1, class T2>
-    static  unsigned  test( const T1& _1, const T2& _2 )
-    {
-      using comparator_type =
-        typename std::conditional<is_number<T1>::value, number_value,
-        typename std::conditional<is_string<T1>::value, string_value,
-        typename std::conditional<is_vector<T1>::value, vector_value,
-        typename std::conditional<is_uuid  <T1>::value, uuid_value,
-        typename std::conditional<is_zval  <T1>::value, zval_value, zmap_value>::type>::type>::type>::type>::type;
-
-      return comparator_type::test( _1, _2 );
-    }
-    template <class T1>
-    static  unsigned  test( const T1& _1, const zval& _2 )
+    template <class T, class View>
+    static  unsigned  test_with_view( const T& _1, const View& _2 )
     {
       switch ( _2.get_type() )
       {
@@ -492,7 +501,7 @@ namespace mtc
 
         case zval::z_zmap:    return compare::test( _1, *_2.get_zmap() );
 
-        case zval::z_array_char:    return compare::test( _1, *_2.get_char() );
+        case zval::z_array_char:    return compare::test( _1, *_2.get_array_char() );
         case zval::z_array_byte:    return compare::test( _1, *_2.get_array_byte() );
         case zval::z_array_int16:   return compare::test( _1, *_2.get_array_int16() );
         case zval::z_array_word16:  return compare::test( _1, *_2.get_array_int32() );
@@ -514,6 +523,25 @@ namespace mtc
       throw std::logic_error( strprintf( "compare operation for zval type '%u' not supported",
         _2.get_type() ) );
     }
+  public:
+    template <class T1, class T2>
+    static  unsigned  test( const T1& _1, const T2& _2 )
+    {
+      using comparator_type =
+        typename std::conditional<is_number<T1>::value, number_value,
+        typename std::conditional<is_string<T1>::value, string_value,
+        typename std::conditional<is_vector<T1>::value, vector_value,
+        typename std::conditional<is_uuid  <T1>::value, uuid_value,
+        typename std::conditional<is_view  <T1>::value, view_value<T1>, zmap_value<T1>>::type>::type>::type>::type>::type;
+
+      return comparator_type::test( _1, _2 );
+    }
+    template <class T1>
+    static  unsigned  test( const T1& _1, const zval& _2 )
+      {  return test_with_view( _1, _2 );  }
+    template <class T1>
+    static  unsigned  test( const T1& _1, const zval::dump& _2 )
+      {  return test_with_view( _1, _2 );  }
 
   };
 
@@ -1071,4 +1099,213 @@ namespace mtc
       return *this;
     }
 
+  // zval::dump implementation
+
+ /*
+  *  copy as:
+  *  - serial;
+  *  - allocated serial;
+  *  - stored pointer.
+  */
+  zval::dump::dump( const dump& d ): source( d.source ), pvalue( d.pvalue )
+    {
+      if ( pvalue != nullptr && source == nullptr )
+        ++*(int*)(pvalue + 1);
+    }
+
+  zval::dump::dump( const zval& z ): source( nullptr )
+    {
+      *(int*)(1 + new( pvalue = (zval*)new char[sizeof(zval) + sizeof(int)] ) zval( z )) = 1;
+    }
+
+  zval::dump::dump( const zval* z ): source( z != nullptr ? (const char*)-1 : nullptr ), pvalue( (zval*)z )
+    {}
+
+  zval::dump::~dump()
+    {
+      if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
+        delete pvalue;
+    }
+
+  auto  zval::dump::operator = ( const dump& s ) -> dump&
+    {
+      if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
+        delete pvalue;
+
+      source = s.source;
+      pvalue = s.pvalue;
+
+      if ( source == nullptr && pvalue != nullptr )
+        ++*(int*)(pvalue + 1);
+      return *this;
+    }
+
+  auto  zval::dump::operator = ( const zval& z ) -> dump&
+    {
+      if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
+        delete pvalue;
+
+      source = nullptr;
+        *(int*)(1 + new( pvalue = (zval*)new char[sizeof(zval) + sizeof(int)] ) zval( z )) = 1;
+      return *this;
+    }
+
+  auto  zval::dump::operator = ( const zval* z ) -> dump&
+    {
+      if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
+        delete pvalue;
+
+      return source = (const char*)-1, pvalue = (zval*)z, *this;
+    }
+
+  auto  zval::dump::get_type() const -> unsigned
+    {
+      unsigned t = z_untyped;
+
+      if ( pvalue == nullptr )  ::FetchFrom( source, t );
+        else t = pvalue->get_type();
+
+      return t;
+    }
+
+# define  derive_get_dump( id, type )                                     \
+  {                                                                       \
+    if ( pvalue != nullptr )                                              \
+      return value_t<type##_t>( (const char*)-1, pvalue->get_##type() );  \
+    if ( source != nullptr && (byte)*source == id )                       \
+      return value_t<type##_t>( 1 + source, nullptr );                    \
+    return value_t<type##_t>();                                           \
+  }
+
+  auto  zval::dump::get_char() const -> value_t<char> derive_get_dump( z_char, char )
+  auto  zval::dump::get_byte() const -> value_t<byte> derive_get_dump( z_byte, byte )
+  auto  zval::dump::get_int16() const -> value_t<int16_t> derive_get_dump( z_int16, int16 )
+  auto  zval::dump::get_int32() const -> value_t<int32_t> derive_get_dump( z_int32, int32 )
+  auto  zval::dump::get_int64() const -> value_t<int64_t> derive_get_dump( z_int64, int64 )
+  auto  zval::dump::get_word16() const -> value_t<word16_t> derive_get_dump( z_word16, word16 )
+  auto  zval::dump::get_word32() const -> value_t<word32_t> derive_get_dump( z_word32, word32 )
+  auto  zval::dump::get_word64() const -> value_t<word64_t> derive_get_dump( z_word64, word64 )
+  auto  zval::dump::get_float() const -> value_t<float> derive_get_dump( z_float, float )
+  auto  zval::dump::get_double() const -> value_t<double> derive_get_dump( z_double, double )
+  auto  zval::dump::get_charstr() const -> value_t<charstr> derive_get_dump( z_charstr, charstr )
+  auto  zval::dump::get_widestr() const -> value_t<widestr> derive_get_dump( z_widestr, widestr )
+  auto  zval::dump::get_uuid() const -> value_t<uuid> derive_get_dump( z_uuid, uuid )
+
+  auto  zval::dump::get_zmap() const -> value_t<zmap::dump>
+    {
+      if ( pvalue != nullptr )
+      {
+        auto  pv = pvalue->get_zmap();
+
+        return pv != nullptr ? value_t<zmap::dump>( nullptr, zmap::dump( pv ) ) : value_t<zmap::dump>();
+      }
+      return source != nullptr && (byte)*source == zval::z_zmap ? value_t<zmap::dump>( 1 + source, nullptr ) :
+        value_t<zmap::dump>();
+    }
+
+# undef derive_get_dump
+# define derive_get_dump( element )                                                     \
+    {                                                                                   \
+      if ( pvalue != nullptr )                                                          \
+        return value_t<array_t<element##_t>>( nullptr, pvalue->get_array_##element() ); \
+      if ( source != nullptr && (byte)*source == z_array_##element )                    \
+        return value_t<array_t<element##_t>>( 1 + source, nullptr );                    \
+      return value_t<array_t<element##_t>>();                                           \
+    }
+
+  auto  zval::dump::get_array_char() const -> value_t<array_t<char>>  derive_get_dump( char )
+  auto  zval::dump::get_array_byte() const -> value_t<array_t<byte>> derive_get_dump( byte )
+  auto  zval::dump::get_array_int16() const -> value_t<array_t<int16_t>> derive_get_dump( int16 )
+  auto  zval::dump::get_array_int32() const -> value_t<array_t<int32_t>> derive_get_dump( int32 )
+  auto  zval::dump::get_array_int64() const -> value_t<array_t<int64_t>> derive_get_dump( int64 )
+  auto  zval::dump::get_array_word16() const -> value_t<array_t<word16_t>> derive_get_dump( word16 )
+  auto  zval::dump::get_array_word32() const -> value_t<array_t<word32_t>> derive_get_dump( word32 )
+  auto  zval::dump::get_array_word64() const -> value_t<array_t<word64_t>> derive_get_dump( word64 )
+  auto  zval::dump::get_array_float() const -> value_t<array_t<float>> derive_get_dump( float )
+  auto  zval::dump::get_array_double() const -> value_t<array_t<double>> derive_get_dump( double )
+  auto  zval::dump::get_array_charstr() const -> value_t<array_t<charstr>> derive_get_dump( charstr )
+  auto  zval::dump::get_array_widestr() const -> value_t<array_t<widestr>> derive_get_dump( widestr )
+  auto  zval::dump::get_array_uuid() const -> value_t<array_t<uuid>> derive_get_dump( uuid )
+# undef derive_get_dump
+
+  auto  zval::dump::get_array_zval() const -> value_t<array_t<dump, zval>>
+    {
+      if ( pvalue != nullptr )
+        return value_t<array_t<dump, zval>>( nullptr, pvalue->get_array_zval() );
+      if ( source != nullptr && (byte)*source == z_array_zval )
+        return value_t<array_t<dump, zval>>( 1 + source, nullptr );
+      return value_t<array_t<dump, zval>>();
+    }
+
+  auto  zval::dump::get_array_zmap() const -> value_t<array_t<zmap::dump, zmap>>
+    {
+      if ( pvalue != nullptr )
+        return value_t<array_t<zmap::dump, zmap>>( nullptr, pvalue->get_array_zmap() );
+      if ( source != nullptr && (byte)*source == z_array_zmap )
+        return value_t<array_t<zmap::dump, zmap>>( 1 + source, nullptr );
+      return value_t<array_t<zmap::dump, zmap>>();
+    }
+
+  auto  zval::dump::CompTo( const dump& x ) const -> unsigned
+    {
+      return compare::test( *this, x );
+    }
+
+  bool  zval::dump::operator==( const dump& v ) const
+    {
+      auto  mytype = get_type();
+
+      if ( mytype != v.get_type() )
+        return false;
+
+      switch ( mytype )
+      {
+        case z_char:      return *get_char() == *v.get_char();
+        case z_byte:      return *get_byte() == *v.get_byte();
+        case z_int16:     return *get_int16() == *v.get_int16();
+        case z_int32:     return *get_int32() == *v.get_int32();
+        case z_int64:     return *get_int64() == *v.get_int64();
+        case z_word16:    return *get_word16() == *v.get_word16();
+        case z_word32:    return *get_word32() == *v.get_word32();
+        case z_word64:    return *get_word64() == *v.get_word64();
+        case z_float:     return *get_float() == *v.get_float();
+        case z_double:    return *get_double() == *v.get_double();
+        case z_charstr:   return *get_charstr() == *v.get_charstr();
+        case z_widestr:   return *get_widestr() == *v.get_widestr();
+        case z_uuid:      return *get_uuid() == *v.get_uuid();
+        case z_zmap:      return *get_zmap() == *v.get_zmap();
+
+        case z_array_char:      return *get_array_char() == *v.get_array_char();
+        case z_array_byte:      return *get_array_byte() == *v.get_array_byte();
+        case z_array_int16:     return *get_array_int16() == *v.get_array_int16();
+        case z_array_int32:     return *get_array_int32() == *v.get_array_int32();
+        case z_array_int64:     return *get_array_int64() == *v.get_array_int64();
+        case z_array_word16:    return *get_array_word16() == *v.get_array_word16();
+        case z_array_word32:    return *get_array_word32() == *v.get_array_word32();
+        case z_array_word64:    return *get_array_word64() == *v.get_array_word64();
+        case z_array_float:     return *get_array_float() == *v.get_array_float();
+        case z_array_double:    return *get_array_double() == *v.get_array_double();
+        case z_array_charstr:   return *get_array_charstr() == *v.get_array_charstr();
+        case z_array_widestr:   return *get_array_widestr() == *v.get_array_widestr();
+        case z_array_uuid:      return *get_array_uuid() == *v.get_array_uuid();
+        case z_array_zval:      return *get_array_zval() == *v.get_array_zval();
+        case z_array_zmap:      return *get_array_zmap() == *v.get_array_zmap();
+
+        default:  return false;
+      }
+    }
+
+  zval::dump::operator zval() const
+    {
+      if ( pvalue == nullptr )
+      {
+        zval v;
+
+        if ( source != nullptr )
+          v.FetchFrom( source );
+
+        return v;
+      }
+      return *pvalue;
+    }
 }
