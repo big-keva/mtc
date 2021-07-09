@@ -55,11 +55,13 @@ SOFTWARE.
 # include <condition_variable>
 # include <climits>
 # include <thread>
+# include <shared_mutex>
 # include <mutex>
 
 namespace mtc
 {
 
+# if 0
   class recursive_shared_mutex
   {
     struct wait_variable: protected std::condition_variable_any
@@ -96,6 +98,10 @@ namespace mtc
     void    unlock_shared();
 
   };
+
+# else
+  using recursive_shared_mutex = std::shared_timed_mutex;
+# endif   // 0
 
   template <class Mtx>
   class shared_lock
@@ -174,6 +180,8 @@ namespace mtc
 
 // recursive_shared_mutex implementation
 
+# if 0
+
   inline
   void  recursive_shared_mutex::lock()
     {
@@ -242,6 +250,7 @@ namespace mtc
       if ( interlocked( make_unique_lock( dataLock ), [this](){  return --nReaders == 0;  } ) )
         w_Events.notify_all();
     }
+# endif   // 0
 
 }
 
