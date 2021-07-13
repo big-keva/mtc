@@ -55,53 +55,72 @@ SOFTWARE.
 # include <condition_variable>
 # include <climits>
 # include <thread>
-# include <shared_mutex>
+# include <atomic>
 # include <mutex>
 
 namespace mtc
 {
 
-# if 0
   class recursive_shared_mutex
   {
-    struct wait_variable: protected std::condition_variable_any
+    class wait_event: protected std::condition_variable
     {
-      template <class _Predicate>
-      void  wait( std::mutex& x, _Predicate p )
+      std::mutex  _m;
+
+    public:
+      void  wait()
       {
-        std::unique_lock<std::mutex>  lock( x );
-        std::condition_variable_any::wait( lock, p );
+        std::unique_lock<std::mutex>  wxlock( _m );
+
+        return condition_variable::wait( wxlock );
       }
-      void notify_all() {  std::condition_variable_any::notify_all();  }
-      void notify_one() {  std::condition_variable_any::notify_one();  }
+      void  notify_all()  {  return condition_variable::notify_all();      }
+      void  notify_one()  {  return condition_variable::notify_one();      }
     };
 
-    std::mutex      dataLock;
-    std::mutex      waitLock;
-    wait_variable   w_Events;
-    int             nReaders = 0;
-    int             nWriters = 0;
-    std::thread::id writerId;
-
-  public:     // constructors
-    recursive_shared_mutex()  {}
     recursive_shared_mutex( const recursive_shared_mutex& ) = delete;
+    recursive_shared_mutex( recursive_shared_mutex&& ) = delete;
+    recursive_shared_mutex& operator = ( const recursive_shared_mutex& ) = delete;
+    recursive_shared_mutex& operator = ( recursive_shared_mutex&& ) = delete;
 
-  public:     // exclusive locking
-    void    lock();
-    bool    try_lock();
-    void    unlock();
+  public:
+    recursive_shared_mutex(): mtxState( 0 ) {}
 
-  public:     // shared locking
-    void    lock_shared();
-    bool    try_lock_shared();
-    void    unlock_shared();
+  public:
+    void  lock();
+    void  unlock();
+    void  lock_shared();
+    void  unlock_shared();
+//    void  shared_to_write();
 
+  private:
+    // bit  0 - 20: readers
+    // bit 21 - 41: waiting readers
+    // bit 42 - 62: waiting writers
+    // bit      61: writer-flag
+    std::atomic<uint64_t>   mtxState;
+    std::thread::id         writerId;
+    std::uint32_t           nRecurse;
+
+    wait_event              cvReader;
+    wait_event              cvWriter;
+
+    static const unsigned WAITING_READERS_BASE  = 21;
+    static const unsigned WAITING_WRITERS_BASE  = 42;
+    static const unsigned WRITER_FLAG_BASE      = 63;
+
+    static const uint64_t MASK21                = 0x1FFFFFu;
+    static const uint64_t READERS_MASK          = MASK21;
+
+    static const uint64_t WAITING_READERS_MASK  = MASK21 << WAITING_READERS_BASE;
+    static const uint64_t WAITING_WRITERS_MASK  = MASK21 << WAITING_WRITERS_BASE;
+
+    static const uint64_t WRITER_FLAG_MASK      = (uint64_t)1 << WRITER_FLAG_BASE;
+
+    static const uint64_t READER_VALUE          = (uint64_t)1;
+    static const uint64_t WAITING_READERS_VALUE = (uint64_t)1 << WAITING_READERS_BASE;
+    static const uint64_t WAITING_WRITERS_VALUE = (uint64_t)1 << WAITING_WRITERS_BASE;
   };
-
-# else
-  using recursive_shared_mutex = std::shared_timed_mutex;
-# endif   // 0
 
   template <class Mtx>
   class shared_lock
@@ -180,77 +199,118 @@ namespace mtc
 
 // recursive_shared_mutex implementation
 
-# if 0
-
-  inline
-  void  recursive_shared_mutex::lock()
-    {
-      auto  thread = std::this_thread::get_id();
-
-      interlocked( make_unique_lock( dataLock ),  // force readers to wait infinite - tanks ride
-        [this](){  ++nWriters;  } );
-
-      w_Events.wait( waitLock, [&](){  return interlocked( make_unique_lock( dataLock ), [&]()
-        {
-          if ( nWriters > 1 && thread == writerId )   // рекурсивный вызов
-            return true;
-
-          return nReaders == 0 && nWriters == 1 ? (writerId = thread), true : false;
-        } );  } );
-    }
-
-  inline
-  bool  recursive_shared_mutex::try_lock()
-    {
-      auto  thread = std::this_thread::get_id();
-      auto  x_lock = make_unique_lock( dataLock );
-
-      if ( (nReaders == 0 && nWriters == 0) || (nReaders == 0 && writerId == thread) )
-        return ++nWriters, writerId = thread, true;
-      return false;
-    }
-
-  inline
-  void  recursive_shared_mutex::unlock()
-    {
-      interlocked( make_unique_lock( dataLock ), [this]()
-        {  if ( --nWriters == 0 ) writerId = std::thread::id();  } );
-      w_Events.notify_all();
-    }
-
   inline
   void  recursive_shared_mutex::lock_shared()
+  {
+    for ( auto uState = mtxState.load( std::memory_order_relaxed ); ; )
     {
-      auto  thread = std::this_thread::get_id();
-
-      w_Events.wait( waitLock, [&](){  return interlocked( make_unique_lock( dataLock ), [&]()
-        {
-          if ( nWriters == 0 )
-            return ++nReaders, true;
-          if ( thread == writerId )
-            return ++nReaders, true;
-          return false;
-        } );  } );
+      if ( (uState & WRITER_FLAG_MASK) == 0 )
+      {
+        if ( mtxState.compare_exchange_weak( uState, uState + READER_VALUE, std::memory_order_acquire, std::memory_order_relaxed ) )
+          return;
+      }
+        else
+      if ( mtxState.compare_exchange_weak( uState, uState + WAITING_READERS_VALUE, std::memory_order_relaxed, std::memory_order_relaxed ) )
+        return (void)cvReader.wait();
     }
-
-  inline
-  bool  recursive_shared_mutex::try_lock_shared()
-    {
-      auto  thread = std::this_thread::get_id();
-      auto  x_lock = make_unique_lock( dataLock );
-
-      if ( (nReaders != 0 || nWriters == 0) || (nWriters != 0 && thread == writerId) )
-        return ++nReaders, true;
-      return false;
-    }
+  }
 
   inline
   void  recursive_shared_mutex::unlock_shared()
+  {
+    for ( auto uState = mtxState.load( std::memory_order_relaxed ); ; )
     {
-      if ( interlocked( make_unique_lock( dataLock ), [this](){  return --nReaders == 0;  } ) )
-        w_Events.notify_all();
+      if ( (uState & READERS_MASK) != READER_VALUE || (uState & WAITING_WRITERS_MASK) == 0 )
+      {
+        if ( mtxState.compare_exchange_weak( uState, uState - READER_VALUE, std::memory_order_relaxed, std::memory_order_relaxed ) )
+          return;
+      }
+        else
+      {
+        auto  uValue = (uState - READER_VALUE - WAITING_WRITERS_VALUE) | WRITER_FLAG_MASK;
+
+        if ( mtxState.compare_exchange_weak( uState, uValue, std::memory_order_relaxed, std::memory_order_relaxed ) )
+          return (void)cvWriter.notify_one();
+      }
     }
-# endif   // 0
+  }
+
+  inline
+  void  recursive_shared_mutex::lock()
+  {
+    auto  uState = mtxState.load( std::memory_order_acquire );
+
+    if ( (uState & WRITER_FLAG_MASK) && writerId == std::this_thread::get_id() )
+      return (void)++nRecurse;
+
+    for ( ; ; )
+    {
+      if ( (uState & (WRITER_FLAG_MASK | READERS_MASK)) == 0 )
+      {
+        if ( mtxState.compare_exchange_weak( uState, uState | WRITER_FLAG_MASK, std::memory_order_acquire, std::memory_order_relaxed ) )
+          return (void)(writerId = std::this_thread::get_id(), nRecurse = 0);
+      }
+        else
+      if ( mtxState.compare_exchange_weak( uState, uState + WAITING_WRITERS_VALUE, std::memory_order_relaxed, std::memory_order_relaxed ) )
+      {
+        cvWriter.wait();
+        writerId = std::this_thread::get_id();
+        nRecurse = 0;
+        return;
+      }
+    }
+  }
+
+  inline
+  void  recursive_shared_mutex::unlock()
+  {
+    auto  uState = mtxState.load( std::memory_order_relaxed );
+
+    if ( (uState & WRITER_FLAG_MASK) != 0 && nRecurse != 0 && writerId == std::this_thread::get_id() )
+      return (void)--nRecurse;
+
+    writerId = std::thread::id();
+
+    for ( ; ; )
+    {
+      if ( (uState & WAITING_WRITERS_MASK) != 0 )
+      {
+        auto  uValue = uState - WAITING_WRITERS_VALUE;
+
+        if ( mtxState.compare_exchange_weak( uState, uValue, std::memory_order_release, std::memory_order_relaxed ) )
+          return (void)cvWriter.notify_one();
+        else continue;
+      }
+      if ( (uState & WAITING_READERS_MASK) != 0 )
+      {
+        auto  wakeups = (uState & WAITING_READERS_MASK) >> WAITING_READERS_BASE;
+        auto  uChange = (uState & ~WRITER_FLAG_MASK) - (uState & WAITING_READERS_MASK) + wakeups;
+
+        if ( mtxState.compare_exchange_weak( uState, uChange, std::memory_order_release, std::memory_order_relaxed ) )
+          return (void)cvReader.notify_all();
+        else continue;
+      }
+      if ( mtxState.compare_exchange_weak( uState, 0, std::memory_order_release, std::memory_order_relaxed ) )
+        return;
+    }
+  }
+/*
+  inline
+  void  recursive_shared_mutex::shared_to_write()
+  {
+    for ( auto uState = mtxState.load( std::memory_order_relaxed ); ; )
+    {
+      if ( (uState & READERS_MASK) == READER_VALUE )
+      {
+        if ( mtxState.compare_exchange_weak( uState, (uState - READER_VALUE) | WRITER_FLAG_MASK, std::memory_order_acquire, std::memory_order_relaxed ) )
+          return (void)(writerId = std::this_thread::get_id(), nRecurse = 0);
+      }
+        else
+      if ( mtxState.compare_exchange_weak( uState, uState - READER_VALUE + WAITING_WRITERS_VALUE, std::memory_order_relaxed, std::memory_order_relaxed ) )
+        return (void)(cvWriter.wait(), writerId = std::this_thread::get_id(), nRecurse = 0);
+    }
+  }
+*/
 
 }
 
