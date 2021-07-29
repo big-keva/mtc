@@ -344,7 +344,7 @@ namespace mtc
   auto  config::has_key( const zmap::key& key ) const -> bool
   {  return cfgmap.get( key ) != nullptr;  }
 
-  auto  config::Open( const char* path ) -> config
+  auto  config::Open( const char* path, const zmap& revive ) -> config
   {
     file    lpfile = fopen( path, "rb" );
     zmap    getcfg;
@@ -358,7 +358,7 @@ namespace mtc
 
     try
     {
-      json::Parse( lpfile.ptr(), getcfg );
+      json::Parse( lpfile.ptr(), getcfg, revive );
     }
     catch ( const json::parse::error& jx )
     {
@@ -372,8 +372,8 @@ namespace mtc
     return std::move( config( std::move( getcfg ), std::move( charstr( szpath ) ) ) );
   }
 
-  auto  config::Open( const charstr& path ) -> config
-  {  return std::move( Open( path.c_str() ) );  }
+  auto  config::Open( const charstr& path, const zmap& revive ) -> config
+  {  return std::move( Open( path.c_str(), revive ) );  }
 
   auto  config::Load( const char* source, const char* path ) -> config
   {

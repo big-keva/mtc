@@ -73,8 +73,8 @@ namespace mtc {
     auto  has_key     ( const zmap::key& ) const -> bool;
 
   public:     // loading
-    static  auto  Open( const char* ) -> config;
-    static  auto  Open( const charstr& ) -> config;
+    static  auto  Open( const char*, const zmap& revive = {} ) -> config;
+    static  auto  Open( const charstr&, const zmap& revive = {} ) -> config;
     static  auto  Load( const char* json, const char* path = nullptr ) -> config;
     static  auto  Load( const charstr& json, const std::string& path = std::string() ) -> config;
 

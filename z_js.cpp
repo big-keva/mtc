@@ -625,11 +625,18 @@ namespace parse {
 
       if ( revive != nullptr )
       {
-        if ( revive->get_type() == zval::z_word16 )     v_type = *revive->get_word16(); else
-        if ( revive->get_type() == zval::z_word32 )     v_type = *revive->get_word32(); else
-        if ( revive->get_type() == zval::z_charstr )    v_type = map_type( *revive->get_charstr() );  else
-        if ( revive->get_type() == zval::z_zmap )       z_data = revive->get_zmap();    else
-        if ( revive->get_type() == zval::z_array_zmap ) z_data = revive->get_zmap();
+        switch ( revive->get_type() )
+        {
+          case zval::z_char:        v_type = *revive->get_char();  break;
+          case zval::z_byte:        v_type = *revive->get_byte();  break;
+          case zval::z_int16:       v_type = *revive->get_int16();  break;
+          case zval::z_word16:      v_type = *revive->get_word16();  break;
+          case zval::z_int32:       v_type = *revive->get_int32();  break;
+          case zval::z_word32:      v_type = *revive->get_word32();  break;
+          case zval::z_charstr:     v_type = map_type( *revive->get_charstr() );  break;
+          case zval::z_zmap:
+          case zval::z_array_zmap:  z_data = revive->get_zmap();  break;
+        }
       }
 
       switch ( v_type )

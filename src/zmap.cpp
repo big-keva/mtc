@@ -1,4 +1,5 @@
 # include "../zmap.h"
+# include "../utf.hpp"
 # include "../serialize.h"
 
 namespace mtc
@@ -1194,7 +1195,7 @@ namespace mtc
       if ( psz != nullptr )
         return '"' + std::string( psz ) + '"';
       if ( wsz != nullptr )
-        return std::string( "widestring" );
+        return '"' + utf8::encode( wsz ) + '"';
       return std::to_string( u_k );
     }
 
