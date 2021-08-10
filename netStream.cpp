@@ -1,7 +1,6 @@
 # include "netStream.h"
 # include "netListen.h"
 # include "autoptr.h"
-# include "stdlog.h"
 # include <sys/types.h>
 # include <string.h>
 # include <stdlib.h>
@@ -237,7 +236,7 @@ namespace mtc
         { 
           nerror = Sockets::GetError();
 
-          return log_error( nerror, "recv( ... %u, 0 ) error (%d)!", outend - outptr, nerror ), (word32_t)-1;
+          return (word32_t)-1;
         }
 
       // check for zero byte count
@@ -302,10 +301,10 @@ namespace mtc
     if ( (nerror = connect( sockid, (const sockaddr*)&scaddr, sizeof(scaddr) )) == 0 )
       return Sockets::NonDelay( sockid );
 
-  /*  на платформе _WIN32 типичным возвратом функции является WSAEWOULDBLOCK, */
-  /*  что означает, что коннект пошёл устанавливаться; следует подождать,     */
-  /*  пока для select() с указанным таймаутом не будет выставлен writefds     */
-  /*  как признак успешного завершения, или exceptfds как ошибка              */
+  /*  пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ _WIN32 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ WSAEWOULDBLOCK, */
+  /*  пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ; пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ,     */
+  /*  пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ select() пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ writefds     */
+  /*  пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅ exceptfds пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ              */
     if ( nerror < 0 && Sockets::GetError() == Sockets::E_INPROGRESS )
     {
   # if defined( _MSC_VER )
@@ -319,7 +318,7 @@ namespace mtc
       tbreak.tv_sec   =  msconn / 1000;
       tbreak.tv_usec  = (msconn % 1000) * 1000;
 
-    /*  проверить статус сокета                                             */
+    /*  пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ                                             */
       do  nerror = select( (int)(sockid + 1), nullptr, &wr_fds, &ex_fds, &tbreak );
         while ( nerror < 0 && Sockets::GetError() == Sockets::E_INTERRUPT );
   # else
@@ -333,16 +332,16 @@ namespace mtc
       tbreak.tv_sec   =  msconn / 1000;
       tbreak.tv_usec  = (msconn % 1000) * 1000;
 
-    /*  проверить статус сокета                                             */
+    /*  пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ                                             */
       do  nerror = select( sockid + 1, &rd_fds, &wr_fds, NULL, &tbreak );
         while ( nerror < 0 && Sockets::GetError() == Sockets::E_INTERRUPT );
   # endif  // *NIX
 
-    /*  если возникла ошибка, отработать её                                 */
+    /*  пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ                                 */
       if ( nerror <= 0 )
         return eclose( nerror == 0 ? EAGAIN : ENOENT );
 
-    /*  проверить результат select() - успешно открыт или на фиг            */
+    /*  пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ select() - пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ            */
       return FD_ISSET( sockid, &wr_fds ) ? Sockets::NonDelay( sockid ) : eclose( EFAULT );
     }
       else
