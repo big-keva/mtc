@@ -54,7 +54,6 @@ install(
     serialize.h
     serializex.h
     sort.h
-    stdlog.h
     strptime.h
     stringmap.h
     suballocator.h
@@ -76,5 +75,5 @@ install(
 )
 
 # enable_testing()
-# add_subdirectory(tests)
+add_subdirectory(tests)
 
