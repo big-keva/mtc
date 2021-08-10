@@ -1,4 +1,5 @@
 /*
+/*
 
 The MIT License (MIT)
 
@@ -52,7 +53,6 @@ SOFTWARE.
 # include "../fileStream.h"
 # include "../wcsstr.h"
 # include "../utf.hpp"
-# include <assert.h>
 # include <stdlib.h>
 # include <string.h>
 # include <fcntl.h>
@@ -144,7 +144,7 @@ namespace mtc
         filebuffer* palloc;
 
         if ( (palloc = (filebuffer*)malloc( sizeof(filebuffer) + length - 1 )) == nullptr )
-          return (filebuffer*)error()( std::bad_alloc() );
+          return (filebuffer*)error()( nullptr, std::bad_alloc() );
         return new( palloc ) filebuffer( length );
       }
 
@@ -177,6 +177,7 @@ namespace mtc
   public:     // overridables from IFileStream
     api<IByteBuffer>  MemMap( int64_t, uint32_t ) override;
     bool              SetLen( int64_t ) noexcept override;
+    bool              Sync() override;
 
   public:     // creation
     auto  Open( unsigned ) -> int;
@@ -264,9 +265,8 @@ namespace mtc
     {
       int   nerror = errno;
 
-      error()( file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code %u!",
+      return error()( nerror, file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code %u!",
         stm->FileName(), nerror ) ) );
-      return nerror;
     }
     return 0;
 # endif
@@ -503,6 +503,12 @@ namespace mtc
     handle = INVALID_HANDLE_VALUE;
   }
 
+  template <class error>
+  bool  FileStream<error>::Sync()
+  {
+    return true;
+  }
+
 # else
 
   template <class error>
@@ -571,7 +577,27 @@ namespace mtc
   template <class error>
   bool  FileStream<error>::SetLen( int64_t len ) noexcept
   {
-    return ::ftruncate64( handle, len ) == 0;
+    int   nerror = ::ftruncate64( handle, len );
+
+    if ( nerror != 0 )
+    {
+      return error()( false, file_error( strprintf( "could not ftruncate64( '%s', len ) @" __FILE__ ":%u, "
+        "error code %d (%s)", FileName(), __LINE__, nerror, strerror( nerror ) ) ) );
+    }
+    return true;
+  }
+
+  template <class error>
+  bool  FileStream<error>::Sync()
+  {
+    int   nerror = fdatasync( handle );
+
+    if ( nerror != 0 )
+    {
+      return error()( false, file_error( strprintf( "could not fdatasync( '%s' ) @" __FILE__ ":%u, "
+        "error code %d (%s)", FileName(), __LINE__, nerror, strerror( nerror ) ) ) );
+    }
+    return true;
   }
 
 # endif
@@ -581,14 +607,14 @@ namespace mtc
   */
   struct report_error_no_except
   {
-    template <class except>
-    void* operator ()( const except& )  {   return nullptr;  }
+    template <class result, class except>
+    result  operator ()( result res, const except& )  {   return res;  }
   };
 
   struct report_error_exception
   {
-    template <class except>
-    void* operator ()( const except& x )  {  throw x;  }
+    template <class result, class except>
+    result  operator ()( const result&, const except& x )  {  throw x;  }
   };
 
   template <class error>
@@ -598,13 +624,13 @@ namespace mtc
     int                     nerror;
 
     if ( lpname == nullptr || *lpname == '\0' )
-      return (FileStream<error>*)error()( std::invalid_argument( strprintf( "invalid argument: empty file name @" __FILE__ ":%u", __LINE__ ) ) );
+      return (FileStream<error>*)error()( nullptr, std::invalid_argument( strprintf( "invalid argument: empty file name @" __FILE__ ":%u", __LINE__ ) ) );
 
     if ( (stream = FileStream<error>::Create( lpname )) == nullptr )
-      return (FileStream<error>*)error()( std::bad_alloc() );
+      return (FileStream<error>*)error()( nullptr, std::bad_alloc() );
 
     if ( (nerror = stream->Open( dwmode )) != 0 )
-      return (FileStream<error>*)error()( file_error( strprintf( "could not open file '%s' @" __FILE__ ":%u, error code %d", lpname, __LINE__, nerror ) ) );
+      return (FileStream<error>*)error()( nullptr, file_error( strprintf( "could not open file '%s' @" __FILE__ ":%u, error code %d", lpname, __LINE__, nerror ) ) );
 
     return stream;
   }
