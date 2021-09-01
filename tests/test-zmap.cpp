@@ -28,6 +28,24 @@ auto  CreateDump( const mtc::zval& z ) -> std::vector<char>
   return z.Serialize( stored.data() ), std::move( stored );
 }
 
+void  TestIterators()
+{
+  auto  zmap = mtc::zmap{
+//    { "key1", "value1" },
+//    { "key2", "value2" },
+    { 0U, 3 } };
+
+  for ( auto& it: zmap )
+  {
+    std::string keystr(
+      it.first.is_charstr() ? it.first.to_charstr() :
+      it.first.is_widestr() ? mtc::utf8::encode( it.first.to_widestr() ) : std::to_string( it.first.operator unsigned int() ) + 'U' );
+    std::string valstr = it.second.to_string();
+
+    fprintf( stdout, "%s\t->\t%s\n", keystr.c_str(), valstr.c_str() );
+  }
+}
+
 int main()
 {
   auto  zmap = mtc::zmap{
@@ -363,7 +381,7 @@ int main()
 
     zm["array 3"] = std::vector<double>{ 1.1, 2.2, 3.3 };
 
-    mtc::json::Print( stdout, zm, mtc::json::print::decorated() );
+    fprintf( mtc::json::Print( stdout, zm, mtc::json::print::decorated() ), "\n" );
   }
 
 // Любой zmap можно сериализовать в массив заведомо известного размера, а потом извлечь
@@ -397,6 +415,8 @@ int main()
 
     assert( bc.length == zm.GetBufLen() );
   }
+
+  TestIterators();
 
   return 0;
 }
