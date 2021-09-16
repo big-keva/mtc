@@ -73,7 +73,8 @@ namespace mtc {
       array_view( const std::vector<T>& v ): array_view( v.data(), v.size() ) {}
       const T&  operator[]( size_t i ) const noexcept {  return ptr[i];  }
       const T&  at( size_t i ) const noexcept {  return ptr[i];  }
-      size_t    size() const noexcept {  return len;  }
+      auto    data() const noexcept -> const T* {  return ptr;  }
+      size_t  size() const noexcept {  return len;  }
       auto  begin() noexcept -> const T* {  return ptr;  }
       auto  end() noexcept -> const T* {  return ptr + len;  }
       auto  front() const -> const T&  {  return *ptr;  }
