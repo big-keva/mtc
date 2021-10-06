@@ -415,7 +415,10 @@ namespace mtc
         for ( auto& val: arr )
           out += (to_string( val )+',');
 
-        return out.back() = ']', std::move( out );
+        if ( out.back() == ',' )  out.back() = ']';
+          else out += ']';
+
+        return std::move( out );
       }
 
   public:     // stringize
@@ -709,7 +712,7 @@ namespace mtc
       none = (uint8_t)-1
     };
 
-  protected:
+  public:
     key();
     key( unsigned typ, const uint8_t* buf, size_t len );
 
