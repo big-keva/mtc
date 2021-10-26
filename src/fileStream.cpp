@@ -166,7 +166,7 @@ namespace mtc
     word32_t  Put ( const void*,   word32_t ) noexcept override;
 
   public:     // overridables from IFlatStream
-    int       GetBuf( IByteBuffer**, int64_t, word32_t ) noexcept override;
+    int       GetBuf( IByteBuffer**, int64_t, word32_t )          override;
     word32_t  PosGet(       void*,   int64_t, word32_t ) noexcept override;
     word32_t  PosPut( const void*,   int64_t, word32_t ) noexcept override;
     int64_t   Seek  ( int64_t                          ) noexcept override;
@@ -330,7 +330,7 @@ namespace mtc
   }
 
   template <class error>
-  int       FileStream<error>::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len ) noexcept
+  int       FileStream<error>::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len )
   {
     api<filebuffer> buffer;
 
