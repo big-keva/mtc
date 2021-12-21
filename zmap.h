@@ -418,7 +418,7 @@ namespace mtc
         if ( out.back() == ',' )  out.back() = ']';
           else out += ']';
 
-        return std::move( out );
+        return out;
       }
 
   public:     // stringize
@@ -1572,7 +1572,15 @@ namespace mtc
     auto  operator != ( const iterator_base& it ) const -> bool {  return !(*this == it);  }
 
   protected:
-    using zpos = std::pair<z_iterator, z_iterator>;
+    struct zpos
+    {
+      z_iterator  beg;
+      z_iterator  end;
+
+    public:
+      bool  empty() const {  return beg == end;  }
+      bool  operator == ( const zpos& z ) const {  return beg == z.beg && end == z.end;  }
+    };
 
     auto  init() -> iterator_base&;
     auto  find() -> iterator_base&;
@@ -1886,7 +1894,7 @@ namespace mtc
     {
       if ( beg != end )
       {
-        zstack.push_back( std::make_pair( beg, end ) );
+        zstack.push_back( { beg, end } );
         keybuf.push_back( beg->chnode );
         find();
       }
@@ -1940,7 +1948,7 @@ namespace mtc
       zvalue.~value();
 
       if ( zstack.size() != 0 )
-        new( &zvalue )  value( key( last().first->keyset, (const uint8_t*)keybuf.data(), keybuf.size() ), last().first->pvalue.get() );
+        new( &zvalue )  value( key( last().beg->keyset, (const uint8_t*)keybuf.data(), keybuf.size() ), last().beg->pvalue.get() );
       else
         new( &zvalue )  value();
 
@@ -1952,10 +1960,8 @@ namespace mtc
     {
       assert( zstack.size() != 0 );
 
-      while ( last().first->pvalue == nullptr && last().first->size() != 0 )
-        down( last().first++ );
-
-      assert( last().first->pvalue != nullptr );
+      while ( !last().empty() && !last().beg->empty() && last().beg->pvalue == nullptr )
+        down( last().beg++ );
 
       return init();
     }
@@ -1980,30 +1986,30 @@ namespace mtc
       // если есть вложенные элементы, опуститься по дереву максимально глубоко, до первого элемента,
       // у которого есть значение pvalue; если такое значение существует, закончить поиск, иначе
       // продолжить анализ вариантов в новом цикле.
-        if ( last().first->size() != 0 )
+        if ( !last().empty() && !last().beg->empty() )
         {
-          do  down( last().first++ );
-            while ( last().first->pvalue == nullptr && last().first->size() != 0 );
+          do  down( last().beg++ );
+            while ( !last().empty() && !last().beg->empty() && last().beg->pvalue == nullptr );
 
-          if ( last().first->pvalue != nullptr )  return init();
+          if ( !last().empty() && last().beg->pvalue != nullptr )  return init();
             else continue;
         }
 
       // вложенных в текущий элементов нет;
-        assert( last().first->size() == 0 );
+        assert( last().empty() || last().beg->empty() );
 
       // проверить, не последний ли это был элемент на данном уровне и, если он был последним, откатиться
       // вверх по дереву до первого не-последнего элемента
-        if ( ++last().first == last().second )
+        if ( last().empty() || ++last().beg == last().end )
         {
           do  back();
-            while ( zstack.size() != 0 && last().first == last().second );
+            while ( zstack.size() != 0 && last().empty() );
 
           if ( zstack.size() != 0 )
           {
-            keybuf.back() = last().first->chnode;
+            keybuf.back() = last().beg->chnode;
 
-            if ( last().first->pvalue != nullptr )
+            if ( last().beg->pvalue != nullptr )
               return init();
           }
 
@@ -2012,9 +2018,9 @@ namespace mtc
 
       // элемент был не последним; заместить последний символ поискового ключа на текущий и повторить
       // алгоритм с возможным заходом по дереву
-        keybuf.back() = last().first->chnode;
+        keybuf.back() = last().beg->chnode;
 
-        if ( last().first->pvalue != nullptr )
+        if ( last().beg->pvalue != nullptr )
           return init();
       }
       return init();
@@ -2034,7 +2040,7 @@ namespace mtc
 
       assert( beg != end );
 
-      zstack.push_back( std::make_pair( beg, end ) );
+      zstack.push_back( { beg, end } );
       keybuf.push_back( beg->chnode );
     }
 
