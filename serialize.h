@@ -407,16 +407,10 @@ S*  FetchFrom( S* s, std::basic_string<C>& o )
 {
   int   l;
 
-  o.clear();
+  if ( (s = ::FetchFrom( s, l )) != nullptr )
+    o.resize( l );
 
-  if ( (s = ::FetchFrom( s, l )) == nullptr )
-    return nullptr;
-
-  o.reserve( (l + 0x10) & ~0x0f );
-  o.resize( l );
-  o[l] = (C)0;
-
-  if ( (s = ::FetchFrom( s, (C*)o.c_str(), l * sizeof(C) )) == nullptr )
+  if ( s == nullptr || (s = ::FetchFrom( s, (C*)o.c_str(), l * sizeof(C) )) == nullptr )
     o.clear();
 
   return s;
