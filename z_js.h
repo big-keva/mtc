@@ -301,10 +301,10 @@ namespace json {
             o = ::Serialize( Print( ::Serialize( subdec.Shift( o ), '"' ), (unsigned)beg->first ), '"' );
             break;
           case zmap::key::cstr:
-            o = print::charstr( subdec.Shift( o ), (const char*)beg->first );
+            o = print::charstr( subdec.Shift( o ), (const char*)beg->first, beg->first.size() );
             break;
           case zmap::key::wstr:
-            o = print::widestr( subdec.Shift( o ), (const widechar*)beg->first );
+            o = print::widestr( subdec.Shift( o ), (const widechar*)beg->first, beg->first.size() / sizeof(widechar) );
             break;
         }
 
