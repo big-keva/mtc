@@ -2004,24 +2004,17 @@ namespace mtc
         {
           do  back();
             while ( zstack.size() != 0 && last().empty() );
-
-          if ( zstack.size() != 0 )
-          {
-            keybuf.back() = last().beg->chnode;
-
-            if ( last().beg->pvalue != nullptr )
-              return init();
-          }
-
-          continue;
         }
 
       // элемент был не последним; заместить последний символ поискового ключа на текущий и повторить
       // алгоритм с возможным заходом по дереву
-        keybuf.back() = last().beg->chnode;
+        if ( zstack.size() != 0 )
+        {
+          keybuf.back() = last().beg->chnode;
 
-        if ( last().beg->pvalue != nullptr )
-          return init();
+          if ( last().beg->pvalue != nullptr )
+            return init();
+        }
       }
       return init();
     }
