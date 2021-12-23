@@ -31,8 +31,8 @@ auto  CreateDump( const mtc::zval& z ) -> std::vector<char>
 void  TestIterators()
 {
   auto  zmap = mtc::zmap{
-//    { "key1", "value1" },
-//    { "key2", "value2" },
+    { "key1", "value1" },
+    { "key2", "value2" },
     { 0U, 3 } };
 
   for ( auto& it: zmap )
@@ -66,7 +66,7 @@ int main()
   fprintf( mtc::json::Print( stdout, dump, mtc::json::print::decorated() ),
     "\n" );
 
-    assert( dump == zmap );
+  assert( dump == zmap );
 
   {
     auto  zv = mtc::zval( 1 );
@@ -252,6 +252,7 @@ int main()
 // Может быть отображён в json.
   {
     mtc::zmap zm;
+    mtc::zmap z2;
 
     zm.set_char( "char", 'a' );
     zm.set_byte( "byte (unsigned char)", 0xb );
@@ -277,7 +278,28 @@ int main()
     zm.set_array_double( "double array", { 1.0, 2.0, 3.0 } );
     zm.set_array_charstr( "string array", { "string", "value" } );
 
+    for ( int i = 0; i != 1000; ++i )
+    {
+      union
+      {
+        uint64_t  u64value;
+        uint32_t  u32value[2];
+        char      strvalue[8];
+      } thekey;
+
+      thekey.u32value[0] = rand();
+      thekey.u32value[1] = rand();
+
+      zm.set_word32( mtc::zmap::key( thekey.strvalue, sizeof(thekey.strvalue) ), thekey.u32value[0] );
+    }
+
     mtc::json::Print( stdout, zm, mtc::json::print::decorated() );
+
+    std::vector<char> serial( zm.GetBufLen() );
+      zm.Serialize( serial.data() );
+      z2.FetchFrom( (const char*)serial.data() );
+
+    assert( zm == z2 );
   }
 
 // Возможна инициализация предварительно размещённых полей zmap.
@@ -405,6 +427,7 @@ int main()
     mtc::zmap zm{
       { "test", 1 },
       { "string", "s" },
+      { std::string( "1\x00\x03\x71", 4 ), std::string( "1\x00\x31\x71", 4 ) },
       { "array", mtc::zmap{
         { 3, 4 },
         { 1, 2 },
@@ -414,6 +437,8 @@ int main()
     zm.Serialize( &bc );
 
     assert( bc.length == zm.GetBufLen() );
+
+    fprintf( mtc::json::Print( stdout, zm, mtc::json::print::decorated() ), "\n" );
   }
 
   TestIterators();
