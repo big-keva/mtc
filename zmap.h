@@ -1059,7 +1059,7 @@ namespace mtc
     void  delete_it()
       {
         if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
-          delete pvalue;
+          pvalue->~T(), delete [] (char*)pvalue;
       }
   public:
     store_t(): source( nullptr ), pvalue( nullptr ) {}
@@ -1568,8 +1568,8 @@ namespace mtc
     auto  operator -- () -> const iterator_base&;
     auto  operator ++ ( int ) -> iterator_base;
     auto  operator -- ( int ) -> iterator_base;
-    auto  operator == ( const iterator_base& it ) const -> bool;
-    auto  operator != ( const iterator_base& it ) const -> bool {  return !(*this == it);  }
+    bool  operator == ( const iterator_base& it ) const;
+    bool  operator != ( const iterator_base& it ) const {  return !(*this == it);  }
 
   protected:
     struct zpos
@@ -1588,8 +1588,8 @@ namespace mtc
     auto  prev() -> iterator_base&;
     void  down( z_iterator );
     void  back();
-    auto  last()       ->       zpos&;
-    auto  last() const -> const zpos&;
+    auto  last()       ->       zpos& {  return zstack.back();  }
+    auto  last() const -> const zpos& {  return zstack.back();  }
 
   protected:
     value             zvalue;
@@ -2050,12 +2050,6 @@ namespace mtc
       zstack.pop_back();
       keybuf.pop_back();
     }
-
-  template <class value, class z_iterator>
-  auto  zmap::iterator_base<value, z_iterator>::last() -> zpos& {  return zstack.back();  }
-
-  template <class value, class z_iterator>
-  auto  zmap::iterator_base<value, z_iterator>::last() const -> const zpos& {  return zstack.back();  }
 
   /* zmap::place_t implementation */
 

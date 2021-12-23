@@ -1124,13 +1124,13 @@ namespace mtc
   zval::dump::~dump()
     {
       if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-        delete pvalue;
+        pvalue->~zval(), delete [] (char*)pvalue;
     }
 
   auto  zval::dump::operator = ( const dump& s ) -> dump&
     {
       if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-        delete pvalue;
+        pvalue->~zval(), delete [] (char*)pvalue;
 
       source = s.source;
       pvalue = s.pvalue;
@@ -1143,7 +1143,7 @@ namespace mtc
   auto  zval::dump::operator = ( const zval& z ) -> dump&
     {
       if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-        delete pvalue;
+        pvalue->~zval(), delete [] (char*)pvalue;
 
       source = nullptr;
         *(int*)(1 + new( pvalue = (zval*)new char[sizeof(zval) + sizeof(int)] ) zval( z )) = 1;
@@ -1153,7 +1153,7 @@ namespace mtc
   auto  zval::dump::operator = ( const zval* z ) -> dump&
     {
       if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-        delete pvalue;
+        pvalue->~zval(), delete [] (char*)pvalue;
 
       return source = (const char*)-1, pvalue = (zval*)z, *this;
     }
