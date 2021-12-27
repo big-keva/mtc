@@ -444,7 +444,7 @@ namespace mtc
           case zval::z_array_widestr: return compare::test( *a.get_array_widestr(), b );
           case zval::z_array_zval:    return compare::test( *a.get_array_zval(), b );
           case zval::z_array_zmap:    return compare::test( *a.get_array_zmap(), b );
-          case zval::z_array_uuid:    return compare::test( *a.get_uuid(), b );
+          case zval::z_array_uuid:    return compare::test( *a.get_array_uuid(), b );
           case zval::z_untyped:       return 0x00;
           default:                    break;
         }
@@ -1129,14 +1129,17 @@ namespace mtc
 
   auto  zval::dump::operator = ( const dump& s ) -> dump&
     {
-      if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-        pvalue->~zval(), delete [] (char*)pvalue;
+      if ( this != &s )
+      {
+        if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
+          pvalue->~zval(), delete [] (char*)pvalue;
 
-      source = s.source;
-      pvalue = s.pvalue;
+        source = s.source;
+        pvalue = s.pvalue;
 
-      if ( source == nullptr && pvalue != nullptr )
-        ++*(int*)(pvalue + 1);
+        if ( source == nullptr && pvalue != nullptr )
+          ++*(int*)(pvalue + 1);
+      }
       return *this;
     }
 

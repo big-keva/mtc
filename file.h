@@ -68,7 +68,16 @@ namespace mtc
     file( file&& s ):
       f( s.f ) {  s.f = nullptr;  }
     file& operator = ( file&& in )
-      {  if ( f ) fclose( f );  f = in.f;  in.f = nullptr;  return *this;  }
+      {
+        if ( this != &in )
+        {
+          if ( f )
+            fclose( f );
+          f = in.f,
+            in.f = nullptr;
+        }
+        return *this;
+      }
    ~file()
       {  if ( f ) fclose( f );  }
 

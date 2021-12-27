@@ -133,14 +133,17 @@ namespace mtc
 
   auto  zmap::dump::operator = ( const dump& d ) -> dump&
     {
-      if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
-        pvalue->~zmap(), delete [] (char*)pvalue;
+      if ( this != &d )
+      {
+        if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
+          pvalue->~zmap(), delete [] (char*)pvalue;
 
-      source = d.source;
-      pvalue = d.pvalue;
+        source = d.source;
+        pvalue = d.pvalue;
 
-      if ( pvalue != nullptr && source != (const char*)-1 )
-        ++*(int*)(1 + pvalue);
+        if ( pvalue != nullptr && source != (const char*)-1 )
+          ++*(int*)(1 + pvalue);
+      }
 
       return *this;
     }
@@ -824,9 +827,6 @@ namespace mtc
   /*
     zmap implementation
   */
-
-  zmap::zmap()
-    {}
 
   zmap::zmap( zmap&& z ): p_data( z.p_data )
     {  z.p_data = nullptr;  }

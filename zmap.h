@@ -475,7 +475,7 @@ namespace mtc
     auto  fragment_len( word32_t u ) -> size_t {  assert( (u & 0x0400) != 0 );  return (u & 0x1ff) | ((u >> 2) & ~0x1ff);  }
 
   public:
-    zmap();
+    zmap() = default;
     zmap( zmap&& );
     zmap( const zmap& );
     zmap( const std::initializer_list<std::pair<key, zval>>& );
@@ -1261,7 +1261,7 @@ namespace mtc
       else return ::FetchFrom( first, el ), std::move( el );
   }
 
-  inline  std::string to_string( const zval& z ) {  return std::move( z.to_string() );  }
+  inline  std::string to_string( const zval& z ) {  return z.to_string();  }
           std::string to_string( const zmap::key& );
 
   // zval implementation
@@ -1557,7 +1557,7 @@ namespace mtc
     iterator_base( z_iterator beg, z_iterator end );
 
   public:
-    iterator_base();
+    iterator_base() = default;
     iterator_base( iterator_base&& );
     iterator_base( const iterator_base& );
 
@@ -1874,10 +1874,6 @@ namespace mtc
   }
 
   /* zmap::iterator_base inline implementation */
-
-  template <class value, class z_iterator>
-  zmap::iterator_base<value, z_iterator>::iterator_base()
-    {}
 
   template <class value, class z_iterator>
   zmap::iterator_base<value, z_iterator>::iterator_base( iterator_base&& it ):

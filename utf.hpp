@@ -373,7 +373,7 @@ namespace mtc {
     typedef string_t  res_type;
 
   public:
-    string() {}
+    string() = default;
     string( string&& s ): string_t( std::move( s ) ) {}
 
   public:
@@ -440,7 +440,7 @@ namespace mtc {
     typedef string_t  res_type;
 
   public:
-    string() {}
+    string() = default;
     string( string&& s ): string_t( std::move( s ) ) {}
 
   public:
@@ -457,7 +457,7 @@ namespace mtc {
   public:
     input( const chartype*, size_t );
     input( const string_t& s ): src( s.c_str() ), end( s.c_str() + s.length() ) {}
-    input( const input& in ): src( in.src ) {}
+    input( const input& in ): src( in.src ), end( in.end ) {}
 
   public:
     bool  get_char( uint32_t& uch ) {  return src != end ? (uch = *src++, true) : false;  }
@@ -507,7 +507,7 @@ namespace mtc {
     typedef string_t  res_type;
 
   public:
-    string() {}
+    string() = default;
     string( string&& s ): string_t( std::move( s ) ) {}
 
   public:

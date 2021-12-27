@@ -228,10 +228,13 @@ namespace fs {
 
   auto  directory::string::operator = ( const string& s ) -> string&
   {
-    if ( data != nullptr && --data->refcnt == 0 )
-      delete data;
-    if ( (data = s.data) != nullptr )
-      ++data->refcnt;
+    if ( this != &s )
+    {
+      if ( data != nullptr && --data->refcnt == 0 )
+        delete data;
+      if ( (data = s.data) != nullptr )
+        ++data->refcnt;
+    }
     return *this;
   }
 
@@ -291,9 +294,12 @@ namespace fs {
 
   auto  directory::operator = ( directory&& dir ) -> directory&
   {
-    if ( data != nullptr && --data->refcnt == 0 )
-      delete data;
-    data = dir.data;  dir.data = nullptr;
+    if ( this != &dir )
+    {
+      if ( data != nullptr && --data->refcnt == 0 )
+        delete data;
+      data = dir.data;  dir.data = nullptr;
+    }
     return *this;
   }
     
