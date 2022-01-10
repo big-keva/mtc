@@ -74,7 +74,7 @@ namespace patricia  {
     size_t                len;
 
   public:     // construction
-                              key();
+    key();
     template <class chartype> key( const chartype*, size_t = (size_t)-1 );
     template <class chartype> key( const std::basic_string<chartype>& );
 
@@ -85,14 +85,18 @@ namespace patricia  {
     auto    begin() const -> const unsigned char*   {  return getptr();  }
     auto    end()   const -> const unsigned char*   {  return getptr() + getlen();  }
 
+
   public:     // serialization
     size_t  GetBufLen(      ) const {  return ::GetBufLen( len ) + len;  }
     template <class O>
     O*      Serialize( O* o ) const {  return ::Serialize( ::Serialize( o, len ), ptr, len );  }
 
   public:     // compare
-    bool  operator == ( const key& k ) const  {  return len == k.len && (ptr == k.ptr || std::equal( ptr, ptr + len, k.ptr ));  }
-    bool  operator != ( const key& k ) const  {  return !(*this == k);  }
+    int     compare( const key& ) const;
+
+    bool    operator <  ( const key& k ) const  {  return compare( k ) < 0;  }
+    bool    operator == ( const key& k ) const  {  return compare( k ) == 0;  }
+    bool    operator != ( const key& k ) const  {  return !(*this == k);  }
 
   };
 
@@ -204,9 +208,7 @@ namespace patricia  {
 
 // key implementation
 
-  inline
-  key::key(): ptr( nullptr ), len( 0 )
-    {}
+  inline  key::key(): ptr( nullptr ), len( 0 )  {}
 
   template <class chartype>
   key::key( const chartype* s, size_t l ): ptr( (const unsigned char*)s ), len( 0 )
@@ -217,8 +219,17 @@ namespace patricia  {
     }
 
   template <class chartype>
-  key::key( const std::basic_string<chartype>& s ): ptr( (const unsigned char*)s.data() ), len( sizeof(chartype) * s.size() )
-    {}
+  key::key( const std::basic_string<chartype>& s ):
+    ptr( (const unsigned char*)s.data() ), len( sizeof(chartype) * s.size() ) {}
+
+  inline int key::compare( const key& k ) const
+    {
+      auto  l1 = getlen();
+      auto  l2 = k.getlen();
+      auto  rc = memcmp( getptr(), k.getptr(), std::min( l1, l2 ) );
+
+      return rc != 0 ? rc : l1 - l2;
+    }
 
   template <class V = nothing>
   class tree
@@ -575,7 +586,7 @@ namespace patricia  {
 
     inline  auto  tape_t::to_tail( size_t l ) -> tail_t
     {
-      return (void)l, tail_t( *this );
+      (void)l;  return tail_t( *this );
     }
 
     template <class O>
@@ -1231,7 +1242,7 @@ namespace patricia  {
   template <class V>
   auto  tree<V>::empty() const -> bool
     {
-      return p_tree != nullptr && (p_tree->_next != nullptr || p_tree->_list != nullptr);
+      return p_tree == nullptr;
     }
 
   template <class V>
