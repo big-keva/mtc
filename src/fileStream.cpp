@@ -300,7 +300,7 @@ namespace mtc
   }
 
   template <class error>
-  api<IByteBuffer>  FileStream<error>::MemMap( int64_t off, word32_t len )
+  api<IByteBuffer>  FileStream<error>::MemMap( int64_t offset, word32_t length )
   {
     api<FileMemmap<error>>  memmap;
     int                     nerror;
@@ -308,7 +308,10 @@ namespace mtc
     if ( (memmap = allocate<FileMemmap<error>>()) == nullptr )
       return nullptr;
 
-    if ( (nerror = memmap->Create( this, off, len )) != 0 )
+    if ( length == (word32_t)-1 )
+      length = Size() - offset;
+
+    if ( (nerror = memmap->Create( this, offset, length )) != 0 )
       return nullptr;
 
     return memmap.ptr();
