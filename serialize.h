@@ -108,6 +108,7 @@ namespace mtc
     const void* data;
     size_t      size;
 
+    auto  operator = ( const serialbuf& ) = delete;
   public:
     serialbuf( const void* p, size_t l ): data( p ), size( l ) {}
     serialbuf( const serialbuf& s ): data( s.data ), size( s.size ) {}
