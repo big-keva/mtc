@@ -219,89 +219,79 @@ namespace mtc
 
   auto  config::get_uint32( const zmap::key& key, uint32_t def,
     const init<const char*, uint32_t>& suf ) const -> uint32_t
-  {
-    auto    getval = cfgmap.get( key );
-    double  dblval;
-
-    if ( getval == nullptr )
-      return def;
-
-    switch ( getval->get_type() )
-    {
-      case zval::z_double:  return value_in_limits<uint32_t>( *getval->get_double(), def );
-      case zval::z_word64:  return value_in_limits<uint32_t>( *getval->get_word64(), def );
-      case zval::z_int64:   return value_in_limits<uint32_t>( *getval->get_int64(), def );
-      case zval::z_int32:   return value_in_limits<uint32_t>( *getval->get_int32(), def );
-      case zval::z_int16:   return value_in_limits<uint32_t>( *getval->get_int16(), def );
-      case zval::z_word32:  return *getval->get_word32();
-      case zval::z_word16:  return *getval->get_word16();
-      case zval::z_charstr:
-        return parse_double( dblval, *getval->get_charstr(), suf ) ?
-          value_in_limits<uint32_t>( dblval, def ) : def;
-      case zval::z_widestr:
-        return parse_double( dblval, *getval->get_widestr(), suf ) ?
-          value_in_limits<uint32_t>( dblval, def ) : def;
-      default:  return def;
-    }
-  }
+  {  return get_uint32( cfgmap.get( key ), def, suf );  }
 
   auto  config::get_uint64( const zmap::key& key, uint64_t def,
     const init<const char*, uint64_t>& suf ) const -> uint64_t
-  {
-    auto    getval = cfgmap.get( key );
-    double  dblval;
+  {  return get_uint64( cfgmap.get( key ), def, suf );  }
 
-    if ( getval == nullptr )
-      return def;
-
-    switch ( getval->get_type() )
-    {
-      case zval::z_double:  return value_in_limits<uint64_t>( *getval->get_double(), def );
-      case zval::z_word64:  return *getval->get_word64();
-      case zval::z_int64:   return value_in_limits<uint64_t>( *getval->get_int64(), def );
-      case zval::z_word32:  return *getval->get_word32();
-      case zval::z_int32:   return value_in_limits<uint64_t>( *getval->get_int32(), def );
-      case zval::z_word16:  return *getval->get_word16();
-      case zval::z_int16:   return value_in_limits<uint64_t>( *getval->get_int16(), def );
-      case zval::z_charstr:
-        return parse_double( dblval, *getval->get_charstr(), suf ) ?
-          value_in_limits<uint64_t>( dblval, def ) : def;
-      case zval::z_widestr:
-        return parse_double( dblval, *getval->get_widestr(), suf ) ?
-          value_in_limits<uint64_t>( dblval, def ) : def;
-      default:  return def;
-    }
-  }
-
-  auto  config::get_double( const zmap::key&  key, double def,
-    const init<const char*, double>& suf ) const -> double
-  {
-    auto    getval = cfgmap.get( key );
-    double  dblval;
-
-    if ( getval == nullptr )
-      return def;
-
-    switch ( getval->get_type() )
-    {
-      case zval::z_double:  return *getval->get_double();
-      case zval::z_word64:  return *getval->get_word64();
-      case zval::z_int64:   return *getval->get_int64();
-      case zval::z_word32:  return *getval->get_word32();
-      case zval::z_int32:   return *getval->get_int32();
-      case zval::z_word16:  return *getval->get_word16();
-      case zval::z_int16:   return *getval->get_int16();
-      case zval::z_charstr: return parse_double( dblval, *getval->get_charstr(), suf ) ? dblval : def;
-      case zval::z_widestr: return parse_double( dblval, *getval->get_widestr(), suf ) ? dblval : def;
-      default:              return def;
-    }
-  }
+  auto  config::get_double( const zmap::key&  key, double_t def,
+    const init<const char*, double_t>& suf ) const -> double
+  {  return get_double( cfgmap.get( key ), def, suf );  }
 
   auto  config::get_charstr( const zmap::key& key, const charstr& def ) const -> charstr
   {  return cfgmap.get_charstr( key, def );  }
 
   auto  config::get_widestr( const zmap::key& key, const widestr& def ) const -> widestr
   {  return cfgmap.get_widestr( key, def );  }
+
+  auto  config::get_uint32( const std::initializer_list<zmap::key>& keys, uint32_t def,
+    const init<const char*, uint32_t>& suf ) const -> uint32_t
+  {
+    const zval* pval;
+
+    for ( auto& key: keys )
+      if ( (pval = cfgmap.get( key )) != nullptr )
+        return get_uint32( pval, def, suf );
+
+    return def;
+  }
+
+  auto  config::get_uint64( const std::initializer_list<zmap::key>& keys, uint64_t def,
+    const init<const char*, uint64_t>& suf ) const -> uint64_t
+  {
+    const zval* pval;
+
+    for ( auto& key: keys )
+      if ( (pval = cfgmap.get( key )) != nullptr )
+        return get_uint64( pval, def, suf );
+
+    return def;
+  }
+
+  auto  config::get_double( const std::initializer_list<zmap::key>& keys, double def,
+    const init<const char*, double_t>& suf ) const -> double_t
+  {
+    const zval* pval;
+
+    for ( auto& key: keys )
+      if ( (pval = cfgmap.get( key )) != nullptr )
+        return get_double( pval, def, suf );
+
+    return def;
+  }
+
+  auto  config::get_charstr( const std::initializer_list<zmap::key>& keys, const charstr& def ) const -> charstr
+  {
+    const charstr*  pval;
+
+    for ( auto& key: keys )
+      if ( (pval = cfgmap.get_charstr( key )) != nullptr )
+        return *pval;
+
+    return def;
+  }
+
+  auto  config::get_widestr( const std::initializer_list<zmap::key>& keys, const widestr& def ) const -> widestr
+  {
+    const widestr*  pval;
+
+    for ( auto& key: keys )
+      if ( (pval = cfgmap.get_widestr( key )) != nullptr )
+        return *pval;
+
+    return def;
+  }
 
   auto  config::get_path( const zmap::key& key ) const -> charstr
   {
@@ -395,4 +385,75 @@ namespace mtc
 
   auto  config::Load( const std::string& source, const std::string& path ) -> config
   {  return std::move( Load( source.c_str(), path.c_str() ) );  }
+
+  auto  config::get_uint32( const zval* val, uint32_t def, const init<const char*, uint32_t>& suf ) -> uint32_t
+  {
+    double  dbl;
+
+    if ( val == nullptr )
+      return def;
+
+    switch ( val->get_type() )
+    {
+      case zval::z_double:  return value_in_limits<uint32_t>( *val->get_double(), def );
+      case zval::z_word64:  return value_in_limits<uint32_t>( *val->get_word64(), def );
+      case zval::z_int64:   return value_in_limits<uint32_t>( *val->get_int64(), def );
+      case zval::z_int32:   return value_in_limits<uint32_t>( *val->get_int32(), def );
+      case zval::z_int16:   return value_in_limits<uint32_t>( *val->get_int16(), def );
+      case zval::z_word32:  return *val->get_word32();
+      case zval::z_word16:  return *val->get_word16();
+      case zval::z_charstr:
+        return parse_double( dbl, *val->get_charstr(), suf ) ? value_in_limits<uint32_t>( dbl, def ) : def;
+      case zval::z_widestr:
+        return parse_double( dbl, *val->get_widestr(), suf ) ? value_in_limits<uint32_t>( dbl, def ) : def;
+      default:  return def;
+    }
+  }
+
+  auto  config::get_uint64( const zval* val, uint64_t def, const init<const char*, uint64_t>& suf ) -> uint64_t
+  {
+    double  dbl;
+
+    if ( val == nullptr )
+      return def;
+
+    switch ( val->get_type() )
+    {
+      case zval::z_double:  return value_in_limits<uint64_t>( *val->get_double(), def );
+      case zval::z_word64:  return *val->get_word64();
+      case zval::z_int64:   return value_in_limits<uint64_t>( *val->get_int64(), def );
+      case zval::z_word32:  return *val->get_word32();
+      case zval::z_int32:   return value_in_limits<uint64_t>( *val->get_int32(), def );
+      case zval::z_word16:  return *val->get_word16();
+      case zval::z_int16:   return value_in_limits<uint64_t>( *val->get_int16(), def );
+      case zval::z_charstr:
+        return parse_double( dbl, *val->get_charstr(), suf ) ? value_in_limits<uint64_t>( dbl, def ) : def;
+      case zval::z_widestr:
+        return parse_double( dbl, *val->get_widestr(), suf ) ? value_in_limits<uint64_t>( dbl, def ) : def;
+      default:  return def;
+    }
+  }
+
+  auto  config::get_double( const zval* val, double def, const init<const char*, double>& suf ) -> double
+  {
+    double  dbl;
+
+    if ( val == nullptr )
+      return def;
+
+    switch ( val->get_type() )
+    {
+      case zval::z_double:  return *val->get_double();
+      case zval::z_word64:  return *val->get_word64();
+      case zval::z_int64:   return *val->get_int64();
+      case zval::z_word32:  return *val->get_word32();
+      case zval::z_int32:   return *val->get_int32();
+      case zval::z_word16:  return *val->get_word16();
+      case zval::z_int16:   return *val->get_int16();
+      case zval::z_charstr: return parse_double( dbl, *val->get_charstr(), suf ) ? dbl : def;
+      case zval::z_widestr: return parse_double( dbl, *val->get_widestr(), suf ) ? dbl : def;
+      default:              return def;
+    }
+  }
+
 }
