@@ -56,6 +56,8 @@ SOFTWARE.
 # include <string>
 # include <vector>
 # include <map>
+# include <utility>
+# include <tuple>
 
 /*
  * values serialization/deserialization
@@ -88,6 +90,7 @@ template <class K,
           class V>  size_t  GetBufLen( const std::map<K, V>& );
 template <class T1,
           class T2> size_t  GetBufLen( const std::pair<T1, T2>& );
+template <class ... T> size_t  GetBufLen( const std::tuple<T...>& );
 
 template <class O,
           class C>  O*  Serialize( O*, const std::basic_string<C>& );
@@ -98,7 +101,9 @@ template <class O,
           class V>  O*  Serialize( O* o, const std::map<K, V>& );
 template <class O,
           class T1,
-          class T2> O*  Serialize( O* o, const std::pair<T1, T2>& );
+          class T2> O*  Serialize( O*, const std::pair<T1, T2>& );
+template <class O,
+      class ... T> O*  Serialize( O* o, const std::tuple<T...>& );
 
 template <class S,
           class C>  S*  FetchFrom( S*, std::basic_string<C>& );
@@ -110,17 +115,21 @@ template <class S,
 template <class S,
           class T1,
           class T2> S*  FetchFrom( S*, std::pair<T1, T2>& );
+template <class S,
+      class ... T> S*  FetchFrom( S*, std::tuple<T...>& );
 
 template <class S,
           class C>  S*  SkipToEnd( S*, const std::basic_string<C>* );
 template <class S,
-          class T>  S*  SkipToEnd( S*, const std::vector<T> );
+          class T>  S*  SkipToEnd( S*, const std::vector<T>* );
 template <class S,
           class K,
-          class V>  S*  SkipToEnd( S*, std::map<K, V>& );
+          class V>  S*  SkipToEnd( S*, const std::map<K, V>* );
 template <class S,
           class T1,
           class T2> S*  SkipToEnd( S*, const std::pair<T1, T2>* );
+template <class S,
+      class ... T> S*  SkipToEnd( S*, const std::tuple<T...>* );
 
 namespace mtc
 {
@@ -159,48 +168,6 @@ namespace mtc
 
   public:
     template <class O> O*  Serialize( O* o ) const;
-  };
-
-  template <class T>
-  struct class_is_string  {  static const bool value = false;  };
-  template <class T>
-  struct class_is_vector  {  static const bool value = false;  };
-  template <class T>
-  struct class_is_pair    {  static const bool value = false;  };
-  template <class T>
-  struct class_is_map     {  static const bool value = false;  };
-
-  template <class T>
-  struct class_is_string<std::basic_string<T>>  {  static const bool value = true;  };
-  template <class T>
-  struct class_is_vector<std::vector<T>>        {  static const bool value = true;  };
-  template <class ... T>
-  struct class_is_pair<std::pair<T...>>         {  static const bool value = true;  };
-  template <class ... T>
-  struct class_is_pair<std::map<T...>>          {  static const bool value = true;  };
-
-  struct value_as_scalar
-  {
-    template <class T> constexpr
-    static  size_t  GetBufLen( const T& t )  {  return ::GetBufLen( t );  }
-    template <class O, class T>
-    static  O*      Serialize( O* o, const T& t )  {  return ::Serialize( o, t );  }
-    template <class S, class T>
-    static  S*      FetchFrom( S* s, T& t )  {  return ::FetchFrom( s, t );  }
-    template <class S, class T>
-    static  S*      SkipToEnd( S* s, const T* ) {  return ::SkipToEnd( s, (const T*)nullptr );  }
-  };
-
-  struct value_as_struct
-  {
-    template <class T> constexpr
-    static  size_t  GetBufLen( const T& t )  {  return t.GetBufLen();  }
-    template <class O, class T>
-    static  O*      Serialize( O* o, const T& t )  {  return t.Serialize( o );  }
-    template <class S, class T>
-    static  S*      FetchFrom( S* s, T& t )  {  return t.FetchFrom( s );  }
-    template <class S, class T>
-    static  S*      SkipToEnd( S* s, const T* )  {  return T::SkipToEnd( s );  }
   };
 
   /*
@@ -290,57 +257,6 @@ template <> inline  auto  SkipBytes( const unsigned char* s, size_t l ) -> const
   {  return s != nullptr ? s + l : s;  }
 template <> inline  auto  SkipBytes( FILE* s, size_t l ) -> FILE*
   {  return s != nullptr && fseek( s, l, SEEK_CUR ) == 0 ? s : nullptr;  }
-
-/*
- * structures serialization/deserialization prototypes
- */
-
-template <class T>
-size_t  GetBufLen( const T& t )
-{
-  using value_type = typename std::conditional<
-    std::is_fundamental<T>::value ||
-    mtc::class_is_string<T>::value ||
-    mtc::class_is_vector<T>::value ||
-    mtc::class_is_map<T>::value ||
-    mtc::class_is_pair<T>::value, mtc::value_as_scalar, mtc::value_as_struct>::type;
-  return value_type::GetBufLen( t );
-}
-
-template <class O, class T>
-O*  Serialize( O* o, const T& t )
-{
-  using value_type = typename std::conditional<
-    std::is_fundamental<T>::value ||
-    mtc::class_is_string<T>::value ||
-    mtc::class_is_vector<T>::value ||
-    mtc::class_is_map<T>::value ||
-    mtc::class_is_pair<T>::value, mtc::value_as_scalar, mtc::value_as_struct>::type;
-  return value_type::Serialize( o, t );
-}
-
-template <class S, class T>
-S*  FetchFrom( S* s, T& t )
-{
-  using value_type = typename std::conditional<
-    std::is_fundamental<T>::value ||
-    mtc::class_is_string<T>::value ||
-    mtc::class_is_vector<T>::value ||
-    mtc::class_is_map<T>::value ||
-    mtc::class_is_pair<T>::value, mtc::value_as_scalar, mtc::value_as_struct>::type;
-  return value_type::FetchFrom( s, t );
-}
-
-template <class S, class T>
-S*  SkipToEnd( S* s, const T* )
-{
-  using value_type = typename std::conditional<
-    std::is_fundamental<T>::value ||
-    mtc::class_is_string<T>::value ||
-    mtc::class_is_vector<T>::value ||
-    mtc::class_is_pair<T>::value, mtc::value_as_scalar, mtc::value_as_struct>::type;
-  return value_type::SkipToEnd( s, (const T*)nullptr );
-}
 
 /*
  * values serialization/deserialization for standard types
@@ -444,6 +360,154 @@ template <class S>  inline  S*  FetchFrom( S* s, char*&  r )
 
 template <class O>  inline  O*  Serialize( O* o, char* s )  {  return Serialize( o, (const char*)s );  }
 template <class S>  inline  S*  FetchFrom( S* s, const char*& r ) {  return FetchFrom( s, (char*&)r );  }
+
+/*
+ * structures serialization/deserialization prototypes
+ */
+namespace mtc
+{
+  template <class T>
+  struct class_is_string  {  static const bool value = false;  };
+  template <class T>
+  struct class_is_vector  {  static const bool value = false;  };
+  template <class T>
+  struct class_is_map     {  static const bool value = false;  };
+  template <class ... T>
+  struct class_is_pair    {  static const bool value = false;  };
+  template <class T>
+  struct class_is_tuple   {  static const bool value = false;  };
+
+  template <class T>
+  struct class_is_string<std::basic_string<T>>  {  static const bool value = true;  };
+  template <class T>
+  struct class_is_vector<std::vector<T>>        {  static const bool value = true;  };
+  template <class ... T>
+  struct class_is_map<std::map<T...>>           {  static const bool value = true;  };
+  template <class ... T>
+  struct class_is_pair<std::pair<T...>>         {  static const bool value = true;  };
+  template <class ... T>
+  struct class_is_tuple<std::tuple<T...>>       {  static const bool value = true;  };
+
+  struct value_as_scalar
+  {
+    template <class T> constexpr
+    static  size_t  GetBufLen( const T& t )  {  return ::GetBufLen( t );  }
+    template <class O, class T>
+    static  O*      Serialize( O* o, const T& t )  {  return ::Serialize( o, t );  }
+    template <class S, class T>
+    static  S*      FetchFrom( S* s, T& t )  {  return ::FetchFrom( s, t );  }
+    template <class S, class T>
+    static  S*      SkipToEnd( S* s, const T* ) {  return ::SkipToEnd( s, (const T*)nullptr );  }
+  };
+
+  struct value_as_struct
+  {
+    template <class T> constexpr
+    static  size_t  GetBufLen( const T& t )  {  return t.GetBufLen();  }
+    template <class O, class T>
+    static  O*      Serialize( O* o, const T& t )  {  return t.Serialize( o );  }
+    template <class S, class T>
+    static  S*      FetchFrom( S* s, T& t )  {  return t.FetchFrom( s );  }
+    template <class S, class T>
+    static  S*      SkipToEnd( S* s, const T* )  {  return T::SkipToEnd( s );  }
+  };
+
+  template <size_t I>
+  struct tuple_iterator
+  {
+    template <class ... Types>
+    static  size_t  GetBufLen( const std::tuple<Types...>& t )
+    {
+      return ::GetBufLen( std::get<sizeof...(Types) - I>( t ) )
+        + tuple_iterator<I - 1>::GetBufLen( t );
+    }
+    template <class O, class ... Types>
+    static  O*  Serialize( O* o, const std::tuple<Types...>& t )
+    {
+      return tuple_iterator<I - 1>::Serialize( ::Serialize( o,
+        std::get<sizeof...(Types) - I>( t ) ), t );
+    }
+    template <class S, class ... Types>
+    static  S*  FetchFrom( S* s, std::tuple<Types...>& t )
+    {
+      return tuple_iterator<I - 1>::FetchFrom( ::FetchFrom( s,
+        std::get<sizeof...(Types) - I>( t ) ), t );
+    }
+    template <class S, class ... Types>
+    static  S*  SkipToEnd( S* s, const std::tuple<Types...>* )
+    {
+      using nexttype = typename std::tuple_element<sizeof...(Types) - I, std::tuple<Types...>>::type;
+
+      return tuple_iterator<I - 1>::SkipToEnd( ::SkipToEnd( s,
+        (const nexttype*)nullptr ), (const std::tuple<Types...>*)nullptr );
+    }
+  };
+
+  template <>
+  struct tuple_iterator<0>
+  {
+    template <class ... Types>
+    static  size_t  GetBufLen( const std::tuple<Types...>& ) {  return 0;  }
+    template <class O, class ... Types>
+    static  O*      Serialize( O* o, const std::tuple<Types...>& ) {  return o;  }
+    template <class S, class ... Types>
+    static  S*      FetchFrom( S* s, std::tuple<Types...>& ) {  return s;  }
+    template <class S, class ... Types>
+    static  S*      SkipToEnd( S* s, const std::tuple<Types...>* ) {  return s;  }
+  };
+}
+
+template <class T>
+size_t  GetBufLen( const T& t )
+{
+  using value_type = typename std::conditional<
+    std::is_fundamental<T>::value ||
+    mtc::class_is_string<T>::value ||
+    mtc::class_is_vector<T>::value ||
+    mtc::class_is_map<T>::value ||
+    mtc::class_is_pair<T>::value ||
+    mtc::class_is_tuple<T>::value, mtc::value_as_scalar, mtc::value_as_struct>::type;
+  return value_type::GetBufLen( t );
+}
+
+template <class O, class T>
+O*  Serialize( O* o, const T& t )
+{
+  using value_type = typename std::conditional<
+    std::is_fundamental<T>::value ||
+    mtc::class_is_string<T>::value ||
+    mtc::class_is_vector<T>::value ||
+    mtc::class_is_map<T>::value ||
+    mtc::class_is_pair<T>::value ||
+    mtc::class_is_tuple<T>::value, mtc::value_as_scalar, mtc::value_as_struct>::type;
+  return value_type::Serialize( o, t );
+}
+
+template <class S, class T>
+S*  FetchFrom( S* s, T& t )
+{
+  using value_type = typename std::conditional<
+    std::is_fundamental<T>::value ||
+    mtc::class_is_string<T>::value ||
+    mtc::class_is_vector<T>::value ||
+    mtc::class_is_map<T>::value ||
+    mtc::class_is_pair<T>::value ||
+    mtc::class_is_tuple<T>::value, mtc::value_as_scalar, mtc::value_as_struct>::type;
+  return value_type::FetchFrom( s, t );
+}
+
+template <class S, class T>
+S*  SkipToEnd( S* s, const T* )
+{
+  using value_type = typename std::conditional<
+    std::is_fundamental<T>::value ||
+    mtc::class_is_string<T>::value ||
+    mtc::class_is_vector<T>::value ||
+    mtc::class_is_map<T>::value ||
+    mtc::class_is_pair<T>::value ||
+    mtc::class_is_tuple<T>::value, mtc::value_as_scalar, mtc::value_as_struct>::type;
+  return value_type::SkipToEnd( s, (const T*)nullptr );
+}
 
 /*
  * std:: types serialization/deserialization specializations
@@ -585,7 +649,7 @@ S*  FetchFrom( S* s, std::map<K, V>& m )
 }
 
 template <class S, class K, class V>
-S*  SkipToEnd( S* s, std::map<K, V>& m )
+S*  SkipToEnd( S* s, const std::map<K, V>* )
 {
   size_t  len;
 
@@ -620,6 +684,33 @@ template <class S, class T1, class T2>
 S*  SkipToEnd( S* s, const std::pair<T1, T2>* )
 {
   return ::SkipToEnd( ::SkipToEnd( s, (const T1*)nullptr ), (const T2*)nullptr );
+}
+
+/*
+ * std::tuple
+ */
+template <class ... T>
+size_t  GetBufLen( const std::tuple<T...>& t )
+{
+  return mtc::tuple_iterator<sizeof...(T)>::GetBufLen( t );
+}
+
+template <class O, class ... T>
+O*  Serialize( O* o, const std::tuple<T...>& t )
+{
+  return mtc::tuple_iterator<sizeof...(T)>::Serialize( o, t );
+}
+
+template <class S, class ... T>
+S*  FetchFrom( S* s, std::tuple<T...>& t )
+{
+  return mtc::tuple_iterator<sizeof...(T)>::FetchFrom( s, t );
+}
+
+template <class S, class ... T>
+S*  SkipToEnd( S* s, const std::tuple<T...>* )
+{
+  return mtc::tuple_iterator<sizeof...(T)>::SkipToEnd( s, (const std::tuple<T...>*)nullptr );
 }
 
 /*
