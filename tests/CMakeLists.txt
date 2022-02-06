@@ -4,6 +4,9 @@ project(mtc)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
 
+add_executable(mtc-test-serialize
+	test-serialize.cpp)
+
 add_executable(mtc-test-patricia
 	test-patricia.cpp)
 
