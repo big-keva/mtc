@@ -1205,13 +1205,19 @@ namespace mtc
 
     for ( auto it: map )
     {
-      auto  keystr = to_string( it.first );
-      auto  valstr = to_string( it.second );
+      auto& key = it.first;
+      auto& val = it.second;
 
       if ( out.empty() )
-        out = "{ {" + keystr + ", " + valstr + "}";
+        out += "{ {" + to_string( key ) + ", ";
       else
-        out += ", {" + keystr + ", " + valstr + "}";
+        out += ", {" + to_string( key ) + ", ";
+
+      if ( val.get_type() == zval::z_charstr )  out += "\"" + *val.get_charstr() + "\"}";
+        else
+      if ( val.get_type() == zval::z_widestr )  out += "\"" + utf8::encode( *val.get_widestr() ) + "\"}";
+        else
+      out += to_string( val ) + "}";
     }
 
     return out.empty() ? "{}" : out + " }";

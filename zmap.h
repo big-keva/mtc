@@ -140,13 +140,6 @@ namespace mtc
     public:
       enum: size_t  {  value = get_size<types...>::size  };
     };
-
-    template <size_t N>
-    struct align
-    {
-      enum: size_t {  value = (N + 0x0f) & ~0x0f  };
-    };
-
   }
 
   class zval
@@ -382,18 +375,18 @@ namespace mtc
     bool  operator != ( const zval& v ) const { return !(*this == v); }
 
   protected:  // stringize helpers
-    auto  to_string( char c ) const         -> std::string  {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
-    auto  to_string( byte_t v ) const       -> std::string  {  return std::move( std::to_string( v ) );  }
-    auto  to_string( int16_t v ) const      -> std::string  {  return std::move( std::to_string( v ) );  }
-    auto  to_string( int32_t v ) const      -> std::string  {  return std::move( std::to_string( v ) );  }
-    auto  to_string( int64_t v ) const      -> std::string  {  return std::move( std::to_string( v ) );  }
-    auto  to_string( uint16_t v ) const     -> std::string  {  return std::move( std::to_string( v ) );  }
-    auto  to_string( uint32_t v ) const     -> std::string  {  return std::move( std::to_string( v ) );  }
-    auto  to_string( uint64_t v ) const     -> std::string  {  return std::move( std::to_string( v ) );  }
-    auto  to_string( float v ) const        -> std::string  {  return std::move( std::to_string( v ) );  }
-    auto  to_string( double v ) const       -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( char c )     -> std::string  {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
+    static  auto  to_string( byte_t v )   -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( int16_t v )  -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( int32_t v )  -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( int64_t v )  -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( uint16_t v ) -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( uint32_t v ) -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( uint64_t v ) -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( float v )    -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( double v )   -> std::string  {  return std::move( std::to_string( v ) );  }
 
-    auto  to_string( const widechar* v ) const  -> std::string
+    static  auto  to_string( const widechar* v )  -> std::string
       {
         std::string out;
 
@@ -402,13 +395,13 @@ namespace mtc
         return out;
       }
 
-    auto  to_string( const zval& v ) const  ->  std::string {  return std::move( mtc::to_string( v ) );  }
-    auto  to_string( const zmap& v ) const  ->  std::string {  return std::move( mtc::to_string( v ) );  }
-    auto  to_string( const charstr& v ) const ->  std::string {  return std::move( '"'+v+'"' );  }
-    auto  to_string( const widestr& v ) const ->  std::string {  return std::move( '"' + to_string( v.c_str() ) + '"' );  }
+    static  auto  to_string( const zval& v ) ->  std::string {  return std::move( mtc::to_string( v ) );  }
+    static  auto  to_string( const zmap& v ) ->  std::string {  return std::move( mtc::to_string( v ) );  }
+    static  auto  to_string( const charstr& v ) ->  const std::string& {  return v;  }
+    static  auto  to_string( const widestr& v ) ->  std::string {  return std::move( to_string( v.c_str() ) );  }
 
     template <class V>
-    auto  to_string( const std::vector<V>& arr ) const  ->  std::string 
+    static  auto  to_string( const std::vector<V>& arr ) ->  std::string
       {
         std::string out( "[" );
 
@@ -434,11 +427,11 @@ namespace mtc
     auto  inner()       ->       inner_t&;
 
   protected:  // inplace storage
-    char    storage[impl::align<impl::get_max_size<uint64_t, double,
+    char    storage[impl::get_max_size<uint64_t, double,
       charstr,
       widestr,
       std::vector<uint64_t>,
-      std::vector<widestr>>::value>::value];
+      std::vector<widestr>>::value];
     byte_t  vx_type;
 
   };
