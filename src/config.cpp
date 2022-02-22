@@ -161,6 +161,11 @@ namespace mtc
     return pmap != nullptr ? config( *pmap, origin ) : config();
   }
 
+  auto  config::get_section( const zmap& z ) const -> config
+  {
+    return config( z, origin );
+  }
+
   auto  config::get_int32( const zmap::key& key, int32_t def,
     const init<const char*, int32_t>& suf ) const -> int32_t
   {

@@ -47,6 +47,7 @@ namespace mtc {
 
   public:     // access
     auto  get_section ( const zmap::key& ) const -> config;
+    auto  get_section ( const zmap& ) const -> config;
 
     auto  get_int32   ( const zmap::key&, int32_t = 0,
       const init<const char*, int32_t>& = {} ) const -> int32_t;
