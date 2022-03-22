@@ -64,6 +64,7 @@ SOFTWARE.
 # include <memory>
 # include <limits>
 # include <mutex>
+# include <cstddef>
 
 namespace mtc
 {

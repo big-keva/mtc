@@ -72,7 +72,7 @@ SOFTWARE.
 
 inline  auto  make_timeval( uint32_t milliseconds ) -> struct timeval
 {
-  return timeval{ (long)(milliseconds / 1000), (long)(milliseconds % 1000) * 1000 };
+  return timeval{ (long)(milliseconds / 1000), (int)(milliseconds % 1000) * 1000 };
 }
 
 namespace mtc {

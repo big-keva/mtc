@@ -17,10 +17,14 @@ namespace mtc
 
     return GetFileAttributesEx( szpath, GetFileExInfoStandard, &fiData ) != 0 ?
       (((int64_t)fiData.nFileSizeHigh) << 32) | fiData.nFileSizeLow : -1;
-# else
+# elif defined( __ARCH_WANT_STAT64 )
     struct stat64 fistat;
 
     return stat64( szpath, &fistat ) == 0 ? fistat.st_size : -1;
+# else
+    struct stat fistat;
+
+    return stat( szpath, &fistat ) == 0 ? fistat.st_size : -1;
 # endif
   }
 
