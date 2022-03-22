@@ -122,8 +122,8 @@ namespace fs {
     string( const string& );
    ~string();
     auto  operator = ( const string& ) -> string&;
-    auto  operator == ( const nullptr_t ) const -> bool {  return data == nullptr;  }
-    auto  operator != ( const nullptr_t ) const -> bool {  return data != nullptr;  }
+    auto  operator == ( const std::nullptr_t ) const -> bool {  return data == nullptr;  }
+    auto  operator != ( const std::nullptr_t ) const -> bool {  return data != nullptr;  }
 
   public:     // access
     operator const char*     () const {  return charstr();  }

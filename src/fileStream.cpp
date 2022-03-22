@@ -579,7 +579,11 @@ namespace mtc
   template <class error>
   bool  FileStream<error>::SetLen( int64_t len ) noexcept
   {
+# ifdef __NR_truncate64
     int   nerror = ::ftruncate64( handle, len );
+# else
+    int   nerror = ::ftruncate( handle, len );
+# endif
 
     if ( nerror != 0 )
     {
@@ -592,7 +596,11 @@ namespace mtc
   template <class error>
   bool  FileStream<error>::Sync()
   {
+#ifdef F_FULLFSYNC
+    int   nerror = fcntl( handle, F_FULLFSYNC );
+#else
     int   nerror = fdatasync( handle );
+#endif
 
     if ( nerror != 0 )
     {
