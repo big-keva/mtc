@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.1)
 project(mtc)
 
 set(CMAKE_C_STANDARD 14)
@@ -73,6 +73,8 @@ install(
     net/sockets.hpp
   DESTINATION include/mtc/net
 )
+
+add_subdirectory(tutorial)
 
 # enable_testing()
 # add_subdirectory(tests)
