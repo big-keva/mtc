@@ -1062,6 +1062,20 @@ namespace mtc
         if ( pvalue != nullptr && source == nullptr )
           ++*(int*)(pvalue + 1);
       }
+    auto  operator = ( const store_t& t ) -> store_t&
+      {
+        if ( &t == this )
+          return *this;
+
+        delete_it();
+          pvalue = t.pvalue;
+          source = t.source;
+
+        if ( pvalue != nullptr && source == nullptr )
+          ++*(int*)(pvalue + 1);
+
+        return *this;
+      }
    ~store_t() {  delete_it();  }
 
   public:
