@@ -66,6 +66,7 @@ install(
     zmap-alias.h
     z_js.h
     zipStream.h
+    test-it-easy.hpp
   DESTINATION include/mtc
 )
 install(
