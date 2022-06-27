@@ -85,9 +85,14 @@ namespace TestItEasy {
 
       return stringize::to_string( a );
     }
-    auto  to_str( const std::string& s ) const -> std::string {  return '\"' + s + '\"';  }
-    auto  to_str( const char* s ) const -> std::string {  return '\"' + std::string( s ) + '\"';  }
-    auto  to_str( const mtc::widestr& s ) const -> std::string {  return mtc::utf8::encode( s );  }
+    auto  to_str( const mtc::widestr& s ) const -> std::string
+      {  return mtc::utf8::encode( s );  }
+    auto  to_str( const std::string& s ) const -> std::string
+      {  return '\"' + s + '\"';  }
+    auto  to_str( const char* s ) const -> std::string
+      {  return s != nullptr ? '\"' + std::string( s ) + '\"' : "(const char*)nullptr";  }
+    auto  to_str( std::nullptr_t ) const -> std::string
+      {  return "nullptr";  }
   };
 
   template <class T, class P>
