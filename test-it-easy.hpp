@@ -144,6 +144,9 @@ namespace TestItEasy {
       else
     {
       ++testsFault;
+
+      fprintf( stdout, "\x1b[31m" "FAULT" "\x1b[0m\n" );
+      fprintf( stdout, "\texpression: %s\n", v.x.c_str() );
     }
   }
 
