@@ -235,11 +235,23 @@ namespace TestItEasy {
   try {                                                       \
     (expression);                                             \
     ++TestItEasy::testsFault;                                 \
-    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[31mFAULT\x1b[0m\n", __FILE__, __LINE__ ); \
+    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[31mFAULT\x1b[0m\n" \
+      "\texpected %s\n", __FILE__, __LINE__, #exception );    \
   }                                                           \
-  catch ( const exception& ) {                              \
+  catch ( const exception& ) {                                \
     ++TestItEasy::testsSucceeded;                             \
     fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[32m" "OK" "\x1b[0m, %s\n", __FILE__, __LINE__, (statement) );  \
+  }
+
+# define EXPECT_NOTHROW( statement, expression )  \
+  try {                                           \
+    (expression);                                 \
+    ++TestItEasy::testsSucceeded;                 \
+    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[32m" "OK" "\x1b[0m, %s\n", __FILE__, __LINE__, (statement) );  \
+  }                                               \
+  catch ( ... ) {                                 \
+    ++TestItEasy::testsFault;                     \
+    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[31mFAULT\x1b[0m\n", __FILE__, __LINE__ ); \
   }
 
 # define SECTION( description )
