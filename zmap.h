@@ -1095,6 +1095,13 @@ namespace mtc
     friend class zval::dump;
     friend class zmap::dump;
 
+  public:     // custom constructors
+    value_t( const T* t )
+      {
+        this->source = (const char*)-1;
+        this->pvalue = (T*)t;
+      }
+
   public:     // value assignment
     auto  operator = ( const T* t ) -> value_t&
       {
