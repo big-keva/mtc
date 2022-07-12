@@ -820,14 +820,14 @@ namespace mtc
     {
       switch ( get_type() )
       {
-        case z_char:    return ~*get_char();
-        case z_byte:    return ~*get_byte();
-        case z_int16:   return ~*get_int16();
-        case z_int32:   return ~*get_int32();
-        case z_int64:   return ~*get_int64();
-        case z_word16:  return ~*get_word16();
-        case z_word32:  return ~*get_word32();
-        case z_word64:  return ~*get_word64();
+        case z_char:    return (char)~*get_char();
+        case z_byte:    return (uint8_t)~*get_byte();
+        case z_int16:   return (int16_t)~*get_int16();
+        case z_int32:   return (int32_t)~*get_int32();
+        case z_int64:   return (int64_t)~*get_int64();
+        case z_word16:  return (uint16_t)~*get_word16();
+        case z_word32:  return (uint32_t)~*get_word32();
+        case z_word64:  return (uint64_t)~*get_word64();
         default:        return zval(); 
       }
     }
