@@ -176,9 +176,13 @@ namespace mtc
 
   auto  zmap::dump::get( const key& k ) const -> zview_t
     {
-      if ( pvalue != nullptr && pvalue->get( k ) != nullptr )
+      if ( pvalue != nullptr )
         return zview_t( nullptr, pvalue->get( k ) );
-      return zview_t( serial::find( source, k ), nullptr );
+
+      if ( source != nullptr && source != (const char*)-1 )
+        return zview_t( serial::find( source, k ), nullptr );
+
+      return zview_t();
     }
 
   auto  zmap::dump::get_char( const key& k ) const -> value_t<char> {  return get_dump( k ).get_char();  }
@@ -569,17 +573,22 @@ namespace mtc
   template <class self>
   auto  zmap::ztree_t::search( self& _me, const uint8_t* key, size_t cch ) -> self*
     {
-      if ( cch > 0 )
+      auto  ptop = &_me;
+
+      while ( cch-- > 0 )
       {
-        auto  chr = *key;
-        auto  top = _me.begin();
-        auto  end = _me.end();
+        auto  chr = *key++;
+        auto  top = ptop->begin();
+        auto  end = ptop->end();
 
         while ( top != end && top->chnode < chr )
           ++top;
-        return top == end || top->chnode != chr ? nullptr : search( *top, key + 1, cch - 1 );
+        if ( top == end || top->chnode != chr )
+          return nullptr;
+
+        ptop = ptop->data() + (top - ptop->begin());
       }
-      return &_me;
+      return ptop;
     }
 
   auto  zmap::ztree_t::copyit() const -> ztree_t
