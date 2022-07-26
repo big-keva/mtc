@@ -2,18 +2,21 @@
 # define __mtc_test_it_easy_hpp__
 # include "wcsstr.h"
 # include "utf.hpp"
+# include <functional>
 # include <string>
 # include <cstdio>
 
+const int   TestItEasyShiftSpace = 0;
+
 namespace TestItEasy {
 
-  namespace {
-    int   testsSucceeded = 0;
-    int   testsFault = 0;
-  }
+  extern  int   testsSucceeded;
+  extern  int   testsFault;
 
   template <class T, class P> class FCheck;
   template <class T>          class LValue;
+
+  inline  std::string spaces( int n ) {  return std::string( n, ' ' );  }
 
   class Verify
   {
@@ -45,7 +48,7 @@ namespace TestItEasy {
     LValue( const Verify& vx, const T& va ): v( vx ), t( va )  {}
 
   public:
-    void  operator ()();
+    void  operator ()( int shift );
 
     auto  strvalue() const -> std::string;
 
@@ -85,6 +88,9 @@ namespace TestItEasy {
 
       return stringize::to_string( a );
     }
+    template <class A, class B>
+    auto  to_str( const std::pair<A, B>& p ) const -> std::string
+      {  return "{ " + to_str( p.first ) + ", " + to_str( p.second ) + " }";  }
     auto  to_str( const mtc::widestr& s ) const -> std::string
       {  return mtc::utf8::encode( s );  }
     auto  to_str( const std::string& s ) const -> std::string
@@ -109,7 +115,7 @@ namespace TestItEasy {
       p( v2 ) {}
 
   public:
-    void  operator ()();
+    void  operator ()( int shift );
 
   public:
     bool  eq() const  {  return t.eq( p );  }
@@ -131,9 +137,9 @@ namespace TestItEasy {
   // LValue implementation
 
   template <class T>
-  void  LValue<T>::operator ()()
+  void  LValue<T>::operator ()( int shift )
   {
-    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: ", v.f, v.l );
+    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: ", spaces( shift ).c_str(), v.f, v.l );
 
     if ( t )
     {
@@ -146,7 +152,7 @@ namespace TestItEasy {
       ++testsFault;
 
       fprintf( stdout, "\x1b[31m" "FAULT" "\x1b[0m\n" );
-      fprintf( stdout, "\texpression: %s\n", v.x.c_str() );
+      fprintf( stdout, "%s\texpression: %s\n", spaces( shift ).c_str(), v.x.c_str() );
     }
   }
 
@@ -183,9 +189,9 @@ namespace TestItEasy {
   // FCheck implementation
 
   template <class T, class P>
-  void  FCheck<T, P>::operator ()()
+  void  FCheck<T, P>::operator ()( int shift )
   {
-    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: ", v.f, v.l );
+    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: ", spaces( shift ).c_str(), v.f, v.l );
 
     if ( f == nullptr )
       throw std::logic_error( "invalid check operator" );
@@ -201,9 +207,10 @@ namespace TestItEasy {
       ++testsFault;
 
       fprintf( stdout, "\x1b[31m" "FAULT" "\x1b[0m\n" );
-      fprintf( stdout, "\texpression: %s\n", v.x.c_str() );
-      fprintf( stdout, "\tevaluation: %s %s %s\n", t.strvalue().c_str(), o, LValue<P>( v, p ).strvalue().c_str() );
+      fprintf( stdout, "%s\texpression: %s\n", spaces( shift ).c_str(), v.x.c_str() );
+      fprintf( stdout, "%s\tevaluation: %s %s %s\n", spaces( shift ).c_str(), t.strvalue().c_str(), o, LValue<P>( v, p ).strvalue().c_str() );
     }
+
   }
 
   // Verify implementation
@@ -211,22 +218,18 @@ namespace TestItEasy {
   template <class T>
   auto  Verify::operator <= ( const T& t ) -> LValue<T> {  return LValue<T>( *this, t );  }
 
-  int   Conclusion()
+  int   Conclusion();
+  void  RegisterTest( std::function<void()> );
+
+  struct RegisterFunc
   {
-    if ( testsFault == 0 )  fputs( "\x1b[32mOK\x1b[0m:\n", stdout );
-      else fputs( "\x1b[31mFAULT:\n", stdout );
-
-    fprintf( stdout,
-      "\t%u tests passed,\n"
-      "\t%u tests failed\n", testsSucceeded, testsFault );
-
-    return testsFault == 0 ? 0 : EFAULT;
-  }
+    RegisterFunc( std::function<void()> fn )  {  RegisterTest( fn );  }
+  };
 
 }
 
-# define __TEST_IT_EASY_VERIFY_IMPL( X_FILE, X_LINE, X_STAT, XP_STR, ... ) \
-  (TestItEasy::Verify( X_FILE, X_LINE, X_STAT, XP_STR ) <= __VA_ARGS__)()
+ # define __TEST_IT_EASY_VERIFY_IMPL( X_FILE, X_LINE, X_STAT, XP_STR, ... ) \
+  (TestItEasy::Verify( X_FILE, X_LINE, X_STAT, XP_STR ) <= __VA_ARGS__)( TestItEasyShiftSpace )
 
 # define VERIFY( ... ) \
   __TEST_IT_EASY_VERIFY_IMPL( __FILE__, __LINE__, "", #__VA_ARGS__, __VA_ARGS__)
@@ -238,25 +241,30 @@ namespace TestItEasy {
   try {                                                       \
     (expression);                                             \
     ++TestItEasy::testsFault;                                 \
-    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[31mFAULT\x1b[0m\n" \
-      "\texpected %s\n", __FILE__, __LINE__, #exception );    \
+    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[31mFAULT\x1b[0m\n" \
+      "\texpected %s\n", TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), __FILE__, __LINE__, #exception );    \
   }                                                           \
   catch ( const exception& ) {                                \
     ++TestItEasy::testsSucceeded;                             \
-    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[32m" "OK" "\x1b[0m, %s\n", __FILE__, __LINE__, (statement) );  \
+    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[32m" "OK" "\x1b[0m, %s\n",   \
+      TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), __FILE__, __LINE__, (statement) );  \
   }
 
 # define EXPECT_NOTHROW( statement, expression )  \
   try {                                           \
     (expression);                                 \
     ++TestItEasy::testsSucceeded;                 \
-    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[32m" "OK" "\x1b[0m, %s\n", __FILE__, __LINE__, (statement) );  \
+    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[32m" "OK" "\x1b[0m, %s\n", \
+      TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), __FILE__, __LINE__, (statement) );  \
   }                                               \
   catch ( ... ) {                                 \
     ++TestItEasy::testsFault;                     \
-    fprintf( stdout, "\x1b[34m%s:%d\x1b[0m: \x1b[31mFAULT\x1b[0m\n", __FILE__, __LINE__ ); \
+    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[31mFAULT\x1b[0m\n",        \
+      TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), __FILE__, __LINE__ ); \
   }
 
-# define SECTION( description )
+# define SECTION( description ) \
+  fprintf( stdout, "%s%s\n", TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), (description) ); \
+  for( auto global = TestItEasyShiftSpace, TestItEasyShiftSpace = global + 2, nloops = 1;  nloops-- != 0; )
 
 # endif // !__mtc_test_it_easy_hpp__
