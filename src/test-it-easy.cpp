@@ -19,12 +19,12 @@ namespace TestItEasy {
     for ( auto p = list.get(); p != nullptr; p = p->next.get() )
       if ( p->call != nullptr ) p->call();
 
-    if ( testsFault == 0 )  fputs( "\x1b[32mOK\x1b[0m:\n", stdout );
-      else fputs( "\x1b[31mFAULT:\n", stdout );
+    if ( testsFault == 0 )  fputs( "\x1b[32mOK\x1b[0m:", stdout );
+      else fputs( "\x1b[31mFAULT:", stdout );
 
     fprintf( stdout,
-      "\t%u tests passed,\n"
-      "\t%u tests failed\n", testsSucceeded, testsFault );
+      "\n\t%u tests passed,"
+      "\n\t%u tests failed\n", testsSucceeded, testsFault );
 
     return testsFault == 0 ? 0 : EFAULT;
   }
