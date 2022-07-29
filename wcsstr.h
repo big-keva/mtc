@@ -57,14 +57,15 @@ SOFTWARE.
 #   pragma warning( disable: 4996 )
 # endif  // _MSC_VER
 
-# include <limits.h>
-# include <string.h>
-# include <stdlib.h>
-# include <stdint.h>
-# include <stdarg.h>
-# include <stdio.h>
-# include <assert.h>
+# include <climits>
+# include <cstring>
+# include <cstdlib>
+# include <cstdint>
+# include <cstdarg>
+# include <cstdio>
+# include <cassert>
 # include <string>
+# include <cmath>
 # include "platform.h"
 
 # if !defined( __widechar_defined__ )
@@ -753,32 +754,70 @@ namespace mtc
   template <class chartype>
   inline  double  w_strtod( const chartype* str, chartype** end )
   {
-    double  bigger = 0.0;
-    double  decone;
-    double  decpow;
+    auto      checkp = []( const chartype*& p, chartype c ) {  bool  b = *p == c;  if ( b ) ++p;  return b;  };
+    bool      bminus = checkp( str, '-' );
+    bool      bfloat = checkp( str, '.' );
+    uint64_t  uvalue;
+    double    dvalue;
 
-    while ( __impl_strings::w_is_num( *str ) )
-      bigger = (bigger * 10) + *str++ - chartype('0');
-
-    if ( *str++ != '.' )
+    if ( !__impl_strings::w_is_num( *str ) )
     {
       if ( end != NULL )
         *end = (chartype*)str - 1;
-      return bigger;
+      return 0.0;
     }
 
-    decpow = 1.0;
-    decone = 0.0;
-
-    while ( __impl_strings::w_is_num( *str ) )
+    if ( !bfloat )
     {
-      decone = (decone * 10) + *str++ - chartype('0');
-      decpow *= 10.0;
+      for ( uvalue = 0;  __impl_strings::w_is_num( *str ); ++str )
+        uvalue = uvalue * 10 + *str - '0';
+
+      if ( *str != '.' && *str != 'E' && *str != 'e' )
+      {
+        if ( end != nullptr )
+          *end = (chartype*)str;
+        return bminus ? -1.0 * uvalue : uvalue;
+      }
+
+      bfloat = checkp( str, '.' );
+
+      dvalue = (double)uvalue;
+    }
+      else
+    dvalue = 0.0;
+
+    if ( bfloat )
+    {
+      double    drange = 1.0;
+      uint64_t  uvalue;
+
+      for ( uvalue = 0; __impl_strings::w_is_num( *str ); ++str, drange *= 10 )
+        uvalue = uvalue * 10 + *str - '0';
+
+      if ( drange >= 10.0 )
+        dvalue += uvalue / drange;
     }
 
-    if ( end != NULL )
+    if ( ((*str == 'e' || *str == 'E') && __impl_strings::w_is_num( str[1] )) || str[1] == '-' )
+    {
+      bool    divide;
+      double  fpower;
+
+      if ( (divide = *++str == '-') )
+        ++str;
+      for ( fpower = 0.0; __impl_strings::w_is_num( *str ); ++str )
+        fpower = fpower * 10 + *str - '0';
+
+      if ( divide )
+        dvalue /= ::pow( 10.0, fpower );
+      else
+        dvalue *= ::pow( 10.0, fpower );
+    }
+
+    if ( end != nullptr )
       *end = (chartype*)str;
-    return bigger + decone / decpow;
+
+    return (bminus ? -1 : 1) * dvalue;
   }
 
   inline  double  w_strtod( const char*     str, char**     end ) {  return w_strtod<char>( str, end );  }
