@@ -17,6 +17,8 @@ add_library(mtc STATIC
   src/zval.cpp
   src/zmap.cpp
 
+  src/test-it-easy.cpp
+
   dirtools.cpp
   netStream.cpp
   dir.cpp

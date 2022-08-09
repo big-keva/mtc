@@ -3,6 +3,7 @@
 # include "wcsstr.h"
 # include "utf.hpp"
 # include <functional>
+# include <vector>
 # include <string>
 # include <cstdio>
 
@@ -86,6 +87,17 @@ namespace TestItEasy {
 
       return stringize::to_string( a );
     }
+    template <class C>
+    auto  to_str( const std::vector<C>& a ) const -> std::string
+      {
+        auto  out = std::string( "[" );
+
+        for ( auto& x: a )
+          if ( out.length() == 1 )  out += to_str( x );
+            else out += ", " + to_str( x );
+
+        return out + ']';
+      }
     template <class A, class B>
     auto  to_str( const std::pair<A, B>& p ) const -> std::string
       {  return "{ " + to_str( p.first ) + ", " + to_str( p.second ) + " }";  }
