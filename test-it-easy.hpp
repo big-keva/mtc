@@ -260,6 +260,19 @@ namespace TestItEasy {
   }                                 \
   catch ( const exception& ) {      \
     ++TestItEasy::testsSucceeded;   \
+  }                                 \
+  catch ( ... ) {                   \
+    ++TestItEasy::testsFault;                       \
+    succeeded = false;                              \
+    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[31m" "FAULT" "\x1b[0m\n",          \
+      TestItEasy::spaces( TestItEasyShiftSpace ).c_str(),                             \
+      __FILE__,                                                                       \
+      __LINE__ );                                                                     \
+    fprintf( stdout,                                        \
+      "%s\texpression: %s,\n"                               \
+      "%s\texpected expception: %s, " "\x1b[31m" "got unexpected one" "\x1b[0m!\n",   \
+        TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), #expression,      \
+        TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), #exception );     \
   }
 
 # define REQUIRE_NOTHROW( expression )              \
