@@ -169,6 +169,9 @@ namespace mtc {
 # define  zmap_view( name ) \
   class name: public mtc::alias_base {  using alias_base::alias_base;  public:
 
+# define  zmap_view_as( name, parent ) \
+  class name: public parent {  using parent::parent;  public:
+
 # define  zmap_value( type, name, key ) public:                                     \
   auto  name() const -> type  {  return get_value( (const type*)nullptr, key );  }  \
   auto  name() -> type& {  return get_value( (const type*)nullptr, key );  }
