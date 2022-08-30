@@ -880,13 +880,54 @@ namespace mtc
       return compare::test( *this, x );
     }
 
-  bool  zval::operator == ( const zval& z ) const
+  namespace impl
+  {
+    template <class T>
+    int   compare( const T& t1, const T& t2 ) {  return t1.compare( t2 );  }
+
+    template <class T>
+    int   compare( const std::vector<T>& v1, const std::vector<T>& v2 )
     {
-      if ( get_type() != z.get_type() )
-        return false;
+      auto  i1 = v1.begin();
+      auto  i2 = v2.begin();
+      int   rc;
+
+      while ( i1 != v1.end() && i2 != v2.end() )
+        if ( (rc = compare( *i1++, *i2++ )) != 0 )
+          return rc;
+
+      return (i1 != v1.end()) - (i2 != v2.end());
+    }
+
+    # define derive_compare( _type_ ) template <> int compare( const _type_& t1, const _type_& t2 ) \
+      {  return t1 - t2;  }
+      derive_compare( char )
+      derive_compare( uint8_t )
+      derive_compare( int16_t )
+      derive_compare( uint16_t )
+      derive_compare( int32_t )
+      derive_compare( uint32_t )
+    # undef derive_compare
+
+    # define derive_compare( _type_ ) template <> int compare( const _type_& t1, const _type_& t2 ) \
+      {  return (t1 > t2) - (t1 < t2);  }
+      derive_compare( int64_t )
+      derive_compare( uint64_t )
+      derive_compare( float )
+      derive_compare( double )
+    # undef derive_compare
+  }
+
+  int   zval::compare( const zval& z ) const
+    {
+      int   rc = impl::compare( get_type(), z.get_type() );
+
+      if ( rc != 0 )
+        return rc;
+
       switch ( get_type() )
       {
-      # define derive_compare( _type_ ) case z_##_type_:  return *get_##_type_() == *z.get_##_type_();
+      # define derive_compare( _type_ ) case z_##_type_:  return impl::compare( *get_##_type_(), *z.get_##_type_() );
         derive_compare( char )
         derive_compare( byte )
         derive_compare( int16 )
@@ -919,14 +960,15 @@ namespace mtc
         derive_compare( array_widestr )
 
         derive_compare( array_zmap )
+        derive_compare( array_zval )
         derive_compare( array_uuid )
 
       # undef derive_compare
-        default:  return get_type() == z_untyped;
+        default:  return 0;
       }
     }
 
-  auto  zval::type_name( z_type type ) -> const char* 
+  auto  zval::type_name( z_type type ) -> const char*
     {
       switch ( type )
       {

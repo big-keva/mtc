@@ -372,8 +372,11 @@ namespace mtc
     bool  ne( const zval& z ) const {  return !eq( z );  }
 
   public:     // compare
-    bool  operator == ( const zval& v ) const;
-    bool  operator != ( const zval& v ) const { return !(*this == v); }
+    int   compare( const zval& ) const;
+
+    bool  operator == ( const zval& v ) const {  return compare( v ) == 0;  }
+    bool  operator <  ( const zval& v ) const {  return compare( v ) <  0;  }
+    bool  operator != ( const zval& v ) const {  return compare( v ) != 0; }
 
   protected:  // stringize helpers
     static  auto  to_string( char c )     -> std::string  {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
@@ -666,12 +669,13 @@ namespace mtc
     */
 
   public:     // compare operators
-    bool operator== ( const zmap& z ) const;
-    bool operator!= ( const zmap& z ) const {  return !(*this == z);  }
-    bool operator<  ( const zmap& z ) const;
-    bool operator<= ( const zmap& z ) const;
-    bool operator>  ( const zmap& z ) const;
-    bool operator>= ( const zmap& z ) const;
+    int  compare( const zmap& ) const;
+    bool operator== ( const zmap& z ) const {  return compare( z ) == 0;  }
+    bool operator!= ( const zmap& z ) const {  return compare( z ) != 0;  }
+    bool operator<  ( const zmap& z ) const {  return compare( z ) < 0;  }
+    bool operator<= ( const zmap& z ) const {  return compare( z ) <= 0;  }
+    bool operator>  ( const zmap& z ) const {  return compare( z ) >  0;  }
+    bool operator>= ( const zmap& z ) const {  return compare( z ) >= 0;  }
 
   protected:
     zdata_t*  p_data = nullptr;

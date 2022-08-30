@@ -1183,17 +1183,21 @@ namespace mtc
       return 0;
     }
 
-  auto  zmap::operator== ( const zmap& z ) const -> bool
+  int   zmap::compare( const mtc::zmap& z ) const
+  {
+    auto  i1 = cbegin();
+    auto  i2 = z.cbegin();
+    int   rc;
+
+    for ( ; i1 != cend() && i2 != z.cend(); ++i1, ++i2 )
     {
-      if ( size() != z.size() )
-        return false;
-
-      for ( auto me = cbegin(), he = z.cbegin(); me != cend() && he != z.cend(); ++me, ++he )
-        if ( me->first != he->first || me->second != he->second )
-          return false;
-
-      return true;
+      if ( (rc = i1->first.compare( i2->first )) != 0 )
+        return rc;
+      if ( (rc = i1->second.compare( i2->second )) != 0 )
+        return rc;
     }
+    return (i1 != cend()) - (i2 != z.cend());
+  }
 
   auto  to_string( const zmap::key& key ) -> std::string
     {
