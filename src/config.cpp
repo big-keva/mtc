@@ -227,7 +227,7 @@ namespace mtc
   {  return get_uint32( cfgmap.get( key ), def, suf );  }
 
   auto  config::get_uint64( const zmap::key& key, uint64_t def,
-    const init<const char*, uint64_t>& suf ) const -> uint64_t
+    const init<const char*, uint32_t>& suf ) const -> uint64_t
   {  return get_uint64( cfgmap.get( key ), def, suf );  }
 
   auto  config::get_double( const zmap::key&  key, double_t def,
@@ -253,7 +253,7 @@ namespace mtc
   }
 
   auto  config::get_uint64( const std::initializer_list<zmap::key>& keys, uint64_t def,
-    const init<const char*, uint64_t>& suf ) const -> uint64_t
+    const init<const char*, uint32_t>& suf ) const -> uint64_t
   {
     const zval* pval;
 
@@ -415,7 +415,7 @@ namespace mtc
     }
   }
 
-  auto  config::get_uint64( const zval* val, uint64_t def, const init<const char*, uint64_t>& suf ) -> uint64_t
+  auto  config::get_uint64( const zval* val, uint64_t def, const init<const char*, uint32_t>& suf ) -> uint64_t
   {
     double  dbl;
 

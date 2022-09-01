@@ -57,7 +57,7 @@ namespace mtc {
     auto  get_uint32  ( const zmap::key&, uint32_t = 0,
       const init<const char*, uint32_t>& = {} ) const -> uint32_t;
     auto  get_uint64  ( const zmap::key&, uint64_t = 0,
-      const init<const char*, uint64_t>& = {} ) const -> uint64_t;
+      const init<const char*, uint32_t>& = {} ) const -> uint64_t;
     auto  get_double  ( const zmap::key&, double = 0.0,
       const init<const char*, double>& = {} ) const -> double;
 
@@ -67,7 +67,7 @@ namespace mtc {
     auto  get_uint32  ( const std::initializer_list<zmap::key>&, uint32_t = 0,
       const init<const char*, uint32_t>& = {} ) const -> uint32_t;
     auto  get_uint64  ( const std::initializer_list<zmap::key>&, uint64_t = 0,
-      const init<const char*, uint64_t>& = {} ) const -> uint64_t;
+      const init<const char*, uint32_t>& = {} ) const -> uint64_t;
     auto  get_double  ( const std::initializer_list<zmap::key>&, double_t = 0.0,
       const init<const char*, double_t>& = {} ) const -> double_t;
 
@@ -92,7 +92,7 @@ namespace mtc {
 
   protected:
     static  auto get_uint32( const zval*, uint32_t, const init<const char*, uint32_t>& ) -> uint32_t;
-    static  auto get_uint64( const zval*, uint64_t, const init<const char*, uint64_t>& ) -> uint64_t;
+    static  auto get_uint64( const zval*, uint64_t, const init<const char*, uint32_t>& ) -> uint64_t;
     static  auto get_double( const zval*, double_t, const init<const char*, double_t>& ) -> double_t;
 
   };
