@@ -12,8 +12,8 @@ namespace mtc {
     zmap    cfgmap;
     charstr origin;
 
-    template <class key, class val>
-    using init = std::initializer_list<std::pair<key, val>>;
+    template <class T>
+    using suffixes = std::initializer_list<std::pair<const char*, T>>;
 
   public:
 
@@ -36,7 +36,7 @@ namespace mtc {
     config();
     config( const zmap& );
     config( const config& );
-    config( const init<zmap::key, zval>& );
+    config( const std::initializer_list<std::pair<zmap::key, zval>>& );
     config& operator = ( const zmap& );
     config& operator = ( const config& );
 
@@ -49,32 +49,25 @@ namespace mtc {
     auto  get_section ( const zmap::key& ) const -> config;
     auto  get_section ( const zmap& ) const -> config;
 
-    auto  get_int32   ( const zmap::key&, int32_t = 0,
-      const init<const char*, int32_t>& = {} ) const -> int32_t;
-    auto  get_int64   ( const zmap::key&, int64_t = 0,
-      const init<const char*, int64_t>& = {} ) const -> int64_t;
+    auto  get_int32   ( const zmap::key&, int32_t = 0, const suffixes<uint32_t>& = {} ) const -> int32_t;
+    auto  get_int64   ( const zmap::key&, int64_t = 0, const suffixes<uint32_t>& = {} ) const -> int64_t;
 
-    auto  get_uint32  ( const zmap::key&, uint32_t = 0,
-      const init<const char*, uint32_t>& = {} ) const -> uint32_t;
-    auto  get_uint64  ( const zmap::key&, uint64_t = 0,
-      const init<const char*, uint32_t>& = {} ) const -> uint64_t;
-    auto  get_double  ( const zmap::key&, double = 0.0,
-      const init<const char*, double>& = {} ) const -> double;
+    auto  get_uint32  ( const zmap::key&, uint32_t = 0, const suffixes<uint32_t>& = {} ) const -> uint32_t;
+    auto  get_uint64  ( const zmap::key&, uint64_t = 0, const suffixes<uint32_t>& = {} ) const -> uint64_t;
+    auto  get_double  ( const zmap::key&, double = 0.0, const suffixes<double_t>& = {} ) const -> double;
 
     auto  get_charstr ( const zmap::key&, const charstr& = charstr() ) const -> charstr;
     auto  get_widestr ( const zmap::key&, const widestr& = widestr() ) const -> widestr;
 
     auto  get_uint32  ( const std::initializer_list<zmap::key>&, uint32_t = 0,
-      const init<const char*, uint32_t>& = {} ) const -> uint32_t;
+      const suffixes<uint32_t>& = {} ) const -> uint32_t;
     auto  get_uint64  ( const std::initializer_list<zmap::key>&, uint64_t = 0,
-      const init<const char*, uint32_t>& = {} ) const -> uint64_t;
-    auto  get_double  ( const std::initializer_list<zmap::key>&, double_t = 0.0,
-      const init<const char*, double_t>& = {} ) const -> double_t;
+      const suffixes<uint32_t>& = {} ) const -> uint64_t;
+    auto  get_double  ( const std::initializer_list<zmap::key>&, double_t = 0,
+      const suffixes<double_t>& = {} ) const -> double_t;
 
-    auto  get_charstr ( const std::initializer_list<zmap::key>&,
-      const charstr& = charstr() ) const -> charstr;
-    auto  get_widestr ( const std::initializer_list<zmap::key>&,
-      const widestr& = widestr() ) const -> widestr;
+    auto  get_charstr ( const std::initializer_list<zmap::key>&, const charstr& = charstr() ) const -> charstr;
+    auto  get_widestr ( const std::initializer_list<zmap::key>&, const widestr& = widestr() ) const -> widestr;
 
     auto  get_path    ( const zmap::key& ) const -> charstr;
 
@@ -91,9 +84,9 @@ namespace mtc {
     static  auto  Load( const charstr& json, const std::string& path = std::string() ) -> config;
 
   protected:
-    static  auto get_uint32( const zval*, uint32_t, const init<const char*, uint32_t>& ) -> uint32_t;
-    static  auto get_uint64( const zval*, uint64_t, const init<const char*, uint32_t>& ) -> uint64_t;
-    static  auto get_double( const zval*, double_t, const init<const char*, double_t>& ) -> double_t;
+    static  auto get_uint32( const zval*, uint32_t, const suffixes<uint32_t>& ) -> uint32_t;
+    static  auto get_uint64( const zval*, uint64_t, const suffixes<uint32_t>& ) -> uint64_t;
+    static  auto get_double( const zval*, double_t, const suffixes<double_t>& ) -> double_t;
 
   };
   

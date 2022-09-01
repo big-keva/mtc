@@ -107,6 +107,32 @@ namespace mtc
 
   }
 
+  template <class C>
+  bool  suffix_match( const C* check, const char* match )
+  {
+    while ( *check != 0 && *match != 0 )
+    {
+      if ( *match == '[' )
+      {
+        do ++match;
+          while ( *match != 0 && *match != ']' && *match != *check );
+
+        if ( *match != *check )
+          return false;
+
+        do ++match;
+          while ( *match != 0 && *match != ']' );
+
+        if ( *match == ']' )  {  ++check; ++match;  }
+          else return false;
+      }
+        else
+      if ( *check++ != *match++ )
+        return false;
+    }
+    return *check == 0 && *match == 0;
+  }
+
   template <class C, class V>
   bool  parse_double( double& val, const std::basic_string<C>& str,
     const std::initializer_list<std::pair<const char*, V>>& suf )
@@ -121,7 +147,7 @@ namespace mtc
       return val = dval, true;
 
     for ( auto& s: suf )
-      if ( mtc::w_strcmp( s.first, endp ) == 0 )
+      if ( suffix_match( endp, s.first ) )
         return val = dval * s.second, true;
 
     return false;
@@ -166,8 +192,7 @@ namespace mtc
     return config( z, origin );
   }
 
-  auto  config::get_int32( const zmap::key& key, int32_t def,
-    const init<const char*, int32_t>& suf ) const -> int32_t
+  auto  config::get_int32( const zmap::key& key, int32_t def, const suffixes<uint32_t>& suf ) const -> int32_t
   {
     auto    getval = cfgmap.get( key );
     double  dblval;
@@ -179,7 +204,7 @@ namespace mtc
     {
       case zval::z_double:  return value_in_limits<int32_t>( *getval->get_double(), def );
       case zval::z_word64:  return value_in_limits<int32_t>( *getval->get_word64(), def );
-      case zval::z_int64:   return value_in_limits<int32_t>( *getval->get_int64(), def );
+      case zval::z_int64:   return value_in_limits<int32_t>( *getval->get_int64(),  def );
       case zval::z_word32:  return value_in_limits<int32_t>( *getval->get_word32(), def );
       case zval::z_int32:   return *getval->get_int32();
       case zval::z_word16:  return *getval->get_word16();
@@ -194,8 +219,7 @@ namespace mtc
     }
   }
 
-  auto  config::get_int64( const zmap::key& key, int64_t def,
-    const init<const char*, int64_t>& suf ) const -> int64_t
+  auto  config::get_int64( const zmap::key& key, int64_t def, const suffixes<uint32_t>& suf ) const -> int64_t
   {
     auto    getval = cfgmap.get( key );
     double  dblval;
@@ -222,16 +246,13 @@ namespace mtc
     }
   }
 
-  auto  config::get_uint32( const zmap::key& key, uint32_t def,
-    const init<const char*, uint32_t>& suf ) const -> uint32_t
+  auto  config::get_uint32( const zmap::key& key, uint32_t def, const suffixes<uint32_t>& suf ) const -> uint32_t
   {  return get_uint32( cfgmap.get( key ), def, suf );  }
 
-  auto  config::get_uint64( const zmap::key& key, uint64_t def,
-    const init<const char*, uint32_t>& suf ) const -> uint64_t
+  auto  config::get_uint64( const zmap::key& key, uint64_t def, const suffixes<uint32_t>& suf ) const -> uint64_t
   {  return get_uint64( cfgmap.get( key ), def, suf );  }
 
-  auto  config::get_double( const zmap::key&  key, double_t def,
-    const init<const char*, double_t>& suf ) const -> double
+  auto  config::get_double( const zmap::key&  key, double_t def, const suffixes<double_t>& suf ) const -> double
   {  return get_double( cfgmap.get( key ), def, suf );  }
 
   auto  config::get_charstr( const zmap::key& key, const charstr& def ) const -> charstr
@@ -241,7 +262,7 @@ namespace mtc
   {  return cfgmap.get_widestr( key, def );  }
 
   auto  config::get_uint32( const std::initializer_list<zmap::key>& keys, uint32_t def,
-    const init<const char*, uint32_t>& suf ) const -> uint32_t
+    const suffixes<uint32_t>& suf ) const -> uint32_t
   {
     const zval* pval;
 
@@ -253,7 +274,7 @@ namespace mtc
   }
 
   auto  config::get_uint64( const std::initializer_list<zmap::key>& keys, uint64_t def,
-    const init<const char*, uint32_t>& suf ) const -> uint64_t
+    const suffixes<uint32_t>& suf ) const -> uint64_t
   {
     const zval* pval;
 
@@ -265,7 +286,7 @@ namespace mtc
   }
 
   auto  config::get_double( const std::initializer_list<zmap::key>& keys, double def,
-    const init<const char*, double_t>& suf ) const -> double_t
+    const suffixes<double_t>& suf ) const -> double_t
   {
     const zval* pval;
 
@@ -391,7 +412,7 @@ namespace mtc
   auto  config::Load( const std::string& source, const std::string& path ) -> config
   {  return std::move( Load( source.c_str(), path.c_str() ) );  }
 
-  auto  config::get_uint32( const zval* val, uint32_t def, const init<const char*, uint32_t>& suf ) -> uint32_t
+  auto  config::get_uint32( const zval* val, uint32_t def, const suffixes<uint32_t>& suf ) -> uint32_t
   {
     double  dbl;
 
@@ -415,7 +436,7 @@ namespace mtc
     }
   }
 
-  auto  config::get_uint64( const zval* val, uint64_t def, const init<const char*, uint32_t>& suf ) -> uint64_t
+  auto  config::get_uint64( const zval* val, uint64_t def, const suffixes<uint32_t>& suf ) -> uint64_t
   {
     double  dbl;
 
@@ -439,7 +460,7 @@ namespace mtc
     }
   }
 
-  auto  config::get_double( const zval* val, double def, const init<const char*, double>& suf ) -> double
+  auto  config::get_double( const zval* val, double def, const suffixes<double_t>& suf ) -> double
   {
     double  dbl;
 

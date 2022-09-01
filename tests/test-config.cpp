@@ -1,15 +1,39 @@
 ﻿# include "../config.h"
+# include "../test-it-easy.hpp"
 # include <cstdio>
+
+using namespace mtc;
+
+TestItEasy::RegisterFunc  testConfig( []()
+  {
+    TEST_CASE( "mtc/config" )
+    {
+      auto  cfg = config();
+
+      SECTION( "config may be initialized with json" )
+      {
+        REQUIRE_NOTHROW( cfg = config::Load(
+          "{"
+            "\"value_with_suffix\": \"77Mb\""
+          "}" ) );
+        REQUIRE( cfg.size() != 0 );
+      }
+      SECTION( "keys may be accessed as strings" )
+      {
+        REQUIRE( cfg.get_charstr( "value_with_suffix" ) == "77Mb" );
+        REQUIRE( cfg.get_int32( "value_with_suffix", -1 ) == -1 );
+      }
+      SECTION( "keys may be parsed with suffix lists" )
+      {
+        REQUIRE( cfg.get_int32( "value_with_suffix", -1, { { "Mb", 1024 * 1024 } } ) == 77 * 1024 * 1024 );
+        REQUIRE( cfg.get_int32( "value_with_suffix", -1, { { "[Mm][Bb]", 1024 * 1024 } } ) == 77 * 1024 * 1024 );
+      }
+
+    }
+
+  } );
 
 int main()
 {
-  auto  config = mtc::config::Open( "examples/test-config.json" );
-  auto  file_1 = config.get_path( "file_1" );
-    fprintf( stdout, "@1=%s\n", file_1.c_str() );
-  auto  file_2 = config.get_path( "file_2" );
-    fprintf( stdout, "@2=%s\n", file_2.c_str() );
-  auto  file_3 = config.get_path( "file_3" );
-    fprintf( stdout, "@3=%s\n", file_3.c_str() );
-
-  return 0;
+  return TestItEasy::Conclusion();
 }
