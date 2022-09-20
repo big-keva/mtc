@@ -46,8 +46,318 @@ void  TestIterators()
   }
 }
 
+namespace mtc
+{
+  struct node_t
+  {
+    struct buffer;
+
+    enum: uint32_t
+    {
+      O_FRAGLEN = 0x0000ffff,   // character count in a block
+      O_TREELEN = 0x01ff0000,   // 9 bit, count of subnodes (0-256)
+      O_TREELIM = 0x3e000000,   // 5 bit, 2^treelim is allocated limit, 0 = 0, 16 = 256
+      O_KEYTYPE = 0xc0000000    // 2 bit, 0 = none, 1 = unsigned, 2 = charstr and 3 = widestr
+    };
+    union buf_or_ptr
+    {
+      uint8_t*  psz;
+      uint8_t   buf[1];
+    };
+    using zvalue_ptr = std::unique_ptr<zval>;
+
+    node_t*     pnodes = nullptr;
+    zvalue_ptr  pvalue;
+    uint32_t    ustate = 0;
+    buf_or_ptr  keyptr;
+
+  public:
+    node_t() = default;
+    node_t( node_t&& );
+    node_t( const node_t& ) = delete;
+   ~node_t() {  clear();  }
+
+    node_t( const uint8_t*  keytop, size_t length );
+  protected:
+
+    static  auto  get_tree_limit( uint32_t ) -> size_t;
+    inline  auto  get_string_len() const -> size_t  {  return (ustate & O_FRAGLEN);  }
+    inline  auto  get_string_ptr() const -> const uint8_t*;
+    inline  auto  get_tree_count() const -> size_t  {  return (ustate & O_TREELEN) >> 16;  }
+    inline  auto  get_tree_limit() const -> size_t  {  return (ustate & O_TREELIM) >> 25;  }
+    inline  auto  get_type_value() const -> size_t  {  return (ustate & O_KEYTYPE) >> 30;  }
+    inline  auto  set_string_len( size_t len ) -> node_t& {  ustate = (ustate & ~O_FRAGLEN) | len;  return *this;  }
+    inline  auto  set_tree_count( size_t cnt ) -> node_t& {  ustate = (ustate & ~O_TREELEN) | (cnt << 16);  return *this;  }
+    inline  auto  set_tree_limit( size_t lim ) -> node_t& {  ustate = (ustate & ~O_TREELIM) | (lim << 25);  return *this;  }
+    inline  auto  set_type_value( unsigned typ ) -> node_t&  {  ustate = (ustate & ~O_KEYTYPE) | (typ << 30);  return *this;  }
+
+    static  auto  allocate_nodes( size_t ) -> node_t*;
+
+  protected:
+    auto  GetBufLen() const -> size_t;
+    template <class O>
+    auto  Serialize( O* ) const -> O*;
+    template <class S>
+    auto  FetchFrom( S* ) -> S*;
+
+  public:
+    void  clear();
+    void  print( FILE*, const std::string& topstr = "", const std::string& othstr = "" );
+    int   lines() const;
+
+    auto  insert( const uint8_t* key, size_t len ) -> node_t*;
+    auto  insert( node_t* pos, node_t&& ) -> node_t*;
+
+  };
+
+  struct node_t::buffer
+  {
+    enum: int
+    {  offset = sizeof(node_t) - offsetof(node_t, keyptr)  };
+  };
+
+  // node_t implementation
+
+  node_t::node_t( node_t&& node ):
+    pnodes( node.pnodes ),
+    pvalue( std::move( node.pvalue ) ),
+    ustate( node.ustate )
+  {
+    auto  cchstr = get_string_len();
+
+    if ( cchstr <= sizeof(node_t) - offsetof(node_t, keyptr) ) memcpy( keyptr.buf, node.keyptr.buf, cchstr );
+      else keyptr.psz = node.keyptr.psz;
+
+    node.pnodes = nullptr;
+    node.ustate = 0;
+  }
+
+  node_t::node_t(
+    const uint8_t*  keytop,
+    size_t          length ): pnodes( nullptr ), ustate( length )
+  {
+    assert( length <= 0xffff );
+
+    if ( length <= sizeof(node_t) - offsetof(node_t, keyptr) ) memcpy( keyptr.buf, keytop, length );
+      else keyptr.psz = (uint8_t*)memcpy( new uint8_t[length], keytop, length );
+  }
+
+  void  node_t::clear()
+  {
+    if ( pnodes != nullptr )
+    {
+      for ( auto ptr = pnodes, end = ptr + get_tree_count(); ptr != end; ++ptr )
+        ptr->~node_t();
+      delete[] (char*)pnodes;
+    }
+    pnodes = nullptr;
+    pvalue.reset();
+    if ( get_string_len() > sizeof(node_t) - offsetof(node_t, keyptr) && keyptr.psz != nullptr )
+      delete [] keyptr.psz;
+    ustate = 0;
+  }
+
+  auto  node_t::get_string_ptr() const -> const uint8_t*
+  {
+    return get_string_len() <= sizeof(node_t) - offsetof(node_t, keyptr) ? keyptr.buf : keyptr.psz;
+  }
+
+  auto  node_t::get_tree_limit( uint32_t count ) -> size_t
+  {
+    return count == 0   ? 0 :
+           count <= 2   ? 1 :
+           count <= 4   ? 2 :
+           count <= 8   ? 3 :
+           count <= 16  ? 4 :
+           count <= 32  ? 5 :
+           count <= 64  ? 6 :
+           count <= 128 ? 7 : 8;
+  }
+
+  auto  node_t::insert( const uint8_t* keystr, size_t keylen ) -> node_t*
+  {
+    auto  expand = this;
+
+    while ( keylen != 0 )
+    {
+      auto  keytop = expand->get_string_ptr();
+      auto  keyend = expand->get_string_len() + keytop;
+
+      // compare matching part of key
+      while ( keytop != keyend && keylen != 0 && *keytop == *keystr )
+        ++keystr, --keylen, ++keytop;
+
+      // проверить совпадение фрагментов; если фрагмент соответствует ключу полностью,
+      // * проверить, полностью ли исчерпан сам ключ; если и ключ сам тоже закончился,
+      //   узел найден и можно его вернуть;
+      // * иначе пройти по списку вложенных узлов и найти подходящий или точку вставки;
+      if ( keytop == keyend )
+      {
+        if ( keylen != 0 )
+        {
+          auto  ptrtop = expand->pnodes;
+          auto  ptrend = ptrtop + expand->get_tree_count();
+          auto  chnext = *keystr;
+
+          // Выбрать вложенный элемент, который либо начинается на нужный символ, либо
+          // перед которым надо вставлять новый элемент.
+          while ( ptrtop != ptrend && *ptrtop->get_string_ptr() < chnext )
+            ++ptrtop;
+
+          // если элемент не найден, создать новый, вставить на нужное место и вернуть
+          // последний в цепочке созданных сниз элементов
+          if ( ptrtop != ptrend && *ptrtop->get_string_ptr() == chnext )
+          {
+            expand = ptrtop;
+            continue;
+          }
+
+          expand = expand->insert( ptrtop, { keystr, keylen } );
+        }
+        return expand;
+      }
+        else
+        // иначе совпадение частичное, хотя бы один символ; поделить узел на два, до совпадения,
+        // c возможным привешенным значением, и после совпадения - со списком вложенных элементов
+      {
+        auto  ccrest = keytop - expand->get_string_ptr();
+
+        if ( keylen == 0 )
+        {
+          auto  ulimit = get_tree_limit( 1 );
+          auto  uitems = 1 << (1 + ulimit);
+          auto  subset = allocate_nodes( uitems );    // остаток существующего ключа
+
+          new ( subset + 0 )
+            node_t( keytop, keyend - keytop );
+          subset->pnodes = expand->pnodes;
+            expand->pnodes = nullptr;
+          subset->pvalue = std::move(
+            expand->pvalue );
+          subset->
+            set_tree_limit( expand->get_tree_limit() )
+           .set_tree_count( expand->get_tree_count() )
+           .set_type_value( expand->get_type_value() );
+
+          if ( expand->get_string_len() > buffer::offset && ccrest <= buffer::offset )
+          {
+            auto  delptr = expand->keyptr.psz;
+              memcpy( expand->keyptr.buf, delptr, ccrest );
+            delete [] delptr;
+          }
+          expand->pnodes = subset;
+          expand->
+            set_string_len( ccrest )
+           .set_tree_count( 1 )
+           .set_tree_limit( ulimit );
+
+          return expand;
+        }
+          else
+        {
+          auto    ulimit = get_tree_limit( 2 );
+          auto    uitems = 1 << ulimit;
+          auto    subset = allocate_nodes( uitems );      // список вложенных элементов для этого узла
+          node_t* p_rest;
+          node_t* p_push;
+
+          if ( *keytop < *keystr )  {  p_rest = subset + 0;  p_push = subset + 1;  }
+            else  {  p_rest = subset + 1;  p_push = subset + 0;  }
+
+          new( p_rest )
+            node_t( keytop, keyend - keytop );
+          p_rest->pnodes = expand->pnodes;
+            expand->pnodes = nullptr;
+          p_rest->pvalue = std::move(
+            expand->pvalue );
+          p_rest->
+            set_tree_limit( expand->get_tree_limit() )
+           .set_type_value( expand->get_type_value() )
+           .set_tree_count( expand->get_tree_count() );
+
+          new( p_push )
+            node_t( keystr, keylen );
+
+          expand->pnodes = subset;
+
+          if ( expand->get_string_len() > buffer::offset && ccrest <= buffer::offset )
+          {
+            auto  delptr = expand->keyptr.psz;
+            memcpy( expand->keyptr.buf, delptr, ccrest );
+            delete [] delptr;
+          }
+
+          expand->
+            set_string_len( ccrest )
+           .set_tree_count( 2 )
+           .set_tree_limit( ulimit );
+
+          return p_push;
+        }
+      }
+    }
+
+    return expand;
+  }
+
+  auto  node_t::insert( node_t* pos, node_t&& put ) -> node_t*
+  {
+    auto  count = get_tree_count();
+    auto  limit = get_tree_limit();
+    auto  nodes = limit == 0 ? 0 : (1U << limit);
+    auto  index = pos - pnodes;
+
+    if ( count < nodes )
+    {
+      for ( auto o = pnodes + count, s = o, e = pnodes + index; s != e; s->~node_t() )
+        new( o-- ) node_t( std::move( *--s ) );
+    }
+      else
+    {
+      auto  ulimit = get_tree_limit( count + 1 );
+      auto  uitems = 1 << ulimit;
+      auto  newset = allocate_nodes( uitems );
+
+      if ( pnodes != nullptr )
+      {
+        auto  output = newset;
+        auto  srcptr = pnodes;
+
+        for ( auto e = pnodes + index; srcptr != e; (srcptr++)->~node_t() )
+          new( output++ ) node_t( std::move( *srcptr ) );
+
+        ++output;
+
+        for ( auto e = pnodes + count; srcptr != e; (srcptr++)->~node_t() )
+          new( output++ ) node_t( std::move( *srcptr ) );
+
+        delete[] (char*)pnodes;
+      }
+
+      pnodes = newset;
+      set_tree_limit( ulimit );
+    }
+    set_tree_count( count + 1 );
+    return new( pnodes + index ) node_t( std::move( put ) );
+  }
+
+  auto  node_t::allocate_nodes( size_t count ) -> node_t*
+  {
+    return (node_t*)new char[sizeof(node_t) * count];
+  }
+
+}
+
 int main()
 {
+  mtc::node_t n( (const uint8_t*)"aaaaaaaaaaaaaaaaaaaaaaaaaaa", 27 );
+
+  n.insert( (const uint8_t*)"aaabbb", 6 );
+  n.insert( (const uint8_t*)"bbb", 3 );
+  n.insert( (const uint8_t*)"aaaccc", 6 );
+  n.insert( (const uint8_t*)"aaabbbccc", 9 );
+  return 0;
+
   auto  zmap = mtc::zmap{
     { "char", 'c' },
     { "charstr", "string" },
@@ -60,7 +370,8 @@ int main()
         { "float", (float)9.0 } } } };
 
   auto  buff = CreateDump( zmap );
-
+  fwrite( buff.data(), 1, buff.size(), stdout );
+  return 0;
   auto  dump = mtc::zmap::dump( buff.data() );
 
   fprintf( mtc::json::Print( stdout, dump, mtc::json::print::decorated() ),
