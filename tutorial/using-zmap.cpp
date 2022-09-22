@@ -7,7 +7,7 @@
  * указаниями желаемых типов элементов.
  */
 # include "../zmap.h"
-# include "../z_js.h"
+# include "../json.h"
 
 /*
  * В этом примере мы создаём простой zmap по шагам, ключ за ключом, сериализуем в массив, после чего
@@ -33,7 +33,7 @@ void  CreateSimpleZmapAndSerializeItToBuffer()
 
   znew.FetchFrom( (const char*)buff.data() );
 
-  assert( *znew.get_int32( "key as string" ) == *zmap.get_int32( "key as string" ) );
+  assert( znew == zmap );
 }
 
 /*
@@ -63,10 +63,12 @@ void  CreateZmapAsInitializerListAndShowHowToUseZmapsAsFields()
   };
 
   zmap["add field"] = 19U;
-  zmap["add array"] = mtc::array_charstr{ "s1", "s2", "s3" };         // mtc::array_charstr и
-  zmap["add vector"] = std::vector<std::string>{ "s1", "s2", "s3" };  // std::vector<std::string> - это синонимы
+  zmap["add array"] = mtc::array_charstr{ "s1", "s2", "s3" };
+  zmap["add vector"] = std::vector<uint32_t>{ 81, 82, 83 };
 
-  mtc::json::Print( stdout, zmap, mtc::json::print::decorated() );
+  assert(  zmap.get_word32( "add field" ) != nullptr );
+  assert( *zmap.get_word32( "add field" ) == 19U );
+  assert(  zmap.get_word32( "add field", 0 ) == 19U );
 }
 
 /*
@@ -91,8 +93,7 @@ void  TestZmapFieldsAccess()
       { { "3", "3.0" } } } }
   };
 
-  /*
-  if ( is_set( (*zmap)["long integer field"] ) && (*zmap)["long integer field"] == 64 )
+  if ( is_set( (*zmap)["long integer field"] ) && (*zmap)["long integer field"] == (int64_t)64 )
   {
     auto p = (*zmap)["int"];
 
@@ -104,7 +105,6 @@ void  TestZmapFieldsAccess()
     //auto  ft = get_type( zmap["integer_field"] );
     }
   }
- */
 }
 
 class Schema
@@ -180,6 +180,6 @@ int   main()
   CreateSimpleZmapAndSerializeItToBuffer();
   CreateZmapAsInitializerListAndShowHowToUseZmapsAsFields();
   TestZmapFieldsAccess();
-  TestParseJson();
+//  TestParseJson();
   return 0;
 }

@@ -49,7 +49,7 @@ SOFTWARE.
 С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
 
 */
-# include "z_js.h"
+# include "../json.h"
 # include <type_traits>
 
 namespace mtc {
@@ -670,7 +670,7 @@ namespace parse {
         default:  break;
       }
 
-    // untyped xvalue load: object zarray {...}, untyped array [...], string "...", integer -?[0-9]+ or float -?[0-9]+\.?[0-9]*([Ee]-?[0-9]+)?
+    // untyped value load: object zmap{...}, untyped array [...], string "...", integer -?[0-9]+ or float -?[0-9]+\.?[0-9]*([Ee]-?[0-9]+)?
       switch ( chnext = s.nospace() )
       {
         case '{':

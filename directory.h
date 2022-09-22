@@ -53,8 +53,8 @@ SOFTWARE.
 # if !defined( __mtc_dir_h__ )
 # define __mtc_dir_h__
 # include "platform.h"
-# include "autoptr.h"
 # include "wcsstr.h"
+# include <string>
 # include <atomic>
 
 # if defined( _WIN32 )
@@ -156,12 +156,15 @@ namespace mtc
 # else
       DIR*                dirptr;
       struct dirent*      pentry;
-      _auto_<char>        filter;
+      std::string         filter;
 
     public:     // construction
-      dir_val( unsigned attr ): refcnt( 1 ), dwattr( attr ), szname( nullptr ), dirptr( nullptr ), pentry( nullptr )
-        {
-        }
+      dir_val( unsigned attr ):
+        refcnt( 1 ),
+        dwattr( attr ),
+        szname( nullptr ),
+        dirptr( nullptr ),
+        pentry( nullptr ) {}
      ~dir_val()
         {
           if ( dirptr != nullptr )
@@ -185,7 +188,7 @@ namespace mtc
       char*       doread()
         {
           for ( szname = nullptr; szname == nullptr && dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr; )
-            if ( *(char*)filter == '\0' || fnmatch( filter, pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
+            if ( filter.empty() || fnmatch( filter.c_str(), pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
               szname = pentry->d_name;
           return szname;
         }
@@ -384,8 +387,7 @@ namespace mtc
       else folder[endptr++ - pszdir + 1] = '\0';
 
   // create the mask
-    if ( (thedir.didata->filter = w_strdup( endptr )) == nullptr )
-      return directory();
+    thedir.didata->filter = endptr;
 
   // parse the search entry to directory and the mask
     if ( (thedir.didata->dirptr = opendir( folder )) == nullptr )

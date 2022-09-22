@@ -1637,6 +1637,9 @@ namespace mtc
   template <class map>
   class zmap::place_t
   {
+    template <class T>
+    friend bool is_set( const place_t<T>& );
+
   public:
     place_t( const key& k, map& m ): refer( k ), owner( m ) {}
     place_t( const place_t& p ): refer( p.refer ), owner( p.owner ) {}
@@ -1713,6 +1716,12 @@ namespace mtc
     auto  operator = ( const zval& ) -> patch_place_t&;
 
   };
+
+  template <class map>
+  bool  is_set( const zmap::place_t<map>& place )
+  {
+    return place.owner.get( place.refer ) != nullptr;
+  }
 
   /*
     zmap::ztree_t inline implementation

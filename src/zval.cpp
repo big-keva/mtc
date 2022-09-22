@@ -19,7 +19,7 @@ namespace mtc
     операции над zval и целым или дробным значением - макрогенерация:
     template <class V> zval  (#)( zval, V )
   */
-  # define  derive_operation_xvalue_value( funcname )                     \
+  # define  derive_operation_zval_value( funcname )                       \
   template <class V>  zval  funcname( const zval& z, V v )                \
     {                                                                     \
       switch ( z.get_type() )                                             \
@@ -37,17 +37,17 @@ namespace mtc
         default:        return zval();                                    \
       }                                                                   \
     }
-    derive_operation_xvalue_value( GetMul )
-    derive_operation_xvalue_value( GetDiv )
-    derive_operation_xvalue_value( GetAdd )
-    derive_operation_xvalue_value( GetSub )
-  # undef  derive_operation_xvalue_value
+    derive_operation_zval_value( GetMul )
+    derive_operation_zval_value( GetDiv )
+    derive_operation_zval_value( GetAdd )
+    derive_operation_zval_value( GetSub )
+  # undef  derive_operation_zval_value
 
   /*
     операции над zval и zval - макрогенерация:
     zval  (#)( const zval&, const zval& )
   */
-  # define  derive_operation_xvalue_xvalue( funcname )                    \
+  # define  derive_operation_zval_zval( funcname )                        \
   zval  funcname( const zval& z, const zval& x )                          \
     {                                                                     \
       switch ( x.get_type() )                                             \
@@ -65,11 +65,11 @@ namespace mtc
         default:        return zval();                                    \
       }                                                                   \
     }
-    derive_operation_xvalue_xvalue( GetMul )
-    derive_operation_xvalue_xvalue( GetDiv )
-    derive_operation_xvalue_xvalue( GetSub )
-  # undef derive_operation_xvalue_xvalue
-
+    derive_operation_zval_zval( GetMul )
+    derive_operation_zval_zval( GetDiv )
+    derive_operation_zval_zval( GetSub )
+  # undef derive_operation_zval_zval
+  
   /*
     специализации StrCat с поддержкой суммирования однотипных строк
   */
@@ -1051,7 +1051,7 @@ namespace mtc
 
         case z_untyped:       return "<untyped>";
         default:
-          throw std::invalid_argument( "undefined xvalue<> type" );
+          throw std::invalid_argument( "undefined zval type" );
       }
     }
 

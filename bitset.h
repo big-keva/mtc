@@ -51,26 +51,19 @@ SOFTWARE.
 */
 # if !defined( __mtc_bitset_h__ )
 # define __mtc_bitset_h__
-# include "array.h"
 # include <vector>
 # include <limits>
 # include <type_traits>
 
 namespace mtc
 {
-  namespace bitset_impl
-  {
-    template <class T, class M>   int   setlen( array<T, M>& a, size_t l )  {  return a.SetLen( (int)l );  }
-    template <class T, class M>   int   setlen( std::vector<T, M>& a, size_t l )  {  a.resize( l );  return 0;  }
-  }
-
   template <class Vector>
   inline  void  bitset_and( Vector& a, const Vector& b )
     {
       for ( auto i = 0; i < a.size() && i < b.size(); ++i )
         a.at( i ) &= b.at( i );
       if ( b.size() < a.size() )
-        bitset_impl::setlen( a, b.size() );
+        a.resize( b.size() );
     }
 
   template <class Vector>
@@ -81,9 +74,11 @@ namespace mtc
     }
 
   template <class Vector>
-  inline  int   bitset_setmax( Vector& a, size_t m )
+  inline  void  bitset_setmax( Vector& a, size_t m )
     {
-      return bitset_impl::setlen( a, (m + sizeof(a.at( 0 )) * CHAR_BIT - 1) / (sizeof(a.at( 0 )) * CHAR_BIT) );
+      enum: size_t { element_size = sizeof(a[0]), element_bits = element_size * CHAR_BIT };
+
+      a.resize( m + element_bits - 1 / element_bits );
     }
 
   template <class bitset, class U>
@@ -171,68 +166,65 @@ namespace mtc
     }
 
   template <class Vector, class U>
-  inline  int   bitset_set( Vector& s, const range<U>& r )
+  inline  void  bitset_set( Vector& s, const range<U>& r )
     {
-      using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       using             size_type = decltype(s.size());
-      constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
+      using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
+      constexpr size_t  element_bits = sizeof(element_type) * CHAR_BIT;
       auto              l = r.l;
       auto              h = r.h;
 
       if ( l > h )
         inplace_swap( l, h );
 
-      if ( s.size() <= size_type(h / element_size) && bitset_impl::setlen( s, h / element_size + 1 ) != 0 )
-        return ENOMEM;
+      if ( s.size() <= size_type(h / element_bits) )
+        s.resize( h / element_bits + 1 );
 
     // set lower bits
-      s.at( l / element_size ) |= bitsetbits<element_type>( (unsigned)(l % element_size),
-        (unsigned)min( h - (l / element_size) * element_size, element_size - 1 ) );
+      s.at( l / element_bits ) |= bitsetbits<element_type>( (unsigned)(l % element_bits),
+        (unsigned)min( h - (l / element_bits) * element_bits, element_bits - 1 ) );
 
     // set sequence bits
-      for ( auto p = s.begin() + (l / element_size) + 1; p < s.begin() + (h / element_size); )
+      for ( auto p = s.begin() + (l / element_bits) + 1; p < s.begin() + (h / element_bits); )
         *p++ = (element_type)-1;
 
     // set upper bits
-      if ( h / element_size > l / element_size)
-        s[h / element_size] |= bitsetbits<element_type>( 0, h % element_size );
-
-      return 0;
+      if ( h / element_bits > l / element_bits)
+        s[h / element_bits] |= bitsetbits<element_type>( 0, h % element_bits );
     }
 
   template <class Vector>
-  inline  int   bitset_set( Vector& s, int u )  {  return bitset_set( s, make_range( u ) );  }
+  inline  void  bitset_set( Vector& s, int u )  {  return bitset_set( s, make_range( u ) );  }
 
   template <class Vector, class U>
-  inline  int   bitset_del( Vector& s, const range<U>& r )
+  inline  void  bitset_del( Vector& s, const range<U>& r )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
+      constexpr size_t  element_bits = sizeof(element_type) * CHAR_BIT;
       using             size_type = decltype(s.size());
-      constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
       auto              l = r.l;
       auto              h = r.h;
 
-      if ( h >= l && s.size() > size_type(l / element_size) )
+      if ( h >= l && s.size() > size_type(l / element_bits) )
       {
         decltype(s.begin()) p;
 
       // del lower bits
-        s[l / element_size] &= ~bitsetbits<element_type>( (unsigned)(l % element_size),
-          (unsigned)min( h - (l / element_size) * element_size, element_size - 1 ) );
+        s[l / element_bits] &= ~bitsetbits<element_type>( (unsigned)(l % element_bits),
+          (unsigned)min( h - (l / element_bits) * element_bits, element_bits - 1 ) );
 
       // set sequence bits
-        for ( p = s.begin() + (l / element_size) + 1; p < s.end() && p < s.begin() + (h / element_size); )
+        for ( p = s.begin() + (l / element_bits) + 1; p < s.end() && p < s.begin() + (h / element_bits); )
           *p++ = (element_type)0;
 
       // set upper bits
-        if ( p < s.end() && h / element_size > l / element_size )
-          *p &= ~bitsetbits<element_type>( 0, h % element_size );
+        if ( p < s.end() && h / element_bits > l / element_bits )
+          *p &= ~bitsetbits<element_type>( 0, h % element_bits );
       }
-      return 0;
     }
 
   template <class bitset>
-  inline  int   bitset_del( bitset& s, int u )  {  return bitset_del( s, make_range( u ) );  }
+  inline  void  bitset_del( bitset& s, int u )  {  return bitset_del( s, make_range( u ) );  }
 
 }
 
