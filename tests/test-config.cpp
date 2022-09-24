@@ -32,8 +32,3 @@ TestItEasy::RegisterFunc  testConfig( []()
     }
 
   } );
-
-int main()
-{
-  return TestItEasy::Conclusion();
-}

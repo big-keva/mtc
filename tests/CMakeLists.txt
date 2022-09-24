@@ -4,6 +4,13 @@ project(mtc)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
 
+add_executable(mtc-test
+	test-arbitraryMap.cpp
+	test-config.cpp
+	test-fileStream.cpp
+
+	test-main.cpp)
+
 add_executable(mtc-test-serialize
 	test-serialize.cpp)
 
@@ -27,6 +34,9 @@ add_executable(mtc-test-fileStream
 
 add_executable(mtc-test-sharedMutex
 	test-sharedMutex.cpp)
+
+target_link_libraries(mtc-test
+	mtc)
 
 target_link_libraries(mtc-test-directory
 	mtc)
