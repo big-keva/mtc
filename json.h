@@ -166,10 +166,10 @@ namespace json {
   template <class O, class D = print::compact>  O*  Print( O* o, const zmap& z, const D& decorate = D() )
     {  return Print( o, zmap::dump( &z ), decorate );  }
 
-  template <class O, class D = print::compact>  O*  Print( O* o, const charstr& s, const D& deco = D() )
-    {  (void)deco;  return print::charstr( o, s.c_str(), s.length() );  }
-  template <class O, class D = print::compact>  O*  Print( O* o, const widestr& s, const D& deco = D() )
-    {  (void)deco;  return print::widestr( o, s.c_str(), s.length() );  }
+  template <class O, class D = print::compact>  O*  Print( O* o, const charstr& s, const D& = D() )
+    {  return print::charstr( o, s.c_str(), s.length() );  }
+  template <class O, class D = print::compact>  O*  Print( O* o, const widestr& s, const D& = D() )
+    {  return print::widestr( o, s.c_str(), s.length() );  }
 
   /*
     Набор примитивов для печати базовых типов zarray<>
@@ -177,12 +177,12 @@ namespace json {
     template <class O, class T, class D = print_compact>
     inline O* Print( O* o, T t, const D& deco = D() ) { ... }
   */
-  # define  derive_printjson_dec( _type_, _tmpl_ )                                      \
-  template <class O, class D = print::compact>                                          \
-  inline  O*  Print( O* o, _type_ t, const D& decorate = D() )                          \
-    {                                                                                   \
-      char  decval[0x40];                                                               \
-      return ::Serialize( decorate.Shift( o ), decval, sprintf( decval, _tmpl_, t ) );  \
+  # define  derive_printjson_dec( _type_, _tmpl_ )                    \
+  template <class O, class D = print::compact>                        \
+  inline  O*  Print( O* o, _type_ t, const D& = D() )                 \
+    {                                                                 \
+      char  decval[0x40];                                             \
+      return ::Serialize( o, decval, sprintf( decval, _tmpl_, t ) );  \
     }
     derive_printjson_dec( int8_t,   "%d" )
     derive_printjson_dec( uint8_t,  "%u" )
@@ -199,21 +199,21 @@ namespace json {
   # endif  // _MSC_VER
   # undef derive_printjson_dec
 
-  # define  derive_printjson_flo( _type_ )                                            \
-    template <class O, class D = print::compact>                                      \
-    inline  O*  Print( O* o, _type_ t, const D& decorate = D() )                      \
-    {                                                                                 \
-      char  floval[0x10];                                                             \
-      return ::Serialize( decorate.Shift( o ), floval, sprintf( floval, "%f", t ) );  \
+  # define  derive_printjson_flo( _type_ )                          \
+    template <class O, class D = print::compact>                    \
+    inline  O*  Print( O* o, _type_ t, const D& = D() )             \
+    {                                                               \
+      char  floval[0x10];                                           \
+      return ::Serialize( o, floval, sprintf( floval, "%f", t ) );  \
     }
     derive_printjson_flo( float )
     derive_printjson_flo( double )
   # undef derive_printjson_flo
 
-  template <class O, class D = print::compact>  O*  Print( O* o, const uuid_t& uuid, const D& deco = D() )
+  template <class O, class D = print::compact>  O*  Print( O* o, const uuid_t& uuid, const D& = D() )
     {
       auto  s = mtc::to_string( uuid );
-      return ::Serialize( deco.Shift( o ), s.c_str(), s.length() );
+      return ::Serialize( o, s.c_str(), s.length() );
     }
 
 // vectors
@@ -222,12 +222,13 @@ namespace json {
   {
     auto  ptop = a.begin();
     auto  pend = a.end();
+    auto  deco = D( decorate );
 
     for ( o = ::Serialize( o, '[' ); o != nullptr && ptop != pend; ++ptop )
     {
       if ( ptop != a.begin() )
         o = ::Serialize( o, ',' );
-      o = Print( decorate.Break( o ), *ptop, D( decorate ) );
+      o = Print( deco.Shift( deco.Break( o ) ), *ptop, deco );
     }
     return ::Serialize( decorate.Shift( decorate.Break( o ) ), ']' );
   }
@@ -241,38 +242,38 @@ namespace json {
   {
     switch ( v.get_type() )
     {
-      case zval::z_char:    return Print( decorate.Space( o ), *v.get_char() );
-      case zval::z_byte:    return Print( decorate.Space( o ), *v.get_byte() );
-      case zval::z_int16:   return Print( decorate.Space( o ), *v.get_int16() );
-      case zval::z_word16:  return Print( decorate.Space( o ), *v.get_word16() );
-      case zval::z_int32:   return Print( decorate.Space( o ), *v.get_int32() );
-      case zval::z_word32:  return Print( decorate.Space( o ), *v.get_word32() );
-      case zval::z_int64:   return Print( decorate.Space( o ), *v.get_int64() );
-      case zval::z_word64:  return Print( decorate.Space( o ), *v.get_word64() );
-      case zval::z_float:   return Print( decorate.Space( o ), *v.get_float() );
-      case zval::z_double:  return Print( decorate.Space( o ), *v.get_double() );
-      case zval::z_uuid:    return Print( decorate.Space( o ), *v.get_uuid() );
+      case zval::z_char:    return Print( o, *v.get_char() );
+      case zval::z_byte:    return Print( o, *v.get_byte() );
+      case zval::z_int16:   return Print( o, *v.get_int16() );
+      case zval::z_word16:  return Print( o, *v.get_word16() );
+      case zval::z_int32:   return Print( o, *v.get_int32() );
+      case zval::z_word32:  return Print( o, *v.get_word32() );
+      case zval::z_int64:   return Print( o, *v.get_int64() );
+      case zval::z_word64:  return Print( o, *v.get_word64() );
+      case zval::z_float:   return Print( o, *v.get_float() );
+      case zval::z_double:  return Print( o, *v.get_double() );
+      case zval::z_uuid:    return Print( o, *v.get_uuid() );
 
-      case zval::z_charstr: return Print( decorate.Space( o ), *v.get_charstr() );
-      case zval::z_widestr: return Print( decorate.Space( o ), *v.get_widestr() );
-      case zval::z_zmap:    return Print( decorate.Break( o ), *v.get_zmap(), D( decorate ) );
+      case zval::z_charstr: return Print( o, *v.get_charstr() );
+      case zval::z_widestr: return Print( o, *v.get_widestr() );
+      case zval::z_zmap:    return Print( o, *v.get_zmap(), decorate );
 
-      case zval::z_array_char:    return Print( decorate.Space( o ), *v.get_array_char(),   D( decorate ) );
-      case zval::z_array_byte:    return Print( decorate.Space( o ), *v.get_array_byte(),   D( decorate ) );
-      case zval::z_array_int16:   return Print( decorate.Space( o ), *v.get_array_int16(),  D( decorate ) );
-      case zval::z_array_word16:  return Print( decorate.Space( o ), *v.get_array_word16(), D( decorate ) );
-      case zval::z_array_int32:   return Print( decorate.Space( o ), *v.get_array_int32(),  D( decorate ) );
-      case zval::z_array_word32:  return Print( decorate.Space( o ), *v.get_array_word32(), D( decorate ) );
-      case zval::z_array_int64:   return Print( decorate.Space( o ), *v.get_array_int64(),  D( decorate ) );
-      case zval::z_array_word64:  return Print( decorate.Space( o ), *v.get_array_word64(), D( decorate ) );
-      case zval::z_array_float:   return Print( decorate.Space( o ), *v.get_array_float(),  D( decorate ) );
-      case zval::z_array_double:  return Print( decorate.Space( o ), *v.get_array_double(), D( decorate ) );
+      case zval::z_array_char:    return Print( o, *v.get_array_char(),   decorate );
+      case zval::z_array_byte:    return Print( o, *v.get_array_byte(),   decorate );
+      case zval::z_array_int16:   return Print( o, *v.get_array_int16(),  decorate );
+      case zval::z_array_word16:  return Print( o, *v.get_array_word16(), decorate );
+      case zval::z_array_int32:   return Print( o, *v.get_array_int32(),  decorate );
+      case zval::z_array_word32:  return Print( o, *v.get_array_word32(), decorate );
+      case zval::z_array_int64:   return Print( o, *v.get_array_int64(),  decorate );
+      case zval::z_array_word64:  return Print( o, *v.get_array_word64(), decorate );
+      case zval::z_array_float:   return Print( o, *v.get_array_float(),  decorate );
+      case zval::z_array_double:  return Print( o, *v.get_array_double(), decorate );
 
-      case zval::z_array_charstr: return Print( decorate.Space( o ), *v.get_array_charstr(), D( decorate ) );
-      case zval::z_array_widestr: return Print( decorate.Space( o ), *v.get_array_widestr(), D( decorate ) );
-      case zval::z_array_zval:    return Print( decorate.Space( o ), *v.get_array_zval(), D( decorate ) );
-      case zval::z_array_zmap:    return Print( decorate.Space( o ), *v.get_array_zmap(), D( decorate ) );
-      case zval::z_array_uuid:    return Print( decorate.Space( o ), *v.get_array_uuid(), D( decorate ) );
+      case zval::z_array_charstr: return Print( o, *v.get_array_charstr(), decorate );
+      case zval::z_array_widestr: return Print( o, *v.get_array_widestr(), decorate );
+      case zval::z_array_zval:    return Print( o, *v.get_array_zval(),    decorate );
+      case zval::z_array_zmap:    return Print( o, *v.get_array_zmap(),    decorate );
+      case zval::z_array_uuid:    return Print( o, *v.get_array_uuid(),    decorate );
 
       default:  assert( false );  abort();  return o;
     }
@@ -283,7 +284,7 @@ namespace json {
   {
     bool  bcomma = false;
 
-    o = decorate.Break( ::Serialize( decorate.Shift( o ), '{' ) );
+    o = decorate.Break( ::Serialize( o, '{' ) );
 
     for ( auto beg = z.begin(), end = z.end(); beg != end; ++beg )
       if ( beg->second.get_type() != zval::z_untyped )
@@ -309,7 +310,7 @@ namespace json {
         }
 
       // value
-        o = Print( ::Serialize( o, ':' ), beg->second, subdec );
+        o = Print( decorate.Space( ::Serialize( o, ':' ) ), beg->second, subdec );
         bcomma = true;
       }
 
