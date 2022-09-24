@@ -83,8 +83,6 @@ namespace mtc
     using value_type      = std::pair<key_type, mapped_type>;
     using size_type       = std::size_t;
     using diff_type       = std::ptrdiff_t;
-//    using hasher          = void;
-//    using key_equal       = void;
     using reference       = value_type&;
     using const_reference = const value_type&;
 //    pointer
@@ -102,16 +100,11 @@ namespace mtc
     arbitrary_map( arbitrary_map&& other );
     template <class InputIt>
     arbitrary_map( InputIt first, InputIt last,
-      size_type map_len = default_map_len/*,
-               size_type bucket_count = implementation-defined,
-               const Hash& hash = Hash(),
-               const key_equal& equal = key_equal(),
-               const Allocator& alloc = Allocator() */);
+      size_type map_len = default_map_len,
+      const H& hash = H() );
     arbitrary_map( std::initializer_list<value_type> init,
-               size_type bucket_count = default_map_len/*,
-               const Hash& hash = Hash(),
-               const key_equal& equal = key_equal(),
-               const Allocator& alloc = Allocator()*/ );
+      size_type map_len = default_map_len,
+      const H& hash = H() );
    ~arbitrary_map();
 
     arbitrary_map& operator=( const arbitrary_map& other );
@@ -351,17 +344,20 @@ namespace mtc
   template <class T, class H>
   arbitrary_map<T, H>::arbitrary_map(
     std::initializer_list<value_type> init,
-    size_type                         mlen ): arbitrary_map( init.begin(), init.end(), mlen ) {}
+    size_type                         mlen,
+    const H&                          hash ):
+      arbitrary_map( init.begin(), init.end(), mlen, hash ) {}
 
   template <class T, class H>
   template <class InputIt>
   arbitrary_map<T, H>::arbitrary_map(
-    InputIt   it_beg,
-    InputIt   it_end,
-    size_type maplen ): arbitrary_map( maplen )
+    InputIt   _beg,
+    InputIt   _end,
+    size_type _len,
+    const H&  _hsh ): arbitrary_map( _len, _hsh )
   {
-    while ( it_beg != it_end )
-      insert( *it_beg++ );
+    while ( _beg != _end )
+      insert( *_beg++ );
   }
 
   template <class T, class H>
