@@ -9,6 +9,37 @@
 # include "../zmap.h"
 # include "../z_js.h"
 
+//
+// Заполнение объектов zmap возможно с явным указанием типов помещаемых объектов.
+//
+void  FillZmapWithTypedAPI()
+{
+  mtc::zmap m;
+
+  m.set_int16( "key1", 7 );           // "key1" -> 7
+ *m.set_int32( "key2" ) = 11;         // "key2" -> 11
+ *m.set_int64( "key3", 2 ) += 15;     // "key3" -> (int64)17
+
+  m.set_charstr( "str1", "some string" );                 // "str1" -> "some string"
+  m.set_array_float( "arr_float", { 1.7, 2.4, 5.5 } );    // "arr_float" -> [1.7, 2.4, 5.5]
+ *m.set_array_double( "arr_double" ) = std::move(
+    std::vector<double>{ 2.8, 3.5, 6.6 } );
+
+  m.set_array_charstr( "arr_str" );
+  m.get_array_charstr( "arr_str" )->push_back( "other" );
+  m.get_array_charstr( "arr_str" )->push_back( "string" );
+  m.get_array_charstr( "arr_str" )->push_back( "array" );
+
+  m.set_zmap( "zmap" )->set_byte( "byte", 255 );
+  m.get_zmap( "zmap" )->set_char( "char", -1 );
+
+  m.set_array_zval( "arr_zval", { "string value", 2, -1.7,
+    mtc::zmap{ { "key1", std::vector<mtc::charstr>{ "a", "b", "c" } } },
+    mtc::array_zval{ 7, 6, 1.0 } } );
+
+  fprintf( mtc::json::Print( stderr, m, mtc::json::print::decorated() ), "\n" );
+}
+
 /*
  * В этом примере мы создаём простой zmap по шагам, ключ за ключом, сериализуем в массив, после чего
  * загружаем и убеждаемся, что получили точно такой же zmap.
@@ -177,9 +208,10 @@ void  TestParseJson()
 
 int   main()
 {
-  CreateSimpleZmapAndSerializeItToBuffer();
+  FillZmapWithTypedAPI();
+/*  CreateSimpleZmapAndSerializeItToBuffer();
   CreateZmapAsInitializerListAndShowHowToUseZmapsAsFields();
   TestZmapFieldsAccess();
-  TestParseJson();
+  TestParseJson();*/
   return 0;
 }
