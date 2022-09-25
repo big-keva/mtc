@@ -133,6 +133,8 @@ namespace mtc
 
     };
 
+    using entry = direntry;
+
   protected:
     struct dir_val
     {

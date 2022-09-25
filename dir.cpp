@@ -190,7 +190,7 @@ namespace fs {
   auto  directory::string::inner_t::create( const char* str, size_t cch ) -> inner_t*
   {
     auto    cccstr = strlen( str, cch );
-    auto    ccwstr = utf::strlen( utf16(), str, cccstr );
+    auto    ccwstr = utf::buflen( utf16(), str, cccstr );
     size_t  nalloc = sizeof(inner_t) + (ccwstr + 1) * sizeof(widechar) + (cccstr + 1) * sizeof(char);
 
     return new( new char[nalloc] ) inner_t( str, ccwstr );

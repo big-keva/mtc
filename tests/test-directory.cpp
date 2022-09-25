@@ -1,13 +1,25 @@
-# include "../dir.hpp"
-# include <cstdio>
+# include "../test-it-easy.hpp"
+# include "../directory.h"
 
-int   main()
-{
-  auto  dir = mtc::fs::directory::open( "../", mtc::fs::directory::attr_any );
+using namespace mtc;
 
-  for ( auto ent = dir.get(); ent; ent = dir.get() )
-    fprintf( stdout, "%s%s\n", ent.path().charstr(), ent.name().charstr() );
+TestItEasy::RegisterFunc  testDirectory( []()
   {
-  }
-  return 0;
-}
+    TEST_CASE( "mtc/directory" )
+    {
+      directory         dir;
+      directory::entry  ent;
+
+      SECTION( "current directory may be opened anyway" )
+      {
+        REQUIRE_NOTHROW( dir = directory::Open( "./*", directory::attr_any ) );
+        REQUIRE( dir != false );
+
+        SECTION( "it contains at least one directory entry" )
+        {
+          REQUIRE( (ent = dir.Get()) != false );
+          REQUIRE( ent.folder() == std::string( "./" ) );
+        }
+      }
+    }
+  } );

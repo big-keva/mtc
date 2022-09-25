@@ -77,22 +77,37 @@ namespace mtc {
   {
   public:
     template <class target, class in>
-    static  auto  strlen( const target&, in src ) -> size_t;
+    static  auto  buflen( const target&, in src ) -> size_t;
+    template <class in>
+    static  auto  strlen( in src ) -> size_t;
     template <class target>
     static  auto  encode( target out, uint32_t chr ) -> typename target::res_type;
     template <class target, class in>
     static  auto  encode( target out, in src ) -> typename target::res_type;
 
+  public:     // buflen
+   /*
+    * buflen( utfstr )
+    * Возвращает размер массива для кодирования utf8-строкой.
+    */
+    static  auto  buflen( const utf8& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  buflen( const utf8& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  buflen( const utf8& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  buflen( const utf16& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  buflen( const utf16& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  buflen( const utf16& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  buflen( const utf32& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  buflen( const utf32& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  buflen( const utf32& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
+
   public:     // strlen
-    static  auto  strlen( const utf8& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
-    static  auto  strlen( const utf8& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
-    static  auto  strlen( const utf8& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
-    static  auto  strlen( const utf16& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
-    static  auto  strlen( const utf16& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
-    static  auto  strlen( const utf16& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
-    static  auto  strlen( const utf32& out, const char* str, size_t len = (size_t)-1 ) -> size_t;
-    static  auto  strlen( const utf32& out, const widechar* str, size_t len = (size_t)-1 ) -> size_t;
-    static  auto  strlen( const utf32& out, const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
+   /*
+    * strlen( utfstr )
+    * Возвращает количество символов, закодированных utf8-строкой.
+    */
+    static  auto  strlen( const char* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const widechar* str, size_t len = (size_t)-1 ) -> size_t;
+    static  auto  strlen( const uint32_t* str, size_t len = (size_t)-1 ) -> size_t;
 
   public:     // old-style helpers for utf16/utf8 conversions
   /*
@@ -136,11 +151,6 @@ namespace mtc {
    * Возвращает признак того, что строка может быть корректной utf8-строкой.
    */
     static  bool  verify( const char* str, size_t len = (size_t)-1 );
-  /*
-   * strlen( utfstr )
-   * Возвращает количество символов, закодированных utf8-строкой.
-   */
-    static  auto  strlen( const char* str, size_t len = (size_t)-1 ) -> size_t;
 
   };
 
@@ -968,13 +978,24 @@ namespace mtc {
   // utf inline implementation
 
   template <class target, class in>
-  auto  utf::strlen( const target&, in src ) -> size_t
+  auto  utf::buflen( const target&, in src ) -> size_t
     {
       uint32_t  chr;
       size_t    len = 0;
 
       while ( src.get_char( chr ) )
         len += target::charsize( chr );
+
+      return len;
+    }
+  template <class in>
+  auto  utf::strlen( in src ) -> size_t
+    {
+      uint32_t  chr;
+      size_t    len = 0;
+
+      while ( src.get_char( chr ) )
+        ++len;
 
       return len;
     }
@@ -996,15 +1017,19 @@ namespace mtc {
       return (typename std::conditional<std::is_reference<res>::value, res, res&&>::type)(out.finalize());
     }
 
-  inline  auto  utf::strlen( const utf8&  out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf8&  out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf8&  out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf16& out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf16& out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf16& out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf32& out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf32& out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf32& out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf8&  out, const char* str, size_t len )     -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf8&  out, const widechar* str, size_t len ) -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf8&  out, const uint32_t* str, size_t len ) -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf16& out, const char* str, size_t len )     -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf16& out, const widechar* str, size_t len ) -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf16& out, const uint32_t* str, size_t len ) -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf32& out, const char* str, size_t len )     -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf32& out, const widechar* str, size_t len ) -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::buflen( const utf32& out, const uint32_t* str, size_t len ) -> size_t {  return buflen( out, utf8::in( str, len ) );  }
+
+  inline  auto  utf::strlen( const char* str, size_t len ) -> size_t      {  return utf::strlen( utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const widechar* str, size_t len ) -> size_t  {  return utf::strlen( utf16::in( str, len ) );  }
+  inline  auto  utf::strlen( const uint32_t* str, size_t len ) -> size_t  {  return utf::strlen( utf32::in( str, len ) );  }
 
   // compatibility family
 
@@ -1029,8 +1054,6 @@ namespace mtc {
 
   inline  bool  utf::detect( const char* str, size_t len )                {  return utf8::detect( str, len );  }
   inline  bool  utf::verify( const char* str, size_t len )                {  return utf8::detect( str, len );  }
-
-  inline  auto  utf::strlen( const char* str, size_t len ) -> size_t      {  return utf::strlen( utf16(), str, len );  }
 
 }
 
