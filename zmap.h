@@ -460,11 +460,18 @@ namespace mtc
     class iterator_base;
 
   private:
-    template <class map>
+    template <class obj>
     class place_t;
 
     class const_place_t;
     class patch_place_t;
+
+    template <class obj>
+    friend  bool  is_set( const place_t<obj>& );
+    template <class obj>
+    friend  bool  get_type( const place_t<obj>& );
+    template <class obj>
+    friend  bool  is_array( const place_t<obj>& );
 
   protected:
     auto  private_data() -> zdata_t*;
@@ -1634,11 +1641,18 @@ namespace mtc
  /*
   * [] zmap zccess
   */
-  template <class map>
+  template <class obj>
   class zmap::place_t
   {
+    template <class map>
+    friend  bool  is_set( const place_t<map>& );
+    template <class map>
+    friend  bool  get_type( const place_t<map>& );
+    template <class map>
+    friend  bool  is_array( const place_t<map>& );
+
   public:
-    place_t( const key& k, map& m ): refer( k ), owner( m ) {}
+    place_t( const key& k, obj& m ): refer( k ), owner( m ) {}
     place_t( const place_t& p ): refer( p.refer ), owner( p.owner ) {}
     place_t( place_t&& p ): refer( std::move( p.refer ) ), owner( p.owner ) {}
 
@@ -1654,7 +1668,7 @@ namespace mtc
 
   protected:
     key   refer;
-    map&  owner;
+    obj&  owner;
 
   };
 
@@ -1714,8 +1728,28 @@ namespace mtc
 
   };
 
-  /*
-    zmap::ztree_t inline implementation
+ /*
+  * helpers
+  */
+  template <class map>
+  bool  is_set( const zmap::place_t<map>& place )
+  {  return place.owner.get( place.refer ) != nullptr;  }
+
+  template <class map>
+  bool  get_type( const zmap::place_t<map>& place )
+  {  return place.owner.get_typ.get_type( place.refer );  }
+
+  template <class map>
+  bool  is_array( const zmap::place_t<map>& place )
+  {
+    auto  zt = get_type( place );
+
+    return zt >= zval::z_array_byte
+        && zt <= zval::z_array_uuid;
+  }
+
+ /*
+  *  zmap::ztree_t inline implementation
   */
 
   inline
