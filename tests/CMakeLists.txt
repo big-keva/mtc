@@ -10,6 +10,7 @@ add_executable(mtc-test
 	test-directory.cpp
 	test-fileStream.cpp
 	test-patricia.cpp
+	test-prefixTree.cpp
 	test-serialize.cpp
 	test-utf.cpp
 	test-wcsstr.cpp
