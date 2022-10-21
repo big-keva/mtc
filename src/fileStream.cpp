@@ -99,13 +99,13 @@ namespace mtc
     FileMemmap& operator = ( const FileMemmap& ) = delete;
 
   public:     // overridables
-    virtual const char* GetPtr(                       ) const noexcept override {  return nshift + (char*)ptrmap;  }
-    virtual word32_t    GetLen(                       ) const noexcept override {  return cchmem;  }
-    virtual int         SetBuf( const void*, word32_t )       noexcept override {  return EINVAL;  }
-    virtual int         SetLen( word32_t              )       noexcept override {  return EINVAL;  }
+    const char* GetPtr(                       ) const noexcept override {  return nshift + (char*)ptrmap;  }
+    word32_t    GetLen(                       ) const noexcept override {  return cchmem;  }
+    int         SetBuf( const void*, word32_t )       noexcept override {  return EINVAL;  }
+    int         SetLen( word32_t              )       noexcept override {  return EINVAL;  }
 
   public:     // helpers
-    int   Create( FileStream<error>*, int64_t, word32_t );
+    int         Create( FileStream<error>*, int64_t, word32_t );
 
   protected:  // variables
     word32_t                cchmem;
