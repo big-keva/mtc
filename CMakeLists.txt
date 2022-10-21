@@ -81,5 +81,5 @@ install(
 add_subdirectory(tutorial)
 
 # enable_testing()
-# add_subdirectory(tests)
+add_subdirectory(tests)
 

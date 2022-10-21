@@ -171,7 +171,7 @@ namespace mtc
     }
     
   template <class T>
-  auto  zmap::dump::get( const value_t<T>& v, const T& t ) -> T
+  auto  zmap::dump::get( const value_t<T>& v, const T& t ) -> const T&
     {  return v != nullptr ? *v : t;  }
 
   auto  zmap::dump::get( const key& k ) const -> zview_t
@@ -210,9 +210,9 @@ namespace mtc
   auto  zmap::dump::get_word64( const key& k, word64_t w ) const -> word64_t  {  return get( get_word64( k ), w );  }
   auto  zmap::dump::get_float( const key& k, float f ) const -> float  {  return get( get_float( k ), f );  }
   auto  zmap::dump::get_double( const key& k, double d ) const -> double  {  return get( get_double( k ), d );  }
-  auto  zmap::dump::get_charstr( const key& k, const charstr& s ) const -> charstr  {  return get( get_charstr( k ), s );  }
-  auto  zmap::dump::get_widestr( const key& k, const widestr& w ) const -> widestr  {  return get( get_widestr( k ), w );  }
-  auto  zmap::dump::get_uuid( const key& k, const uuid& w ) const -> uuid  {  return get( get_uuid( k ), w );  }
+  auto  zmap::dump::get_charstr( const key& k, const charstr& s ) const -> const charstr& {  return get( get_charstr( k ), s );  }
+  auto  zmap::dump::get_widestr( const key& k, const widestr& w ) const -> const widestr& {  return get( get_widestr( k ), w );  }
+  auto  zmap::dump::get_uuid( const key& k, const uuid& w ) const -> const uuid&  {  return get( get_uuid( k ), w );  }
 
   auto  zmap::dump::get_zmap( const key& k, const zmap& w ) const -> dump
     {
@@ -236,6 +236,44 @@ namespace mtc
   auto  zmap::dump::get_array_uuid( const key& k ) const -> value_t<array_t<uuid>> {  return get_dump( k ).get_array_uuid();  }
   auto  zmap::dump::get_array_zval( const key& k ) const -> value_t<array_t<zval::dump, zval>> {  return get_dump( k ).get_array_zval();  }
   auto  zmap::dump::get_array_zmap( const key& k ) const -> value_t<array_t<zmap::dump, zmap>> {  return get_dump( k ).get_array_zmap();  }
+
+  # define derive_get_array_ref( _type_ ) \
+  auto  zmap::dump::get_array_##_type_( const key& k, const array_##_type_& a ) const -> array_t<_type_##_t>  \
+  {                                                                                                           \
+    auto  pvalue = get_dump( k ).get_array_##_type_();                                                        \
+    if ( pvalue != nullptr )  return *pvalue;                                                                 \
+      else return array_t<_type_##_t>( &a );                                                                  \
+  }
+
+  derive_get_array_ref( char )
+  derive_get_array_ref( byte )
+  derive_get_array_ref( int16 )
+  derive_get_array_ref( int32 )
+  derive_get_array_ref( int64 )
+  derive_get_array_ref( word16 )
+  derive_get_array_ref( word32 )
+  derive_get_array_ref( word64 )
+  derive_get_array_ref( float )
+  derive_get_array_ref( double )
+  derive_get_array_ref( charstr )
+  derive_get_array_ref( widestr )
+  derive_get_array_ref( uuid )
+
+  auto  zmap::dump::get_array_zval( const key& k, const array_zval& a ) const -> array_t<zval::dump, zval>
+  {
+    auto  pvalue = get_dump( k ).get_array_zval();
+
+    if ( pvalue != nullptr )  return *pvalue;
+      else return array_t<zval::dump, zval>( &a );
+  }
+
+  auto  zmap::dump::get_array_zmap( const key& k, const array_zmap& a ) const -> array_t<zmap::dump, zmap>
+  {
+    auto  pvalue = get_dump( k ).get_array_zmap();
+
+    if ( pvalue != nullptr )  return *pvalue;
+      else return array_t<zmap::dump, zmap>( &a );
+  }
 
   bool  zmap::dump::operator == ( const dump& z ) const
     {
@@ -994,25 +1032,22 @@ namespace mtc
       auto  pv = get( k );                                                            \
       return pv != nullptr ? pv->get_##_type_() : nullptr;                            \
     }
-  # define derive_get_init( _type_ )                                                  \
-  auto  zmap::get_##_type_( const key& k, const _type_##_t& t ) const -> _type_##_t   \
+  # define derive_get_init_val( _type_ )                                              \
+  auto  zmap::get_##_type_( const key& k, _type_##_t t ) const -> _type_##_t          \
+    {                                                                                 \
+      auto  pv = get_##_type_( k );                                                   \
+      return pv != nullptr ? *pv : t;                                                 \
+    }
+  # define derive_get_init_ref( _type_ )                                              \
+  auto  zmap::get_##_type_( const key& k, const _type_##_t& t ) const -> const _type_##_t&  \
     {                                                                                 \
       auto  pv = get_##_type_( k );                                                   \
       return pv != nullptr ? *pv : t;                                                 \
     }
 
-  # define derive_set_pure( _type_ )                                                  \
-  auto  zmap::set_##_type_( const key& k ) -> _type_##_t*                             \
-    {  return put( k )->set_##_type_();  }
-
-  # define derive_set_move( _type_ )                                                  \
-  auto  zmap::set_##_type_( const key& k, _type_##_t&& t ) -> _type_##_t*             \
-    {  return put( k, std::move( zval( std::move( t ) ) ) )->get_##_type_();  }
-
-  # define derive_set_copy( _type_ )                                                  \
-  auto  zmap::set_##_type_( const key& k, const _type_##_t& t ) -> _type_##_t*        \
-    {  return put( k, std::move( zval( t ) ) )->get_##_type_();  }
-
+   /*
+    * get_xxx( key ) [const] -> [const] xxx* family
+    */
     derive_get_type( char    )
     derive_get_type( byte    )
     derive_get_type( int16   )
@@ -1028,21 +1063,6 @@ namespace mtc
     derive_get_type( uuid    )
     derive_get_type( zmap    )
 
-    derive_get_init( char    )
-    derive_get_init( byte    )
-    derive_get_init( int16   )
-    derive_get_init( int32   )
-    derive_get_init( int64   )
-    derive_get_init( word16  )
-    derive_get_init( word32  )
-    derive_get_init( word64  )
-    derive_get_init( float   )
-    derive_get_init( double  )
-    derive_get_init( charstr )
-    derive_get_init( widestr )
-    derive_get_init( uuid    )
-    derive_get_init( zmap    )
-
     derive_get_type( array_char )
     derive_get_type( array_byte    )
     derive_get_type( array_int16   )
@@ -1055,64 +1075,136 @@ namespace mtc
     derive_get_type( array_double  )
     derive_get_type( array_charstr )
     derive_get_type( array_widestr )
-    derive_get_type( array_zmap    )
-    derive_get_type( array_zval    )
     derive_get_type( array_uuid    )
+    derive_get_type( array_zval    )
+    derive_get_type( array_zmap    )
 
-    derive_set_copy( char    )
-    derive_set_copy( byte    )
-    derive_set_copy( int16   )
-    derive_set_copy( int32   )
-    derive_set_copy( int64   )
-    derive_set_copy( word16  )
-    derive_set_copy( word32  )
-    derive_set_copy( word64  )
-    derive_set_copy( float   )
-    derive_set_copy( double  )
-    derive_set_copy( zmap )
-    derive_set_copy( uuid )
-    derive_set_copy( charstr )
-    derive_set_copy( widestr )
-    derive_set_copy( array_char )
-    derive_set_copy( array_byte    )
-    derive_set_copy( array_int16   )
-    derive_set_copy( array_int32   )
-    derive_set_copy( array_int64   )
-    derive_set_copy( array_word16  )
-    derive_set_copy( array_word32  )
-    derive_set_copy( array_word64  )
-    derive_set_copy( array_float   )
-    derive_set_copy( array_double  )
-    derive_set_copy( array_charstr )
-    derive_set_copy( array_widestr )
-    derive_set_copy( array_zval    )
-    derive_set_copy( array_uuid    )
+   /*
+    * get_xxx( key, value ) -> value family
+    */
+    derive_get_init_val( char    )
+    derive_get_init_val( byte    )
+    derive_get_init_val( int16   )
+    derive_get_init_val( int32   )
+    derive_get_init_val( int64   )
+    derive_get_init_val( word16  )
+    derive_get_init_val( word32  )
+    derive_get_init_val( word64  )
+    derive_get_init_val( float   )
+    derive_get_init_val( double  )
+    derive_get_init_ref( charstr )
+    derive_get_init_ref( widestr )
+    derive_get_init_ref( uuid    )
+    derive_get_init_ref( zmap    )
 
-    derive_set_pure( zmap    )
-    derive_set_pure( array_zmap    )
+    derive_get_init_ref( array_char )
+    derive_get_init_ref( array_byte    )
+    derive_get_init_ref( array_int16   )
+    derive_get_init_ref( array_int32   )
+    derive_get_init_ref( array_int64   )
+    derive_get_init_ref( array_word16  )
+    derive_get_init_ref( array_word32  )
+    derive_get_init_ref( array_word64  )
+    derive_get_init_ref( array_float   )
+    derive_get_init_ref( array_double  )
+    derive_get_init_ref( array_charstr )
+    derive_get_init_ref( array_widestr )
+    derive_get_init_ref( array_zmap    )
+    derive_get_init_ref( array_zval    )
+    derive_get_init_ref( array_uuid    )
 
-    derive_set_move( charstr )
-    derive_set_move( widestr )
-    derive_set_move( zmap    )
-    derive_set_move( array_char )
-    derive_set_move( array_byte    )
-    derive_set_move( array_int16   )
-    derive_set_move( array_int32   )
-    derive_set_move( array_int64   )
-    derive_set_move( array_word16  )
-    derive_set_move( array_word32  )
-    derive_set_move( array_word64  )
-    derive_set_move( array_float   )
-    derive_set_move( array_double  )
-    derive_set_move( array_charstr )
-    derive_set_move( array_widestr )
-    derive_set_move( array_zmap    )
-    derive_set_move( array_zval    )
-    derive_set_move( array_uuid    )
-  # undef derive_set_pure
-  # undef derive_set_move
-  # undef derive_set_copy
+  # undef derive_get_init_ref
+  # undef derive_get_init_val
   # undef derive_get_type
+
+  # define derive_set( _type_ )                                                       \
+  auto  zmap::set_##_type_( const key& k ) -> _type_##_t*                             \
+    {  return put( k )->set_##_type_();  }
+
+  # define derive_set_val( _type_ )                                                   \
+  auto  zmap::set_##_type_( const key& k, _type_##_t t ) -> _type_##_t*               \
+    {  return put( k, t )->get_##_type_();  }
+
+  # define derive_set_ref( _type_ )                                                   \
+  auto  zmap::set_##_type_( const key& k, const _type_##_t& t ) -> _type_##_t*        \
+    {  return put( k, std::move( zval( t ) ) )->get_##_type_();  }                    \
+  auto  zmap::set_##_type_( const key& k, _type_##_t&& t ) -> _type_##_t*             \
+    {  return put( k, std::move( zval( std::move( t ) ) ) )->get_##_type_();  }
+
+    derive_set( char    )
+    derive_set( byte    )
+    derive_set( int16   )
+    derive_set( int32   )
+    derive_set( int64   )
+    derive_set( word16  )
+    derive_set( word32  )
+    derive_set( word64  )
+    derive_set( float   )
+    derive_set( double  )
+    derive_set( charstr )
+    derive_set( widestr )
+    derive_set( uuid )
+    derive_set( zmap )
+    derive_set( array_char )
+    derive_set( array_byte )
+    derive_set( array_int16 )
+    derive_set( array_int32 )
+    derive_set( array_int64 )
+    derive_set( array_word16 )
+    derive_set( array_word32 )
+    derive_set( array_word64 )
+    derive_set( array_float )
+    derive_set( array_double )
+    derive_set( array_charstr )
+    derive_set( array_widestr )
+    derive_set( array_zval )
+    derive_set( array_uuid )
+    derive_set( array_zmap )
+
+    derive_set_val( char    )
+    derive_set_val( byte    )
+    derive_set_val( int16   )
+    derive_set_val( int32   )
+    derive_set_val( int64   )
+    derive_set_val( word16  )
+    derive_set_val( word32  )
+    derive_set_val( word64  )
+    derive_set_val( float   )
+    derive_set_val( double  )
+    derive_set_ref( charstr )
+    derive_set_ref( widestr )
+
+    auto  zmap::set_charstr( const key& k, const char* psz, size_t len ) -> charstr*
+    {
+      return put( k, std::move( zval( psz, len ) ) )->get_charstr();
+    }
+
+    auto  zmap::set_widestr( const key& k, const widechar* pws, size_t len ) -> widestr*
+    {
+      return put( k, std::move( zval( pws, len ) ) )->get_widestr();
+    }
+
+    derive_set_ref( uuid )
+    derive_set_ref( zmap )
+    derive_set_ref( array_char )
+    derive_set_ref( array_byte )
+    derive_set_ref( array_int16 )
+    derive_set_ref( array_int32 )
+    derive_set_ref( array_int64 )
+    derive_set_ref( array_word16 )
+    derive_set_ref( array_word32 )
+    derive_set_ref( array_word64 )
+    derive_set_ref( array_float )
+    derive_set_ref( array_double )
+    derive_set_ref( array_charstr )
+    derive_set_ref( array_widestr )
+    derive_set_ref( array_zval )
+    derive_set_ref( array_uuid )
+    derive_set_ref( array_zmap )
+
+  # undef derive_set_ref
+  # undef derive_set_val
+  # undef derive_set
 
   auto  zmap::empty() const -> bool {  return p_data == nullptr || p_data->n_vals == 0;  }
   auto  zmap::size() const -> size_t {  return p_data != nullptr ? p_data->n_vals : 0;  }
