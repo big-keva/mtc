@@ -147,15 +147,17 @@ namespace mtc
     const char* e;
 
   public:     // construction
-    sourcebuf( const void* t = nullptr, size_t l = 0 ) noexcept: p( (char*)t ), e( l + (char*)t ) {}
-    sourcebuf( const sourcebuf& s ): p( s.p ), e( s.e ) {}
+    sourcebuf( const void* t = nullptr, size_t l = 0 ) noexcept:
+      p( (const char*)t ), e( l + (const char*)t ) {}
+    sourcebuf( const sourcebuf& s ):
+      p( s.p ), e( s.e ) {}
     sourcebuf&  operator = ( const sourcebuf& s )
     {
       p = s.p;
       e = s.e;
       return *this;
     }
-    sourcebuf* ptr() const {  return (sourcebuf*)this;  }
+    sourcebuf* ptr() const {  return const_cast<sourcebuf*>( this );  }
     operator sourcebuf* () const    {  return ptr();  }
     const char* getptr() const      {  return p < e ? p : nullptr;  }
     sourcebuf*  skipto( size_t l )  {  return (p = l + p) <= e ? this : nullptr;  }
