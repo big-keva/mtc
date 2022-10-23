@@ -1223,7 +1223,7 @@ namespace mtc
       {
         return delete_it(),
           source = (const char*)-1,
-          pvalue = (zval::dump*)t, *this;
+          pvalue = const_cast<zval::dump*>( t ), *this;
       }
     auto  operator = ( const zval* t ) -> zview_t&
       {

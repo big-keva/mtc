@@ -175,7 +175,7 @@ namespace mtc
           auto    o = std::basic_string<char, std::char_traits<char>, Allocator>( allocator );
           auto    l = length( format, vaargs );
 
-          return o.resize( l ), vsnprintf( (char*)o.c_str(), l + 1, format, vaargs ), o;
+          return o.resize( l ), vsnprintf( const_cast<char*>( o.c_str() ), l + 1, format, vaargs ), o;
         }
     };
 
@@ -403,7 +403,7 @@ namespace mtc
     {
       while ( c != *s && *s != (C)0 )
         ++s;
-      return c == *s ? (C*)s : nullptr;
+      return c == *s ? const_cast<C*>( s ) : nullptr;
     }
 
     template <class C>  static  C*  strrchr( const C* s, int c )
@@ -414,7 +414,7 @@ namespace mtc
         ++p;
       while ( p >= s && *p != c )
         --p;
-      return p >= s ? (C*)p : nullptr;
+      return p >= s ? const_cast<C*>( p ) : nullptr;
     }
 
     //
@@ -530,7 +530,7 @@ namespace mtc
         }
       }
       if ( end != NULL )
-        *end = (chartype*)str;
+        *end = const_cast<chartype*>( str );
       return imulti * result;
     }
 
@@ -757,25 +757,26 @@ namespace mtc
     auto      checkp = []( const chartype*& p, chartype c ) {  bool  b = *p == c;  if ( b ) ++p;  return b;  };
     bool      bminus = checkp( str, '-' );
     bool      bfloat = checkp( str, '.' );
-    uint64_t  uvalue;
     double    dvalue;
 
     if ( !__impl_strings::w_is_num( *str ) )
     {
       if ( end != NULL )
-        *end = (chartype*)str - 1;
+        *end = const_cast<chartype*>( str ) - 1;
       return 0.0;
     }
 
     if ( !bfloat )
     {
+      uint64_t  uvalue;
+
       for ( uvalue = 0;  __impl_strings::w_is_num( *str ); ++str )
         uvalue = uvalue * 10 + *str - '0';
 
       if ( *str != '.' && *str != 'E' && *str != 'e' )
       {
         if ( end != nullptr )
-          *end = (chartype*)str;
+          *end = const_cast<chartype*>( str );
         return bminus ? -1.0 * uvalue : uvalue;
       }
 
@@ -815,7 +816,7 @@ namespace mtc
     }
 
     if ( end != nullptr )
-      *end = (chartype*)str;
+      *end = const_cast<chartype*>( str );
 
     return (bminus ? -1 : 1) * dvalue;
   }
