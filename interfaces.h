@@ -51,6 +51,7 @@ SOFTWARE.
 */
 # if !defined( __interfaces_h__ )
 # define  __interfaces_h__
+# include "platform.h"
 # include <cassert>
 # include <cstddef>
 # include <atomic>
@@ -346,24 +347,27 @@ namespace mtc
 
 }  // mtc namespace
 
-# define  implement_lifetime_control                                \
-  protected:  mtc::reference_counter lifetime_counter;              \
-    template <class _mtc_lifetime_counter_owner>                    \
-    void delete_this( _mtc_lifetime_counter_owner* p )              \
-    {  p->~_mtc_lifetime_counter_owner();  free( p );  }            \
-  public:     virtual long  Attach()  noexcept override             \
-    {  return ++lifetime_counter;  }                                \
-  public:     virtual long  Detach()  noexcept override             \
-    {                                                               \
-      long rcount;                                                  \
-      if ( (rcount = --lifetime_counter) == 0 )                     \
-        delete_this( this );                                        \
-      return rcount;                                                \
+# define  implement_lifetime_control                        \
+  protected:  mtc::reference_counter lifetime_counter;      \
+    template <class _mtc_lifetime_counter_owner>            \
+    void delete_this( _mtc_lifetime_counter_owner* p )      \
+    {                                                       \
+      p->~_mtc_lifetime_counter_owner();                    \
+      mtc::def_alloc::free( p );                            \
+    }                                                       \
+  public:     long  Attach()  noexcept override             \
+    {  return ++lifetime_counter;  }                        \
+  public:     long  Detach()  noexcept override             \
+    {                                                       \
+      long rcount;                                          \
+      if ( (rcount = --lifetime_counter) == 0 )             \
+        delete_this( this );                                \
+      return rcount;                                        \
     }
-# define  implement_lifetime_stub                                   \
-  public:     virtual long  Attach()  noexcept override             \
-    {  return 1;  }                                                 \
-  public:     virtual long  Detach()  noexcept override             \
+# define  implement_lifetime_stub                           \
+  public:     long  Attach()  noexcept override             \
+    {  return 1;  }                                         \
+  public:     long  Detach()  noexcept override             \
     {  return 1;  }
 
 # endif  // __interfaces_h__
