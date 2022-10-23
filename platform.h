@@ -195,21 +195,26 @@ namespace mtc
   using  def_alloc = std_cxx_allocator;
 # endif   // MTC_NO_EXCEPTIONS
 
-  template <class T, class M, class... constructor_args>
-  T*    allocate_with( M& m, constructor_args... args ) noexcept
-    {
-      T*  t;
+  template <class T, class M, class ... constructor_args>
+  T*  allocate_with( M& m, constructor_args ... args )
+  {
+    T*  t = (T*)m.alloc( sizeof(T) );
+      if ( t != nullptr ) new( t ) T( args... );
+    return t;
+  }
 
-      return (t = (T*)m.alloc( sizeof(T) )) != nullptr ? new( t ) T( args... ) : nullptr;
-    }
+  template <class M, class T, class ... constructor_args>
+  T*  allocate_with( constructor_args ... args )
+  {
+    M m;
+    return allocate_with<T, M>( m, args... );
+  }
 
-  template <class T, class... constructor_args>
-  T*    allocate( constructor_args... args ) noexcept
-    {
-      T*  t;
-
-      return (t = (T*)def_alloc().alloc( sizeof(T) )) != nullptr ? new( t ) T( args... ) : nullptr;
-    }
+  template <class T, class ... constructror_args>
+  T*  allocate( constructror_args ... args )
+  {
+    return allocate_with<def_alloc, T>( args... );
+  }
 
   template <class M, class T>
   void  deallocate_with( M& m, T* p ) noexcept
