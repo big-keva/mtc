@@ -142,7 +142,7 @@ namespace mtc
       {
         filebuffer* palloc;
 
-        if ( (palloc = (filebuffer*)malloc( sizeof(filebuffer) + length - 1 )) == nullptr )
+        if ( (palloc = (filebuffer*)nothrow_allocator::alloc( sizeof(filebuffer) + length - 1 )) == nullptr )
           return (filebuffer*)error()( nullptr, std::bad_alloc() );
         return new( palloc ) filebuffer( length );
       }
@@ -292,7 +292,7 @@ namespace mtc
   {
     size_t  cchstr = ccname != (size_t)-1 ? ccname : strlen( szname );
     size_t  nalloc = sizeof(FileStream<error>) + cchstr + 1;
-    auto    palloc = (FileStream<error>*)malloc( nalloc );
+    auto    palloc = (FileStream<error>*)nothrow_allocator::alloc( nalloc );
 
     if ( palloc != nullptr )
       new( palloc ) FileStream<error>( szname, cchstr );
