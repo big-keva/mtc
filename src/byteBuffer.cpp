@@ -92,63 +92,61 @@ namespace mtc
   };
 
   int   CreateByteBuffer( IByteBuffer** ppi )
-    {
-      ByteBuffer<nothrow_error>*  palloc;
+  {
+    ByteBuffer<nothrow_error>*  palloc;
 
-      if ( ppi == nullptr )
-        return EINVAL;
+    if ( ppi == nullptr )
+      return EINVAL;
 
-      if ( (palloc = (ByteBuffer<nothrow_error>*)malloc( sizeof(ByteBuffer<nothrow_error>))) == nullptr )
-        return ENOMEM;
+    if ( (palloc = allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>()) == nullptr )
+      return ENOMEM;
 
-      return (*ppi = new ( palloc ) ByteBuffer<nothrow_error>())->Attach(), 0;
-    }
+    return (*ppi = palloc)->Attach(), 0;
+  }
 
   int   CreateByteBuffer( IByteBuffer** ppi, const void* memptr, uint32_t length )
-    {
-      ByteBuffer<nothrow_error>*  palloc;
+  {
+    ByteBuffer<nothrow_error>*  palloc;
 
-      if ( ppi == nullptr )
-        return EINVAL;
+    if ( ppi == nullptr )
+      return EINVAL;
 
-      if ( (palloc = (ByteBuffer<nothrow_error>*)malloc( sizeof(ByteBuffer<nothrow_error>))) == nullptr )
-        return ENOMEM;
+    if ( (palloc = allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>()) == nullptr )
+      return ENOMEM;
 
-      new( palloc ) ByteBuffer<nothrow_error>();
+    if ( palloc->SetBuf( memptr, length ) != 0 )
+      return delete palloc, ENOMEM;
 
-      if ( palloc->SetBuf( memptr, length ) != 0 )
-        return delete palloc, ENOMEM;
-
-      return (*ppi = palloc)->Attach(), 0;
-    }
+    return (*ppi = palloc)->Attach(), 0;
+  }
 
   api<IByteBuffer>  CreateByteBuffer( uint32_t cch, const enable_exceptions_t& )
-    {
-      auto  palloc = api<IByteBuffer>( new ByteBuffer<throw_error>() );
+  {
+    auto  palloc = api<IByteBuffer>( new ByteBuffer<throw_error>() );
 
-      return palloc->SetLen( cch ), palloc.ptr();
-    }
+    return palloc->SetLen( cch ), palloc.ptr();
+  }
 
   api<IByteBuffer>  CreateByteBuffer( uint32_t cch, const disable_exceptions_t& )
-    {
-      api<IByteBuffer>  palloc;
+  {
+    api<IByteBuffer>  palloc;
 
-      return CreateByteBuffer( (IByteBuffer**)palloc ) == 0
-        && palloc->SetLen( cch ) == 0 ? palloc : nullptr;
-    }
+    return CreateByteBuffer( (IByteBuffer**)palloc ) == 0
+      && palloc->SetLen( cch ) == 0 ? palloc : nullptr;
+  }
 
   api<IByteBuffer>  CreateByteBuffer( const void* ptr, uint32_t cch, const enable_exceptions_t& )
-    {
-      auto  palloc = api<IByteBuffer>( new ByteBuffer<throw_error>() );
+  {
+    auto  palloc = api<IByteBuffer>( new ByteBuffer<throw_error>() );
 
-      return palloc->SetBuf( ptr, cch ), palloc.ptr();
-    }
+    return palloc->SetBuf( ptr, cch ), palloc.ptr();
+  }
 
   api<IByteBuffer>  CreateByteBuffer( const void* ptr, uint32_t cch, const disable_exceptions_t& )
-    {
-      api<IByteBuffer>  palloc;
+  {
+    api<IByteBuffer>  palloc;
 
-      return CreateByteBuffer( (IByteBuffer**)palloc, ptr, cch ) == 0 ? palloc : nullptr;
-    }
+    return CreateByteBuffer( (IByteBuffer**)palloc, ptr, cch ) == 0 ? palloc : nullptr;
+  }
 
 }
