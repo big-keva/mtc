@@ -16,13 +16,13 @@ add_library(mtc STATIC
   src/config.cpp
   src/zval.cpp
   src/zmap.cpp
+  src/json.cpp
 
   src/test-it-easy.cpp
 
   dirtools.cpp
   netStream.cpp
   dir.cpp
-  z_js.cpp
 
   net/sockets.cpp
 )
