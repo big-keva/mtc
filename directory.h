@@ -303,7 +303,7 @@ namespace mtc
         new( palloc++ ) std::atomic_int( 0 );
       else return nullptr;
 
-      *(l + (char*)memcpy( palloc, s, l )) = '\0';
+      *(l + (char*)memcpy( (char*)palloc, s, l )) = '\0';
         return (char*)palloc;
     }
 
