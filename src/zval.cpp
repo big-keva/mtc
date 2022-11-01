@@ -550,29 +550,21 @@ namespace mtc
   auto  zval::inner() const -> const zval::inner_t& {  return *reinterpret_cast<const inner_t*>( storage );  }
   auto  zval::inner()       ->       zval::inner_t& {  return *reinterpret_cast<      inner_t*>( storage );  }
 
-  zval::zval(): vx_type( z_untyped )
-    {}
+  zval::zval(): vx_type( z_untyped )  {}
 
-  zval::zval( zval&& zv ): vx_type( z_untyped )
-    {  fetch( std::move( zv ) );  }
+  zval::zval( zval&& zv ): vx_type( z_untyped ) {  fetch( std::move( zv ) );  }
 
-  zval::zval( const zval& zv ): vx_type( z_untyped )
-    {  fetch( zv );  }
+  zval::zval( const zval& zv ): vx_type( z_untyped )  {  fetch( zv );  }
 
-  zval& zval::operator = ( zval&& zv )
-    {  return fetch( std::move( zv ) );  }
+  zval& zval::operator = ( zval&& zv )  {  return fetch( std::move( zv ) );  }
 
-  zval& zval::operator = ( const zval& zv )
-    {  return fetch( zv );  }
+  zval& zval::operator = ( const zval& zv ) {  return fetch( zv );  }
 
-  zval::~zval()
-    {  clear();  }
+  zval::~zval() {  clear();  }
 
-  zval::zval( bool b ): vx_type( z_untyped )
-    {  set_byte( b ? 1 : 0 );  }
+  zval::zval( bool b ): vx_type( z_untyped )  {  set_byte( b ? 1 : 0 );  }
 
-  zval& zval::operator= ( bool b )
-    {  set_byte( b ? 1 : 0 );  return *this;  }
+  zval& zval::operator= ( bool b )  {  set_byte( b ? 1 : 0 );  return *this;  }
 
   # define derive_init( _type_ )                    \
   zval::zval( _type_##_t t ): vx_type( z_untyped )  \
@@ -590,11 +582,6 @@ namespace mtc
     derive_init( float )
     derive_init( double )
   # undef derive_init
-
-  zval::zval( const uuid_t& uuid ): vx_type( z_untyped )
-    {  set_uuid( uuid );  }
-  zval& zval::operator= ( const uuid_t& uuid )
-    {  return set_uuid( uuid ), *this;  }
 
   zval::zval( const char* psz, size_t len ): vx_type( z_untyped )
     {  set_charstr( charstr( psz, len != (size_t)-1 ? len : w_strlen( psz ) ) );  }
@@ -615,9 +602,10 @@ namespace mtc
     {  set_##_type_( t );  return *this;  }                 \
   zval& zval::operator = ( _type_##_t&& t )                 \
     {  set_##_type_( std::move( t ) );  return *this;  }
-    derive_init( zmap )
     derive_init( charstr )
     derive_init( widestr )
+    derive_init( uuid )
+    derive_init( zmap )
 
     derive_init( array_char )
     derive_init( array_byte )
@@ -631,16 +619,12 @@ namespace mtc
     derive_init( array_double )
     derive_init( array_charstr )
     derive_init( array_widestr )
-    derive_init( array_zval )
     derive_init( array_uuid )
+    derive_init( array_zval )
+    derive_init( array_zmap )
   # undef derive_init
 
-  zval::zval( array_zmap_t&& t ): vx_type( z_untyped )
-    {  set_array_zmap( std::move( t ) );  }
-  zval& zval::operator = ( array_zmap_t&& t )
-    {  set_array_zmap( std::move( t ) );  return *this;  }
-
-  # define  derive_access_type( _type_ )                              \
+  # define  derive_access_val( _type_ )                               \
     const _type_##_t*  zval::get_##_type_() const                     \
       {                                                               \
         return vx_type == z_##_type_ ? &inner().v_##_type_ : nullptr; \
@@ -649,108 +633,105 @@ namespace mtc
       {                                                               \
         return vx_type == z_##_type_ ? &inner().v_##_type_ : nullptr; \
       }                                                               \
+    _type_##_t*  zval::set_##_type_( _type_##_t t )                   \
+      {                                                               \
+        clear().vx_type = z_##_type_;                                 \
+        return new( &inner().v_##_type_ ) _type_##_t( t );            \
+      }
+  # define  derive_access_ref( _type_ )                               \
+    const _type_##_t*  zval::get_##_type_() const                     \
+      {                                                               \
+        return vx_type == z_##_type_ ? &inner().v_##_type_ : nullptr; \
+      }                                                               \
+    _type_##_t*  zval::get_##_type_()                                 \
+      {                                                               \
+        return vx_type == z_##_type_ ? &inner().v_##_type_ : nullptr; \
+      }                                                               \
+    _type_##_t*  zval::set_##_type_( _type_##_t&& t )                 \
+      {                                                               \
+        clear().vx_type = z_##_type_;                                 \
+        return new( &inner().v_##_type_ )                             \
+          _type_##_t( std::move( t ) );                               \
+      }                                                               \
     _type_##_t*  zval::set_##_type_( const _type_##_t& t )            \
       {                                                               \
         clear().vx_type = z_##_type_;                                 \
         return new( &inner().v_##_type_ ) _type_##_t( t );            \
       }
-    derive_access_type( char )
-    derive_access_type( byte )
-    derive_access_type( int16 )
-    derive_access_type( int32 )
-    derive_access_type( int64 )
-    derive_access_type( word16 )
-    derive_access_type( word32 )
-    derive_access_type( word64 )
-    derive_access_type( float )
-    derive_access_type( double )
-    derive_access_type( uuid )
-  # undef derive_access_type
+    derive_access_val( char )
+    derive_access_val( byte )
+    derive_access_val( int16 )
+    derive_access_val( int32 )
+    derive_access_val( int64 )
+    derive_access_val( word16 )
+    derive_access_val( word32 )
+    derive_access_val( word64 )
+    derive_access_val( float )
+    derive_access_val( double )
 
-  # define derive_access_type( _type_ )                                 \
-    const _type_##_t*  zval::get_##_type_() const                       \
-      {                                                                 \
-        return vx_type == z_##_type_ ? &inner().v_##_type_ : nullptr;   \
-      }                                                                 \
-    _type_##_t*  zval::get_##_type_()                                   \
-      {                                                                 \
-        return vx_type == z_##_type_ ? &inner().v_##_type_ : nullptr;   \
-      }                                                                 \
-    _type_##_t*  zval::set_##_type_( _type_##_t&& t )                   \
-      {                                                                 \
-        clear().vx_type = z_##_type_;                                   \
-        return new( &inner().v_##_type_ ) _type_##_t( std::move( t ) ); \
-      }                                                                 \
-    _type_##_t*  zval::set_##_type_( const _type_##_t& t )              \
-      {                                                                 \
-        clear().vx_type = z_##_type_;                                   \
-        return new( &inner().v_##_type_ ) _type_##_t( t );              \
-      }
+    derive_access_ref( charstr )
+    derive_access_ref( widestr )
+    derive_access_ref( uuid )
 
-    derive_access_type( zmap )
-    derive_access_type( charstr )
-    derive_access_type( widestr )
-  # undef derive_access_type
+  auto  zval::set_charstr( const char* psz, size_t len ) -> charstr*
+  {
+    clear().vx_type = z_charstr;
+    return new( &inner().v_charstr ) charstr( psz, len != (size_t)-1 ? len : w_strlen( psz ) );
+  }
 
-  auto  zval::set_zmap()  -> zmap_t*
-    {
-      clear().vx_type = z_zmap;
-      return new( &inner().v_zmap ) zmap_t();
-    }
+  auto  zval::set_widestr( const widechar* pws, size_t len ) -> widestr*
+  {
+    clear().vx_type = z_widestr;
+    return new( &inner().v_widestr ) widestr( pws, len != (size_t)-1 ? len : w_strlen( pws ) );
+  }
 
-  # define derive_access_array( _type_ )                                        \
-  array_##_type_* zval::set_array_##_type_( array_##_type_&& t )                \
-    {                                                                           \
-      clear().vx_type = z_array_##_type_;                                       \
-      return new( &inner().v_array_##_type_ ) array_##_type_( std::move( t ) ); \
-    }                                                                           \
-  array_##_type_* zval::set_array_##_type_( const array_##_type_& t )           \
-    {                                                                           \
-      clear().vx_type = z_array_##_type_;                                       \
-      return new( &inner().v_array_##_type_ ) array_##_type_( t );              \
-    }                                                                           \
-  array_##_type_* zval::get_array_##_type_()                                    \
-    {                                                                           \
-      return vx_type == z_array_##_type_ ? &inner().v_array_##_type_ : nullptr; \
-    }                                                                           \
-  const array_##_type_* zval::get_array_##_type_() const                        \
-    {                                                                           \
-      return vx_type == z_array_##_type_ ? &inner().v_array_##_type_ : nullptr; \
-    }
-    derive_access_array( char )
-    derive_access_array( byte )
-    derive_access_array( int16 )
-    derive_access_array( int32 )
-    derive_access_array( int64 )
-    derive_access_array( word16 )
-    derive_access_array( word32 )
-    derive_access_array( word64 )
-    derive_access_array( float )
-    derive_access_array( double )
-    derive_access_array( charstr )
-    derive_access_array( widestr )
-    derive_access_array( zval )
-    derive_access_array( uuid )
-  # undef derive_access_array
+  auto  zval::get_zmap() -> zmap_t*
+  {
+    return vx_type == z_zmap ? &inner().v_zmap : nullptr;
+  }
 
-  const array_zmap* zval::get_array_zmap() const
-    {
-      return vx_type == z_array_zmap ? &inner().v_array_zmap : nullptr;
-    }
-  array_zmap* zval::get_array_zmap()
-    {
-      return vx_type == z_array_zmap ? &inner().v_array_zmap : nullptr;
-    }
-  array_zmap* zval::set_array_zmap()
-    {
-      clear().vx_type = z_array_zmap;
-      return new( &inner().v_array_zmap ) array_zmap();
-    }
-  array_zmap* zval::set_array_zmap( array_zmap_t&& t )
-    {
-      clear().vx_type = z_array_zmap;
-      return new( &inner().v_array_zmap ) array_zmap( std::move( t ) );
-    }
+  auto  zval::get_zmap() const -> const zmap_t*
+  {
+    return vx_type == z_zmap ? &inner().v_zmap : nullptr;
+  }
+
+  auto  zval::set_zmap() -> zmap_t*
+  {
+    clear().vx_type = z_zmap;
+    return new( &inner().v_zmap ) zmap_t();
+  }
+
+  auto  zval::set_zmap( zmap&& z ) -> zmap_t*
+  {
+    clear().vx_type = z_zmap;
+    return new( &inner().v_zmap ) zmap_t( std::move( z ) );
+  }
+
+  auto  zval::set_zmap( const zmap& z ) -> zmap_t*
+  {
+    clear().vx_type = z_zmap;
+    return new( &inner().v_zmap ) zmap_t( z );
+  }
+
+    derive_access_ref( array_char )
+    derive_access_ref( array_byte )
+    derive_access_ref( array_int16 )
+    derive_access_ref( array_int32 )
+    derive_access_ref( array_int64 )
+    derive_access_ref( array_word16 )
+    derive_access_ref( array_word32 )
+    derive_access_ref( array_word64 )
+    derive_access_ref( array_float )
+    derive_access_ref( array_double )
+
+    derive_access_ref( array_charstr )
+    derive_access_ref( array_widestr )
+    derive_access_ref( array_uuid )
+    derive_access_ref( array_zval )
+    derive_access_ref( array_zmap )
+
+  # undef derive_access_ref
+  # undef derive_access_val
 
   bool  zval::empty() const
     {
@@ -802,8 +783,11 @@ namespace mtc
   auto  zval::get_type() const -> unsigned
     {  return vx_type;  }
 
+  auto  zval::is_array() const -> bool
+    {  return vx_type >= z_array_char && vx_type <= z_array_zmap;  }
+
   auto  zval::is_numeric() const -> bool
-    {  return get_type() >= z_char && get_type() <= z_double;  }
+    {  return vx_type >= z_char && vx_type <= z_double;  }
 
   zval  zval::operator *  ( const zval& r ) const {  return GetMul( *this, r );  }
   zval  zval::operator /  ( const zval& r ) const {  return GetDiv( *this, r );  }

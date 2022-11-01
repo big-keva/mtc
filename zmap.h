@@ -215,7 +215,11 @@ namespace mtc
     zval( word64_t );
     zval( float_t );
     zval( double_t );
-    zval( const uuid_t& );
+
+    zval( const char*, size_t = (size_t)-1 );
+    zval& operator = ( const char* );
+    zval( const widechar*, size_t = (size_t)-1 );
+    zval& operator = ( const widechar* );
 
     zval& operator = ( bool );
     zval& operator = ( char_t t );
@@ -228,104 +232,95 @@ namespace mtc
     zval& operator = ( word64_t );
     zval& operator = ( float_t );
     zval& operator = ( double_t );
-    zval& operator = ( const uuid_t& );
 
-    zval( const char*, size_t = (size_t)-1 );
-    zval& operator = ( const char* );
-    zval( const widechar*, size_t = (size_t)-1 );
-    zval& operator = ( const widechar* );
 
-  # define declare_init( _type_ )         \
+  # define declare_init_ref( _type_ )     \
     zval( _type_##_t&& );                 \
     zval( const _type_##_t& );            \
     zval& operator = ( _type_##_t&& );    \
     zval& operator = ( const _type_##_t& );
 
-    declare_init( zmap )
-    declare_init( charstr )
-    declare_init( widestr )
-    declare_init( array_char )
-    declare_init( array_byte )
-    declare_init( array_int16 )
-    declare_init( array_int32 )
-    declare_init( array_int64 )
-    declare_init( array_word16 )
-    declare_init( array_word32 )
-    declare_init( array_word64 )
-    declare_init( array_float )
-    declare_init( array_double )
-    declare_init( array_charstr )
-    declare_init( array_widestr )
-    declare_init( array_zval )
-    declare_init( array_zmap )
-    declare_init( array_uuid )
+    declare_init_ref( charstr )
+    declare_init_ref( widestr )
+    declare_init_ref( uuid )
+    declare_init_ref( zmap )
+    declare_init_ref( array_char )
+    declare_init_ref( array_byte )
+    declare_init_ref( array_int16 )
+    declare_init_ref( array_int32 )
+    declare_init_ref( array_int64 )
+    declare_init_ref( array_word16 )
+    declare_init_ref( array_word32 )
+    declare_init_ref( array_word64 )
+    declare_init_ref( array_float )
+    declare_init_ref( array_double )
+    declare_init_ref( array_charstr )
+    declare_init_ref( array_widestr )
+    declare_init_ref( array_uuid )
+    declare_init_ref( array_zval )
+    declare_init_ref( array_zmap )
 
   public:     // accessors
-  # define  declare_access_type( _type_ )                                 \
+  # define  declare_access_val( _type_ )                                  \
+          _type_##_t*  get_##_type_();                                    \
     const _type_##_t*  get_##_type_() const;                              \
-          _type_##_t*  set_##_type_( const _type_##_t& = _type_##_t() );  \
-          _type_##_t*  get_##_type_();
+          _type_##_t*  set_##_type_( _type_##_t = _type_##_t() );
+  # define  declare_access_ref( _type_ )                                  \
+          _type_##_t*  get_##_type_();                                    \
+    const _type_##_t*  get_##_type_() const;                              \
+          _type_##_t*  set_##_type_( _type_##_t&& );                      \
+          _type_##_t*  set_##_type_( const _type_##_t& = _type_##_t() );
 
-    declare_access_type( char )
-    declare_access_type( byte )
-    declare_access_type( int16 )
-    declare_access_type( int32 )
-    declare_access_type( int64 )
-    declare_access_type( word16 )
-    declare_access_type( word32 )
-    declare_access_type( word64 )
-    declare_access_type( float )
-    declare_access_type( double )
-    declare_access_type( uuid )
-  # undef declare_access_type
+    declare_access_val( char )
+    declare_access_val( byte )
+    declare_access_val( int16 )
+    declare_access_val( int32 )
+    declare_access_val( int64 )
+    declare_access_val( word16 )
+    declare_access_val( word32 )
+    declare_access_val( word64 )
+    declare_access_val( float )
+    declare_access_val( double )
 
-  # define declare_access_type( _type_ )  \
-    _type_##_t*  get_##_type_();            \
-    const _type_##_t*  get_##_type_() const;   \
-    _type_##_t*  set_##_type_( _type_##_t&& );   \
-    _type_##_t*  set_##_type_( const _type_##_t& = _type_##_t() );
+    declare_access_ref( charstr )
+    declare_access_ref( widestr )
 
-    declare_access_type( charstr )
-    declare_access_type( widestr )
-  # undef declare_access_type
+    auto  set_charstr( const char*, size_t = -1 ) -> charstr*;
+    auto  set_widestr( const widechar*, size_t = -1 ) -> widestr*;
 
-          zmap* get_zmap();
-    const zmap* get_zmap() const;
-          zmap* set_zmap();
-          zmap* set_zmap( zmap&& );
-          zmap* set_zmap( const zmap_t& );
+    declare_access_ref( uuid )
 
-  # define declare_access_array( _type_ )                                             \
-    array_##_type_* set_array_##_type_( array_##_type_&& );                           \
-    array_##_type_* set_array_##_type_( const array_##_type_& = array_##_type_() );   \
-    array_##_type_* get_array_##_type_();                                             \
-    const array_##_type_* get_array_##_type_() const;
+    auto  get_zmap() -> zmap*;
+    auto  get_zmap() const -> const zmap*;
+    auto  set_zmap() -> zmap*;
+    auto  set_zmap( zmap&& ) -> zmap*;
+    auto  set_zmap( const zmap& ) -> zmap*;
 
-    declare_access_array( char )
-    declare_access_array( byte )
-    declare_access_array( int16 )
-    declare_access_array( int32 )
-    declare_access_array( int64 )
-    declare_access_array( word16 )
-    declare_access_array( word32 )
-    declare_access_array( word64 )
-    declare_access_array( float )
-    declare_access_array( double )
-    declare_access_array( charstr )
-    declare_access_array( widestr )
-    declare_access_array( zval )
-    declare_access_array( uuid )
-  # undef declare_access_array
+    declare_access_ref( array_char )
+    declare_access_ref( array_byte )
+    declare_access_ref( array_int16 )
+    declare_access_ref( array_int32 )
+    declare_access_ref( array_int64 )
+    declare_access_ref( array_word16 )
+    declare_access_ref( array_word32 )
+    declare_access_ref( array_word64 )
+    declare_access_ref( array_float )
+    declare_access_ref( array_double )
 
-    const array_zmap* get_array_zmap() const;
-          array_zmap* get_array_zmap();
-          array_zmap* set_array_zmap();
-          array_zmap* set_array_zmap( array_zmap_t&& );
+    declare_access_ref( array_charstr )
+    declare_access_ref( array_widestr )
+    declare_access_ref( array_uuid )
+    declare_access_ref( array_zval )
+    declare_access_ref( array_zmap )
+
+  # undef declare_access_ref
+  # undef declare_access_val
 
   public:     // operations
     bool  empty() const;
     auto  clear() -> zval&;
     auto  get_type() const -> unsigned;
+    auto  is_array() const -> bool;
     auto  is_numeric() const -> bool;
 
   public:     // serialization
@@ -351,6 +346,13 @@ namespace mtc
 
     zval  operator ~  ()  const;
 
+  public:     // direct compare
+    int   compare( const zval& ) const;
+
+    bool  operator == ( const zval& v ) const {  return compare( v ) == 0;  }
+    bool  operator <  ( const zval& v ) const {  return compare( v ) <  0;  }
+    bool  operator != ( const zval& v ) const {  return compare( v ) != 0; }
+
   public:
     enum: unsigned
     {
@@ -361,7 +363,7 @@ namespace mtc
       compare_ge = 0x06
     };
 
-  public:
+  public:     // soft values compare
     auto  CompTo( const zval& x ) const -> unsigned;
 
     bool  lt( const zval& z ) const {  return CompTo( z ) == compare_lt;  }
@@ -370,13 +372,6 @@ namespace mtc
     bool  le( const zval& z ) const {  return (CompTo( z ) & compare_le) != 0;  }
     bool  ge( const zval& z ) const {  return (CompTo( z ) & compare_ge) != 0;  }
     bool  ne( const zval& z ) const {  return !eq( z );  }
-
-  public:     // compare
-    int   compare( const zval& ) const;
-
-    bool  operator == ( const zval& v ) const {  return compare( v ) == 0;  }
-    bool  operator <  ( const zval& v ) const {  return compare( v ) <  0;  }
-    bool  operator != ( const zval& v ) const {  return compare( v ) != 0; }
 
   protected:  // stringize helpers
     static  auto  to_string( char c )     -> std::string  {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
@@ -460,11 +455,18 @@ namespace mtc
     class iterator_base;
 
   private:
-    template <class map>
+    template <class obj>
     class place_t;
 
     class const_place_t;
     class patch_place_t;
+
+    template <class obj>
+    friend  bool  is_set( const place_t<obj>& );
+    template <class obj>
+    friend  bool  get_type( const place_t<obj>& );
+    template <class obj>
+    friend  bool  is_array( const place_t<obj>& );
 
   protected:
     auto  private_data() -> zdata_t*;
@@ -502,124 +504,202 @@ namespace mtc
     auto  get_type( const key& ) const  -> decltype(zval::vx_type);
 
   public:     // getters by type
-  # define declare_get_type( _type_ )                                 \
-    auto  get_##_type_( const key& )       ->       _type_##_t*;      \
-    auto  get_##_type_( const key& ) const -> const _type_##_t*;
+   /*
+    * get_xxx( key ) -> xxx* family
+    */
+    auto  get_char( const key& ) -> char*;
+    auto  get_byte( const key& ) -> byte*;
+    auto  get_int16( const key& ) -> int16_t*;
+    auto  get_int32( const key& ) -> int32_t*;
+    auto  get_int64( const key& ) -> int64_t*;
+    auto  get_word16( const key& ) -> word16_t*;
+    auto  get_word32( const key& ) -> word32_t*;
+    auto  get_word64( const key& ) -> word64_t*;
+    auto  get_float( const key& ) -> float*;
+    auto  get_double( const key& ) -> double*;
+    auto  get_charstr( const key& ) -> charstr*;
+    auto  get_widestr( const key& ) -> widestr*;
+    auto  get_uuid( const key& ) -> uuid*;
+    auto  get_zmap( const key& ) -> zmap*;
 
-  # define declare_get_init( _type_ )                                 \
-    auto  get_##_type_( const key&, const _type_##_t& ) const -> _type_##_t;
+    auto  get_array_char( const key& ) -> array_char*;
+    auto  get_array_byte( const key& ) -> array_byte*;
+    auto  get_array_int16( const key& ) -> array_int16_t*;
+    auto  get_array_int32( const key& ) -> array_int32_t*;
+    auto  get_array_int64( const key& ) -> array_int64_t*;
+    auto  get_array_word16( const key& ) -> array_word16_t*;
+    auto  get_array_word32( const key& ) -> array_word32_t*;
+    auto  get_array_word64( const key& ) -> array_word64_t*;
+    auto  get_array_float( const key& ) -> array_float*;
+    auto  get_array_double( const key& ) -> array_double*;
+    auto  get_array_charstr( const key& ) -> array_charstr*;
+    auto  get_array_widestr( const key& ) -> array_widestr*;
+    auto  get_array_uuid( const key& ) -> array_uuid*;
+    auto  get_array_zval( const key& ) -> array_zval*;
+    auto  get_array_zmap( const key& ) -> array_zmap*;
 
-  # define declare_set_pure( _type_ )                                 \
-    auto  set_##_type_( const key& ) -> _type_##_t*;
+   /*
+    * get_xxx( key ) const -> const xxx*
+    */
+    auto  get_char( const key& ) const -> const char*;
+    auto  get_byte( const key& ) const -> const byte*;
+    auto  get_int16( const key& ) const -> const int16_t*;
+    auto  get_int32( const key& ) const -> const int32_t*;
+    auto  get_int64( const key& ) const -> const int64_t*;
+    auto  get_word16( const key& ) const -> const word16_t*;
+    auto  get_word32( const key& ) const -> const word32_t*;
+    auto  get_word64( const key& ) const -> const word64_t*;
+    auto  get_float( const key& ) const -> const float*;
+    auto  get_double( const key& ) const -> const double*;
+    auto  get_charstr( const key& ) const -> const charstr*;
+    auto  get_widestr( const key& ) const -> const widestr*;
+    auto  get_uuid( const key& ) const -> const uuid*;
+    auto  get_zmap( const key& ) const -> const zmap*;
 
-  # define declare_set_move( _type_ )                                 \
-    auto  set_##_type_( const key&, _type_##_t&& ) -> _type_##_t*;
+    auto  get_array_char( const key& ) const -> const array_char*;
+    auto  get_array_byte( const key& ) const -> const array_byte*;
+    auto  get_array_int16( const key& ) const -> const array_int16_t*;
+    auto  get_array_int32( const key& ) const -> const array_int32_t*;
+    auto  get_array_int64( const key& ) const -> const array_int64_t*;
+    auto  get_array_word16( const key& ) const -> const array_word16_t*;
+    auto  get_array_word32( const key& ) const -> const array_word32_t*;
+    auto  get_array_word64( const key& ) const -> const array_word64_t*;
+    auto  get_array_float( const key& ) const -> const array_float*;
+    auto  get_array_double( const key& ) const -> const array_double*;
+    auto  get_array_charstr( const key& ) const -> const array_charstr*;
+    auto  get_array_widestr( const key& ) const -> const array_widestr*;
+    auto  get_array_uuid( const key& ) const -> const array_uuid*;
+    auto  get_array_zval( const key& ) const -> const array_zval*;
+    auto  get_array_zmap( const key& ) const -> const array_zmap*;
 
-  # define declare_set_copy( _type_ )                                 \
-    auto  set_##_type_( const key&, const _type_##_t& = _type_##_t() ) -> _type_##_t*;
+   /*
+    * get_xxx( key, default_value ) const -> default_value family
+    */
+    auto  get_char( const key&, char ) const -> char;
+    auto  get_byte( const key&, byte ) const -> byte;
+    auto  get_int16( const key&, int16_t ) const -> int16_t;
+    auto  get_int32( const key&, int32_t ) const -> int32_t;
+    auto  get_int64( const key&, int64_t ) const -> int64_t;
+    auto  get_word16( const key&, word16_t ) const -> word16_t;
+    auto  get_word32( const key&, word32_t ) const -> word32_t;
+    auto  get_word64( const key&, word64_t ) const -> word64_t;
+    auto  get_float( const key&, float ) const -> float;
+    auto  get_double( const key&, double ) const -> double;
+    auto  get_charstr( const key&, const charstr& ) const -> const charstr&;
+    auto  get_widestr( const key&, const widestr& ) const -> const widestr&;
+    auto  get_uuid( const key&, const uuid& ) const -> const uuid&;
+    auto  get_zmap( const key&, const zmap& ) const -> const zmap&;
 
-    declare_get_type( char    )
-    declare_get_type( byte    )
-    declare_get_type( int16   )
-    declare_get_type( int32   )
-    declare_get_type( int64   )
-    declare_get_type( word16  )
-    declare_get_type( word32  )
-    declare_get_type( word64  )
-    declare_get_type( float   )
-    declare_get_type( double  )
-    declare_get_type( charstr )
-    declare_get_type( widestr )
-    declare_get_type( uuid    )
-    declare_get_type( zmap    )
+    auto  get_array_char( const key&, const array_char& ) const -> const array_char&;
+    auto  get_array_byte( const key&, const array_byte& ) const -> const array_byte&;
+    auto  get_array_int16( const key&, const array_int16_t& ) const -> const array_int16_t&;
+    auto  get_array_int32( const key&, const array_int32_t& ) const -> const array_int32_t&;
+    auto  get_array_int64( const key&, const array_int64_t& ) const -> const array_int64_t&;
+    auto  get_array_word16( const key&, const array_word16_t& ) const -> const array_word16_t&;
+    auto  get_array_word32( const key&, const array_word32_t& ) const -> const array_word32_t&;
+    auto  get_array_word64( const key&, const array_word64_t& ) const -> const array_word64_t&;
+    auto  get_array_float( const key&, const array_float& ) const -> const array_float&;
+    auto  get_array_double( const key&, const array_double& ) const -> const array_double&;
+    auto  get_array_charstr( const key&, const array_charstr& ) const -> const array_charstr&;
+    auto  get_array_widestr( const key&, const array_widestr& ) const -> const array_widestr&;
+    auto  get_array_uuid( const key&, const array_uuid& ) const -> const array_uuid&;
+    auto  get_array_zval( const key&, const array_zval& ) const -> const array_zval&;
+    auto  get_array_zmap( const key&, const array_zmap& ) const -> const array_zmap&;
 
-    declare_get_init( char    )
-    declare_get_init( byte    )
-    declare_get_init( int16   )
-    declare_get_init( int32   )
-    declare_get_init( int64   )
-    declare_get_init( word16  )
-    declare_get_init( word32  )
-    declare_get_init( word64  )
-    declare_get_init( float   )
-    declare_get_init( double  )
-    declare_get_init( charstr )
-    declare_get_init( widestr )
-    declare_get_init( uuid    )
-    declare_get_init( zmap    )
+   /*
+    * set_xxx( key ) family
+    */
+    auto  set_char( const key& ) -> char*;
+    auto  set_byte( const key& ) -> byte*;
+    auto  set_int16( const key& ) -> int16_t*;
+    auto  set_int32( const key& ) -> int32_t*;
+    auto  set_int64( const key& ) -> int64_t*;
+    auto  set_word16( const key& ) -> word16_t*;
+    auto  set_word32( const key& ) -> word32_t*;
+    auto  set_word64( const key& ) -> word64_t*;
+    auto  set_float( const key& ) -> float*;
+    auto  set_double( const key& ) -> double*;
+    auto  set_charstr( const key& ) -> charstr*;
+    auto  set_widestr( const key& ) -> widestr*;
+    auto  set_uuid( const key& ) -> uuid*;
+    auto  set_zmap( const key& ) -> zmap*;
 
-    declare_get_type( array_char )
-    declare_get_type( array_byte    )
-    declare_get_type( array_int16   )
-    declare_get_type( array_int32   )
-    declare_get_type( array_int64   )
-    declare_get_type( array_word16  )
-    declare_get_type( array_word32  )
-    declare_get_type( array_word64  )
-    declare_get_type( array_float   )
-    declare_get_type( array_double  )
-    declare_get_type( array_charstr )
-    declare_get_type( array_widestr )
-    declare_get_type( array_zmap    )
-    declare_get_type( array_zval    )
-    declare_get_type( array_uuid    )
+    auto  set_array_char( const key& ) -> array_char*;
+    auto  set_array_byte( const key& ) -> array_byte*;
+    auto  set_array_int16( const key& ) -> array_int16_t*;
+    auto  set_array_int32( const key& ) -> array_int32_t*;
+    auto  set_array_int64( const key& ) -> array_int64_t*;
+    auto  set_array_word16( const key& ) -> array_word16_t*;
+    auto  set_array_word32( const key& ) -> array_word32_t*;
+    auto  set_array_word64( const key& ) -> array_word64_t*;
+    auto  set_array_float( const key& ) -> array_float*;
+    auto  set_array_double( const key& ) -> array_double*;
+    auto  set_array_charstr( const key& ) -> array_charstr*;
+    auto  set_array_widestr( const key& ) -> array_widestr*;
+    auto  set_array_uuid( const key& ) -> array_uuid*;
+    auto  set_array_zval( const key& ) -> array_zval*;
+    auto  set_array_zmap( const key& ) -> array_zmap*;
 
-    declare_set_copy( char    )
-    declare_set_copy( byte    )
-    declare_set_copy( int16   )
-    declare_set_copy( int32   )
-    declare_set_copy( int64   )
-    declare_set_copy( word16  )
-    declare_set_copy( word32  )
-    declare_set_copy( word64  )
-    declare_set_copy( float   )
-    declare_set_copy( double  )
-    declare_set_copy( charstr )
-    declare_set_copy( widestr )
-    declare_set_copy( uuid )
-    declare_set_copy( array_char )
-    declare_set_copy( array_byte    )
-    declare_set_copy( array_int16   )
-    declare_set_copy( array_int32   )
-    declare_set_copy( array_int64   )
-    declare_set_copy( array_word16  )
-    declare_set_copy( array_word32  )
-    declare_set_copy( array_word64  )
-    declare_set_copy( array_float   )
-    declare_set_copy( array_double  )
-    declare_set_copy( array_charstr )
-    declare_set_copy( array_widestr )
-    declare_set_copy( array_zval    )
-    declare_set_copy( array_uuid    )
+   /*
+    * set_xxx( key, initializer ) family
+    */
+    auto  set_char( const key&, char ) -> char*;
+    auto  set_byte( const key&, byte ) -> byte*;
+    auto  set_int16( const key&, int16_t ) -> int16_t*;
+    auto  set_int32( const key&, int32_t ) -> int32_t*;
+    auto  set_int64( const key&, int64_t ) -> int64_t*;
+    auto  set_word16( const key&, word16_t ) -> word16_t*;
+    auto  set_word32( const key&, word32_t ) -> word32_t*;
+    auto  set_word64( const key&, word64_t ) -> word64_t*;
+    auto  set_float( const key&, float ) -> float*;
+    auto  set_double( const key&, double ) -> double*;
+    auto  set_charstr( const key&, const charstr& ) -> charstr*;
+    auto  set_widestr( const key&, const widestr& ) -> widestr*;
+    auto  set_uuid( const key&, const uuid& ) -> uuid*;
+    auto  set_zmap( const key&, const zmap& ) -> zmap*;
 
-    declare_set_pure( array_zmap    )
+    auto  set_charstr( const key&, const char*, size_t = (size_t)-1 ) -> charstr*;
+    auto  set_widestr( const key&, const widechar*, size_t = (size_t)-1 ) -> widestr*;
 
-    declare_set_move( charstr )
-    declare_set_move( widestr )
-    declare_set_move( array_char )
-    declare_set_move( array_byte    )
-    declare_set_move( array_int16   )
-    declare_set_move( array_int32   )
-    declare_set_move( array_int64   )
-    declare_set_move( array_word16  )
-    declare_set_move( array_word32  )
-    declare_set_move( array_word64  )
-    declare_set_move( array_float   )
-    declare_set_move( array_double  )
-    declare_set_move( array_charstr )
-    declare_set_move( array_widestr )
-    declare_set_move( array_zmap    )
-    declare_set_move( array_zval    )
-    declare_set_move( array_uuid    )
-  # undef declare_set_pure
-  # undef declare_set_move
-  # undef declare_set_copy
-  # undef declare_get_init
-  # undef declare_get_type
+    auto  set_array_char( const key&, const array_char& ) -> array_char*;
+    auto  set_array_byte( const key&, const array_byte& ) -> array_byte*;
+    auto  set_array_int16( const key&, const array_int16_t& ) -> array_int16_t*;
+    auto  set_array_int32( const key&, const array_int32_t& ) -> array_int32_t*;
+    auto  set_array_int64( const key&, const array_int64_t& ) -> array_int64_t*;
+    auto  set_array_word16( const key&, const array_word16_t& ) -> array_word16_t*;
+    auto  set_array_word32( const key&, const array_word32_t& ) -> array_word32_t*;
+    auto  set_array_word64( const key&, const array_word64_t& ) -> array_word64_t*;
+    auto  set_array_float( const key&, const array_float& ) -> array_float*;
+    auto  set_array_double( const key&, const array_double& ) -> array_double*;
+    auto  set_array_charstr( const key&, const array_charstr& ) -> array_charstr*;
+    auto  set_array_widestr( const key&, const array_widestr& ) -> array_widestr*;
+    auto  set_array_uuid( const key&, const array_uuid& ) -> array_uuid*;
+    auto  set_array_zval( const key&, const array_zval& ) -> array_zval*;
+    auto  set_array_zmap( const key&, const array_zmap& ) -> array_zmap*;
 
-  auto  set_zmap( const key& ) -> zmap*;
-  auto  set_zmap( const key&, zmap&& ) -> zmap*;
-  auto  set_zmap( const key&, const zmap& ) -> zmap*;
+  /*
+   * set_xxx( key, initializer&& ) family
+   */
+    auto  set_charstr( const key&, charstr&& ) -> charstr*;
+    auto  set_widestr( const key&, widestr&& ) -> widestr*;
+    auto  set_uuid( const key&, uuid&& ) -> uuid*;
+    auto  set_zmap( const key&, zmap&& ) -> zmap*;
+
+    auto  set_array_char( const key&, array_char&& ) -> array_char*;
+    auto  set_array_byte( const key&, array_byte&& ) -> array_byte*;
+    auto  set_array_int16( const key&, array_int16_t&& ) -> array_int16_t*;
+    auto  set_array_int32( const key&, array_int32_t&& ) -> array_int32_t*;
+    auto  set_array_int64( const key&, array_int64_t&& ) -> array_int64_t*;
+    auto  set_array_word16( const key&, array_word16_t&& ) -> array_word16_t*;
+    auto  set_array_word32( const key&, array_word32_t&& ) -> array_word32_t*;
+    auto  set_array_word64( const key&, array_word64_t&& ) -> array_word64_t*;
+    auto  set_array_float( const key&, array_float&& ) -> array_float*;
+    auto  set_array_double( const key&, array_double&& ) -> array_double*;
+    auto  set_array_charstr( const key&, array_charstr&& ) -> array_charstr*;
+    auto  set_array_widestr( const key&, array_widestr&& ) -> array_widestr*;
+    auto  set_array_uuid( const key&, array_uuid&& ) -> array_uuid*;
+    auto  set_array_zval( const key&, array_zval&& ) -> array_zval*;
+    auto  set_array_zmap( const key&, array_zmap&& ) -> array_zmap*;
 
   public:     // iterators
           iterator  begin();
@@ -874,7 +954,7 @@ namespace mtc
     using array_t = zval::dump::array_t<T1, T2>;
 
   protected:
-    template <class T> static auto  get( const value_t<T>&, const T& ) -> T;
+    template <class T> static auto  get( const value_t<T>&, const T& ) -> const T&;
     auto  get_dump( const key& ) const -> zval::dump;
 
     class const_iterator;
@@ -910,21 +990,6 @@ namespace mtc
     auto  get_uuid( const key& ) const -> value_t<uuid>;
     auto  get_zmap( const key& ) const -> value_t<zmap::dump>;
 
-    auto  get_char( const key&, char ) const -> char;
-    auto  get_byte( const key&, byte ) const -> byte;
-    auto  get_int16( const key&, int16_t ) const -> int16_t;
-    auto  get_int32( const key&, int32_t ) const -> int32_t;
-    auto  get_int64( const key&, int64_t ) const -> int64_t;
-    auto  get_word16( const key&, word16_t ) const -> word16_t;
-    auto  get_word32( const key&, word32_t ) const -> word32_t;
-    auto  get_word64( const key&, word64_t ) const -> word64_t;
-    auto  get_float( const key&, float ) const -> float;
-    auto  get_double( const key&, double ) const -> double;
-    auto  get_charstr( const key&, const charstr& ) const -> charstr;
-    auto  get_widestr( const key&, const widestr& ) const -> widestr;
-    auto  get_uuid( const key&, const uuid& ) const -> uuid;
-    auto  get_zmap( const key&, const zmap& ) const -> dump;
-    
     auto  get_array_char( const key& ) const -> value_t<array_t<char>>;
     auto  get_array_byte( const key& ) const -> value_t<array_t<byte>>;
     auto  get_array_int16( const key& ) const -> value_t<array_t<int16_t>>;
@@ -940,6 +1005,37 @@ namespace mtc
     auto  get_array_uuid( const key& ) const -> value_t<array_t<uuid>>;
     auto  get_array_zval( const key& ) const -> value_t<array_t<zval::dump, zval>>;
     auto  get_array_zmap( const key& ) const -> value_t<array_t<zmap::dump, zmap>>;
+
+    auto  get_char( const key&, char ) const -> char;
+    auto  get_byte( const key&, byte ) const -> byte;
+    auto  get_int16( const key&, int16_t ) const -> int16_t;
+    auto  get_int32( const key&, int32_t ) const -> int32_t;
+    auto  get_int64( const key&, int64_t ) const -> int64_t;
+    auto  get_word16( const key&, word16_t ) const -> word16_t;
+    auto  get_word32( const key&, word32_t ) const -> word32_t;
+    auto  get_word64( const key&, word64_t ) const -> word64_t;
+    auto  get_float( const key&, float ) const -> float;
+    auto  get_double( const key&, double ) const -> double;
+    auto  get_charstr( const key&, const charstr& ) const -> const charstr&;
+    auto  get_widestr( const key&, const widestr& ) const -> const widestr&;
+    auto  get_uuid( const key&, const uuid& ) const -> const uuid&;
+    auto  get_zmap( const key&, const zmap& ) const -> dump;
+
+    auto  get_array_char( const key&, const array_char& ) const -> array_t<char>;
+    auto  get_array_byte( const key&, const array_byte& ) const -> array_t<byte>;
+    auto  get_array_int16( const key&, const array_int16& ) const -> array_t<int16_t>;
+    auto  get_array_int32( const key&, const array_int32& ) const -> array_t<int32_t>;
+    auto  get_array_int64( const key&, const array_int64& ) const -> array_t<int64_t>;
+    auto  get_array_word16( const key&, const array_word16& ) const -> array_t<word16_t>;
+    auto  get_array_word32( const key&, const array_word32& ) const -> array_t<word32_t>;
+    auto  get_array_word64( const key&, const array_word64& ) const -> array_t<word64_t>;
+    auto  get_array_float( const key&, const array_float& ) const -> array_t<float>;
+    auto  get_array_double( const key&, const array_double& ) const -> array_t<double>;
+    auto  get_array_charstr( const key&, const array_charstr& ) const -> array_t<charstr>;
+    auto  get_array_widestr( const key&, const array_widestr& ) const -> array_t<widestr>;
+    auto  get_array_uuid( const key&, const array_uuid& ) const -> array_t<uuid>;
+    auto  get_array_zval( const key&, const array_zval& ) const -> array_t<zval::dump, zval>;
+    auto  get_array_zmap( const key&, const array_zmap& ) const -> array_t<zmap::dump, zmap>;
 
   public:     // iterator
     auto  begin() const -> const_iterator;
@@ -1634,11 +1730,18 @@ namespace mtc
  /*
   * [] zmap zccess
   */
-  template <class map>
+  template <class obj>
   class zmap::place_t
   {
+    template <class map>
+    friend  bool  is_set( const place_t<map>& );
+    template <class map>
+    friend  bool  get_type( const place_t<map>& );
+    template <class map>
+    friend  bool  is_array( const place_t<map>& );
+
   public:
-    place_t( const key& k, map& m ): refer( k ), owner( m ) {}
+    place_t( const key& k, obj& m ): refer( k ), owner( m ) {}
     place_t( const place_t& p ): refer( p.refer ), owner( p.owner ) {}
     place_t( place_t&& p ): refer( std::move( p.refer ) ), owner( p.owner ) {}
 
@@ -1654,7 +1757,7 @@ namespace mtc
 
   protected:
     key   refer;
-    map&  owner;
+    obj&  owner;
 
   };
 
@@ -1714,8 +1817,28 @@ namespace mtc
 
   };
 
-  /*
-    zmap::ztree_t inline implementation
+ /*
+  * helpers
+  */
+  template <class map>
+  bool  is_set( const zmap::place_t<map>& place )
+  {  return place.owner.get( place.refer ) != nullptr;  }
+
+  template <class map>
+  bool  get_type( const zmap::place_t<map>& place )
+  {  return place.owner.get_typ.get_type( place.refer );  }
+
+  template <class map>
+  bool  is_array( const zmap::place_t<map>& place )
+  {
+    auto  zt = get_type( place );
+
+    return zt >= zval::z_array_byte
+        && zt <= zval::z_array_uuid;
+  }
+
+ /*
+  *  zmap::ztree_t inline implementation
   */
 
   inline
