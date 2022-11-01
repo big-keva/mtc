@@ -20,7 +20,7 @@ namespace TestItEasy {
       if ( p->call != nullptr ) p->call();
 
     if ( testsFault == 0 )  fputs( "\x1b[32mOK\x1b[0m:", stdout );
-      else fputs( "\x1b[31mFAULT:", stdout );
+      else fputs( "\x1b[31m" "FAULT" "\x1b[0m:", stdout );
 
     fprintf( stdout,
       "\n\t%u tests passed,"
