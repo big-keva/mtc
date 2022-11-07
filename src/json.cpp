@@ -49,7 +49,7 @@ SOFTWARE.
 С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
 
 */
-# include "z_js.h"
+# include "../z_js.h"
 # include <type_traits>
 
 namespace mtc {
