@@ -323,6 +323,17 @@ namespace mtc
     auto  is_array() const -> bool;
     auto  is_numeric() const -> bool;
 
+  public:     // conversions
+    auto  cast_to_int16 ( int16_t = 0 ) const -> int16_t;
+    auto  cast_to_int32 ( int32_t = 0 ) const -> int32_t;
+    auto  cast_to_int64 ( int64_t = 0 ) const -> int64_t;
+    auto  cast_to_word16( word16_t = 0 ) const -> word16_t;
+    auto  cast_to_word32( word32_t = 0 ) const -> word32_t;
+    auto  cast_to_word64( word64_t = 0 ) const -> word64_t;
+    auto  cast_to_float ( float_t = 0 ) const -> float_t;
+    auto  cast_to_double( double_t = 0 ) const -> double_t;
+    auto  cast_to_charstr( const charstr& = {} ) const -> charstr;
+
   public:     // serialization
     size_t  GetBufLen(    ) const;
     template <class O>

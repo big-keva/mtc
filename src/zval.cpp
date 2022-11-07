@@ -816,6 +816,147 @@ namespace mtc
       }
     }
 
+  template <class T, class V>
+  T   cast_val( const V& v, const T& d )
+    {  return v >= std::numeric_limits<T>::min() && v <= std::numeric_limits<T>::max() ? v : d;  }
+
+  auto  zval::cast_to_int16( int16_t def ) const -> int16_t
+  {
+    switch ( get_type() )
+    {
+      case z_char:    return *get_char();
+      case z_byte:    return *get_byte();
+      case z_int16:   return *get_int16();
+      case z_int32:   return cast_val<int16_t>( *get_int32(), def );
+      case z_int64:   return cast_val<int16_t>( *get_int64(), def );
+      case z_word16:  return cast_val<int16_t>( *get_word16(), def );
+      case z_word32:  return cast_val<int16_t>( *get_word32(), def );
+      case z_word64:  return cast_val<int16_t>( *get_word64(), def );
+      default:        return def;
+    }
+  }
+
+  auto  zval::cast_to_int32( int32_t def ) const -> int32_t
+  {
+    switch ( get_type() )
+    {
+      case z_char:    return *get_char();
+      case z_byte:    return *get_byte();
+      case z_int16:   return *get_int16();
+      case z_int32:   return *get_int32();
+      case z_int64:   return cast_val<int32_t>( *get_int64(), def );
+      case z_word16:  return *get_word16();
+      case z_word32:  return cast_val<int32_t>( *get_word32(), def );
+      case z_word64:  return cast_val<int32_t>( *get_word64(), def );
+      default:        return def;
+    }
+  }
+
+  auto  zval::cast_to_int64( int64_t def ) const -> int64_t
+  {
+    switch ( get_type() )
+    {
+      case z_char:    return *get_char();
+      case z_byte:    return *get_byte();
+      case z_int16:   return *get_int16();
+      case z_int32:   return *get_int32();
+      case z_int64:   return *get_int64();
+      case z_word16:  return *get_word16();
+      case z_word32:  return *get_word32();
+      case z_word64:  return cast_val<int64_t>( *get_word64(), def );
+      default:        return def;
+    }
+  }
+
+  auto  zval::cast_to_word16( word16_t def ) const -> word16_t
+  {
+    switch ( get_type() )
+    {
+      case z_char:    return cast_val<word16_t>( *get_char(), def );
+      case z_byte:    return *get_byte();
+      case z_int16:   return cast_val<word16_t>( *get_int16(), def );
+      case z_int32:   return cast_val<word16_t>( *get_int32(), def );
+      case z_int64:   return cast_val<word16_t>( *get_int64(), def );
+      case z_word16:  return *get_word16();
+      case z_word32:  return cast_val<word16_t>( *get_word32(), def );
+      case z_word64:  return cast_val<word16_t>( *get_word64(), def );
+      default:        return def;
+    }
+  }
+
+  auto  zval::cast_to_word32( word32_t def ) const -> word32_t
+  {
+    switch ( get_type() )
+    {
+      case z_char:    return cast_val<word32_t>( *get_char(), def );
+      case z_byte:    return *get_byte();
+      case z_int16:   return cast_val<word32_t>( *get_int16(), def );
+      case z_int32:   return cast_val<word32_t>( *get_int32(), def );
+      case z_int64:   return cast_val<word32_t>( *get_int64(), def );
+      case z_word16:  return *get_word16();
+      case z_word32:  return *get_word32();
+      case z_word64:  return cast_val<word32_t>( *get_word64(), def );
+      default:        return def;
+    }
+  }
+
+  auto  zval::cast_to_word64( word64_t def ) const -> word64_t
+  {
+    switch ( get_type() )
+    {
+      case z_char:    return cast_val<word64_t>( *get_char(), def );
+      case z_byte:    return *get_byte();
+      case z_int16:   return cast_val<word64_t>( *get_int16(), def );
+      case z_int32:   return cast_val<word64_t>( *get_int32(), def );
+      case z_int64:   return cast_val<word64_t>( *get_int64(), def );
+      case z_word16:  return *get_word16();
+      case z_word32:  return *get_word32();
+      case z_word64:  return *get_word64();
+      default:        return def;
+    }
+  }
+
+  auto  zval::cast_to_float( float_t def ) const -> float_t
+  {
+    switch ( get_type() )
+    {
+      case z_char:    return *get_char();
+      case z_byte:    return *get_byte();
+      case z_int16:   return *get_int16();
+      case z_int32:   return *get_int32();
+      case z_int64:   return *get_int64();
+      case z_word16:  return *get_word16();
+      case z_word32:  return *get_word32();
+      case z_word64:  return *get_word64();
+      case z_float:   return *get_float();
+      case z_double:  return cast_val<float_t>( *get_double(), def );
+      default:        return def;
+    }
+  }
+
+  auto  zval::cast_to_double( double_t def ) const -> double_t
+  {
+    switch ( get_type() )
+    {
+      case z_char:    return *get_char();
+      case z_byte:    return *get_byte();
+      case z_int16:   return *get_int16();
+      case z_int32:   return *get_int32();
+      case z_int64:   return *get_int64();
+      case z_word16:  return *get_word16();
+      case z_word32:  return *get_word32();
+      case z_word64:  return *get_word64();
+      case z_float:   return *get_float();
+      case z_double:  return *get_double();
+      default:        return def;
+    }
+  }
+
+  auto  zval::cast_to_charstr( const charstr& def ) const -> charstr
+  {
+    return is_array() ? def : to_string();
+  }
+
   size_t  zval::GetBufLen() const
   {
     switch ( vx_type )
