@@ -646,18 +646,13 @@ namespace mtc
   }
 
   api<IFileStream>  OpenFileStream( const char* szname, unsigned dwmode, const enable_exceptions_t& )
-    {
-      return openFileObject<report_error_exception>( szname, dwmode ).ptr();
-    }
+    {  return openFileObject<report_error_exception>( szname, dwmode ).ptr();  }
 
   api<IFileStream>  OpenFileStream( const char* szname, unsigned dwmode, const disable_exceptions_t& )
     {  return openFileObject<report_error_no_except>( szname, dwmode ).ptr();  }
 
   api<IFileStream>  OpenFileStream( const widechar* szname, unsigned dwmode, const disable_exceptions_t& )
     {  return OpenFileStream( utf::encode( szname ).c_str(), dwmode, disable_exceptions );  }
-
-  api<IByteBuffer>  LoadFileBuffer( const char* szname, const enable_exceptions_t& )
-    {  return openFileObject<report_error_exception>( szname, O_RDONLY )->Load();  }
 
   api<IFileStream>  OpenFileStream( const widechar* szname, unsigned dwmode, const enable_exceptions_t& )
     {  return OpenFileStream( utf::encode( szname ).c_str(), dwmode, enable_exceptions );  }
@@ -669,7 +664,39 @@ namespace mtc
       return lpfile != nullptr ? lpfile->Load() : nullptr;
     }
 
+  api<IByteBuffer>  LoadFileBuffer( const widechar* szname, const disable_exceptions_t& )
+    {
+      auto  lpfile = openFileObject<report_error_no_except>( utf::encode( szname ).c_str(), O_RDONLY );
+
+      return lpfile != nullptr ? lpfile->Load() : nullptr;
+    }
+
+  api<IByteBuffer>  LoadFileBuffer( const char* szname, const enable_exceptions_t& )
+    {  return openFileObject<report_error_exception>( szname, O_RDONLY )->Load();  }
+
   api<IByteBuffer>  LoadFileBuffer( const widechar* szname, const enable_exceptions_t& )
     {  return LoadFileBuffer( utf::encode( szname ).c_str(), enable_exceptions );  }
+
+  // wrappers
+
+  api<IFileStream>  OpenFileStream( const std::string& sz, unsigned dwmode, const enable_exceptions_t& xp )
+    {  return OpenFileStream( sz.c_str(), dwmode, xp );  }
+  api<IFileStream>  OpenFileStream( const std::string& sz, unsigned dwmode, const disable_exceptions_t& xp )
+    {  return OpenFileStream( sz.c_str(), dwmode, xp );  }
+
+  api<IFileStream>  OpenFileStream( const std::basic_string<widechar>& sz, unsigned dwmode, const enable_exceptions_t& xp )
+    {  return OpenFileStream( sz.c_str(), dwmode, xp );  }
+  api<IFileStream>  OpenFileStream( const std::basic_string<widechar>& sz, unsigned dwmode, const disable_exceptions_t& xp )
+    {  return OpenFileStream( sz.c_str(), dwmode, xp );  }
+
+  api<IByteBuffer>  LoadFileBuffer( const std::string& sz, const enable_exceptions_t& xp )
+    {  return LoadFileBuffer( sz.c_str(), xp );  }
+  api<IByteBuffer>  LoadFileBuffer( const std::string& sz, const disable_exceptions_t& xp )
+    {  return LoadFileBuffer( sz.c_str(), xp );  }
+
+  api<IByteBuffer>  LoadFileBuffer( const std::basic_string<widechar>& sz, const enable_exceptions_t& xp )
+    {  return LoadFileBuffer( sz.c_str(), xp );  }
+  api<IByteBuffer>  LoadFileBuffer( const std::basic_string<widechar>& sz, const disable_exceptions_t& xp )
+    {  return LoadFileBuffer( sz.c_str(), xp );  }
 
 }  // mtc namespace
