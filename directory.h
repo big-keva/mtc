@@ -53,8 +53,8 @@ SOFTWARE.
 # if !defined( __mtc_dir_h__ )
 # define __mtc_dir_h__
 # include "platform.h"
-# include "autoptr.h"
 # include "wcsstr.h"
+# include <memory>
 # include <atomic>
 
 # if defined( _WIN32 )
@@ -139,7 +139,7 @@ namespace mtc
   protected:
     struct dir_val
     {
-      std::atomic_int refcnt;
+      long            refcnt;
       unsigned        dwattr;     // directory::attr_xxx virtual attribute combine
       char*           szname;     // pointer to string in system-specific struct
       dir_str         folder;     // current scanned folder
@@ -157,19 +157,35 @@ namespace mtc
       unsigned    attrib() const  {  return (fidata.attrib & _A_SUBDIR) ? attr_dir : attr_file;  }
       char*       doread()        {  return szname = (_findnext( handle, &fidata ) == 0 ? fidata.name : nullptr);  }
 # else
-      DIR*                dirptr;
-      struct dirent*      pentry;
-      _auto_<char>        filter;
+      DIR*                  dirptr;
+      struct dirent*        pentry;
+      std::unique_ptr<char> filter;
 
-    public:     // construction
-      dir_val( unsigned attr ): refcnt( 1 ), dwattr( attr ), szname( nullptr ), dirptr( nullptr ), pentry( nullptr )
-        {
-        }
+    private:  // construction
+      dir_val( unsigned attr ):
+        refcnt( 1 ),
+        dwattr( attr ),
+        szname( nullptr ),
+        dirptr( nullptr ),
+        pentry( nullptr ) {}
      ~dir_val()
         {
           if ( dirptr != nullptr )
             closedir( dirptr );
         }
+
+    public:
+      static
+      dir_val*  Create( unsigned attr )
+      {
+        auto  palloc = (dir_val*)malloc( sizeof(dir_val) );
+
+        return palloc != nullptr ? new( palloc ) dir_val( attr ) : nullptr;
+      }
+      void      Delete()
+      {
+        this->~dir_val();  free( this );
+      }
 
     public:     // read
       unsigned    attrib() const
@@ -188,7 +204,7 @@ namespace mtc
       char*       doread()
         {
           for ( szname = nullptr; szname == nullptr && dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr; )
-            if ( *(char*)filter == '\0' || fnmatch( filter, pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
+            if ( *filter.get() == '\0' || fnmatch( filter.get(), pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
               szname = pentry->d_name;
           return szname;
         }
@@ -209,12 +225,12 @@ namespace mtc
    ~directory()
       {
         if ( didata != nullptr && --didata->refcnt == 0 )
-          delete didata;
+          didata->Delete();
       }
     directory& operator = ( const directory& d )
       {
         if ( didata != nullptr && --didata->refcnt == 0 )
-          delete didata;
+          didata->Delete();
         if ( (didata = d.didata) != nullptr )
           ++didata->refcnt;
         return *this;
@@ -347,7 +363,7 @@ namespace mtc
     char*       endptr;
 
   // allocate directory object
-    if ( (thedir.didata = allocate<directory::dir_val>( uflags )) == nullptr )
+    if ( (thedir.didata = dir_val::Create( uflags )) == nullptr )
       return directory();
 
 # if defined( _WIN32 )
@@ -396,7 +412,7 @@ namespace mtc
       else folder[endptr++ - pszdir + 1] = '\0';
 
   // create the mask
-    if ( (thedir.didata->filter = w_strdup( endptr )) == nullptr )
+    if ( (thedir.didata->filter = std::unique_ptr<char>( w_strdup( endptr ) )) == nullptr )
       return directory();
 
   // parse the search entry to directory and the mask

@@ -92,7 +92,9 @@ namespace mtc
 
     friend class  FileStream<error>;
 
-  public:     // construction
+    void  operator delete( void* p )  {  free( p );  }
+
+  protected:     // construction
     FileMemmap();
    ~FileMemmap();
     FileMemmap( const FileMemmap& ) = delete;
@@ -312,19 +314,16 @@ namespace mtc
   template <class error>
   api<IByteBuffer>  FileStream<error>::MemMap( int64_t offset, word32_t length )
   {
-    api<FileMemmap<error>>  memmap;
-    int                     nerror;
+    auto  palloc = (FileMemmap<error>*)malloc( sizeof(FileMemmap<error>) );
+    auto  memmap = api<FileMemmap<error>>();
 
-    if ( (memmap = allocate<FileMemmap<error>>()) == nullptr )
-      return nullptr;
+    if ( palloc != nullptr )  memmap = new ( palloc ) FileMemmap<error>();
+      else return nullptr;
 
     if ( length == (word32_t)-1 )
       length = Size() - offset;
 
-    if ( (nerror = memmap->Create( this, offset, length )) != 0 )
-      return nullptr;
-
-    return memmap.ptr();
+    return memmap->Create( this, offset, length ) == 0 ? memmap.ptr() : nullptr;
   }
 
   template <class error>

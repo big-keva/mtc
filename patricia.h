@@ -306,6 +306,9 @@ namespace patricia  {
      ~node();
 
     public:
+      void  operator delete( void* p )  {  delete [] (char*)p;  }
+
+    public:
       static  auto  create( const unsigned char*, size_t, std::unique_ptr<node> = std::unique_ptr<node>() ) -> std::unique_ptr<node>;
       static  auto  fmatch( const unsigned char*, size_t, const unsigned char*, size_t ) -> size_t;
 
@@ -682,11 +685,12 @@ namespace patricia  {
   template <class V>
   auto  tree<V>::node::create( const unsigned char* key, size_t len, std::unique_ptr<node> nex ) -> std::unique_ptr<typename tree<V>::node>
     {
-      size_t    minlen = len != 0 ? len : 1;
-      size_t    cchstr = (minlen + 0x0f) & ~0x0f;
-      size_t    nalloc = sizeof(node) - sizeof(node::chars) + cchstr;
+      size_t  minlen = len != 0 ? len : 1;
+      size_t  cchstr = (minlen + 0x0f) & ~0x0f;
+      size_t  nalloc = sizeof(node) - sizeof(node::chars) + cchstr;
+      auto    palloc = new char[nalloc];
 
-      return std::move( std::unique_ptr<node>( new ( new char[nalloc] ) node( key, len, std::move( nex ) ) ) );
+      return std::move( std::unique_ptr<node>( new ( palloc ) node( key, len, std::move( nex ) ) ) );
     }
 
   template <class V>
