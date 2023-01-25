@@ -86,7 +86,10 @@ namespace mtc
       static char*  strdup( const char*, size_t l = -1 );
 
     private:
-      std::atomic_int*  base();
+      struct block
+        {  long  refers = 0;  };
+
+      block*  get_string_block();
 
     };
 
@@ -246,59 +249,68 @@ namespace mtc
   directory::dir_str::dir_str( char* s )
     {
       if ( (strptr = s) != nullptr )
-        ++*base();
+        ++get_string_block()->refers;
     }
 
   inline
   directory::dir_str::dir_str( const dir_str& s )
     {
       if ( (strptr = s.strptr) != nullptr )
-        ++*base();
+        ++get_string_block()->refers;
     }
 
   inline
   directory::dir_str::~dir_str()
     {
-      if ( strptr != nullptr && --*base() <= 0 )
-        delete base();
+      if ( strptr != nullptr && --get_string_block()->refers <= 0 )
+      {
+        get_string_block()->~block();
+        free( get_string_block() );
+      }
     }
 
   inline
   directory::dir_str& directory::dir_str::operator = ( const dir_str& s )
     {
-      if ( strptr != nullptr && --*base() <= 0 )
-        delete base();
+      if ( strptr != nullptr && --get_string_block()->refers <= 0 )
+      {
+        get_string_block()->~block();
+        free( get_string_block() );
+      }
       if ( (strptr = s.strptr) != nullptr )
-        ++*base();
+        ++get_string_block()->refers;
       return *this;
     }
 
   inline
   directory::dir_str& directory::dir_str::operator = ( char* s )
     {
-      if ( strptr != nullptr && --*base() <= 0 )
-        delete base();
+      if ( strptr != nullptr && --get_string_block()->refers <= 0 )
+      {
+        get_string_block()->~block();
+        free( get_string_block() );
+      }
       if ( (strptr = s) != nullptr )
-        ++*base();
+        ++get_string_block()->refers;
       return *this;
     }
 
   inline
-  std::atomic_int*  directory::dir_str::base()
+  directory::dir_str::block*  directory::dir_str::get_string_block()
     {
-      return strptr != nullptr ? -1 + (std::atomic_int*)strptr : nullptr;
+      return strptr != nullptr ? -1 + (block*)strptr : nullptr;
     }
 
   inline
   char*   directory::dir_str::strdup( const char* s, size_t l )
     {
-      std::atomic_int*  palloc;
+      block*  palloc;
 
       if ( l == (size_t)-1 )
         l = w_strlen( s );
 
-      if ( (palloc = (std::atomic_int*)malloc( sizeof(std::atomic_int) + l + 1 )) != nullptr )
-        new( palloc++ ) std::atomic_int( 0 );
+      if ( (palloc = (block*)malloc( sizeof(block) + l + 1 )) != nullptr )
+        new( palloc++ ) block();
       else return nullptr;
 
       *(l + (char*)memcpy( palloc, s, l )) = '\0';
