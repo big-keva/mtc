@@ -122,38 +122,14 @@ namespace mtc
   {
     implement_lifetime_control
 
+    class filebuffer;
+
     friend class FileMemmap<error>;
-
-    struct  filebuffer final: public IByteBuffer
-    {
-      implement_lifetime_control
-
-    public:     // construction
-      filebuffer( word32_t l ): length( l ) {}
-          
-    public:     // overridables
-      const char*   GetPtr() const noexcept override {  return buffer;  }
-      word32_t      GetLen() const noexcept override {  return length;  }
-      int           SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
-      int           SetLen( word32_t ) noexcept override {  return EINVAL;  }
-
-    public:
-      static  auto  Create( word32_t length ) -> api<filebuffer>
-      {
-        filebuffer* palloc;
-
-        if ( (palloc = (filebuffer*)nothrow_allocator::alloc( sizeof(filebuffer) + length - 1 )) == nullptr )
-          return (filebuffer*)error()( nullptr, std::bad_alloc() );
-        return new( palloc ) filebuffer( length );
-      }
-
-    protected:  // variables
-      word32_t  length;
-      char      buffer[1];
-    };
 
   protected:    // construction
     FileStream( const char* szname, size_t ccname );
+
+    void  operator  delete( void* p ) {  nothrow_allocator::free( p );  }
 
   public:
    ~FileStream();
@@ -192,6 +168,40 @@ namespace mtc
   protected:  // variables
     win32_decl( HANDLE handle );
     posix_decl( int    handle );
+
+  };
+
+  template <class error>
+  class FileStream<error>::filebuffer final: public IByteBuffer
+  {
+    implement_lifetime_control
+
+  public:     // construction
+    filebuffer( word32_t l ): length( l ) {}
+
+  public:     // overridables
+    const char*   GetPtr() const noexcept override {  return buffer;  }
+    word32_t      GetLen() const noexcept override {  return length;  }
+    int           SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
+    int           SetLen( word32_t ) noexcept override {  return EINVAL;  }
+
+  public:
+    static
+    auto  create( word32_t length ) -> api<filebuffer>
+    {
+      filebuffer* palloc;
+
+      if ( (palloc = (filebuffer*)nothrow_allocator::alloc( sizeof(filebuffer) + length - 1 )) == nullptr )
+        return (filebuffer*)error()( nullptr, std::bad_alloc() );
+      return new( palloc ) filebuffer( length );
+    }
+
+  protected:
+    void  operator delete( void* p )  {  nothrow_allocator::free( p );  }
+
+  protected:  // variables
+    const word32_t  length;
+    char            buffer[1];
 
   };
 
@@ -326,7 +336,7 @@ namespace mtc
     if ( len > std::numeric_limits<int64_t>::max() )
       return nullptr;
 
-    if ( (buf = filebuffer::Create( len )) == nullptr )
+    if ( (buf = filebuffer::create( len )) == nullptr )
       return nullptr;
 
     return PosGet( (char*)buf->GetPtr(), 0, (word32_t)len ) == len ? buf.ptr() : nullptr;
@@ -337,7 +347,7 @@ namespace mtc
   {
     api<filebuffer> buffer;
 
-    if ( (buffer = filebuffer::Create( len )) == nullptr )
+    if ( (buffer = filebuffer::create( len )) == nullptr )
       return ENOMEM;
     if ( PosGet( (char*)buffer->GetPtr(), off, len ) != len )
       return EACCES;

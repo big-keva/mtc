@@ -90,6 +90,20 @@ namespace mtc
   api<IByteBuffer>  LoadFileBuffer( const widechar* sz, const enable_exceptions_t& );
   api<IByteBuffer>  LoadFileBuffer( const widechar* sz, const disable_exceptions_t& );
 
+  api<IFileStream>  OpenFileStream( const std::string& sz, unsigned dwmode, const enable_exceptions_t& );
+  api<IFileStream>  OpenFileStream( const std::string& sz, unsigned dwmode, const disable_exceptions_t& );
+
+  api<IFileStream>  OpenFileStream( const std::basic_string<widechar>& sz, unsigned dwmode, const enable_exceptions_t& );
+  api<IFileStream>  OpenFileStream( const std::basic_string<widechar>& sz, unsigned dwmode, const disable_exceptions_t& );
+
+  api<IByteBuffer>  LoadFileBuffer( const std::string& sz, const enable_exceptions_t& );
+  api<IByteBuffer>  LoadFileBuffer( const std::string& sz, const disable_exceptions_t& );
+
+  api<IByteBuffer>  LoadFileBuffer( const std::basic_string<widechar>& sz, const enable_exceptions_t& );
+  api<IByteBuffer>  LoadFileBuffer( const std::basic_string<widechar>& sz, const disable_exceptions_t& );
+
+  // compatibility section
+
   inline  auto  OpenFileStream( const char* sz, unsigned dwmode = 0 ) -> api<IFileStream>
     {  return OpenFileStream( sz, dwmode, disable_exceptions );  }
   inline  auto  OpenFileStream( const widechar* sz, unsigned dwmode = 0 ) -> api<IFileStream>
