@@ -785,12 +785,16 @@ namespace mtc
     friend class iterator_base;
 
   private:
-    unsigned        _typ;
-    const uint8_t*  _ptr;
-    size_t          _len;
+    unsigned          _typ;
+    union
+    {
+      const uint8_t*  _psz;
+      const widechar* _wsz;
+    };
+    size_t            _len;
 
   private:
-    uint8_t         _buf[4];
+    uint8_t           _buf[4];
 
   public:     // key types
     enum: uint8_t
@@ -829,7 +833,7 @@ namespace mtc
 
   public: // data
     auto  type() const  -> unsigned       {  return _typ;  }
-    auto  data() const  -> const uint8_t* {  return _ptr;  }
+    auto  data() const  -> const uint8_t* {  return _psz;  }
     auto  size() const  -> size_t         {  return _len;  }
 
   public: // operators
