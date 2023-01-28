@@ -568,7 +568,7 @@ namespace mtc
           while ( ptrtop < ptrend && ptrtop->chnode < chnext )
             ++ptrtop;
           if ( ptrtop >= ptrend || ptrtop->chnode != chnext )
-            ptrtop = static_cast<std::vector<ztree_t>&>( *expand ).insert( ptrtop, std::move( ztree_t( chnext ) ) );
+            ptrtop = static_cast<std::vector<ztree_t>&>( *expand ).insert( ptrtop, ztree_t( chnext ) );
           expand = expand->data() + (ptrtop - expand->begin());
         }
           else
@@ -634,12 +634,12 @@ namespace mtc
       ztree_t mkcopy( chnode );
 
       for ( auto ptr = begin(); ptr != end(); ++ptr )
-        mkcopy.push_back( std::move( ptr->copyit() ) );
+        mkcopy.push_back( ptr->copyit() );
 
       mkcopy.keyset = keyset;
 
       if ( pvalue != nullptr )
-        mkcopy.pvalue = std::move( std::unique_ptr<zval>( new zval( *pvalue.get() ) ) );
+        mkcopy.pvalue = std::unique_ptr<zval>( new zval( *pvalue.get() ) );
 
       return mkcopy;
     }
@@ -1127,9 +1127,9 @@ namespace mtc
 
   # define derive_set_ref( _type_ )                                                   \
   auto  zmap::set_##_type_( const key& k, const _type_##_t& t ) -> _type_##_t*        \
-    {  return put( k, std::move( zval( t ) ) )->get_##_type_();  }                    \
+    {  return put( k, zval( t ) )->get_##_type_();  }                                 \
   auto  zmap::set_##_type_( const key& k, _type_##_t&& t ) -> _type_##_t*             \
-    {  return put( k, std::move( zval( std::move( t ) ) ) )->get_##_type_();  }
+    {  return put( k, zval( std::move( t ) ) )->get_##_type_();  }
 
     derive_set( char    )
     derive_set( byte    )
@@ -1176,12 +1176,12 @@ namespace mtc
 
     auto  zmap::set_charstr( const key& k, const char* psz, size_t len ) -> charstr*
     {
-      return put( k, std::move( zval( psz, len ) ) )->get_charstr();
+      return put( k, zval( psz, len ) )->get_charstr();
     }
 
     auto  zmap::set_widestr( const key& k, const widechar* pws, size_t len ) -> widestr*
     {
-      return put( k, std::move( zval( pws, len ) ) )->get_widestr();
+      return put( k, zval( pws, len ) )->get_widestr();
     }
 
     derive_set_ref( uuid )
@@ -1247,10 +1247,10 @@ namespace mtc
     }
 
   auto  zmap::operator []( const key& k ) const -> const const_place_t
-    {  return std::move( const_place_t( k, *this ) );  }
+    {  return const_place_t( k, *this );  }
 
   auto  zmap::operator []( const key& k ) -> patch_place_t
-    {  return std::move( patch_place_t( k, *this ) );  }
+    {  return patch_place_t( k, *this );  }
 
   auto  zmap::clear() -> void
     {

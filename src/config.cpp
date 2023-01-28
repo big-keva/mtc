@@ -406,7 +406,7 @@ namespace mtc
 
     json::Parse( source, getcfg );
 
-    return std::move( config( std::move( getcfg ), std::move( charstr( szpath ) ) ) );
+    return std::move( config( std::move( getcfg ), charstr( szpath ) ) );
   }
 
   auto  config::Load( const std::string& source, const std::string& path ) -> config

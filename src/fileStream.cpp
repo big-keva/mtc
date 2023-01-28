@@ -110,12 +110,14 @@ namespace mtc
     int         Create( FileStream<error>*, int64_t, word32_t );
 
   protected:  // variables
-    word32_t                cchmem;
-    unsigned                dwgran;
-    unsigned                nshift;
-    word32_t                maplen;
-    void*                   ptrmap;
-    win32_decl( HANDLE      handle );
+    word32_t  cchmem;
+    unsigned  dwgran;
+    unsigned  nshift;
+    word32_t  maplen;
+    void*     ptrmap;
+# if defined( _WIN32 )
+    HANDLE    handle;
+# endif   // _WIN32
 
   };
 
@@ -168,8 +170,11 @@ namespace mtc
     auto  FileName()        ->      char* {  return (char*)(this + 1);  }
 
   protected:  // variables
-    win32_decl( HANDLE handle );
-    posix_decl( int    handle );
+# if defined( _WIN32 )
+    HANDLE  handle;
+# else
+    int     handle;
+# endif   // _WIN32
 
   };
 
