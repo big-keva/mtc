@@ -796,9 +796,9 @@ namespace mtc {
     }
 
   inline  auto  utf8::encode( const widestr& str ) -> charstr
-    {  return std::move( encode( str.c_str(), str.length() ) );  }
+    {  return encode( str.c_str(), str.length() );  }
   inline  auto  utf8::encode( const std::basic_string<uint32_t>& str ) -> charstr
-    {  return std::move( encode( str.c_str(), str.length() ) );  }
+    {  return encode( str.c_str(), str.length() );  }
 
   inline  auto  utf8::charsize( uint32_t uch ) -> size_t
     {
@@ -1013,16 +1013,16 @@ namespace mtc {
   inline  auto  utf::encode( char* out, size_t len, const widechar* src, size_t cch ) -> size_t
     {  return encode( utf8::out( out, len ), utf16::in( src, cch ) );  }
   inline  auto  utf::encode( const widechar* str, size_t len ) -> charstr
-    {  return std::move( utf8::encode( str, len ) );  }
+    {  return utf8::encode( str, len );  }
   inline  auto  utf::encode( const widestr& str ) -> charstr
-    {  return std::move( utf8::encode( str ) );  }
+    {  return utf8::encode( str );  }
 
   inline  auto  utf::decode( widechar* out, size_t len, const char* src, size_t cch ) -> size_t
     {  return encode( utf16::out( out, len ), utf8::in( src, cch ) );  }
   inline  auto  utf::decode( const char* str, size_t len ) -> widestr
-    {  return std::move( utf16::encode( str, len ) );  }
+    {  return utf16::encode( str, len );  }
   inline  auto  utf::decode( const charstr& str ) -> widestr
-    {  return std::move( utf16::encode( str ) );  }
+    {  return utf16::encode( str );  }
 
   inline  auto  utf::cbchar( uint32_t uch ) -> size_t                     {  return utf8::charsize( uch );  }
   inline  auto  utf::cbchar( const char* str, size_t  len ) -> size_t     {  return utf8::charsize( str, len );  }

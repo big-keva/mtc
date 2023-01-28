@@ -1081,7 +1081,7 @@ namespace patricia  {
 
   template <class V>
   template <class value, class nodes>
-  tree<V>::base_iterator<value, nodes>& tree<V>::base_iterator<value, nodes>::operator = ( base_iterator&& it )
+  auto  tree<V>::base_iterator<value, nodes>::operator = ( base_iterator&& it ) -> typename tree<V>::base_iterator<value, nodes>&
     {
       patkey = std::move( it.patkey );
       patval = std::move( it.patval );
@@ -1107,7 +1107,7 @@ namespace patricia  {
 
   template <class V>
   template <class value, class nodes>
-  tree<V>::base_iterator<value, nodes>& tree<V>::base_iterator<value, nodes>::operator ++ ()
+  auto  tree<V>::base_iterator<value, nodes>::operator ++ () -> typename tree<V>::base_iterator<value, nodes>&
     {
       while ( atrace.size() != 0 )
       {
@@ -1155,7 +1155,7 @@ namespace patricia  {
 
   template <class V>
   template <class value, class nodes>
-  tree<V>::base_iterator<value, nodes>&  tree<V>::base_iterator<value, nodes>::setkey()
+  auto  tree<V>::base_iterator<value, nodes>::setkey() -> typename tree<V>::base_iterator<value, nodes>&
     {
       assert( atrace.size() == 0 || atrace.back()->hasval() );
 
@@ -1179,7 +1179,7 @@ namespace patricia  {
 
   template <class V>
   template <class value, class nodes>
-  tree<V>::base_iterator<value, nodes>&  tree<V>::base_iterator<value, nodes>::get_lo()
+  auto  tree<V>::base_iterator<value, nodes>::get_lo() -> typename tree<V>::base_iterator<value, nodes>&
     {
       while ( atrace.size() != 0 && !atrace.back()->hasval() )
       {
@@ -1904,10 +1904,10 @@ namespace patricia  {
 
       for ( nnodes >>= 1; nnodes-- > 0; )
       {
-        const uint8_t* subdic;
-        int           cchars;
-        int           cnodes;
-        int           curlen;
+        const char* subdic;
+        int         cchars;
+        int         cnodes;
+        int         curlen;
 
       // извлечь характеристики очередного узла
         thedic = ::FetchFrom( ::FetchFrom( thedic, cchars ), cnodes );

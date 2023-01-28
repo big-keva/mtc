@@ -431,7 +431,7 @@ namespace fs {
 
     if ( utf8::encode( mbs, sizeof(mbs) / sizeof(mbs[0]), dir ) == (size_t)-1 )
       return directory();
-    return std::move( open( dir, uflags ) );
+    return open( dir, uflags );
   }
 
 # endif   // !_MSC_VER

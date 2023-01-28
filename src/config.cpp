@@ -385,7 +385,7 @@ namespace mtc
     if ( __impl__::fullpath( szpath, sizeof(szpath), path ) == nullptr )
       throw error( strprintf( "could not create the full file path '%s'", path ) );
 
-    return std::move( config( std::move( getcfg ), std::move( charstr( szpath ) ) ) );
+    return std::move( config( std::move( getcfg ), charstr( szpath ) ) );
   }
 
   auto  config::Open( const charstr& path, const zmap& revive ) -> config

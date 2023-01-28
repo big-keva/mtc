@@ -4,6 +4,18 @@
 
 using namespace mtc;
 
+enum suffixes: uint64_t
+{
+  Kb = 1024,
+  Mb = Kb * Kb,
+  Gb = Mb * Kb
+};
+
+const std::initializer_list<std::pair<const char*, uint32_t>> sizeSuffix{
+  { "[Kk]", Kb }, { "[Kk][Bb]", Kb },
+  { "[Mm]", Mb }, { "[Mm][Bb]", Mb },
+  { "[Gg]", Gb }, { "[Gg][Bb]", Mb } };
+
 TestItEasy::RegisterFunc  testConfig( []()
   {
     TEST_CASE( "mtc/config" )
@@ -27,6 +39,7 @@ TestItEasy::RegisterFunc  testConfig( []()
       {
         REQUIRE( cfg.get_int32( "value_with_suffix", -1, { { "Mb", 1024 * 1024 } } ) == 77 * 1024 * 1024 );
         REQUIRE( cfg.get_int32( "value_with_suffix", -1, { { "[Mm][Bb]", 1024 * 1024 } } ) == 77 * 1024 * 1024 );
+        REQUIRE( cfg.get_uint64( "value_with_suffix", 512 * Mb, sizeSuffix ) == 77 * Mb );
       }
 
     }

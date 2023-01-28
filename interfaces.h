@@ -175,14 +175,14 @@ namespace mtc
   bool  operator != ( const api<i, att, det>& i1, const api<i, att, det>& i2 ) {  return !(i1 == i2);  }
 
   template <class i, class att, class det>
-  bool  operator == ( const api<i, att, det>& ci, nullptr_t np ) {  return ci.ptr() == np;  }
+  bool  operator == ( const api<i, att, det>& ci, std::nullptr_t np ) {  return ci.ptr() == np;  }
   template <class i, class att, class det>
-  bool  operator != ( const api<i, att, det>& ci, nullptr_t np ) {  return !(ci == np);  }
+  bool  operator != ( const api<i, att, det>& ci, std::nullptr_t np ) {  return !(ci == np);  }
 
   template <class i, class att, class det>
-  bool  operator == ( nullptr_t np, const api<i, att, det>& ci ) {  return ci.ptr() == np;  }
+  bool  operator == ( std::nullptr_t np, const api<i, att, det>& ci ) {  return ci.ptr() == np;  }
   template <class i, class att, class det>
-  bool  operator != ( nullptr_t np, const api<i, att, det>& ci ) {  return !(ci == np);  }
+  bool  operator != ( std::nullptr_t np, const api<i, att, det>& ci ) {  return !(ci == np);  }
 
   template <class iface, class attach, class detach>
   class API
