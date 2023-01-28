@@ -480,27 +480,27 @@ namespace mtc
 
   // zmap::key implementation
 
-  zmap::key::key(): _typ( none ), _ptr( nullptr ), _len( 0 )  {}
+  zmap::key::key(): _typ( none ), _psz( nullptr ), _len( 0 )  {}
   zmap::key::key( unsigned t, const uint8_t* b, size_t l ): _typ( t ), _len( l )
     {
-      if ( _typ == 0 )  _ptr = (const uint8_t*)memcpy( _buf, b, l );
-        else _ptr = b;
+      if ( _typ == 0 )  _psz = (const uint8_t*)memcpy( _buf, b, l );
+        else _psz = b;
     }
-  zmap::key::key( unsigned k ): _typ( uint ), _ptr( _buf ), _len( keys::int_to_key( _buf, k ) )  {}
-  zmap::key::key( const char* k ): _typ( cstr ), _ptr( (const uint8_t*)k ), _len( w_strlen( k ) ) {}
-  zmap::key::key( const widechar* k ): _typ( wstr ), _ptr( (const uint8_t*)k ), _len( sizeof(widechar) * w_strlen( k ) )  {}
-  zmap::key::key( const char* k, size_t l ): _typ( cstr ), _ptr( (const uint8_t*)k ), _len( l ) {}
-  zmap::key::key( const widechar* k, size_t l ): _typ( wstr ), _ptr( (const uint8_t*)k ), _len( l )  {}
-  zmap::key::key( const charstr& k ): _typ( cstr ), _ptr( (const uint8_t*)k.c_str() ), _len( k.length() ) {}
-  zmap::key::key( const widestr& k ): _typ( wstr ), _ptr( (const uint8_t*)k.c_str() ), _len( sizeof(widechar) * k.length() )  {}
-  zmap::key::key( const key& k ): _typ( k._typ ), _ptr( k._ptr ), _len( k._len )
-    {  if ( _typ == 0 ) _ptr = (const uint8_t*)memcpy( _buf, k._buf, sizeof(k._buf) );  }
+  zmap::key::key( unsigned k ): _typ( uint ), _psz( _buf ), _len( keys::int_to_key( _buf, k ) )  {}
+  zmap::key::key( const char* k ): _typ( cstr ), _psz( (const uint8_t*)k ), _len( w_strlen( k ) ) {}
+  zmap::key::key( const widechar* k ): _typ( wstr ), _psz( (const uint8_t*)k ), _len( sizeof(widechar) * w_strlen( k ) )  {}
+  zmap::key::key( const char* k, size_t l ): _typ( cstr ), _psz( (const uint8_t*)k ), _len( l ) {}
+  zmap::key::key( const widechar* k, size_t l ): _typ( wstr ), _psz( (const uint8_t*)k ), _len( l )  {}
+  zmap::key::key( const charstr& k ): _typ( cstr ), _psz( (const uint8_t*)k.c_str() ), _len( k.length() ) {}
+  zmap::key::key( const widestr& k ): _typ( wstr ), _psz( (const uint8_t*)k.c_str() ), _len( sizeof(widechar) * k.length() )  {}
+  zmap::key::key( const key& k ): _typ( k._typ ), _psz( k._psz ), _len( k._len )
+    {  if ( _typ == 0 ) _psz = (const uint8_t*)memcpy( _buf, k._buf, sizeof(k._buf) );  }
   zmap::key&  zmap::key::operator= ( const key& k )
     {
       _typ = k._typ;
       _len = k._len;
-      if ( k._ptr == k._buf ) _ptr = (const uint8_t*)memcpy( _buf, k._buf, k._len );
-        else _ptr = k._ptr;
+      if ( k._psz == k._buf ) _psz = (const uint8_t*)memcpy( _buf, k._buf, k._len );
+        else _psz = k._psz;
       return *this;
     }
 
@@ -532,9 +532,9 @@ namespace mtc
         }
     }
 
-  zmap::key::operator unsigned () const {  return _typ == uint ? keys::key_to_int( _ptr, _len ) : 0;  }
-  zmap::key::operator const char* () const {  return _typ == cstr ? (const char*)_ptr : nullptr;  }
-  zmap::key::operator const widechar* () const {  return _typ == wstr ? (const widechar*)_ptr : nullptr;  }
+  zmap::key::operator unsigned () const {  return _typ == uint ? keys::key_to_int( _psz, _len ) : 0;  }
+  zmap::key::operator const char* () const {  return _typ == cstr ? (const char*)_psz : nullptr;  }
+  zmap::key::operator const widechar* () const {  return _typ == wstr ? (const widechar*)_wsz : nullptr;  }
 
   /*
     zmap::z_tree implementation

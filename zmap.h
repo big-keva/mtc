@@ -121,6 +121,8 @@ namespace mtc
   std::string to_string( const zval& );
   std::string to_string( const zmap& );
 
+  const char* const sticker = (char const * const)-1;
+
   namespace impl
   {
     template <class ... types>
@@ -1140,57 +1142,88 @@ namespace mtc
     template <class S>  static auto  zmap( S* s ) -> S*  {  return ::SkipToEnd( s, (const mtc::zmap*)nullptr );  }
   };
 
+ /*
+  * store_t handles:
+  *   - serialized data pointer as 'source', or
+  *   - source == nullptr && cached/avaluated data as 'stored', or
+  *   - source == (const char*)-1 && 'stored' pointing to real data T*.
+  */
   template <class T>
   class zval::dump::store_t
   {
     friend class zval::dump;
     friend class zmap::dump;
 
-  protected:
-    mutable const char* source;
-    mutable T*          pvalue;
+    struct zvalue
+    {
+      T   value;
+      int count;
+    };
 
   protected:
-    store_t( const char* s, T* p ): source( s ), pvalue( p )  {}
-    store_t( std::nullptr_t, const T& t ): source( nullptr )
-      {  *(int*)(1 + (pvalue = new( new char[sizeof(T) + sizeof(int)] ) T( t ))) = 1;  }
+    mutable const char* source;
+    mutable zvalue*     stored;
+
+  protected:
+    store_t( const char* s, T* p ):
+      source( s ),
+      stored( (zvalue*)p )  {}
+    store_t( std::nullptr_t, const T& t ):
+      source( nullptr ),
+      stored( new zvalue{ t, 1 } )  {}
 
   protected:
     auto  fetch() const -> const T&
+    {
+      if ( stored != nullptr )
       {
-        if ( pvalue == nullptr && source != nullptr )
-        {
-          *(int*)(1 + (pvalue = new( new char[sizeof(T) + sizeof(int)] ) T())) = 1;
-            source = (::FetchFrom( source, *pvalue ), nullptr);
-        }
-        return *pvalue;
+        return source == nullptr ? stored->value :
+               source == sticker ?   *(T*)stored :
+         throw std::logic_error( "mtc::zval::dump::store_t initialized with invalid data" );
       }
+
+      if ( source == sticker )
+        throw std::logic_error( "mtc::zval::dump::store_t initialized with invalid data" );
+
+      if ( source == nullptr )
+        throw std::logic_error( "mtc::zval::dump::store_t is not initialized" );
+
+      ::FetchFrom( source, (stored = new zvalue{ T(), 1 })->value );
+        source = nullptr;
+
+      return stored->value;
+    }
     void  delete_it()
-      {
-        if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
-          pvalue->~T(), delete [] (char*)pvalue;
-      }
+    {
+      if ( stored != nullptr && source != sticker && --stored->count == 0 )
+        delete stored;
+    }
   public:
-    store_t(): source( nullptr ), pvalue( nullptr ) {}
-    store_t( const store_t& t ): source( t.source ), pvalue( t.pvalue )
-      {
-        if ( pvalue != nullptr && source == nullptr )
-          ++*(int*)(pvalue + 1);
-      }
+    store_t():
+      source( nullptr ),
+      stored( nullptr ) {}
+    store_t( const store_t& t ):
+      source( t.source ),
+      stored( t.stored )
+    {
+      if ( stored != nullptr && source == nullptr )
+        ++stored->count;
+    }
     auto  operator = ( const store_t& t ) -> store_t&
-      {
-        if ( &t == this )
-          return *this;
-
-        delete_it();
-          pvalue = t.pvalue;
-          source = t.source;
-
-        if ( pvalue != nullptr && source == nullptr )
-          ++*(int*)(pvalue + 1);
-
+    {
+      if ( &t == this )
         return *this;
-      }
+
+      delete_it();
+
+      stored = t.stored;
+      source = t.source;
+
+      if ( stored != nullptr && source == nullptr )
+        ++stored->count;
+
+      return *this;
+    }
    ~store_t() {  delete_it();  }
 
   public:
@@ -1198,8 +1231,10 @@ namespace mtc
     auto  operator -> () const -> const T*  {  return &fetch();  }
 
   public:
-    bool  operator == ( std::nullptr_t ) const {  return source == nullptr && pvalue == nullptr;  }
-    bool  operator != ( std::nullptr_t ) const {  return !(*this == nullptr);  }
+    bool  operator == ( std::nullptr_t ) const
+      {  return stored == nullptr && (source == nullptr || source == sticker);  }
+    bool  operator != ( std::nullptr_t ) const
+      {  return !(*this == nullptr);  }
   };
 
   template <class T>
@@ -1211,19 +1246,17 @@ namespace mtc
     friend class zmap::dump;
 
   public:     // custom constructors
-    value_t( const T* t )
-      {
-        this->source = (const char*)-1;
-        this->pvalue = (T*)t;
-      }
+    value_t( const T* t ):
+      store_t<T>( store_t<T>::sticker, t )  {}
 
   public:     // value assignment
     auto  operator = ( const T* t ) -> value_t&
-      {
-        return this->delete_it(),
-          this->source = (const char*)-1,
-          this->pvalue = (T*)t, *this;
-      }
+    {
+      this->delete_it();
+        this->source = this->sticker;
+        this->stored = (T*)t;
+      return *this;
+    }
   };
 
   class zval::dump::zview_t: public store_t<zval::dump>
@@ -1236,15 +1269,17 @@ namespace mtc
   public:     // value assignment
     auto  operator = ( const zval::dump* t ) -> zview_t&
       {
-        return delete_it(),
-          source = (const char*)-1,
-          pvalue = const_cast<zval::dump*>( t ), *this;
+        delete_it();
+          source = sticker,
+          stored = (zvalue*)t;
+        return *this;
       }
     auto  operator = ( const zval* t ) -> zview_t&
       {
         delete_it();
-          *(int*)(1 + (pvalue = new( new char[sizeof(zval::dump) + sizeof(int)] ) zval::dump( t ))) = 1;
-        return (source = nullptr), *this;
+          source = nullptr;
+          stored = new zvalue{ t, 1 };
+        return *this;
       }
   };
 
