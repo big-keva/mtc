@@ -36,7 +36,7 @@ namespace TestItEasy {
     while ( *test != nullptr )
       test = &(*test)->next;
 
-    (*test = std::move( std::unique_ptr<TestFunc>( new TestFunc() ) ) )->call = fn;
+    (*test = std::unique_ptr<TestFunc>( new TestFunc() ) )->call = fn;
   }
 
 }
