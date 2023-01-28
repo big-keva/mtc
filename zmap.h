@@ -385,16 +385,16 @@ namespace mtc
     bool  ne( const zval& z ) const {  return !eq( z );  }
 
   protected:  // stringize helpers
-    static  auto  to_string( char c )     -> std::string  {  return std::move( std::string( { '\'', c, '\'', 0 } ) );  }
-    static  auto  to_string( byte_t v )   -> std::string  {  return std::move( std::to_string( v ) );  }
-    static  auto  to_string( int16_t v )  -> std::string  {  return std::move( std::to_string( v ) );  }
-    static  auto  to_string( int32_t v )  -> std::string  {  return std::move( std::to_string( v ) );  }
-    static  auto  to_string( int64_t v )  -> std::string  {  return std::move( std::to_string( v ) );  }
-    static  auto  to_string( uint16_t v ) -> std::string  {  return std::move( std::to_string( v ) );  }
-    static  auto  to_string( uint32_t v ) -> std::string  {  return std::move( std::to_string( v ) );  }
-    static  auto  to_string( uint64_t v ) -> std::string  {  return std::move( std::to_string( v ) );  }
-    static  auto  to_string( float v )    -> std::string  {  return std::move( std::to_string( v ) );  }
-    static  auto  to_string( double v )   -> std::string  {  return std::move( std::to_string( v ) );  }
+    static  auto  to_string( char c )     -> std::string  {  return std::string( { '\'', c, '\'', 0 } );  }
+    static  auto  to_string( byte_t v )   -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( int16_t v )  -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( int32_t v )  -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( int64_t v )  -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( uint16_t v ) -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( uint32_t v ) -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( uint64_t v ) -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( float v )    -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( double v )   -> std::string  {  return std::to_string( v );  }
 
     static  auto  to_string( const widechar* v )  -> std::string
       {
@@ -405,10 +405,10 @@ namespace mtc
         return out;
       }
 
-    static  auto  to_string( const zval& v ) ->  std::string {  return std::move( mtc::to_string( v ) );  }
-    static  auto  to_string( const zmap& v ) ->  std::string {  return std::move( mtc::to_string( v ) );  }
+    static  auto  to_string( const zval& v ) ->  std::string {  return mtc::to_string( v );  }
+    static  auto  to_string( const zmap& v ) ->  std::string {  return mtc::to_string( v );  }
     static  auto  to_string( const charstr& v ) ->  const std::string& {  return v;  }
-    static  auto  to_string( const widestr& v ) ->  std::string {  return std::move( to_string( v.c_str() ) );  }
+    static  auto  to_string( const widestr& v ) ->  std::string {  return to_string( v.c_str() );  }
 
     template <class V>
     static  auto  to_string( const std::vector<V>& arr ) ->  std::string
@@ -1148,7 +1148,7 @@ namespace mtc
 
   protected:
     store_t( const char* s, T* p ): source( s ), pvalue( p )  {}
-    store_t( nullptr_t, const T& t ): source( nullptr )
+    store_t( std::nullptr_t, const T& t ): source( nullptr )
       {  *(int*)(1 + (pvalue = new( new char[sizeof(T) + sizeof(int)] ) T( t ))) = 1;  }
 
   protected:
@@ -1194,8 +1194,8 @@ namespace mtc
     auto  operator -> () const -> const T*  {  return &fetch();  }
 
   public:
-    bool  operator == ( nullptr_t ) const {  return source == nullptr && pvalue == nullptr;  }
-    bool  operator != ( nullptr_t ) const {  return !(*this == nullptr);  }
+    bool  operator == ( std::nullptr_t ) const {  return source == nullptr && pvalue == nullptr;  }
+    bool  operator != ( std::nullptr_t ) const {  return !(*this == nullptr);  }
   };
 
   template <class T>
@@ -1943,7 +1943,7 @@ namespace mtc
 
         if ( (s = ::FetchFrom( s, (char&)chnext )) == nullptr )
           return nullptr;
-        pbeg->push_back( std::move( ztree_t( chnext ) ) );
+        pbeg->push_back( ztree_t( chnext ) );
       }
 
       return pbeg->FetchFrom( s, n );
@@ -1959,7 +1959,7 @@ namespace mtc
 
         if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
           return nullptr;
-        push_back( std::move( ztree_t( chnext ) ) );
+        push_back( ztree_t( chnext ) );
           s = back().FetchFrom( s, n );
       }
     }

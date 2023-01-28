@@ -75,10 +75,10 @@ namespace mtc
   */
   template <class A, class B>
   zval  StrCat( A, B )  {  return zval();  }
-  zval  StrCat( const charstr& a, const charstr& b )  {  return std::move( zval( std::move( a + b ) ) );  }
-  zval  StrCat( const widestr& a, const widestr& b )  {  return std::move( zval( std::move( a + b ) ) );  }
-  zval  StrCat( char a, const charstr& b )  {  return std::move( zval( std::move( a + b ) ) );  }
-  zval  StrCat( const charstr& a, char b )  {  return std::move( zval( std::move( a + b ) ) );  }
+  zval  StrCat( const charstr& a, const charstr& b )  {  return zval( a + b );  }
+  zval  StrCat( const widestr& a, const widestr& b )  {  return zval( a + b );  }
+  zval  StrCat( char a, const charstr& b )  {  return zval( a + b );  }
+  zval  StrCat( const charstr& a, char b )  {  return zval( a + b );  }
 
   template <class V>
   zval  StrCat( const zval& z, V v )
@@ -1140,39 +1140,39 @@ namespace mtc
     {
       switch ( get_type() )
       {
-        case z_char:          return std::move( to_string( *get_char() ) );
-        case z_byte:          return std::move( to_string( *get_byte() ) );
-        case z_int16:         return std::move( to_string( *get_int16() ) );
-        case z_int32:         return std::move( to_string( *get_int32() ) );
-        case z_int64:         return std::move( to_string( *get_int64() ) );
-        case z_word16:        return std::move( to_string( *get_word16() ) );
-        case z_word32:        return std::move( to_string( *get_word32() ) );
-        case z_word64:        return std::move( to_string( *get_word64() ) );
-        case z_float:         return std::move( to_string( *get_float() ) );
-        case z_double:        return std::move( to_string( *get_double() ) );
+        case z_char:          return to_string( *get_char() );
+        case z_byte:          return to_string( *get_byte() );
+        case z_int16:         return to_string( *get_int16() );
+        case z_int32:         return to_string( *get_int32() );
+        case z_int64:         return to_string( *get_int64() );
+        case z_word16:        return to_string( *get_word16() );
+        case z_word32:        return to_string( *get_word32() );
+        case z_word64:        return to_string( *get_word64() );
+        case z_float:         return to_string( *get_float() );
+        case z_double:        return to_string( *get_double() );
 
-        case z_charstr:       return std::move( to_string( *get_charstr() ) );
-        case z_widestr:       return std::move( to_string( *get_widestr() ) );
+        case z_charstr:       return to_string( *get_charstr() );
+        case z_widestr:       return to_string( *get_widestr() );
 
-        case z_zmap:          return std::move( to_string( *get_zmap() ) );
-        case z_uuid:          return std::move( mtc::to_string( *get_uuid() ) );
+        case z_zmap:          return to_string( *get_zmap() );
+        case z_uuid:          return mtc::to_string( *get_uuid() );
 
-        case z_array_char:    return std::move( to_string( *get_array_char() ) );
-        case z_array_byte:    return std::move( to_string( *get_array_byte() ) );
-        case z_array_int16:   return std::move( to_string( *get_array_int16() ) );
-        case z_array_int32:   return std::move( to_string( *get_array_int32() ) );
-        case z_array_int64:   return std::move( to_string( *get_array_int64() ) );
-        case z_array_word16:  return std::move( to_string( *get_array_word16() ) );
-        case z_array_word32:  return std::move( to_string( *get_array_word32() ) );
-        case z_array_word64:  return std::move( to_string( *get_array_word64() ) );
-        case z_array_float:   return std::move( to_string( *get_array_float() ) );
-        case z_array_double:  return std::move( to_string( *get_array_double() ) );
+        case z_array_char:    return to_string( *get_array_char() );
+        case z_array_byte:    return to_string( *get_array_byte() );
+        case z_array_int16:   return to_string( *get_array_int16() );
+        case z_array_int32:   return to_string( *get_array_int32() );
+        case z_array_int64:   return to_string( *get_array_int64() );
+        case z_array_word16:  return to_string( *get_array_word16() );
+        case z_array_word32:  return to_string( *get_array_word32() );
+        case z_array_word64:  return to_string( *get_array_word64() );
+        case z_array_float:   return to_string( *get_array_float() );
+        case z_array_double:  return to_string( *get_array_double() );
 
-        case z_array_charstr: return std::move( to_string( *get_array_charstr() ) );
-        case z_array_widestr: return std::move( to_string( *get_array_widestr() ) );
-        case z_array_zmap:    return std::move( to_string( *get_array_zmap() ) );
-        case z_array_zval:    return std::move( to_string( *get_array_zval() ) );
-        case z_array_uuid:    return std::move( to_string( *get_array_uuid() ) );
+        case z_array_charstr: return to_string( *get_array_charstr() );
+        case z_array_widestr: return to_string( *get_array_widestr() );
+        case z_array_zmap:    return to_string( *get_array_zmap() );
+        case z_array_zval:    return to_string( *get_array_zval() );
+        case z_array_uuid:    return to_string( *get_array_uuid() );
 
         case z_untyped:       return "<untyped>";
         default:
