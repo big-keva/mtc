@@ -1665,7 +1665,9 @@ namespace mtc
     template <class v, class zit>
     friend class iterator_base;
 
-    iterator_data(): second( *(value*)nullptr ) {}
+    constexpr value*  null_value() const {  return nullptr;  }
+
+    iterator_data(): second( *null_value() ) {}
     iterator_data( const key& k, value* v ): first( k ), second( *v ) {}
 
   public:
@@ -2052,7 +2054,7 @@ namespace mtc
   template <class value, class z_iterator>
   auto  zmap::iterator_base<value, z_iterator>::operator -> () const -> const value*
     {
-      if ( &zvalue.second == nullptr )
+      if ( &zvalue.second == zvalue.null_value() )
         throw std::invalid_argument( "invalid call to zmap::iterator_base<value, z_iterator>::operator ->" );
       return &zvalue;
     }
@@ -2060,7 +2062,7 @@ namespace mtc
   template <class value, class z_iterator>
   auto  zmap::iterator_base<value, z_iterator>::operator * () const -> const value&
     {
-      if ( &zvalue.second == nullptr )
+      if ( &zvalue.second == zvalue.null_value() )
         throw std::invalid_argument( "invalid call to zmap::iterator_base<value, z_iterator>::operator ->" );
       return zvalue;
     }
