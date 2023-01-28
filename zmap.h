@@ -56,6 +56,7 @@ SOFTWARE.
 # include "wcsstr.h"
 # include "uuid.h"
 # include <cassert>
+# include <type_traits>
 # include <algorithm>
 # include <vector>
 # include <string>
