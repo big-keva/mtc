@@ -1274,77 +1274,97 @@ namespace mtc
   *  - allocated serial;
   *  - stored pointer.
   */
-  zval::dump::dump( const dump& d ): source( d.source ), pvalue( d.pvalue )
-    {
-      if ( pvalue != nullptr && source == nullptr )
-        ++*(int*)(pvalue + 1);
-    }
+  zval::dump::dump( const char* s ):
+    source( s ),
+    stored( nullptr ) {}
 
-  zval::dump::dump( const zval& z ): source( nullptr )
-    {
-      *(int*)(1 + new( pvalue = (zval*)new char[sizeof(zval) + sizeof(int)] ) zval( z )) = 1;
-    }
+  zval::dump::dump( const dump& d ):
+    source( d.source ),
+    stored( d.stored )
+  {
+    if ( stored != nullptr && source == nullptr )
+      ++stored->count;
+  }
 
-  zval::dump::dump( const zval* z ): source( z != nullptr ? (const char*)-1 : nullptr ), pvalue( (zval*)z )
-    {}
+  zval::dump::dump( const zval& z ):
+    source( nullptr ),
+    stored( new zvalue{ z, 1 } )  {}
 
-  zval::dump::~dump()
-    {
-      if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-        pvalue->~zval(), delete [] (char*)pvalue;
-    }
+  zval::dump::dump( const zval* z ):
+    source( z != nullptr ? sticker : nullptr ),
+    stored( (zvalue*)z )  {}
+
+  zval::dump::~dump() {  delete_it();  }
+
+  void  zval::dump::delete_it()
+  {
+    if ( stored != nullptr && source == nullptr && --stored->count == 0 )
+      delete stored;
+  }
 
   auto  zval::dump::operator = ( const dump& s ) -> dump&
+  {
+    if ( this != &s )
     {
-      if ( this != &s )
-      {
-        if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-          pvalue->~zval(), delete [] (char*)pvalue;
+      delete_it();
 
-        source = s.source;
-        pvalue = s.pvalue;
+      source = s.source;
+      stored = s.stored;
 
-        if ( source == nullptr && pvalue != nullptr )
-          ++*(int*)(pvalue + 1);
-      }
-      return *this;
+      if ( stored != nullptr && source == nullptr )
+        ++stored->count;
     }
+    return *this;
+  }
 
   auto  zval::dump::operator = ( const zval& z ) -> dump&
-    {
-      if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-        pvalue->~zval(), delete [] (char*)pvalue;
-
+  {
+    delete_it();
       source = nullptr;
-        *(int*)(1 + new( pvalue = (zval*)new char[sizeof(zval) + sizeof(int)] ) zval( z )) = 1;
-      return *this;
-    }
+      stored = new zvalue{ z, 1 };
+    return *this;
+  }
 
   auto  zval::dump::operator = ( const zval* z ) -> dump&
-    {
-      if ( source == nullptr && pvalue != nullptr && --*(int*)(pvalue + 1) == 0 )
-        pvalue->~zval(), delete [] (char*)pvalue;
-
-      return source = (const char*)-1, pvalue = (zval*)z, *this;
-    }
+  {
+    delete_it();
+      source = sticker;
+      stored = (zvalue*)z;
+    return *this;
+  }
 
   auto  zval::dump::get_type() const -> unsigned
+  {
+    unsigned t = z_untyped;
+
+    if ( stored != nullptr )
     {
-      unsigned t = z_untyped;
-
-      if ( pvalue == nullptr )  ::FetchFrom( source, t );
-        else t = pvalue->get_type();
-
-      return t;
+      return source == nullptr ? stored->value.get_type() :
+             source == sticker ? ((const zval*)stored)->get_type() :
+       throw std::logic_error( "zval::dump was not properly initialized" );
     }
 
-# define  derive_get_dump( id, type )                                     \
-  {                                                                       \
-    if ( pvalue != nullptr )                                              \
-      return value_t<type##_t>( (const char*)-1, pvalue->get_##type() );  \
-    if ( source != nullptr && (byte)*source == id )                       \
-      return value_t<type##_t>( 1 + source, nullptr );                    \
-    return value_t<type##_t>();                                           \
+    if ( source != nullptr )
+      ::FetchFrom( source, t );
+
+    return t;
+  }
+
+# define  derive_get_dump( id, type )                                             \
+  {                                                                               \
+    if ( stored != nullptr )                                                      \
+    {                                                                             \
+      if ( source == nullptr )                                                    \
+        return value_t<type##_t>( sticker, stored->value.get_##type() );          \
+      if ( source == sticker )                                                    \
+        return value_t<type##_t>( sticker, ((zval*)stored)->get_##type() );       \
+      throw std::logic_error( "zval::dump was not properly initialized" );        \
+    }                                                                             \
+    if ( source == sticker )                                                      \
+      throw std::logic_error( "zval::dump was not properly initialized" );        \
+    if ( source != nullptr && (byte)*source == id )                               \
+      return value_t<type##_t>( 1 + source, nullptr );                            \
+    return value_t<type##_t>();                                                   \
   }
 
   auto  zval::dump::get_char() const -> value_t<char> derive_get_dump( z_char, char )
@@ -1360,28 +1380,43 @@ namespace mtc
   auto  zval::dump::get_charstr() const -> value_t<charstr> derive_get_dump( z_charstr, charstr )
   auto  zval::dump::get_widestr() const -> value_t<widestr> derive_get_dump( z_widestr, widestr )
   auto  zval::dump::get_uuid() const -> value_t<uuid> derive_get_dump( z_uuid, uuid )
+# undef derive_get_dump
 
   auto  zval::dump::get_zmap() const -> value_t<zmap::dump>
+  {
+    if ( stored != nullptr )
     {
-      if ( pvalue != nullptr )
-      {
-        auto  pv = pvalue->get_zmap();
+      auto  pmap = source == nullptr ? stored->value.get_zmap() :
+                   source == sticker ? ((zval*)stored)->get_zmap() :
+        throw std::logic_error( "zval::dump was not properly initialized" );
 
-        return pv != nullptr ? value_t<zmap::dump>( nullptr, zmap::dump( pv ) ) : value_t<zmap::dump>();
-      }
-      return source != nullptr && (byte)*source == zval::z_zmap ? value_t<zmap::dump>( 1 + source, nullptr ) :
-        value_t<zmap::dump>();
+      return pmap != nullptr ?
+        value_t<zmap::dump>( nullptr, zmap::dump( pmap ) ) : value_t<zmap::dump>();
     }
 
-# undef derive_get_dump
-# define derive_get_dump( element )                                                     \
-    {                                                                                   \
-      if ( pvalue != nullptr )                                                          \
-        return value_t<array_t<element##_t>>( nullptr, pvalue->get_array_##element() ); \
-      if ( source != nullptr && (byte)*source == z_array_##element )                    \
-        return value_t<array_t<element##_t>>( 1 + source, nullptr );                    \
-      return value_t<array_t<element##_t>>();                                           \
-    }
+    if ( source == sticker )
+      throw std::logic_error( "zval::dump was not properly initialized" );
+
+    return source != nullptr && (byte)*source == zval::z_zmap ?
+      value_t<zmap::dump>( 1 + source, nullptr ) : value_t<zmap::dump>();
+  }
+
+# define derive_get_dump( element )                                                               \
+  {                                                                                               \
+    if ( stored != nullptr )                                                                      \
+    {                                                                                             \
+      if ( source == nullptr )                                                                    \
+        return value_t<array_t<element##_t>>( nullptr, stored->value.get_array_##element() );     \
+      if ( source == sticker )                                                                    \
+        return value_t<array_t<element##_t>>( nullptr, ((zval*)stored)->get_array_##element() );  \
+      throw std::logic_error( "zval::dump was not properly initialized" );                        \
+    }                                                                                             \
+    if ( source == sticker )                                                                      \
+      throw std::logic_error( "zval::dump was not properly initialized" );                        \
+    if ( source != nullptr && (byte)*source == z_array_##element )                                \
+      return value_t<array_t<element##_t>>( 1 + source, nullptr );                                \
+    return value_t<array_t<element##_t>>();                                                       \
+  }
 
   auto  zval::dump::get_array_char() const -> value_t<array_t<char>>  derive_get_dump( char )
   auto  zval::dump::get_array_byte() const -> value_t<array_t<byte>> derive_get_dump( byte )
@@ -1399,83 +1434,103 @@ namespace mtc
 # undef derive_get_dump
 
   auto  zval::dump::get_array_zval() const -> value_t<array_t<dump, zval>>
+  {
+    if ( stored != nullptr )
     {
-      if ( pvalue != nullptr )
-        return value_t<array_t<dump, zval>>( nullptr, pvalue->get_array_zval() );
-      if ( source != nullptr && (byte)*source == z_array_zval )
-        return value_t<array_t<dump, zval>>( 1 + source, nullptr );
-      return value_t<array_t<dump, zval>>();
+      if ( source == nullptr )
+        return value_t<array_t<dump, zval>>( nullptr, stored->value.get_array_zval() );
+      if ( source == sticker )
+        return value_t<array_t<dump, zval>>( nullptr, ((zval*)stored)->get_array_zval() );
+      throw std::logic_error( "zval::dump was not properly initialized" );
     }
+    if ( source == sticker )
+      throw std::logic_error( "zval::dump was not properly initialized" );
+    if ( source != nullptr && (byte)*source == z_array_zval )
+      return value_t<array_t<dump, zval>>( 1 + source, nullptr );
+    return value_t<array_t<dump, zval>>();
+  }
 
   auto  zval::dump::get_array_zmap() const -> value_t<array_t<zmap::dump, zmap>>
+  {
+    if ( stored != nullptr )
     {
-      if ( pvalue != nullptr )
-        return value_t<array_t<zmap::dump, zmap>>( nullptr, pvalue->get_array_zmap() );
-      if ( source != nullptr && (byte)*source == z_array_zmap )
-        return value_t<array_t<zmap::dump, zmap>>( 1 + source, nullptr );
-      return value_t<array_t<zmap::dump, zmap>>();
+      if ( source == nullptr )
+        return value_t<array_t<zmap::dump, zmap>>( nullptr, stored->value.get_array_zmap() );
+      if ( source == sticker )
+        return value_t<array_t<zmap::dump, zmap>>( nullptr, ((zval*)stored)->get_array_zmap() );
+      throw std::logic_error( "zval::dump was not properly initialized" );
     }
+    if ( source == sticker )
+      throw std::logic_error( "zval::dump was not properly initialized" );
+    if ( source != nullptr && (byte)*source == z_array_zmap )
+      return value_t<array_t<zmap::dump, zmap>>( 1 + source, nullptr );
+    return value_t<array_t<zmap::dump, zmap>>();
+  }
 
   auto  zval::dump::CompTo( const dump& x ) const -> unsigned
-    {
-      return compare::test( *this, x );
-    }
+  {
+    return compare::test( *this, x );
+  }
 
   bool  zval::dump::operator==( const dump& v ) const
+  {
+    auto  mytype = get_type();
+
+    if ( mytype != v.get_type() )
+      return false;
+
+    switch ( mytype )
     {
-      auto  mytype = get_type();
+      case z_char:      return *get_char() == *v.get_char();
+      case z_byte:      return *get_byte() == *v.get_byte();
+      case z_int16:     return *get_int16() == *v.get_int16();
+      case z_int32:     return *get_int32() == *v.get_int32();
+      case z_int64:     return *get_int64() == *v.get_int64();
+      case z_word16:    return *get_word16() == *v.get_word16();
+      case z_word32:    return *get_word32() == *v.get_word32();
+      case z_word64:    return *get_word64() == *v.get_word64();
+      case z_float:     return *get_float() == *v.get_float();
+      case z_double:    return *get_double() == *v.get_double();
+      case z_charstr:   return *get_charstr() == *v.get_charstr();
+      case z_widestr:   return *get_widestr() == *v.get_widestr();
+      case z_uuid:      return *get_uuid() == *v.get_uuid();
+      case z_zmap:      return *get_zmap() == *v.get_zmap();
 
-      if ( mytype != v.get_type() )
-        return false;
+      case z_array_char:      return *get_array_char() == *v.get_array_char();
+      case z_array_byte:      return *get_array_byte() == *v.get_array_byte();
+      case z_array_int16:     return *get_array_int16() == *v.get_array_int16();
+      case z_array_int32:     return *get_array_int32() == *v.get_array_int32();
+      case z_array_int64:     return *get_array_int64() == *v.get_array_int64();
+      case z_array_word16:    return *get_array_word16() == *v.get_array_word16();
+      case z_array_word32:    return *get_array_word32() == *v.get_array_word32();
+      case z_array_word64:    return *get_array_word64() == *v.get_array_word64();
+      case z_array_float:     return *get_array_float() == *v.get_array_float();
+      case z_array_double:    return *get_array_double() == *v.get_array_double();
+      case z_array_charstr:   return *get_array_charstr() == *v.get_array_charstr();
+      case z_array_widestr:   return *get_array_widestr() == *v.get_array_widestr();
+      case z_array_uuid:      return *get_array_uuid() == *v.get_array_uuid();
+      case z_array_zval:      return *get_array_zval() == *v.get_array_zval();
+      case z_array_zmap:      return *get_array_zmap() == *v.get_array_zmap();
 
-      switch ( mytype )
-      {
-        case z_char:      return *get_char() == *v.get_char();
-        case z_byte:      return *get_byte() == *v.get_byte();
-        case z_int16:     return *get_int16() == *v.get_int16();
-        case z_int32:     return *get_int32() == *v.get_int32();
-        case z_int64:     return *get_int64() == *v.get_int64();
-        case z_word16:    return *get_word16() == *v.get_word16();
-        case z_word32:    return *get_word32() == *v.get_word32();
-        case z_word64:    return *get_word64() == *v.get_word64();
-        case z_float:     return *get_float() == *v.get_float();
-        case z_double:    return *get_double() == *v.get_double();
-        case z_charstr:   return *get_charstr() == *v.get_charstr();
-        case z_widestr:   return *get_widestr() == *v.get_widestr();
-        case z_uuid:      return *get_uuid() == *v.get_uuid();
-        case z_zmap:      return *get_zmap() == *v.get_zmap();
-
-        case z_array_char:      return *get_array_char() == *v.get_array_char();
-        case z_array_byte:      return *get_array_byte() == *v.get_array_byte();
-        case z_array_int16:     return *get_array_int16() == *v.get_array_int16();
-        case z_array_int32:     return *get_array_int32() == *v.get_array_int32();
-        case z_array_int64:     return *get_array_int64() == *v.get_array_int64();
-        case z_array_word16:    return *get_array_word16() == *v.get_array_word16();
-        case z_array_word32:    return *get_array_word32() == *v.get_array_word32();
-        case z_array_word64:    return *get_array_word64() == *v.get_array_word64();
-        case z_array_float:     return *get_array_float() == *v.get_array_float();
-        case z_array_double:    return *get_array_double() == *v.get_array_double();
-        case z_array_charstr:   return *get_array_charstr() == *v.get_array_charstr();
-        case z_array_widestr:   return *get_array_widestr() == *v.get_array_widestr();
-        case z_array_uuid:      return *get_array_uuid() == *v.get_array_uuid();
-        case z_array_zval:      return *get_array_zval() == *v.get_array_zval();
-        case z_array_zmap:      return *get_array_zmap() == *v.get_array_zmap();
-
-        default:  return false;
-      }
+      default:  return false;
     }
+  }
 
   zval::dump::operator zval() const
+  {
+    zval v;
+
+    if ( stored != nullptr )
     {
-      if ( pvalue == nullptr )
-      {
-        zval v;
-
-        if ( source != nullptr )
-          v.FetchFrom( source );
-
-        return v;
-      }
-      return *pvalue;
+      return source == nullptr ? stored->value :
+             source == sticker ? *((zval*)stored) :
+        throw std::logic_error( "zval::dump was not properly initialized" );
     }
+
+    if ( source != sticker )
+      v.FetchFrom( source );
+
+    return v;
+  }
+
 }

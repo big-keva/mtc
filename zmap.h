@@ -858,13 +858,20 @@ namespace mtc
   */
   class zval::dump
   {
-    const char* source;   /* source == nullptr => object was loaded if pvalue != nullptr;   */
-                          /* source == (char*)-1 => object was passed by external pointer;  */
-                          /* else object is absent and would be loaded on access.           */
-    zval*       pvalue;
+    struct zvalue
+    {
+      zval  value;
+      int   count;
+    };
+
+    const char* source;
+    zvalue*     stored;
 
     template <class T>
     class store_t;
+
+  protected:
+    void  delete_it();
 
   public:
     template <class T>
@@ -874,7 +881,7 @@ namespace mtc
     class array_t;
 
   public:
-    dump( const char* s = nullptr ): source( s ), pvalue( nullptr ) {}
+    dump( const char* s = nullptr );
     dump( const dump& );
     dump( const zval& );
     dump( const zval* );
