@@ -1315,30 +1315,30 @@ namespace mtc
   */
   zval::dump::dump( const char* s ):
     source( s ),
-    stored( nullptr ) {}
+    holder( nullptr ) {}
 
   zval::dump::dump( const dump& d ):
     source( d.source ),
-    stored( d.stored )
+    holder( d.holder )
   {
-    if ( stored != nullptr && source == nullptr )
-      ++stored->count;
+    if ( holder != nullptr && source == nullptr )
+      ++holder->count;
   }
 
   zval::dump::dump( const zval& z ):
     source( nullptr ),
-    stored( new zvalue{ z, 1 } )  {}
+    holder( new zvalue{ z, 1 } )  {}
 
   zval::dump::dump( const zval* z ):
-    source( z != nullptr ? sticker : nullptr ),
-    stored( (zvalue*)z )  {}
+    source( z != nullptr ? invalid : nullptr ),
+    pvalue( (zval*)z )  {}
 
   zval::dump::~dump() {  delete_it();  }
 
   void  zval::dump::delete_it()
   {
-    if ( stored != nullptr && source == nullptr && --stored->count == 0 )
-      delete stored;
+    if ( holder != nullptr && source == nullptr && --holder->count == 0 )
+      delete holder;
   }
 
   auto  zval::dump::operator = ( const dump& s ) -> dump&
@@ -1348,10 +1348,10 @@ namespace mtc
       delete_it();
 
       source = s.source;
-      stored = s.stored;
+      holder = s.holder;
 
-      if ( stored != nullptr && source == nullptr )
-        ++stored->count;
+      if ( holder != nullptr && source == nullptr )
+        ++holder->count;
     }
     return *this;
   }
@@ -1360,15 +1360,15 @@ namespace mtc
   {
     delete_it();
       source = nullptr;
-      stored = new zvalue{ z, 1 };
+      holder = new zvalue{ z, 1 };
     return *this;
   }
 
   auto  zval::dump::operator = ( const zval* z ) -> dump&
   {
     delete_it();
-      source = sticker;
-      stored = (zvalue*)z;
+      source = invalid;
+      pvalue = (zval*)z;
     return *this;
   }
 
@@ -1376,11 +1376,13 @@ namespace mtc
   {
     unsigned t = z_untyped;
 
-    if ( stored != nullptr )
+    if ( holder != nullptr )
     {
-      return source == nullptr ? stored->value.get_type() :
-             source == sticker ? ((const zval*)stored)->get_type() :
-       throw std::logic_error( "zval::dump was not properly initialized" );
+      if ( source == nullptr )
+        return holder->value.get_type();
+      if ( source == invalid )
+        return pvalue->get_type();
+      throw std::logic_error( "zval::dump was not properly initialized" );
     }
 
     if ( source != nullptr )
@@ -1389,21 +1391,21 @@ namespace mtc
     return t;
   }
 
-# define  derive_get_dump( id, type )                                             \
-  {                                                                               \
-    if ( stored != nullptr )                                                      \
-    {                                                                             \
-      if ( source == nullptr )                                                    \
-        return value_t<type##_t>( sticker, stored->value.get_##type() );          \
-      if ( source == sticker )                                                    \
-        return value_t<type##_t>( sticker, ((zval*)stored)->get_##type() );       \
-      throw std::logic_error( "zval::dump was not properly initialized" );        \
-    }                                                                             \
-    if ( source == sticker )                                                      \
-      throw std::logic_error( "zval::dump was not properly initialized" );        \
-    if ( source != nullptr && (byte)*source == id )                               \
-      return value_t<type##_t>( 1 + source, nullptr );                            \
-    return value_t<type##_t>();                                                   \
+# define  derive_get_dump( id, type )                                       \
+  {                                                                         \
+    if ( holder != nullptr )                                                \
+    {                                                                       \
+      if ( source == nullptr )                                              \
+        return value_t<type##_t>( invalid, holder->value.get_##type() );    \
+      if ( source == invalid )                                              \
+        return value_t<type##_t>( invalid, pvalue->get_##type() );          \
+      throw std::logic_error( "zval::dump was not properly initialized" );  \
+    }                                                                       \
+    if ( source == invalid )                                                \
+      throw std::logic_error( "zval::dump was not properly initialized" );  \
+    if ( source != nullptr && (byte)*source == id )                         \
+      return value_t<type##_t>( 1 + source, nullptr );                      \
+    return value_t<type##_t>();                                             \
   }
 
   auto  zval::dump::get_char() const -> value_t<char> derive_get_dump( z_char, char )
@@ -1423,38 +1425,38 @@ namespace mtc
 
   auto  zval::dump::get_zmap() const -> value_t<zmap::dump>
   {
-    if ( stored != nullptr )
+    if ( holder != nullptr )
     {
-      auto  pmap = source == nullptr ? stored->value.get_zmap() :
-                   source == sticker ? ((zval*)stored)->get_zmap() :
+      auto  pmap = source == nullptr ? holder->value.get_zmap() :
+                   source == invalid ? pvalue->get_zmap() :
         throw std::logic_error( "zval::dump was not properly initialized" );
 
       return pmap != nullptr ?
         value_t<zmap::dump>( nullptr, zmap::dump( pmap ) ) : value_t<zmap::dump>();
     }
 
-    if ( source == sticker )
+    if ( source == invalid )
       throw std::logic_error( "zval::dump was not properly initialized" );
 
     return source != nullptr && (byte)*source == zval::z_zmap ?
       value_t<zmap::dump>( 1 + source, nullptr ) : value_t<zmap::dump>();
   }
 
-# define derive_get_dump( element )                                                               \
-  {                                                                                               \
-    if ( stored != nullptr )                                                                      \
-    {                                                                                             \
-      if ( source == nullptr )                                                                    \
-        return value_t<array_t<element##_t>>( nullptr, stored->value.get_array_##element() );     \
-      if ( source == sticker )                                                                    \
-        return value_t<array_t<element##_t>>( nullptr, ((zval*)stored)->get_array_##element() );  \
-      throw std::logic_error( "zval::dump was not properly initialized" );                        \
-    }                                                                                             \
-    if ( source == sticker )                                                                      \
-      throw std::logic_error( "zval::dump was not properly initialized" );                        \
-    if ( source != nullptr && (byte)*source == z_array_##element )                                \
-      return value_t<array_t<element##_t>>( 1 + source, nullptr );                                \
-    return value_t<array_t<element##_t>>();                                                       \
+# define derive_get_dump( element )                                                           \
+  {                                                                                           \
+    if ( holder != nullptr )                                                                  \
+    {                                                                                         \
+      if ( source == nullptr )                                                                \
+        return value_t<array_t<element##_t>>( nullptr, holder->value.get_array_##element() ); \
+      if ( source == invalid )                                                                \
+        return value_t<array_t<element##_t>>( nullptr, pvalue->get_array_##element() );       \
+      throw std::logic_error( "zval::dump was not properly initialized" );                    \
+    }                                                                                         \
+    if ( source == invalid )                                                                  \
+      throw std::logic_error( "zval::dump was not properly initialized" );                    \
+    if ( source != nullptr && (byte)*source == z_array_##element )                            \
+      return value_t<array_t<element##_t>>( 1 + source, nullptr );                            \
+    return value_t<array_t<element##_t>>();                                                   \
   }
 
   auto  zval::dump::get_array_char() const -> value_t<array_t<char>>  derive_get_dump( char )
@@ -1474,15 +1476,15 @@ namespace mtc
 
   auto  zval::dump::get_array_zval() const -> value_t<array_t<dump, zval>>
   {
-    if ( stored != nullptr )
+    if ( holder != nullptr )
     {
       if ( source == nullptr )
-        return value_t<array_t<dump, zval>>( nullptr, stored->value.get_array_zval() );
-      if ( source == sticker )
-        return value_t<array_t<dump, zval>>( nullptr, ((zval*)stored)->get_array_zval() );
+        return value_t<array_t<dump, zval>>( nullptr, holder->value.get_array_zval() );
+      if ( source == invalid )
+        return value_t<array_t<dump, zval>>( nullptr, pvalue->get_array_zval() );
       throw std::logic_error( "zval::dump was not properly initialized" );
     }
-    if ( source == sticker )
+    if ( source == invalid )
       throw std::logic_error( "zval::dump was not properly initialized" );
     if ( source != nullptr && (byte)*source == z_array_zval )
       return value_t<array_t<dump, zval>>( 1 + source, nullptr );
@@ -1491,15 +1493,15 @@ namespace mtc
 
   auto  zval::dump::get_array_zmap() const -> value_t<array_t<zmap::dump, zmap>>
   {
-    if ( stored != nullptr )
+    if ( holder != nullptr )
     {
       if ( source == nullptr )
-        return value_t<array_t<zmap::dump, zmap>>( nullptr, stored->value.get_array_zmap() );
-      if ( source == sticker )
-        return value_t<array_t<zmap::dump, zmap>>( nullptr, ((zval*)stored)->get_array_zmap() );
+        return value_t<array_t<zmap::dump, zmap>>( nullptr, holder->value.get_array_zmap() );
+      if ( source == invalid )
+        return value_t<array_t<zmap::dump, zmap>>( nullptr, pvalue->get_array_zmap() );
       throw std::logic_error( "zval::dump was not properly initialized" );
     }
-    if ( source == sticker )
+    if ( source == invalid )
       throw std::logic_error( "zval::dump was not properly initialized" );
     if ( source != nullptr && (byte)*source == z_array_zmap )
       return value_t<array_t<zmap::dump, zmap>>( 1 + source, nullptr );
@@ -1559,14 +1561,14 @@ namespace mtc
   {
     zval v;
 
-    if ( stored != nullptr )
+    if ( holder != nullptr )
     {
-      return source == nullptr ? stored->value :
-             source == sticker ? *((zval*)stored) :
+      return source == nullptr ? holder->value :
+             source == invalid ? *pvalue :
         throw std::logic_error( "zval::dump was not properly initialized" );
     }
 
-    if ( source != sticker )
+    if ( source != invalid )
       v.FetchFrom( source );
 
     return v;

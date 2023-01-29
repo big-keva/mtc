@@ -122,7 +122,7 @@ namespace mtc
   std::string to_string( const zval& );
   std::string to_string( const zmap& );
 
-  const char* const sticker = (char const * const)-1;
+  const char* const invalid = (char const * const)-1;
 
   namespace impl
   {
@@ -866,7 +866,11 @@ namespace mtc
     };
 
     const char* source;
-    zvalue*     stored;
+    union
+    {
+      zvalue*   holder;
+      zval*     pvalue;
+    };
 
     template <class T>
     class store_t;
@@ -1164,58 +1168,64 @@ namespace mtc
 
     struct zvalue
     {
-      T   value;
-      int count;
+              T   value;
+      mutable int count;
     };
 
   protected:
     mutable const char* source;
-    mutable zvalue*     stored;
+    union
+    {
+      mutable const zvalue* holder;
+      mutable const void*   object;
+    };
 
   protected:
-    store_t( const char* s, T* p ):
+    store_t( const char* s, const T* p ):
       source( s ),
-      stored( (zvalue*)p )  {}
+      object( p )  {}
     store_t( std::nullptr_t, const T& t ):
       source( nullptr ),
-      stored( new zvalue{ t, 1 } )  {}
+      holder( new zvalue{ t, 1 } )  {}
 
   protected:
     auto  fetch() const -> const T&
     {
-      if ( stored != nullptr )
+      if ( holder != nullptr )
       {
-        return source == nullptr ? stored->value :
-               source == sticker ?   *(T*)stored :
-         throw std::logic_error( "mtc::zval::dump::store_t initialized with invalid data" );
+        if ( source == nullptr )
+          return holder->value;
+        if ( source == invalid )
+          return *(T*)object;
+        throw std::logic_error( "mtc::zval::dump::store_t initialized with invalid data" );
       }
 
-      if ( source == sticker )
+      if ( source == invalid )
         throw std::logic_error( "mtc::zval::dump::store_t initialized with invalid data" );
 
       if ( source == nullptr )
         throw std::logic_error( "mtc::zval::dump::store_t is not initialized" );
 
-      ::FetchFrom( source, (stored = new zvalue{ T(), 1 })->value );
+      ::FetchFrom( source, ((zvalue*)(holder = new zvalue{ T(), 1 }))->value );
         source = nullptr;
 
-      return stored->value;
+      return holder->value;
     }
     void  delete_it()
     {
-      if ( stored != nullptr && source != sticker && --stored->count == 0 )
-        delete stored;
+      if ( holder != nullptr && source != invalid && --holder->count == 0 )
+        delete holder;
     }
   public:
     store_t():
       source( nullptr ),
-      stored( nullptr ) {}
+      holder( nullptr ) {}
     store_t( const store_t& t ):
       source( t.source ),
-      stored( t.stored )
+      holder( t.holder )
     {
-      if ( stored != nullptr && source == nullptr )
-        ++stored->count;
+      if ( holder != nullptr && source == nullptr )
+        ++holder->count;
     }
     auto  operator = ( const store_t& t ) -> store_t&
     {
@@ -1224,11 +1234,11 @@ namespace mtc
 
       delete_it();
 
-      stored = t.stored;
+      holder = t.holder;
       source = t.source;
 
-      if ( stored != nullptr && source == nullptr )
-        ++stored->count;
+      if ( holder != nullptr && source == nullptr )
+        ++holder->count;
 
       return *this;
     }
@@ -1240,7 +1250,7 @@ namespace mtc
 
   public:
     bool  operator == ( std::nullptr_t ) const
-      {  return stored == nullptr && (source == nullptr || source == sticker);  }
+      {  return holder == nullptr && (source == nullptr || source == invalid);  }
     bool  operator != ( std::nullptr_t ) const
       {  return !(*this == nullptr);  }
   };
@@ -1255,13 +1265,13 @@ namespace mtc
 
   public:     // custom constructors
     value_t( const T* t ):
-      store_t<T>( store_t<T>::sticker, t )  {}
+      store_t<T>( invalid, t )  {}
 
   public:     // value assignment
     auto  operator = ( const T* t ) -> value_t&
     {
       this->delete_it();
-        this->source = this->sticker;
+        this->source = this->invalid;
         this->stored = (T*)t;
       return *this;
     }
@@ -1278,15 +1288,15 @@ namespace mtc
     auto  operator = ( const zval::dump* t ) -> zview_t&
       {
         delete_it();
-          source = sticker,
-          stored = (zvalue*)t;
+          source = invalid,
+          object = (void*)t;
         return *this;
       }
     auto  operator = ( const zval* t ) -> zview_t&
       {
         delete_it();
           source = nullptr;
-          stored = new zvalue{ t, 1 };
+          holder = new zvalue{ t, 1 };
         return *this;
       }
   };
