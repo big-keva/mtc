@@ -1081,7 +1081,7 @@ namespace patricia  {
 
   template <class V>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::operator = ( base_iterator&& it ) -> typename tree<V>::base_iterator<value, nodes>&
+  auto  tree<V>::base_iterator<value, nodes>::operator = ( base_iterator&& it ) -> tree<V>::base_iterator<value, nodes>&
     {
       patkey = std::move( it.patkey );
       patval = std::move( it.patval );
@@ -1107,7 +1107,7 @@ namespace patricia  {
 
   template <class V>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::operator ++ () -> typename tree<V>::base_iterator<value, nodes>&
+  auto  tree<V>::base_iterator<value, nodes>::operator ++ () -> tree<V>::base_iterator<value, nodes>&
     {
       while ( atrace.size() != 0 )
       {
@@ -1155,7 +1155,7 @@ namespace patricia  {
 
   template <class V>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::setkey() -> typename tree<V>::base_iterator<value, nodes>&
+  auto  tree<V>::base_iterator<value, nodes>::setkey() -> tree<V>::base_iterator<value, nodes>&
     {
       assert( atrace.size() == 0 || atrace.back()->hasval() );
 
@@ -1179,7 +1179,7 @@ namespace patricia  {
 
   template <class V>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::get_lo() -> typename tree<V>::base_iterator<value, nodes>&
+  auto  tree<V>::base_iterator<value, nodes>::get_lo() -> tree<V>::base_iterator<value, nodes>&
     {
       while ( atrace.size() != 0 && !atrace.back()->hasval() )
       {
