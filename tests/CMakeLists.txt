@@ -4,11 +4,14 @@ project(mtc)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
 
+link_libraries(mtc)
+
 add_executable(mtc-test-serialize
 	test-serialize.cpp)
 
 add_executable(mtc-test-patricia
-	test-patricia.cpp)
+	test-patricia.cpp
+	test-main.cpp)
 
 add_executable(mtc-test-directory
 	test-directory.cpp)
