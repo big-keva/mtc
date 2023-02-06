@@ -241,7 +241,7 @@ namespace mtc
             typename std::conditional<is_signed<B>::value || is_floating<B>::value, easy_diff, to_unsigned>::type;
 
           return comparator_type::test( a, b );
-        };
+        }
       };
 
       struct unsigned_value
@@ -271,7 +271,7 @@ namespace mtc
             typename std::conditional<is_signed<B>::value, to_signed, easy_diff>::type;
 
           return comparator_type::test( a, b );
-        };
+        }
       };
 
     public:

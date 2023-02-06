@@ -158,6 +158,9 @@ namespace patricia  {
     static  std::unique_ptr<page> create( size_t space, const put_to_tail& );
 
   public:
+    void  operator delete( void* p )  {  delete[] (char*)p;  }
+
+  public:
     auto  head() -> char* {  return (char*)(this + 1);  }
     auto  tail() -> char* {  return size + (char*)this;  }
 

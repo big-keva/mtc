@@ -60,8 +60,6 @@ namespace mtc
   {
     implement_lifetime_control
 
-    void  operator delete( void* p )  {  nothrow_allocator::free( p );  }
-
   public:
     const char* GetPtr() const override {  return data();  }
     word32_t    GetLen() const override {  return size();  }

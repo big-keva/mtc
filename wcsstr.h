@@ -612,7 +612,7 @@ namespace mtc
     friend  const widechar* w_strstr( const widechar*, const char*, getchr );
 
     template <class chartype>
-    friend  double    w_strtod( const chartype*, chartype** );
+    friend  double    w_strtod( const chartype*, const chartype*, chartype** );
 
     friend  auto  w_strtol( const char*, char**, int ) -> long int;
     friend  auto  w_strtol( const widechar*, widechar**, int ) -> long int;
@@ -752,33 +752,50 @@ namespace mtc
   // strtod family
   //
   template <class chartype>
-  inline  double  w_strtod( const chartype* str, chartype** end )
+  inline  double  w_strtod( const chartype* str, const chartype* lim, chartype** end )
   {
-    auto      checkp = []( const chartype*& p, chartype c ) {  bool  b = *p == c;  if ( b ) ++p;  return b;  };
-    bool      bminus = checkp( str, '-' );
-    bool      bfloat = checkp( str, '.' );
-    double    dvalue;
-
-    if ( !__impl_strings::w_is_num( *str ) )
-    {
-      if ( end != NULL )
-        *end = const_cast<chartype*>( str ) - 1;
-      return 0.0;
-    }
-
-    if ( !bfloat )
-    {
-      uint64_t  uvalue;
-
-      for ( uvalue = 0;  __impl_strings::w_is_num( *str ); ++str )
-        uvalue = uvalue * 10 + *str - '0';
-
-      if ( *str != '.' && *str != 'E' && *str != 'e' )
+    auto      checkp = [&]( const chartype*& p, chartype c )
+      {
+        if ( (lim == nullptr || p < lim) && *p == c )
+          return ++p, true;
+        return false;
+      };
+    auto      putend = [&]( const chartype* str )
       {
         if ( end != nullptr )
           *end = const_cast<chartype*>( str );
-        return bminus ? -1.0 * uvalue : uvalue;
+      };
+    auto      strorg = str;
+    double    fdsign = checkp( str, '-' ) ? -1.0 : 1.0;
+    bool      bfloat = checkp( str, '.' );
+    double    dvalue;
+
+    if ( (lim != nullptr && str >= lim) || !__impl_strings::w_is_num( *str ) )
+      return putend( strorg ), 0.0;
+
+    if ( !bfloat )
+    {
+      uint64_t  uvalue = 0;
+
+      // пока есть возможность читать численные значения, копить целую часть
+      if ( lim == nullptr )
+      {
+        while ( __impl_strings::w_is_num( *str ) )
+          uvalue = uvalue * 10 + *str++ - '0';
       }
+        else
+      {
+        while ( str < lim && __impl_strings::w_is_num( *str ) )
+          uvalue = uvalue * 10 + *str++ - '0';
+      }
+
+      // если наколение закончилось по причине конца строки, вернуть значение
+      if ( lim != nullptr && str >= lim )
+        return putend( str ), fdsign * uvalue;
+
+      // если дальше не дробная часть и не показательная, также закончить
+      if ( *str != '.' && *str != 'E' && *str != 'e' )
+        return putend( str ), fdsign * uvalue;
 
       bfloat = checkp( str, '.' );
 
@@ -787,27 +804,64 @@ namespace mtc
       else
     dvalue = 0.0;
 
+    // итак, dvalue содержит целую часть числа, а bfloat - наличие дробной
     if ( bfloat )
     {
       double    drange = 1.0;
-      uint64_t  uvalue;
+      uint64_t  uvalue = 0;
 
-      for ( uvalue = 0; __impl_strings::w_is_num( *str ); ++str, drange *= 10 )
-        uvalue = uvalue * 10 + *str - '0';
+      // пока есть возможность читать численные значения, копить дробную
+      if ( lim == nullptr )
+      {
+        while ( __impl_strings::w_is_num( *str ) )
+          {  uvalue = uvalue * 10 + *str++ - '0';  drange *= 10;  }
+      }
+        else
+      {
+        while ( str < lim && __impl_strings::w_is_num( *str ) )
+          {  uvalue = uvalue * 10 + *str++ - '0';  drange *= 10;  }
+      }
 
+      // добавить, если была не пустая точка
       if ( drange >= 10.0 )
         dvalue += uvalue / drange;
+
+      // если наколение закончилось по причине конца строки, вернуть значение
+      if ( lim != nullptr && str >= lim )
+        return putend( str ), fdsign * dvalue;
     }
 
-    if ( ((*str == 'e' || *str == 'E') && __impl_strings::w_is_num( str[1] )) || str[1] == '-' )
-    {
-      bool    divide;
-      double  fpower;
+    // если далее нет экспоненциальной части, закончить работу
+    if ( *str == 'e' || *str == 'E' ) ++str;
+      else return putend( str ), fdsign * dvalue;
 
-      if ( (divide = *++str == '-') )
-        ++str;
-      for ( fpower = 0.0; __impl_strings::w_is_num( *str ); ++str )
-        fpower = fpower * 10 + *str - '0';
+    // сломанная exp - откатываем назад на единицу
+    if ( lim != nullptr && str >= lim )
+      return putend( str - 1 ), fdsign * dvalue;
+
+    // проверить отрицательные степени
+    if ( *str == '-' )
+    {
+      if ( ++str >= lim && lim != nullptr )
+        return putend( str - 2 ), fdsign * dvalue;
+    }
+
+    if ( __impl_strings::w_is_num( *str ) )
+    {
+      bool    divide = str[-1] == '-';
+      double  fpower = 0.0;
+
+      // накопить значение показателя
+      if ( lim == nullptr )
+      {
+        while ( __impl_strings::w_is_num( *str ) )
+          fpower = fpower * 10 + *str++ - '0';
+      }
+        else
+      {
+        while ( str < lim && __impl_strings::w_is_num( *str ) )
+          fpower = fpower * 10 + *str++ - '0';
+      }
 
       if ( divide )
         dvalue /= ::pow( 10.0, fpower );
@@ -815,14 +869,14 @@ namespace mtc
         dvalue *= ::pow( 10.0, fpower );
     }
 
-    if ( end != nullptr )
-      *end = const_cast<chartype*>( str );
-
-    return (bminus ? -1 : 1) * dvalue;
+    return putend( str ), fdsign * dvalue;
   }
 
-  inline  double  w_strtod( const char*     str, char**     end ) {  return w_strtod<char>( str, end );  }
-  inline  double  w_strtod( const widechar* str, widechar** end ) {  return w_strtod<widechar>( str, end );  }
+  inline  double  w_strtod( const char*     str, const char*     lim, char**     end ) {  return w_strtod<char>( str, lim, end );  }
+  inline  double  w_strtod( const widechar* str, const widechar* lim, widechar** end ) {  return w_strtod<widechar>( str, lim, end );  }
+
+  inline  double  w_strtod( const char*     str, char**     end ) {  return w_strtod<char>( str, nullptr, end );  }
+  inline  double  w_strtod( const widechar* str, widechar** end ) {  return w_strtod<widechar>( str, nullptr, end );  }
 
   //
   // strtox family

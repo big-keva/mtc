@@ -11,7 +11,7 @@ enum suffixes: uint64_t
   Gb = Mb * Kb
 };
 
-const std::initializer_list<std::pair<const char*, uint32_t>> sizeSuffix{
+constexpr static std::initializer_list<std::pair<const char*, uint32_t>> sizeSuffix{
   { "[Kk]", Kb }, { "[Kk][Bb]", Kb },
   { "[Mm]", Mb }, { "[Mm][Bb]", Mb },
   { "[Gg]", Gb }, { "[Gg][Bb]", Mb } };
