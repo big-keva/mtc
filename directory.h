@@ -157,9 +157,9 @@ namespace mtc
       unsigned    attrib() const  {  return (fidata.attrib & _A_SUBDIR) ? attr_dir : attr_file;  }
       char*       doread()        {  return szname = (_findnext( handle, &fidata ) == 0 ? fidata.name : nullptr);  }
 # else
-      DIR*                  dirptr;
-      struct dirent*        pentry;
-      std::unique_ptr<char> filter;
+      DIR*            dirptr;
+      struct dirent*  pentry;
+      dir_str         filter;
 
     private:  // construction
       dir_val( unsigned attr ):
@@ -204,7 +204,7 @@ namespace mtc
       char*       doread()
         {
           for ( szname = nullptr; szname == nullptr && dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr; )
-            if ( *filter.get() == '\0' || fnmatch( filter.get(), pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
+            if ( *filter == '\0' || fnmatch( filter, pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
               szname = pentry->d_name;
           return szname;
         }
@@ -412,7 +412,7 @@ namespace mtc
       else folder[endptr++ - pszdir + 1] = '\0';
 
   // create the mask
-    if ( (thedir.didata->filter = std::unique_ptr<char>( w_strdup( endptr ) )) == nullptr )
+    if ( (thedir.didata->filter = dir_str::strdup( endptr )) == nullptr )
       return directory();
 
   // parse the search entry to directory and the mask
