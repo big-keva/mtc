@@ -30,6 +30,20 @@ namespace mtc {
       nblock( 0 ),
       mcount( 0 ),
       musage( 0 ) {}
+    Arena( Arena&& a ):
+      lblock( a.lblock ),
+      blocks( a.blocks.load() ),
+      pchain( a.pchain.load() ),
+      nblock( a.nblock.load() ),
+      mcount( a.mcount.load() ),
+      musage( a.musage.load() )
+    {
+      a.blocks = nullptr;
+      a.pchain = nullptr;
+      a.nblock = 0;
+      a.mcount = 0;
+      a.musage = 0;
+    }
    ~Arena();
 
   public:
