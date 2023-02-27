@@ -66,7 +66,7 @@ namespace patricia  {
 
   class key
   {
-    template <class V>
+    template <class V, class A>
     friend class tree;
     friend class dump;
 
@@ -75,8 +75,10 @@ namespace patricia  {
 
   public:     // construction
     key();
-    template <class chartype> key( const chartype*, size_t = (size_t)-1 );
-    template <class chartype> key( const std::basic_string<chartype>& );
+    template <class chartype>
+    key( const chartype*, size_t = (size_t)-1 );
+    template <class chartype, class traits, class allocate>
+    key( const std::basic_string<chartype, traits, allocate>& );
 
   public:     // key access
     auto    getptr() const -> const unsigned char*  {  return ptr;  }
@@ -219,28 +221,31 @@ namespace patricia  {
 
   template <class chartype>
   key::key( const chartype* s, size_t l ): ptr( (const unsigned char*)s ), len( 0 )
-    {
-      if ( (len = l) == (size_t)-1 && ptr != nullptr )
-        for ( len = 0; ptr[len] != 0; ++len ) (void)NULL;
-      len *= sizeof(chartype);
-    }
+  {
+    if ( (len = l) == (size_t)-1 && ptr != nullptr )
+      for ( len = 0; ptr[len] != 0; ++len ) (void)NULL;
+    len *= sizeof(chartype);
+  }
 
-  template <class chartype>
-  key::key( const std::basic_string<chartype>& s ):
-    ptr( (const unsigned char*)s.data() ), len( sizeof(chartype) * s.size() ) {}
+  template <class chartype, class traits, class allocate>
+  key::key( const std::basic_string<chartype, traits, allocate>& s ):
+    key( s.c_str(), s.length() ) {}
 
   inline int key::compare( const key& k ) const
-    {
-      auto  l1 = getlen();
-      auto  l2 = k.getlen();
-      auto  rc = memcmp( getptr(), k.getptr(), std::min( l1, l2 ) );
+  {
+    auto  l1 = getlen();
+    auto  l2 = k.getlen();
+    auto  rc = memcmp( getptr(), k.getptr(), std::min( l1, l2 ) );
 
-      return rc != 0 ? rc : l1 - l2;
-    }
+    return rc != 0 ? rc : l1 - l2;
+  }
 
-  template <class V = nothing>
+  template <class V = nothing, class A/*llocator*/ = std::allocator<char>>
   class tree
   {
+    template <class Base, class T>
+    using rebind = typename std::allocator_traits<Base>::template rebind_alloc<T>;
+
     class node;
 
     template <class value, class nodes>
@@ -294,25 +299,27 @@ namespace patricia  {
       auto  search( const unsigned char*, size_t, S& ) -> R*;
 
     public:
-      std::unique_ptr<node> _next;
-      std::unique_ptr<node> _list;
-      uint32_t              _sets;
+      A&            alloc;
+      node*         pnext;
+      node*         plist;
+      uint32_t      usets;
       union
       {
-        char                dummy;
-        V                   value;
+        char        dummy;
+        V           value;
       };
-      unsigned char         chars[1];
+      unsigned char chars[1];
 
-    public:
-      node( const unsigned char*, size_t, std::unique_ptr<node>&& );
+    private:
+      void  operator delete( void* ) = delete;
      ~node();
 
     public:
-      void  operator delete( void* p )  {  delete [] (char*)p;  }
+      node( A&, const unsigned char*, size_t, node* );
 
     public:
-      static  auto  create( const unsigned char*, size_t, std::unique_ptr<node> = std::unique_ptr<node>() ) -> std::unique_ptr<node>;
+      static  auto  Create( A&, const unsigned char*, size_t, node* = nullptr ) -> node*;
+              void  Delete();
       static  auto  fmatch( const unsigned char*, size_t, const unsigned char*, size_t ) -> size_t;
 
     public:
@@ -326,14 +333,14 @@ namespace patricia  {
             node*   insert( const unsigned char*, size_t );
             auto    remove( const unsigned char*, size_t ) -> bool;
 
-            bool    hasval() const    {  return (_sets & 0x80000000) != 0;  }
-            size_t  keylen() const    {  return (_sets & ~0x80000000);  }
+            bool    hasval() const    {  return (usets & 0x80000000) != 0;  }
+            size_t  keylen() const    {  return (usets & ~0x80000000);  }
             void    setlen( size_t );
 
             void    delval();
 
-            V*      getval()        {  return (_sets & 0x80000000) != 0 ? &value : nullptr;  }
-      const V*      getval() const  {  return (_sets & 0x80000000) != 0 ? &value : nullptr;  }
+            V*      getval()        {  return (usets & 0x80000000) != 0 ? &value : nullptr;  }
+      const V*      getval() const  {  return (usets & 0x80000000) != 0 ? &value : nullptr;  }
 
             V*      setval( const V& );
             V*      setval( V&& );
@@ -353,13 +360,16 @@ namespace patricia  {
 
     };
 
-  public:     // construction
-    tree()  {}
-    tree( tree&& );
-    tree( const std::initializer_list<std::pair<key, V>>& );
-    tree& operator = ( tree&& );
+  private:
     tree( const tree& ) = delete;
     tree& operator = ( const tree& ) = delete;
+
+  public:     // construction
+    tree( const std::initializer_list<std::pair<key, V>>&, const A& = A() );
+    tree( const A& = A() );
+    tree( tree&& );
+   ~tree();
+    tree& operator = ( tree&& );
 
   public:     // API
                                             bool  Delete( const key& k );
@@ -377,20 +387,20 @@ namespace patricia  {
   public:     // iterator
     auto  cbegin() const -> const_iterator {  return begin();  }
     auto  cend()   const -> const_iterator {  return end();  }
-    auto  begin()  const -> const_iterator {  return const_iterator( p_tree.get() );  }
-    auto  begin()        ->       iterator {  return iterator( p_tree.get() );  }
+    auto  begin()  const -> const_iterator {  return const_iterator( ptree );  }
+    auto  begin()        ->       iterator {  return iterator( ptree );  }
     auto  end()    const -> const_iterator {  return const_iterator();  }
     auto  end()          ->       iterator {  return iterator();  }
 
   public:     // capacity
-    auto  empty() const -> bool;
+    auto  empty() const -> bool {  return ptree == nullptr;  }
 
   public:     // modifiers
     void  clear();
-    auto  erase( const key& ) -> size_t;
+    auto  erase( const key& k ) -> size_t {  return Delete( k ) ? 1 : 0;  }
     template <class InputIt>
     void  insert( InputIt first, InputIt last );
-    void  insert( std::initializer_list<std::pair<key, V>> );
+    void  insert( std::initializer_list<std::pair<key, V>> l )  {  insert( l.begin(), l.end() );  }
 
   public:     // iterable access
     auto  find       ( const key& k ) const -> const_iterator {  return std::move( findit<const_iterator>( k, *this ) );  }
@@ -407,8 +417,8 @@ namespace patricia  {
     template <class O>  O*      Serialize( O* ) const;
 
   public:
-    template <class act>  int   for_each( act action )        {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
-    template <class act>  int   for_each( act action ) const  {  return p_tree != nullptr ? p_tree->for_each( action ) : 0;  }
+    template <class act>  int   for_each( act action )        {  return ptree != nullptr ? ptree->for_each( action ) : 0;  }
+    template <class act>  int   for_each( act action ) const  {  return ptree != nullptr ? ptree->for_each( action ) : 0;  }
 
   protected:
                                             V*    insert( const key&, const V& );
@@ -421,7 +431,8 @@ namespace patricia  {
                                     static  auto  cmpkey( const unsigned char*, size_t, const node& ) -> int;
 
   protected:  // var
-    std::unique_ptr<node> p_tree;
+    A     alloc;
+    node* ptree;
 
   };
 
@@ -534,7 +545,7 @@ namespace patricia  {
     auto  make = create( space, std::move( stub ) );
       make->pend =
       make->pbeg = make->head() + (make->size >> 1);
-    return std::move( make );
+    return make;
   }
 
   inline
@@ -552,7 +563,7 @@ namespace patricia  {
     auto  palloc = create( space );
       palloc->pbeg =
       palloc->pend = palloc->tail();
-    return std::move( palloc );
+    return palloc;
   }
 
   inline
@@ -561,7 +572,7 @@ namespace patricia  {
     auto  palloc = create( space );
       palloc->pbeg =
       palloc->pend = palloc->head();
-    return std::move( palloc );
+    return palloc;
   }
 
   // tape::post implementation
@@ -671,359 +682,382 @@ namespace patricia  {
 
   // patricia implementation
 
-  template <class V>
-  tree<V>::node::node( const unsigned char* key, size_t len, std::unique_ptr<node>&& nex ): _next( std::move( nex ) ), _sets( (uint32_t)len )
+  template <class V, class A>
+  tree<V, A>::node::node( A& mem, const unsigned char* key, size_t len, node* nex ):
+    alloc( mem ),
+    pnext( nex ),
+    plist( nullptr ),
+    usets( len )
+  {
+    if ( key != nullptr )
+      memcpy( chars, key, len );
+  }
+
+  template <class V, class A>
+  tree<V, A>::node::~node()
+  {
+    if ( hasval() )
+      value.~V();
+    if ( pnext != nullptr )
+      pnext->Delete();
+    if ( plist != nullptr )
+      plist->Delete();
+  }
+
+  template <class V, class A>
+  auto  tree<V, A>::node::Create( A&  mem, const unsigned char* key, size_t len, node* nex ) -> tree<V, A>::node*
+  {
+    size_t  minlen = len != 0 ? len : 1;
+    size_t  cchstr = (minlen + 0x0f) & ~0x0f;
+    size_t  nalloc = sizeof(node) - sizeof(node::chars) + cchstr;
+    auto    palloc = mem.allocate( nalloc );
+
+    return new ( palloc ) node( mem, key, len, nex );
+  }
+
+  template <class V, class A>
+  void  tree<V, A>::node::Delete()
+  {
+    auto  dealloc = rebind<A, node>( alloc );
+      this->~node();
+    dealloc.deallocate( this, 0 );
+  }
+
+  template <class V, class A>
+  size_t  tree<V, A>::node::fmatch( const unsigned char* k_1, size_t l_1, const unsigned char* k_2, size_t l_2 )
+  {
+    auto  k1e = k_1 + l_1;
+    auto  k2e = k_2 + l_2;
+    auto  k1p = k_1;
+
+    while ( k1p < k1e && k_2 < k2e && *k1p == *k_2++ )
+      ++k1p;
+
+    return k1p - k_1;
+  }
+
+  template <class V, class A>
+  bool  tree<V, A>::node::remove( const unsigned char* key, size_t len )
+  {
+    auto  keychr = len != 0 ? *key : 0;   // safe 'get' - no SIGFAULT
+    auto  pplist = &plist;
+
+  // если длина ключа нулевая, значит, элемент найден и надо удалить ассоциированные с ним данные;
+  // проверяется сама возможность этого события;
+  // если есть ассоциированные данные, вернуть true
+    if ( len == 0 )
     {
-      if ( key != nullptr )
-        memcpy( chars, key, len );
+      if ( !hasval() )  throw std::logic_error( "empty element being deleted" );
+        else delval();
+
+    // вернуть true, если элемент не имеет вложенных элементов или имеет единственный
+      return plist == nullptr || plist->pnext == nullptr;
     }
 
-  template <class V>
-  tree<V>::node::~node()
+  // найти элемент в списке вложенных подключей, который может содержать искомый ключ;
+  // если такой есть, сравнить собственно подключ с текущим фрагментом ключа
+    while ( *pplist != nullptr && keychr > (*pplist)->chars[0] )
+      pplist = &(*pplist)->pnext;
+
+    if ( *pplist != nullptr )
     {
-      if ( hasval() )
-        value.~V();
-    }
+      auto  curlen = (*pplist)->keylen();
+      auto  lmatch = fmatch( key, len, (*pplist)->chars, curlen );
 
-  template <class V>
-  auto  tree<V>::node::create( const unsigned char* key, size_t len, std::unique_ptr<node> nex ) -> std::unique_ptr<typename tree<V>::node>
-    {
-      size_t  minlen = len != 0 ? len : 1;
-      size_t  cchstr = (minlen + 0x0f) & ~0x0f;
-      size_t  nalloc = sizeof(node) - sizeof(node::chars) + cchstr;
-      auto    palloc = new char[nalloc];
-
-      return std::move( std::unique_ptr<node>( new ( palloc ) node( key, len, std::move( nex ) ) ) );
-    }
-
-  template <class V>
-  size_t  tree<V>::node::fmatch( const unsigned char* k_1, size_t l_1, const unsigned char* k_2, size_t l_2 )
-    {
-      auto  k1e = k_1 + l_1;
-      auto  k2e = k_2 + l_2;
-      auto  k1p = k_1;
-
-      while ( k1p < k1e && k_2 < k2e && *k1p == *k_2++ )
-        ++k1p;
-
-      return k1p - k_1;
-    }
-
-  template <class V>
-  auto  tree<V>::node::remove( const unsigned char* key, size_t len ) -> bool
-    {
-      auto  keychr = len != 0 ? *key : 0;   // safe 'get' - no SIGFAULT
-      auto  pplist = &_list;
-
-    // если длина ключа нулевая, значит, элемент найден и надо удалить ассоциированные с ним данные;
-    // проверяется сама возможность этого события;
-    // если есть ассоциированные данные, вернуть true
-      if ( len == 0 )
+    // если часть ключа текущего элемента в p_scan полностью покрывается искомым ключом, вызвать её рекурсивно
+    // и, если remove() вернёт true, проверить, не выродилась ли ветвь;
+    // если ветвь выродилась (стала пустой), удалить её;
+    // если она имеет единственное продолжение, слить ветвь с ним
+      if ( lmatch >= curlen )
       {
-        if ( !hasval() )  throw std::logic_error( "empty element begin deleted" );
-          else delval();
-
-      // вернуть true, если элемент не имеет вложенных элементов или имеет единственный
-        return _list == nullptr || _list->_next == nullptr;
-      }
-
-    // найти элемент в списке вложенных подключей, который может содержать искомый ключ;
-    // если такой есть, сравнить собственно подключ с текущим фрагментом ключа
-      while ( *pplist != nullptr && keychr > (*pplist)->chars[0] )
-        pplist = &(*pplist)->_next;
-
-      if ( *pplist != nullptr )
-      {
-        auto  curlen = (*pplist)->keylen();
-        auto  lmatch = fmatch( key, len, (*pplist)->chars, curlen );
-
-      // если часть ключа текущего элемента в p_scan полностью покрывается искомым ключом, вызвать её рекурсивно
-      // и, если remove() вернёт true, проверить, не выродилась ли ветвь;
-      // если ветвь выродилась (стала пустой), удалить её;
-      // если она имеет единственное продолжение, слить ветвь с ним
-        if ( lmatch >= curlen )
+        if ( (*pplist)->remove( key + curlen, len - curlen ) )
         {
-          if ( (*pplist)->remove( key + curlen, len - curlen ) )
+        // если прочищенный элемент не имеет вложенных элементов, заместить его в списке на следующий
+        // за ним одноранговый элемент; если такого нет, вернуть true
+          if ( (*pplist)->plist == nullptr )
           {
-          // если прочищенный элемент не имеет вложенных элементов, заместить его в списке на следующий
-          // за ним одноранговый элемент; если такого нет, вернуть true
-            if ( (*pplist)->_list == nullptr )
-            {
-              *pplist = std::move( (*pplist)->_next );
-              return !hasval() && _list == nullptr;
-            }
-
-            if ( (*pplist)->_list->_next != nullptr )
-              throw std::logic_error( "invalid patricia::node::remove() returns true" );
-
-            auto  palloc = node::create( nullptr, (*pplist)->keylen() + (*pplist)->_list->keylen(),
-              std::move( (*pplist)->_next ) );
-
-            if ( (*pplist)->_list->hasval() )
-              palloc->setval( std::move( (*pplist)->_list->value ) );
-
-            std::copy( (*pplist)->_list->key_beg(), (*pplist)->_list->key_end(),
-              std::copy( (*pplist)->key_beg(), (*pplist)->key_end(),
-                palloc->chars ) );
-
-            *pplist = std::move( palloc );
+            auto  pmove = (*pplist)->pnext;
+              (*pplist)->pnext = nullptr;
+            (*pplist)->Delete();
+              *pplist = pmove;
+            return !hasval() && plist == nullptr;
           }
-          return false;
+
+          if ( (*pplist)->plist->pnext != nullptr )
+            throw std::logic_error( "invalid patricia::node::remove() returns true" );
+
+          auto  palloc = node::Create( alloc, nullptr, (*pplist)->keylen() + (*pplist)->plist->keylen(), (*pplist)->pnext );
+            (*pplist)->pnext = nullptr;
+
+          if ( (*pplist)->plist->hasval() )
+            palloc->setval( std::move( (*pplist)->plist->value ) );
+
+          std::copy( (*pplist)->plist->key_beg(), (*pplist)->plist->key_end(),
+            std::copy( (*pplist)->key_beg(), (*pplist)->key_end(),
+              palloc->chars ) );
+
+          (*pplist)->Delete();
+            *pplist = palloc;
         }
+        return false;
       }
-      return false;
     }
+    return false;
+  }
 
-  template <class V>
-  typename tree<V>::node* tree<V>::node::insert( const unsigned char* thekey, size_t cchkey )
+  template <class V, class A>
+  typename tree<V, A>::node* tree<V, A>::node::insert( const unsigned char* thekey, size_t cchkey )
+  {
+  // если поисковый ключ отсканирован полностью, навершить поиск
+    if ( cchkey == 0 )
+      return this;
+
+  // найти первый элемент во вложенном массиве, у которого первый символ ключа больше
+  // либо равен первому символу вставляемого ключа;
+  // если таковой не найден, вставить новый узел с требуемым значением полного ключа
+  // и вернуть его;
+    auto  keychr = *thekey;
+    auto  pprepl = &plist;
+
+    while ( *pprepl != nullptr && keychr > (*pprepl)->chars[0] )
+      pprepl = &(*pprepl)->pnext;
+
+    if ( *pprepl == nullptr || keychr != (*pprepl)->chars[0] )
+      return *pprepl = Create( alloc, thekey, cchkey, *pprepl );
+
+    assert( keychr == (*pprepl)->chars[0] );
+
+  // есть некоторое совпадение, полное или частичное, искомого ключа с частичным ключом
+  // найденного узла в списке вложенных узлов;
+  // определить длину совпадения ключа с ключевой последовательностью узла;
+  // если совпадение полное, вызвать метод рекурсивно, поправив указатель на ключ
+    auto  curlen = (*pprepl)->keylen();
+    auto  lmatch = fmatch( thekey, cchkey, (*pprepl)->chars, curlen );  assert( lmatch > 0 && lmatch <= curlen );
+
+    if ( lmatch == curlen )
+      return (*pprepl)->insert( thekey + curlen, cchkey - curlen );
+
+    assert( lmatch < curlen );
+
+  // добавляемый ключ частично совпадает с ключом найденного вложенного элемента;
+  // если длина совпадения равна длине добавляемого ключа, создать новый элемент
+  // вместо p_scan с таким частичным ключом, а ключ у p_scan модифицировать (укоротить)
+  // добавляемый ключ длиннее длины совпадения;
+  // создать новый элемент для узла и добавить в него два элемента:
+  // остаток добавляемого ключа и найденный p_scan с усечённым ключом
+    if ( lmatch == cchkey )
     {
-    // если поисковый ключ отсканирован полностью, навершить поиск
-      if ( cchkey == 0 )
-        return this;
-
-    // найти первый элемент во вложенном массиве, у которого первый символ ключа больше
-    // либо равен первому символу вставляемого ключа;
-    // если таковой не найден, вставить новый узел с требуемым значением полного ключа
-    // и вернуть его;
-      auto  keychr = *thekey;
-      auto  pprepl = &_list;
-
-      while ( *pprepl != nullptr && keychr > (*pprepl)->chars[0] )
-        pprepl = &(*pprepl)->_next;
-
-      if ( *pprepl == nullptr || keychr != (*pprepl)->chars[0] )
-        return (*pprepl = std::move( create( thekey, cchkey, std::move( *pprepl ) ) )).get();
-
-      assert( keychr == (*pprepl)->chars[0] );
-
-    // есть некоторое совпадение, полное или частичное, искомого ключа с частичным ключом
-    // найденного узла в списке вложенных узлов;
-    // определить длину совпадения ключа с ключевой последовательностью узла;
-    // если совпадение полное, вызвать метод рекурсивно, поправив указатель на ключ
-      auto  curlen = (*pprepl)->keylen();
-      auto  lmatch = fmatch( thekey, cchkey, (*pprepl)->chars, curlen );  assert( lmatch > 0 && lmatch <= curlen );
-
-      if ( lmatch == curlen )
-        return (*pprepl)->insert( thekey + curlen, cchkey - curlen );
-
-      assert( lmatch < curlen );
-
-    // добавляемый ключ частично совпадает с ключом найденного вложенного элемента;
-    // если длина совпадения равна длине добавляемого ключа, создать новый элемент
-    // вместо p_scan с таким частичным ключом, а ключ у p_scan модифицировать (укоротить)
-    // добавляемый ключ длиннее длины совпадения;
-    // создать новый элемент для узла и добавить в него два элемента:
-    // остаток добавляемого ключа и найденный p_scan с усечённым ключом
-      if ( lmatch == cchkey )
-        {
-          auto  palloc = create( thekey, lmatch, std::move( (*pprepl)->_next ) );
-
-          memmove( (*pprepl)->chars, (*pprepl)->chars + lmatch, curlen - lmatch );
-            (*pprepl)->setlen( curlen - lmatch );
-            (*pprepl)->_next = nullptr;
-
-          palloc->_list = std::move( *pprepl );
-          *pprepl = std::move( palloc );
-
-          return (*pprepl).get();
-        }
-
-    // есть хвост и от добавляемого ключа, и от текущего элемента
-      assert( cchkey > lmatch && curlen > lmatch );
-
-      auto  palloc = create( thekey, lmatch, std::move( (*pprepl)->_next ) );
-      auto  p_tail = create( thekey + lmatch, cchkey - lmatch );
-      auto  rescmp( thekey[lmatch] - (*pprepl)->chars[lmatch] );
+      auto  palloc = Create( alloc, thekey, lmatch, (*pprepl)->pnext );
+        (*pprepl)->pnext = nullptr;
 
       memmove( (*pprepl)->chars, (*pprepl)->chars + lmatch, curlen - lmatch );
         (*pprepl)->setlen( curlen - lmatch );
-        (*pprepl)->_next = nullptr;
+        (*pprepl)->pnext = nullptr;
 
-      if ( rescmp < 0 )
-        (palloc->_list = std::move( p_tail ))->_next = std::move( *pprepl );
+      palloc->plist = *pprepl;
+        *pprepl = palloc;
+
+      return *pprepl;
+    }
+
+  // есть хвост и от добавляемого ключа, и от текущего элемента
+    assert( cchkey > lmatch && curlen > lmatch );
+
+    auto  palloc = Create( alloc, thekey, lmatch, (*pprepl)->pnext );
+      (*pprepl)->pnext = nullptr;
+    auto  p_tail = Create( alloc, thekey + lmatch, cchkey - lmatch );
+    auto  rescmp( thekey[lmatch] - (*pprepl)->chars[lmatch] );
+
+    memmove( (*pprepl)->chars, (*pprepl)->chars + lmatch, curlen - lmatch );
+      (*pprepl)->setlen( curlen - lmatch );
+      (*pprepl)->pnext = nullptr;
+
+    if ( rescmp < 0 )
+    {
+      (palloc->plist = p_tail)->pnext = *pprepl;
+        *pprepl = nullptr;
+    }
       else
-        (palloc->_list = std::move( *pprepl ))->_next = std::move( p_tail );
-
-      return (*pprepl = std::move( palloc ))->insert( thekey + lmatch, cchkey - lmatch );
-    }
-
-  template <class V>
-  void  tree<V>::node::delval()
     {
-      if ( hasval() )
-        value.~V();
-      _sets &= ~0x80000000;
+      (palloc->plist = *pprepl)->pnext = p_tail;
+        *pprepl = nullptr;
+        p_tail = nullptr;
     }
 
-  template <class V>
-  void  tree<V>::node::setlen( size_t l )
-    {
-      size_t  minlen = (_sets & ~0x80000000) != 0 ? _sets & ~0x80000000 : 1;
-      size_t  maxlen = (minlen + 0x0f) & ~0x0f;   assert( l <= maxlen );
+    return (*pprepl = std::move( palloc ))->insert( thekey + lmatch, cchkey - lmatch );
+  }
 
-      _sets = (_sets & 0x80000000) | (uint32_t)l;
-    }
+  template <class V, class A>
+  void  tree<V, A>::node::delval()
+  {
+    if ( hasval() )
+      value.~V();
+    usets &= ~0x80000000;
+  }
 
-  template <class V>
-  V*    tree<V>::node::setval( const V& v )
-    {
-      if ( hasval() )
-        value.~V();
-      _sets |= 0x80000000;
-        return new( &value ) V( v );
-    }
+  template <class V, class A>
+  void  tree<V, A>::node::setlen( size_t l )
+  {
+    size_t  minlen = (usets & ~0x80000000) != 0 ? usets & ~0x80000000 : 1;
+    size_t  maxlen = (minlen + 0x0f) & ~0x0f;   assert( l <= maxlen );
 
-  template <class V>
-  V*    tree<V>::node::setval( V&& v )
-    {
-      if ( hasval() )
-        value.~V();
-      _sets |= 0x80000000;
-        return new( &value ) V( std::move( v ) );
-    }
+    usets = (usets & 0x80000000) | (uint32_t)l;
+  }
 
-  template <class V>
+  template <class V, class A>
+  V*    tree<V, A>::node::setval( const V& v )
+  {
+    if ( hasval() )
+      value.~V();
+    return (usets |= 0x80000000),
+      new( &value ) V( v );
+  }
+
+  template <class V, class A>
+  V*    tree<V, A>::node::setval( V&& v )
+  {
+    if ( hasval() )
+      value.~V();
+    return (usets |= 0x80000000),
+      new( &value ) V( std::move( v ) );
+  }
+
+  template <class V, class A>
   template <class act, class slf>
-  int   tree<V>::node::for_impl( act action, slf& r_node )
+  int   tree<V, A>::node::for_impl( act action, slf& r_node )
+  {
+    auto  pvalue = r_node.getval();
+    int   nerror;
+
+    if ( pvalue != nullptr )
+      if ( (nerror = action( *pvalue )) != 0 )
+        return nerror;
+
+    for ( auto p = r_node.plist; p != nullptr; p = p->pnext )
+      if ( (nerror = p->for_each( action )) != 0 )
+        return nerror;
+
+    return 0;
+  }
+
+  template <class V, class A>
+  size_t  tree<V, A>::node::GetBufLen() const
+  {
+    size_t    arsize = 0;
+    size_t    ccharr = 0;
+    size_t    curlen = keylen();
+    const V*  pvalue = getval();
+
+    for ( auto p = plist; p != nullptr; p = p->pnext, arsize += 2 )
     {
-      auto  pvalue = r_node.getval();
-      int   nerror;
-
-      if ( pvalue != nullptr )
-        if ( (nerror = action( *pvalue )) != 0 )
-          return nerror;
-
-      for ( auto p = r_node._list.get(); p != nullptr; p = p->_next.get() )
-        if ( (nerror = p->for_each( action )) != 0 )
-          return nerror;
-
-      return 0;
+      ccharr += p->GetBufLen();
     }
 
-  template <class V>
-  size_t  tree<V>::node::GetBufLen() const
+    if ( pvalue != nullptr )
     {
-      size_t    arsize = 0;
-      size_t    ccharr = 0;
-      size_t    curlen = keylen();
-      const V*  pvalue = getval();
-
-      for ( auto p = _list.get(); p != nullptr; p = p->_next.get(), arsize += 2 )
-        {
-          ccharr += p->GetBufLen();
-        }
-
-      if ( pvalue != nullptr )
-        {
-          ccharr += ::GetBufLen( *pvalue );
-          arsize |= 1;
-        }
-
-    // serialize byte count of nested branches
-      return ::GetBufLen( curlen ) + curlen + ::GetBufLen( ccharr ) + ccharr + ::GetBufLen( arsize );
+      ccharr += ::GetBufLen( *pvalue );
+      arsize |= 1;
     }
 
-  template <class V>
+  // serialize byte count of nested branches
+    return ::GetBufLen( curlen ) + curlen + ::GetBufLen( ccharr ) + ccharr + ::GetBufLen( arsize );
+  }
+
+  template <class V, class A>
   template <class S>
-  S*  tree<V>::node::FetchFrom( S* s, size_t cchstr, size_t arsize )
+  S*  tree<V, A>::node::FetchFrom( S* s, size_t cchstr, size_t arsize )
+  {
+    auto    bvalue( (arsize & 1) != 0 );
+    auto    nitems = arsize >> 1;
+    size_t  cbjump;
+
+    if ( cchstr != 0 )
     {
-      auto    bvalue( (arsize & 1) != 0 );
-      auto    nitems = arsize >> 1;
-      size_t  cbjump;
-
-      if ( cchstr != 0 )
-        {
-          if ( cchstr != keylen() )
-            return nullptr;
-          if ( (s = ::FetchFrom( s, chars, cchstr )) == nullptr )
-            return nullptr;
-        }
-
-      s = ::FetchFrom( s, cbjump );
-
-      for ( auto p = &_list; nitems != 0; p = &(*p)->_next, --nitems )
-        {
-          size_t  sublen;
-          size_t  subarr;
-
-          if ( (s = ::FetchFrom( ::FetchFrom( s, sublen ), subarr )) == nullptr )
-            return nullptr;
-
-          *p = node::create( nullptr, sublen );
-
-          if ( (s = (*p)->FetchFrom( s, sublen, subarr )) == nullptr )
-            return nullptr;
-        }
-
-      return bvalue ? ::FetchFrom( s, *setval( V() ) ) : s;
+      if ( cchstr != keylen() )
+        return nullptr;
+      if ( (s = ::FetchFrom( s, chars, cchstr )) == nullptr )
+        return nullptr;
     }
 
-  template <class V>
+    s = ::FetchFrom( s, cbjump );
+
+    for ( auto p = &plist; nitems != 0; p = &(*p)->pnext, --nitems )
+    {
+      size_t  sublen;
+      size_t  subarr;
+
+      if ( (s = ::FetchFrom( ::FetchFrom( s, sublen ), subarr )) == nullptr )
+        return nullptr;
+
+      *p = node::Create( alloc, nullptr, sublen );
+
+      if ( (s = (*p)->FetchFrom( s, sublen, subarr )) == nullptr )
+        return nullptr;
+    }
+
+    return bvalue ? ::FetchFrom( s, *setval( V() ) ) : s;
+  }
+
+  template <class V, class A>
   template <class P>
-  void  tree<V>::node::PrintTree( P print, size_t before ) const
+  void  tree<V, A>::node::PrintTree( P print, size_t before ) const
+  {
+    for ( auto p = plist; p != nullptr; p = p->pnext )
     {
-      for ( auto p = _list.get(); p != nullptr; p = p->_next.get() )
-        {
-          auto  thekey = p->chars;
-          auto  cchkey = p->keylen();
-          auto  nwrite = std::min( cchkey, (size_t)(0x20 - 3) );
+      auto  thekey = p->chars;
+      auto  cchkey = p->keylen();
+      auto  nwrite = std::min( cchkey, (size_t)(0x20 - 3) );
 
-          for ( size_t i = 0; i < before; ++i )
-            print( ' ' );
+      for ( size_t i = 0; i < before; ++i )
+        print( ' ' );
 
-          for ( size_t i = 0; i < nwrite; ++i )
-            print( thekey[i] );
+      for ( size_t i = 0; i < nwrite; ++i )
+        print( thekey[i] );
 
-          if ( cchkey > 0x20 - 3 )
-            {
-              print( '.' );  print( '.' );  print( '.' );
-            }
+      if ( cchkey > 0x20 - 3 )
+        print( '.' ), print( '.' ), print( '.' );
 
-          print( '\n' );
+      print( '\n' );
 
-          p->PrintTree( print, before + 2 );
-        }
+      p->PrintTree( print, before + 2 );
     }
+  }
 
-  template <class V>
+  template <class V, class A>
   template <class O>
-  O*  tree<V>::node::Serialize( O* o ) const
+  O*  tree<V, A>::node::Serialize( O* o ) const
+  {
+    size_t    arsize = 0;
+    size_t    ccharr = 0;
+    size_t    curlen = keylen();
+    const V*  pvalue = getval();
+
+    for ( auto p = plist; p != nullptr; p = p->pnext, arsize += 2 )
+      ccharr += p->GetBufLen();
+
+    if ( pvalue != nullptr )
+      arsize |= 1;
+
+  // store key size, array size and key
+    if ( (o = ::Serialize( ::Serialize( ::Serialize( o, curlen ), arsize ), chars, curlen )) == nullptr )
+      return nullptr;
+
+  // write the array and value size in bytes
+    if ( (o = ::Serialize( o, ccharr + (pvalue != nullptr ? ::GetBufLen( *pvalue ) : 0) )) == nullptr )
+      return nullptr;
+
+    for ( auto p = plist; p != nullptr; p = p->pnext )
     {
-      size_t    arsize = 0;
-      size_t    ccharr = 0;
-      size_t    curlen = keylen();
-      const V*  pvalue = getval();
-
-      for ( auto p = _list.get(); p != nullptr; p = p->_next.get(), arsize += 2 )
-        {
-          ccharr += p->GetBufLen();
-        }
-
-      if ( pvalue != nullptr )
-        {
-          arsize |= 1;
-        }
-
-    // store key size, array size and key
-      if ( (o = ::Serialize( ::Serialize( ::Serialize( o, curlen ), arsize ), chars, curlen )) == nullptr )
+      if ( (o = p->Serialize( o )) == nullptr )
         return nullptr;
-
-    // write the array and value size in bytes
-      if ( (o = ::Serialize( o, ccharr + (pvalue != nullptr ? ::GetBufLen( *pvalue ) : 0) )) == nullptr )
-        return nullptr;
-
-      for ( auto p = _list.get(); p != nullptr; p = p->_next.get() )
-        {
-          if ( (o = p->Serialize( o )) == nullptr )
-            return nullptr;
-        }
-
-      return pvalue != nullptr ? ::Serialize( o, *pvalue ) : o;
     }
 
-  template <class V>
+    return pvalue != nullptr ? ::Serialize( o, *pvalue ) : o;
+  }
+
+  template <class V, class A>
   template <class R, class S>
-  auto  tree<V>::node::search( const unsigned char* thekey, size_t cchkey, S& self ) -> R*
+  auto  tree<V, A>::node::search( const unsigned char* thekey, size_t cchkey, S& self ) -> R*
     {
       for ( auto  p_this = &self; ; )
       {
@@ -1032,10 +1066,10 @@ namespace patricia  {
 
       // найти элемент во вложенном массиве, у которого первый символ ключа равен первому символу вставляемого ключа
         auto  keychr = *thekey;
-        auto  p_scan = p_this->_list.get();
+        auto  p_scan = p_this->plist;
 
         while ( p_scan != nullptr && keychr > p_scan->chars[0] )
-          p_scan = p_scan->_next.get();
+          p_scan = p_scan->pnext;
 
         if ( p_scan != nullptr && keychr == p_scan->chars[0] )
           {
@@ -1056,9 +1090,9 @@ namespace patricia  {
 
   // tree::base_iterator implementation
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  tree<V>::base_iterator<value, nodes>::base_iterator( nodes* p ): patval( nullptr )
+  tree<V, A>::base_iterator<value, nodes>::base_iterator( nodes* p ): patval( nullptr )
     {
       if ( p != nullptr )
       {
@@ -1067,24 +1101,24 @@ namespace patricia  {
       }
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  tree<V>::base_iterator<value, nodes>::base_iterator(): patval( nullptr )
+  tree<V, A>::base_iterator<value, nodes>::base_iterator(): patval( nullptr )
     {
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  tree<V>::base_iterator<value, nodes>::base_iterator( base_iterator&& it ):
+  tree<V, A>::base_iterator<value, nodes>::base_iterator( base_iterator&& it ):
     patkey( std::move( it.patkey ) ), patval( std::move( it.patval ) ),
       atrace( std::move( it.atrace ) ),
       achars( std::move( it.achars ) )
     {
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::operator = ( base_iterator&& it ) -> tree<V>::base_iterator<value, nodes>&
+  auto  tree<V, A>::base_iterator<value, nodes>::operator = ( base_iterator&& it ) -> tree<V, A>::base_iterator<value, nodes>&
     {
       patkey = std::move( it.patkey );
       patval = std::move( it.patval );
@@ -1093,40 +1127,40 @@ namespace patricia  {
       return *this;
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::key() const -> const patricia::key&
+  auto  tree<V, A>::base_iterator<value, nodes>::key() const -> const patricia::key&
     {
       return patkey;
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::val() const -> value&
+  auto  tree<V, A>::base_iterator<value, nodes>::val() const -> value&
     {
       assert( patval != nullptr );
       return *patval;
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::operator ++ () -> tree<V>::base_iterator<value, nodes>&
+  auto  tree<V, A>::base_iterator<value, nodes>::operator ++ () -> tree<V, A>::base_iterator<value, nodes>&
     {
       while ( atrace.size() != 0 )
       {
-        auto  p_node = atrace.back()->_list.get();
+        auto  p_node = atrace.back()->plist;
 
       // если у узла есть вложенные элементы, максимально продвинуться вглубь дерева,
       // но не дальше первого найденного элемента со значением
         if ( p_node != nullptr )
         {
           do atrace.push_back( p_node );
-            while ( !p_node->hasval() && (p_node = p_node->_list.get()) != nullptr );
+            while ( !p_node->hasval() && (p_node = p_node->plist) != nullptr );
         }
           else
       // иначе, если вложенных элементов нет, перейти к следующему элементу в списке
       // того же горизонтального уровня
-        if ( (p_node = atrace.back()->_next.get()) != nullptr )
+        if ( (p_node = atrace.back()->pnext) != nullptr )
         {
           atrace.back() = p_node;
         }
@@ -1134,9 +1168,9 @@ namespace patricia  {
       // отмотать вниз по дереву с переходом на следующий элемент до успешного ключа
         {
           do atrace.pop_back();
-            while ( atrace.size() != 0 && atrace.back()->_next == nullptr );
+            while ( atrace.size() != 0 && atrace.back()->pnext == nullptr );
 
-          if ( atrace.size() != 0 ) atrace.back() = atrace.back()->_next.get();
+          if ( atrace.size() != 0 ) atrace.back() = atrace.back()->pnext;
             else continue;
         }
 
@@ -1148,17 +1182,17 @@ namespace patricia  {
       return setkey();
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  bool  tree<V>::base_iterator<value, nodes>::operator == ( const base_iterator& it ) const
+  bool  tree<V, A>::base_iterator<value, nodes>::operator == ( const base_iterator& it ) const
     {
       return patkey == it.patkey && atrace.size() == it.atrace.size()
         && std::equal( atrace.begin(), atrace.end(), it.atrace.begin() );
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::setkey() -> tree<V>::base_iterator<value, nodes>&
+  auto  tree<V, A>::base_iterator<value, nodes>::setkey() -> tree<V, A>::base_iterator<value, nodes>&
     {
       assert( atrace.size() == 0 || atrace.back()->hasval() );
 
@@ -1180,13 +1214,13 @@ namespace patricia  {
       return *this;
     }
 
-  template <class V>
+  template <class V, class A>
   template <class value, class nodes>
-  auto  tree<V>::base_iterator<value, nodes>::get_lo() -> tree<V>::base_iterator<value, nodes>&
+  auto  tree<V, A>::base_iterator<value, nodes>::get_lo() -> tree<V, A>::base_iterator<value, nodes>&
     {
       while ( atrace.size() != 0 && !atrace.back()->hasval() )
       {
-        auto  list = atrace.back()->_list.get();
+        auto  list = atrace.back()->plist;
 
         if ( list != nullptr )  atrace.push_back( list );
           else atrace.clear();
@@ -1286,254 +1320,256 @@ namespace patricia  {
 
     // patricia implementation
 
-  template <class V>
-  tree<V>::tree( tree&& p ):
-    p_tree( std::move( p.p_tree ) ) {}
+  template <class V, class A>
+  tree<V, A>::tree( const A& a ):
+    alloc( a ), ptree( nullptr )  {}
 
-  template <class V>
-  tree<V>::tree( const std::initializer_list<std::pair<key, V>>& list )
-    {
-      for ( auto& it: list )
-        Insert( it.first, it.second );
-    }
+  template <class V, class A>
+  tree<V, A>::tree( tree&& p ):
+    alloc( std::move( p.alloc ) ),
+    ptree( p.ptree ) {  p.ptree = nullptr;  }
 
-  template <class V>
-  tree<V>& tree<V>::operator = ( tree&& p )
-    {
-      p_tree = std::move( p.p_tree );
-      return *this;
-    }
+  template <class V, class A>
+  tree<V, A>::tree( const std::initializer_list<std::pair<key, V>>& l, const A& a ):
+    tree( a )
+  {
+    for ( auto& it: l )
+      Insert( it.first, it.second );
+  }
 
-  template <class V>
-  bool  tree<V>::Delete( const key& k )
-    {
-      if ( p_tree != nullptr && p_tree->remove( k.ptr, k.len ) )
-        p_tree.reset();
-      return true;
-    }
+  template <class V, class A>
+  tree<V, A>::~tree()
+  {
+    if ( ptree != nullptr )
+      ptree->Delete();
+  }
 
-  template <class V>
-  auto  tree<V>::empty() const -> bool
-    {
-      return p_tree == nullptr;
-    }
+  template <class V, class A>
+  auto  tree<V, A>::operator = ( tree&& t ) -> tree&
+  {
+    if ( ptree != nullptr )
+      delete ptree;
+    alloc = std::move( t.alloc );
+      ptree = t.ptree;
+      t.ptree = nullptr;
+    return *this;
+  }
 
-  template <class V>
-  void  tree<V>::clear()
-    {
-      p_tree.reset();
-    }
+  template <class V, class A>
+  bool  tree<V, A>::Delete( const key& k )
+  {
+    if ( ptree != nullptr && ptree->remove( k.ptr, k.len ) )
+      clear();
+    return true;
+  }
 
-  template <class V>
-  auto  tree<V>::erase( const key& k ) -> size_t
-    {
-      return Delete( k ) ? 1 : 0;
-    }
+  template <class V, class A>
+  void  tree<V, A>::clear()
+  {
+    if ( ptree != nullptr )
+      delete ptree;
+    ptree = nullptr;
+  }
 
-  template <class V>
+  template <class V, class A>
   template <class InputIt>
-  void  tree<V>::insert( InputIt first, InputIt end )
-    {
-      for ( ; first != end; ++first )
-        Insert( first->first, first->second );
-    }
+  void  tree<V, A>::insert( InputIt first, InputIt end )
+  {
+    for ( ; first != end; ++first )
+      Insert( first->first, first->second );
+  }
 
-  template <class V>
-  void  tree<V>::insert( std::initializer_list<std::pair<key, V>> list )
-    {
-      return insert( list.begin(), list.end() );
-    }
+  template <class V, class A>
+  V*    tree<V, A>::insert( const key& k, const V& v )
+  {
+    node* pfound;
 
-  template <class V>
-  V*    tree<V>::insert( const key& k, const V& v )
-    {
-      node* pfound;
+    if ( ptree == nullptr )
+      ptree = node::Create( alloc, nullptr, 0 );
 
-      if ( p_tree == nullptr )
-        p_tree = std::unique_ptr<node>( node::create( nullptr, 0 ) );
+    return (pfound = ptree->insert( k.ptr, k.len )) != nullptr ?
+      pfound->setval( v ) : nullptr;
+  }
 
-      return (pfound = p_tree->insert( k.ptr, k.len )) != nullptr ?
-        pfound->setval( v ) : nullptr;
-    }
+  template <class V, class A>
+  V*    tree<V, A>::insert( const key& k, V&& v )
+  {
+    node* pfound;
 
-  template <class V>
-  V*    tree<V>::insert( const key& k, V&& v )
-    {
-      node* pfound;
+    if ( ptree == nullptr )
+      ptree = node::Create( alloc, nullptr, 0 );
 
-      if ( p_tree == nullptr )
-        p_tree = std::unique_ptr<node>( node::create( nullptr, 0 ) );
+    return (pfound = ptree->insert( k.ptr, k.len )) != nullptr ?
+      pfound->setval( std::move( v ) ) : nullptr;
+  }
 
-      return (pfound = p_tree->insert( k.ptr, k.len )) != nullptr ?
-        pfound->setval( std::move( v ) ) : nullptr;
-    }
-
-  template <class V>
+  template <class V, class A>
   template <class res, class slf>
-  res*  tree<V>::search( const key& k, slf& s )
+  res*  tree<V, A>::search( const key& k, slf& s )
+  {
+    if ( s.ptree != nullptr )
     {
-      if ( s.p_tree != nullptr )
-        {
-          auto  pfound = s.p_tree->search( k.ptr, k.len );
+      auto  pfound = s.ptree->search( k.ptr, k.len );
 
-          return pfound != nullptr ? pfound->getval() : nullptr;
-        }
-      return nullptr;
+      return pfound != nullptr ? pfound->getval() : nullptr;
     }
+    return nullptr;
+  }
 
-  template <class V>
+  template <class V, class A>
   template <class itr, class slf>
-  auto  tree<V>::findit( const key& key, slf& self ) -> itr
+  auto  tree<V, A>::findit( const key& key, slf& self ) -> itr
+  {
+    itr   it;
+    auto  pk = key.ptr;
+    auto  cc = key.len;
+    auto  pn = self.p_tree.get();
+
+    for ( it.atrace.push_back( pn ); pn != nullptr; )
     {
-      itr   it;
-      auto  pk = key.ptr;
-      auto  cc = key.len;
-      auto  pn = self.p_tree.get();
+      auto    keychr = cc != 0 ? *pk : '\0';
+      auto    p_scan = pn->_list.get();
+      size_t  l_frag;
 
-      for ( it.atrace.push_back( pn ); pn != nullptr; )
+      if ( cc == 0 )
+        return pn->hasval() ? std::move( it.setkey() ) : self.end();
+
+      while ( p_scan != nullptr && keychr > p_scan->chars[0] )
+        p_scan = p_scan->_next.get();
+
+      if ( p_scan != nullptr && keychr == p_scan->chars[0] )
       {
-        auto    keychr = cc != 0 ? *pk : '\0';
-        auto    p_scan = pn->_list.get();
-        size_t  l_frag;
+        l_frag = p_scan->keylen();
 
-        if ( cc == 0 )
-          return pn->hasval() ? std::move( it.setkey() ) : self.end();
-
-        while ( p_scan != nullptr && keychr > p_scan->chars[0] )
-          p_scan = p_scan->_next.get();
-
-        if ( p_scan != nullptr && keychr == p_scan->chars[0] )
+        if ( node::fmatch( pk, cc, p_scan->chars, l_frag ) == l_frag )
         {
-          l_frag = p_scan->keylen();
-
-          if ( node::fmatch( pk, cc, p_scan->chars, l_frag ) == l_frag )
-          {
-            it.atrace.push_back( pn = p_scan );
-              pk += l_frag;
-              cc -= l_frag;
-            continue;
-          }
+          it.atrace.push_back( pn = p_scan );
+            pk += l_frag;
+            cc -= l_frag;
+          continue;
         }
-        return self.end();
       }
-
       return self.end();
     }
 
-  template <class V>
+    return self.end();
+  }
+
+  template <class V, class A>
   template <class itr, class slf>
-  auto  tree<V>::lbound( const key& key, slf& self ) -> itr
+  auto  tree<V, A>::lbound( const key& key, slf& self ) -> itr
+  {
+    itr   it;
+    auto  pk = key.ptr;
+    auto  cc = key.len;
+
+    if ( self.ptree != nullptr ) it.atrace.push_back( self.ptree );
+      else return self.end();
+
+    while ( it.atrace.size() != 0 )
     {
-      itr   it;
-      auto  pk = key.ptr;
-      auto  cc = key.len;
-
-      if ( self.p_tree != nullptr ) it.atrace.push_back( self.p_tree.get() );
-        else return self.end();
-
-      while ( it.atrace.size() != 0 )
+      if ( cc > 0 )
       {
-        if ( cc > 0 )
+        auto  p_scan = it.atrace.back()->plist;
+        int   rescmp = 0;
+
+        while ( p_scan != nullptr && (rescmp = cmpkey( pk, cc, *p_scan )) > 0 )
+          p_scan = p_scan->pnext;
+
+        if ( p_scan == nullptr )
         {
-          auto  p_scan = it.atrace.back()->_list.get();
-          int   rescmp = 0;
-          
-          while ( p_scan != nullptr && (rescmp = cmpkey( pk, cc, *p_scan )) > 0 )
-            p_scan = p_scan->_next.get();
-
-          if ( p_scan == nullptr )
+          while ( it.atrace.size() != 0 )
           {
-            while ( it.atrace.size() != 0 )
-            {
-              if ( (it.atrace.back() = it.atrace.back()->_next.get()) == nullptr )  it.atrace.pop_back();
-                else break;
-            }
-            return std::move( it.get_lo() );
+            if ( (it.atrace.back() = it.atrace.back()->pnext) == nullptr )  it.atrace.pop_back();
+              else break;
           }
-
-          it.atrace.push_back( p_scan );
-
-          if ( rescmp == 0 )
-          {
-            pk += it.atrace.back()->keylen();
-            cc -= it.atrace.back()->keylen();
-          }
-            else
           return std::move( it.get_lo() );
+        }
+
+        it.atrace.push_back( p_scan );
+
+        if ( rescmp == 0 )
+        {
+          pk += it.atrace.back()->keylen();
+          cc -= it.atrace.back()->keylen();
         }
           else
         return std::move( it.get_lo() );
       }
-      return self.end();
+        else
+      return std::move( it.get_lo() );
     }
+    return self.end();
+  }
 
-  template <class V>
+  template <class V, class A>
   template <class itr, class slf>
-  auto  tree<V>::ubound( const key& key, slf& self ) -> itr
-    {
-      auto  it = lbound( key, self );
+  auto  tree<V, A>::ubound( const key& key, slf& self ) -> itr
+  {
+    auto  it = lbound( key, self );
 
-      while ( it != self.end() && it.key() == key )
-        ++it;
+    while ( it != self.end() && it.key() == key )
+      ++it;
 
-      return std::move( it );
-    }
+    return std::move( it );
+  }
 
-  template <class V>
-  auto  tree<V>::cmpkey( const unsigned char* k1, size_t l1, const unsigned char* k2, size_t l2 ) -> int
-    {
-      auto  cc = std::min( l1, l2 );
-      auto  rc = memcmp( k1, k2, cc );
+  template <class V, class A>
+  auto  tree<V, A>::cmpkey( const unsigned char* k1, size_t l1, const unsigned char* k2, size_t l2 ) -> int
+  {
+    auto  cc = std::min( l1, l2 );
+    auto  rc = memcmp( k1, k2, cc );
 
-      return rc != 0 ? rc : (cc > l2) - (cc < l2);
-    }
+    return rc != 0 ? rc : (cc > l2) - (cc < l2);
+  }
 
-  template <class V>
-  auto  tree<V>::cmpkey( const unsigned char* kp, size_t kl, const node& pn ) -> int
-    {
-      return cmpkey( kp, kl, pn.chars, pn.keylen() );
-    }
+  template <class V, class A>
+  auto  tree<V, A>::cmpkey( const unsigned char* kp, size_t kl, const node& pn ) -> int
+  {
+    return cmpkey( kp, kl, pn.chars, pn.keylen() );
+  }
 
-  template <class V>
-  size_t  tree<V>::GetBufLen() const
-    {
-      return p_tree != nullptr ? p_tree->GetBufLen() : 3;
-    }
+  template <class V, class A>
+  size_t  tree<V, A>::GetBufLen() const
+  {
+    return ptree != nullptr ? ptree->GetBufLen() : 3;
+  }
 
-  template <class V>
+  template <class V, class A>
   template <class S>
-  S*      tree<V>::FetchFrom( S* s )
-    {
-      size_t  cchstr;
-      size_t  arsize;
+  S*      tree<V, A>::FetchFrom( S* s )
+  {
+    size_t  cchstr;
+    size_t  arsize;
 
-      p_tree = nullptr;
+    if ( ptree != nullptr )
+      ptree->Delete();
 
-      if ( (s = ::FetchFrom( ::FetchFrom( s, cchstr ), arsize )) == nullptr )
-        return nullptr;
+    if ( (s = ::FetchFrom( ::FetchFrom( s, cchstr ), arsize )) == nullptr )
+      return nullptr;
 
-      if ( cchstr == 0 && arsize == 0 )
-        return s;
+    if ( cchstr == 0 && arsize == 0 )
+      return s;
 
-      p_tree = node::create( nullptr, cchstr );
+    ptree = node::Create( alloc, nullptr, cchstr );
 
-      return p_tree->FetchFrom( s, cchstr, arsize );
-    }
+    return ptree->FetchFrom( s, cchstr, arsize );
+  }
 
-  template <class V>
+  template <class V, class A>
   template <class P>
-  void    tree<V>::PrintTree( P p ) const
-    {
-      if ( p_tree != nullptr )
-        p_tree->PrintTree( p, 0 );
-    }
+  void    tree<V, A>::PrintTree( P p ) const
+  {
+    if ( ptree != nullptr )
+      ptree->PrintTree( p, 0 );
+  }
 
-  template <class V>
+  template <class V, class A>
   template <class O>
-  O*      tree<V>::Serialize( O* o ) const
-    {
-      return p_tree != nullptr ? p_tree->Serialize( o ) : ::Serialize( ::Serialize( ::Serialize( o, 0 ), 0 ), 0 );
-    }
+  O*      tree<V, A>::Serialize( O* o ) const
+  {
+    return ptree != nullptr ? ptree->Serialize( o ) : ::Serialize( ::Serialize( ::Serialize( o, 0 ), 0 ), 0 );
+  }
 
   // dump::iterator implementation
 
@@ -2128,8 +2164,8 @@ namespace patricia  {
 
 namespace mtc {
 
-  template <class V>
-  using patriciaTree = patricia::tree<V>;
+  template <class V, class A>
+  using patriciaTree = patricia::tree<V, A>;
   using patriciaDump = patricia::dump;
 
 }

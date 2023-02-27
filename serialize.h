@@ -86,18 +86,21 @@ template <class S>  S*  SkipBytes( S*, size_t );
  */
 
 template <class C>  size_t  GetBufLen( const std::basic_string<C>& );
-template <class T>  size_t  GetBufLen( const std::vector<T>& );
+template <class T,
+          class A>  size_t  GetBufLen( const std::vector<T, A>& );
 template <class T>  size_t  GetBufLen( const std::list<T>& );
 template <class K,
           class V>  size_t  GetBufLen( const std::map<K, V>& );
 template <class T1,
           class T2> size_t  GetBufLen( const std::pair<T1, T2>& );
-template <class ... T> size_t  GetBufLen( const std::tuple<T...>& );
+template <
+       class ... T> size_t  GetBufLen( const std::tuple<T...>& );
 
 template <class O,
           class C>  O*  Serialize( O*, const std::basic_string<C>& );
 template <class O,
-          class T>  O*  Serialize( O* o, const std::vector<T>& );
+          class T,
+          class A>  O*  Serialize( O* o, const std::vector<T, A>& );
 template <class O,
           class T>  O*  Serialize( O* o, const std::list<T>& );
 template <class O,
@@ -107,7 +110,7 @@ template <class O,
           class T1,
           class T2> O*  Serialize( O*, const std::pair<T1, T2>& );
 template <class O,
-      class ... T> O*  Serialize( O* o, const std::tuple<T...>& );
+       class ... T> O*  Serialize( O* o, const std::tuple<T...>& );
 
 template <class S,
           class C>  S*  FetchFrom( S*, std::basic_string<C>& );
@@ -391,8 +394,8 @@ namespace mtc
 
   template <class T>
   struct class_is_string<std::basic_string<T>>  {  static const bool value = true;  };
-  template <class T>
-  struct class_is_vector<std::vector<T>>        {  static const bool value = true;  };
+  template <class T, class A>
+  struct class_is_vector<std::vector<T, A>>     {  static const bool value = true;  };
   template <class T>
   struct class_is_list<std::list<T>>            {  static const bool value = true;  };
   template <class ... T>
@@ -570,8 +573,8 @@ S*  SkipToEnd( S* s, const std::basic_string<C>* )
 /*
  * std::vector<>
  */
-template <class T>
-size_t  GetBufLen( const std::vector<T>& v )
+template <class T, class A>
+size_t  GetBufLen( const std::vector<T, A>& v )
 {
   auto  value_size = ::GetBufLen( v.size() );
 
@@ -581,8 +584,8 @@ size_t  GetBufLen( const std::vector<T>& v )
   return value_size;
 }
 
-template <class O, class T>
-O*  Serialize( O* o, const std::vector<T>& a )
+template <class O, class T, class A>
+O*  Serialize( O* o, const std::vector<T, A>& a )
 {
   o = ::Serialize( o, a.size() );
 
@@ -592,8 +595,7 @@ O*  Serialize( O* o, const std::vector<T>& a )
   return o;
 }
 
-template <class S,
-class T>
+template <class S, class T>
 S*  FetchFrom( S* s, std::vector<T>& a )
 {
   size_t  array_size;
