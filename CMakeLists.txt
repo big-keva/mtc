@@ -8,6 +8,7 @@ if(MSVC)
 else()
   add_compile_options(-W -Wall -Wextra)
 endif()
+add_compile_options(-mfpmath=sse -fstack-protector-all -g -W -Wall -Wextra -Wcast-align -pedantic -Wfloat-equal -Wpointer-arith -Wformat-security -Wmissing-format-attribute -Wformat=1 -Wwrite-strings -Wcast-align -Wno-long-long -Woverloaded-virtual -Wno-suggest-attribute=format)
 
 add_library(mtc STATIC
   src/byteBuffer.cpp
@@ -31,6 +32,7 @@ install(TARGETS mtc DESTINATION lib)
 install(
   FILES
     arbitrarymap.h
+    arena.hpp
     array.h
     autoptr.h
     bitset.h
@@ -81,5 +83,5 @@ install(
 add_subdirectory(tutorial)
 
 # enable_testing()
-# add_subdirectory(tests)
+add_subdirectory(tests)
 
