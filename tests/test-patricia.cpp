@@ -248,7 +248,7 @@ TestItEasy::RegisterFunc  testPatricia( []()
 
     serial.resize( patree.GetBufLen() );
 
-    REQUIRE( patree.Serialize( serial.data() ) - serial.data() == serial.size() );
+    REQUIRE( size_t(patree.Serialize( serial.data() ) - serial.data()) == serial.size() );
 
     SECTION( "patricia::dump provives untyped access to data" )
     {

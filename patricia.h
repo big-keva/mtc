@@ -1347,8 +1347,7 @@ namespace patricia  {
   template <class V, class A>
   auto  tree<V, A>::operator = ( tree&& t ) -> tree&
   {
-    if ( ptree != nullptr )
-      delete ptree;
+    clear();
     alloc = std::move( t.alloc );
       ptree = t.ptree;
       t.ptree = nullptr;
@@ -1367,7 +1366,7 @@ namespace patricia  {
   void  tree<V, A>::clear()
   {
     if ( ptree != nullptr )
-      delete ptree;
+      ptree->Delete();
     ptree = nullptr;
   }
 
@@ -1423,19 +1422,19 @@ namespace patricia  {
     itr   it;
     auto  pk = key.ptr;
     auto  cc = key.len;
-    auto  pn = self.p_tree.get();
+    auto  pn = self.ptree;
 
     for ( it.atrace.push_back( pn ); pn != nullptr; )
     {
       auto    keychr = cc != 0 ? *pk : '\0';
-      auto    p_scan = pn->_list.get();
+      auto    p_scan = pn->plist;
       size_t  l_frag;
 
       if ( cc == 0 )
         return pn->hasval() ? std::move( it.setkey() ) : self.end();
 
       while ( p_scan != nullptr && keychr > p_scan->chars[0] )
-        p_scan = p_scan->_next.get();
+        p_scan = p_scan->pnext;
 
       if ( p_scan != nullptr && keychr == p_scan->chars[0] )
       {
