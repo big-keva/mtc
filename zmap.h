@@ -122,7 +122,7 @@ namespace mtc
   std::string to_string( const zval& );
   std::string to_string( const zmap& );
 
-  const char* const invalid = (char const * const)-1;
+  const char* const invalid = (const char*)-1;
 
   namespace impl
   {
