@@ -178,8 +178,13 @@ namespace mtc {
   inline
   Arena::~Arena()
   {
-    if ( blocks != nullptr )
-      blocks.load()->Delete();
+    for ( auto pblock = ptr::clean( blocks.load() ); pblock != nullptr; )
+    {
+      while ( pblock != nullptr && !blocks.compare_exchange_strong( pblock, nullptr ) )
+        pblock = ptr::clean( pblock );
+      if ( pblock != nullptr )
+        pblock->Delete();
+    }
   }
 
   inline

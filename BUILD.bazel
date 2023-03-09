@@ -44,6 +44,8 @@ cc_library(
 	"json.h",
 	"file.h",
 	"uuid.h",
-	"zmap.h"],
+	"zmap.h",
+	"zmap-alias.h"],
+
     visibility = ["//visibility:public"],
 )
