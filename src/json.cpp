@@ -56,7 +56,7 @@ namespace mtc {
 namespace json {
 namespace parse {
 
-  auto  Parse( reader& s, zmap& z, const zval* revive ) -> zmap&;
+  auto  Parse( reader&, zmap&, const hints& ) -> zmap&;
 
   // reader implementation
 
@@ -132,6 +132,160 @@ namespace parse {
           && (four[3] = getnext()) != '\0';
     }
 
+  // hints implementation
+
+  hints::hints():
+    level( nullptr )  {}
+
+  hints::hints( const zval& z, const zval* l ):
+    zval( z ), level( l ) {}
+
+  hints::hints( const zmap& z ): zval( zmap{
+    { "char",     zval( (char)0 ) },
+    { "byte",     zval( (byte)0 ) },
+    { "int16",    zval( (int16_t)0 ) },
+    { "int32",    zval( (int32_t)0 ) },
+    { "int64",    zval( (int64_t)0 ) },
+    { "uint16",   zval( (word16_t)0 ) },
+    { "word16",   zval( (word16_t)0 ) },
+    { "uint32",   zval( (word32_t)0 ) },
+    { "word32",   zval( (word32_t)0 ) },
+    { "uint64",   zval( (word64_t)0 ) },
+    { "word64",   zval( (word64_t)0 ) },
+    { "float",    zval( (float)0 ) },
+    { "double",   zval( (double)0 ) },
+    { "string",   zval( (const char*)"" ) },
+    { "charstr",  zval( (const char*)"" ) },
+    { "widestr",  zval( (const widechar*)"\0" ) },
+    { "array_char",    zval( array_char() ) },
+    { "array_byte",    zval( array_byte() ) },
+    { "array_int16",   zval( array_int16() ) },
+    { "array_int32",   zval( array_int32() ) },
+    { "array_int64",   zval( array_int64() ) },
+    { "array_uint16",  zval( array_word16() ) },
+    { "array_word16",  zval( array_word16() ) },
+    { "array_uint32",  zval( array_word32() ) },
+    { "array_word32",  zval( array_word32() ) },
+    { "array_uint64",  zval( array_word64() ) },
+    { "array_word64",  zval( array_word64() ) },
+    { "array_float",   zval( array_float() ) },
+    { "array_double",  zval( array_double() ) },
+    { "array_string",  zval( array_widestr() ) },
+    { "array_widestr", zval( array_widestr() ) },
+    { "array_charstr", zval( array_charstr() ) },
+    { "array_zmap",    zval( array_zmap() ) },
+    { "array_zval",    zval( array_zval() ) } } )
+  {
+    IndexVal( *(zval*)(level = get_zmap()->put( 1U, z )) );
+  }
+
+  auto  hints::operator []( const mtc::zmap::key& key ) const -> hints
+  {
+    if ( level != nullptr && level->get_type() == zval::z_zmap ) // structure description
+    {
+      auto  pvalue = level->get_zmap()->get( key );    // points to the variable description or nullptr
+
+      while ( pvalue != nullptr && pvalue->get_type() == zval::z_charstr )
+        pvalue = get_zmap()->get( *pvalue->get_charstr() );
+
+      return hints( *this, pvalue );
+    }
+    return hints();
+  }
+
+  auto  hints::type() const -> zval::z_type
+  {
+    return zval::z_type( level != nullptr ? level->get_type() : zval::z_untyped );
+  }
+
+  auto  hints::next() const -> hints
+  {
+    if ( level != nullptr )
+    {
+      if ( level->get_type() == zval::z_array_zval && !level->get_array_zval()->empty() )
+      {
+        auto  plevel = level->get_array_zval()->data();
+
+        while ( plevel != nullptr && plevel->get_type() == zval::z_charstr )
+          plevel = get_zmap()->get( *plevel->get_charstr() );
+
+        return hints( *this, plevel );
+      }
+    }
+
+    return hints();
+  }
+
+ /*
+  * IndexVal( val )
+  *
+  * Индексирует и преобразует некоторое значение, которое уже помещено в таблицу типов
+  * и адресуется в ней.
+  *
+  * Значение модифицируется по ходу дела.
+  */
+  void  hints::IndexVal( zval& value )
+  {
+    // структура может быть
+    //  - либо декларацией нового типа,
+    //  - либо определением массива,
+    //  - либо просто структурой
+    if ( value.get_type() == zval::z_zmap )
+    {
+      auto& rmap = *value.get_zmap();
+      auto  type = rmap.get_charstr( "type" );
+      auto  item = rmap.get( "items" );
+
+      // если есть поле 'type', то это либо декларация типа структуры,
+      // либо определение массива с возможным типом элементов
+      if ( type != nullptr )
+      {
+        if ( item == nullptr )
+          throw std::invalid_argument( "no 'items' provided in schema" );
+
+        // для массивов определение типа может быть
+        //  - либо строкой,
+        //  - либо структурой,
+        //  - либо структурой, задающей новый тип
+        if ( *type == "array" )
+        {
+          if ( item->get_type() == zval::z_charstr )
+          {
+            if ( get_zmap()->get( "array_" + *item->get_charstr() ) != nullptr )
+              return (void)(value = "array_" + *item->get_charstr() );
+
+            if ( get_zmap()->get( *item->get_charstr() ) != nullptr )
+              return (void)(value = array_zval{ *item->get_charstr() });
+
+            throw std::invalid_argument( "unknown type '" + *item->get_charstr() + "'" );
+          }
+
+          if ( item->get_type() == zval::z_zmap )
+            return IndexVal( value = *item->get_zmap() );
+
+          throw std::invalid_argument( "'items' expected to be string or struct in '" + *type + "'" );
+        }
+          else
+        // это не массив, а декларация нового типа;
+        // - он не должен быть уже определён ранее,
+        // - item должен быть структурой
+        if ( item->get_type() == zval::z_zmap )
+        {
+          if ( get_zmap()->get( *type ) != nullptr )
+            throw std::invalid_argument( "type redefinition: '" + *type + "'" );
+
+          return IndexVal( value = *get_zmap()->set_zmap( *type, *item->get_zmap() ) );
+        }
+        throw std::invalid_argument( "'items' expected to be struct in '" + *type + "'" );
+      }
+      for ( auto it: rmap )
+        IndexVal( it.second );
+    }
+      else
+    if ( value.get_type() != zval::z_charstr )
+      throw std::invalid_argument( "invalid object type" );
+  }
+
   // parse helpers
 
   struct noheader {  void operator ()( reader& ) const {}  };
@@ -184,13 +338,20 @@ namespace parse {
 
       if ( !is_num_char( chnext = stm.nospace() ) )
       {
-        throw error( "0..9 expected" )
+        throw error( mtc::strprintf( "unexpected character '%c', 0..9 expected", chnext ) )
           .set_code_lineid( __LINE__ )
           .set_json_lineid( stm.getline() );
       }
 
       for ( u = ((uint8_t)chnext - (uint8_t)'0'); is_num_char( chnext = stm.getnext() ); )
         u = u * 10 + (uint8_t)chnext - '0';
+
+      if ( !isspace(chnext) && chnext != ',' && chnext != '}' && chnext != ']' )
+      {
+        throw error( mtc::strprintf( "unexpected character '%c'", chnext ) )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( stm.getline() );
+      }
 
       return stm.putback( chnext ), u;
     }
@@ -450,7 +611,7 @@ namespace parse {
       if ( val.get_charstr() != nullptr )
       {
         if ( utf8::detect( *val.get_charstr() ) )
-          val.set_widestr( std::move( utf16::encode( *val.get_charstr() ) ) );
+          val.set_widestr( utf16::encode( *val.get_charstr() ) );
       }
         else
       if ( val.get_widestr() != nullptr )
@@ -475,397 +636,331 @@ namespace parse {
       return val;
     }
 
-  auto  Parse( reader& s, byte_t&   u, const zval* ) -> byte_t&   {  return uParse( s, u );  }
-  auto  Parse( reader& s, uint16_t& u, const zval* ) -> uint16_t& {  return uParse( s, u );  }
-  auto  Parse( reader& s, uint32_t& u, const zval* ) -> uint32_t& {  return uParse( s, u );  }
-  auto  Parse( reader& s, uint64_t& u, const zval* ) -> uint64_t& {  return uParse( s, u );  }
+  auto  Parse( reader& s, byte_t&   u, const hints& ) -> byte_t&   {  return uParse( s, u );  }
+  auto  Parse( reader& s, uint16_t& u, const hints& ) -> uint16_t& {  return uParse( s, u );  }
+  auto  Parse( reader& s, uint32_t& u, const hints& ) -> uint32_t& {  return uParse( s, u );  }
+  auto  Parse( reader& s, uint64_t& u, const hints& ) -> uint64_t& {  return uParse( s, u );  }
 
-  auto  Parse( reader& s, char_t&   i, const zval* ) -> char_t&   {  return iParse( s, i );  }
-  auto  Parse( reader& s, int8_t&   i, const zval* ) -> int8_t&   {  return iParse( s, i );  }
-  auto  Parse( reader& s, int16_t&  i, const zval* ) -> int16_t&  {  return iParse( s, i );  }
-  auto  Parse( reader& s, int32_t&  i, const zval* ) -> int32_t&  {  return iParse( s, i );  }
-  auto  Parse( reader& s, int64_t&  i, const zval* ) -> int64_t&  {  return iParse( s, i );  }
+  auto  Parse( reader& s, char_t&   i, const hints& ) -> char_t&   {  return iParse( s, i );  }
+  auto  Parse( reader& s, int8_t&   i, const hints& ) -> int8_t&   {  return iParse( s, i );  }
+  auto  Parse( reader& s, int16_t&  i, const hints& ) -> int16_t&  {  return iParse( s, i );  }
+  auto  Parse( reader& s, int32_t&  i, const hints& ) -> int32_t&  {  return iParse( s, i );  }
+  auto  Parse( reader& s, int64_t&  i, const hints& ) -> int64_t&  {  return iParse( s, i );  }
 
-  auto  Parse( reader& s, float&    f, const zval* ) -> float&    {  return fParse( s, f );  }
-  auto  Parse( reader& s, double&   f, const zval* ) -> double&   {  return fParse( s, f );  }
+  auto  Parse( reader& s, float&    f, const hints& ) -> float&    {  return fParse( s, f );  }
+  auto  Parse( reader& s, double&   f, const hints& ) -> double&   {  return fParse( s, f );  }
 
-  auto  Parse( reader& s, charstr& r, const zval* ) -> charstr&
+  auto  Parse( reader& s, charstr&  r, const hints& ) -> charstr&
+  {
+    zval  z;
+
+    if ( sParse( s, z ).get_charstr() == nullptr )
     {
-      zval  z;
-
-      if ( sParse( s, z ).get_charstr() == nullptr )
-      {
-        throw error( "string cannot be parsed as simple character string" )
-          .set_code_lineid( __LINE__ )
-          .set_json_lineid( s.getline() );
-      }
-
-      return r = std::move( *z.get_charstr() );
+      throw error( "string cannot be parsed as simple character string" )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( s.getline() );
     }
 
-  auto  Parse( reader& s, widestr& r, const zval* ) -> widestr&
+    return r = std::move( *z.get_charstr() );
+  }
+
+  auto  Parse( reader& s, widestr&  r, const hints& ) -> widestr&
+  {
+    zval      zv;
+    charstr*  ps;
+    widestr*  pw;
+
+    if ( (ps = sParse( s, zv ).get_charstr()) == nullptr && (pw = zv.get_widestr()) == nullptr )
     {
-      zval      zv;
-      charstr*  ps;
-      widestr*  pw;
-
-      if ( (ps = sParse( s, zv ).get_charstr()) == nullptr && (pw = zv.get_widestr()) == nullptr )
-      {
-        throw error( "string cannot be parsed (not a string)" )
-          .set_code_lineid( __LINE__ )
-          .set_json_lineid( s.getline() );
-      }
-
-    // if a value is character string, check if it is an utf8 string; convert utf8
-    // to widechar string directly
-      if ( ps != nullptr )
-      {
-        return utf8::detect( *ps )
-          ? r = std::move( utf16::encode( *ps ) )
-          : r = std::move( utf16::expand( *ps ) );
-      }
-      if ( pw != nullptr )
-      {
-        return utf8::detect( *pw )
-          ? r = std::move( utf::encode( utf16::out(), utf8::in( *pw ) ) )
-          : r = std::move( *pw );
-      }
-      throw std::logic_error( "must not get control" );
+      throw error( "string cannot be parsed (not a string)" )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( s.getline() );
     }
+
+  // if a value is character string, check if it is an utf8 string; convert utf8
+  // to widechar string directly
+    if ( ps != nullptr )
+    {
+      return utf8::detect( *ps )
+        ? r = utf16::encode( *ps )
+        : r = utf16::expand( *ps );
+    }
+    if ( pw != nullptr )
+    {
+      return utf8::detect( *pw )
+        ? r = utf::encode( utf16::out(), utf8::in( *pw ) )
+        : r = *pw;
+    }
+    throw std::logic_error( "must not get control" );
+  }
 
   template <class V>
-  auto  Parse( reader& stm, std::vector<V>& out, const zval* revive = nullptr ) -> std::vector<V>&
-    {
-      char  chnext;
-
-      if ( (chnext = stm.nospace()) != '[' )
-      {
-        throw error( "'[' expected" )
-          .set_code_lineid( __LINE__ )
-          .set_json_lineid( stm.getline() );
-      }
-
-      while ( (chnext = stm.nospace()) != '\0' && chnext != ']' )
-        {
-          V avalue;
-
-          out.push_back( std::move( Parse( stm.putback( chnext ), avalue, revive ) ) );
-
-          if ( (chnext = stm.nospace()) == ',' )
-            continue;
-          if ( chnext == ']' )  stm.putback( chnext );
-            else
-          {
-            throw error( "',' or ']' expected" )
-              .set_code_lineid( __LINE__ )
-              .set_json_lineid( stm.getline() );
-          }
-        }
-
-      if ( chnext != ']' )
-      {
-        throw error( "']' expected" )
-          .set_code_lineid( __LINE__ )
-          .set_json_lineid( stm.getline() );
-      }
-
-      return out;
-    }
-
-  static zmap type_set(
+  auto  Parse( reader& stm, std::vector<V>& out, const hints& hint ) -> std::vector<V>&
   {
-    { "char",     (uint32_t)zval::z_char },
-    { "int8",     (uint32_t)zval::z_char },
-    { "byte",     (uint32_t)zval::z_byte },
-    { "uint8",    (uint32_t)zval::z_byte },
-    { "int16",    (uint32_t)zval::z_int16 },
-    { "int32",    (uint32_t)zval::z_int32 },
-    { "int64",    (uint32_t)zval::z_int64 },
-    { "word16",   (uint32_t)zval::z_word16 },
-    { "word32",   (uint32_t)zval::z_word32 },
-    { "word64",   (uint32_t)zval::z_word64 },
-    { "float",    (uint32_t)zval::z_float },
-    { "double",   (uint32_t)zval::z_double },
+    char  chnext;
 
-    { "charstr",  (uint32_t)zval::z_charstr },
-    { "widestr",  (uint32_t)zval::z_widestr },
-
-    { "array_char"  ,   (uint32_t)zval::z_array_char    },
-    { "array_byte"  ,   (uint32_t)zval::z_array_byte    },
-    { "array_int16" ,   (uint32_t)zval::z_array_int16   },
-    { "array_word16",   (uint32_t)zval::z_array_word16  },
-    { "array_int32" ,   (uint32_t)zval::z_array_int32   },
-    { "array_word32",   (uint32_t)zval::z_array_word32  },
-    { "array_int64" ,   (uint32_t)zval::z_array_int64   },
-    { "array_word64",   (uint32_t)zval::z_array_word64  },
-    { "array_float" ,   (uint32_t)zval::z_array_float   },
-    { "array_double",   (uint32_t)zval::z_array_double  },
-
-    { "array_charstr",  (uint32_t)zval::z_array_charstr },
-    { "array_widestr",  (uint32_t)zval::z_array_widestr }
-  } );
-
-  auto  map_type( const std::string& s_type ) -> unsigned
+    if ( (chnext = stm.nospace()) != '[' )
     {
-      auto  pval = type_set.get_word32( s_type );
-
-      return pval != nullptr ? *pval : (unsigned)zval::z_untyped;
+      throw error( "'[' expected" )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( stm.getline() );
     }
 
-  auto  Parse( reader& s, zmap& z, const zval* revive ) -> zmap&
+    while ( (chnext = stm.nospace()) != '\0' && chnext != ']' )
     {
-      return Parse( s, z, revive != nullptr ? revive->get_zmap() : nullptr );
-    }
+      V avalue;
 
-  auto  Parse( reader& s, zval& z, const zval* revive ) -> zval&
-    {
-      char        chnext;
-      unsigned    v_type = zval::z_untyped;
-      const zmap* z_data = nullptr;
+      out.push_back( std::move( Parse( stm.putback( chnext ), avalue, hint ) ) );
 
-      if ( revive != nullptr )
+      if ( (chnext = stm.nospace()) == ',' )
+        continue;
+      if ( chnext == ']' )  stm.putback( chnext );
+        else
       {
-        switch ( revive->get_type() )
+        throw error( "',' or ']' expected" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( stm.getline() );
+      }
+    }
+
+    if ( chnext != ']' )
+    {
+      throw error( "']' expected" )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( stm.getline() );
+    }
+
+    return out;
+  }
+
+  auto  Parse( reader& s, zval& z, const hints& hint ) -> zval&
+  {
+    char  chnext;
+    auto  v_type = hint.type();
+
+    switch ( v_type )
+    {
+      case zval::z_char:    return Parse( s, *z.set_char(), hint ), z;
+      case zval::z_int16:   return Parse( s, *z.set_int16(), hint ), z;
+      case zval::z_int32:   return Parse( s, *z.set_int32(), hint ), z;
+      case zval::z_int64:   return Parse( s, *z.set_int64(), hint ), z;
+      case zval::z_byte:    return Parse( s, *z.set_byte(), hint ), z;
+      case zval::z_word16:  return Parse( s, *z.set_word16(), hint ), z;
+      case zval::z_word32:  return Parse( s, *z.set_word32(), hint ), z;
+      case zval::z_word64:  return Parse( s, *z.set_word64(), hint ), z;
+      case zval::z_float:   return Parse( s, *z.set_float(), hint ), z;
+      case zval::z_double:  return Parse( s, *z.set_double(), hint ), z;
+      case zval::z_charstr: return Parse( s, *z.set_charstr(), hint ), z;
+      case zval::z_widestr: return Parse( s, *z.set_widestr(), hint ), z;
+      case zval::z_zmap:    return Parse( s, *z.set_zmap(), hint ), z;
+
+      case zval::z_array_char:    return Parse( s, *z.set_array_char(), hint ), z;
+      case zval::z_array_byte:    return Parse( s, *z.set_array_byte(), hint ), z;
+      case zval::z_array_int16:   return Parse( s, *z.set_array_int16(), hint ), z;
+      case zval::z_array_int32:   return Parse( s, *z.set_array_int32(), hint ), z;
+      case zval::z_array_int64:   return Parse( s, *z.set_array_int64(), hint ), z;
+      case zval::z_array_word16:  return Parse( s, *z.set_array_word16(), hint ), z;
+      case zval::z_array_word32:  return Parse( s, *z.set_array_word32(), hint ), z;
+      case zval::z_array_word64:  return Parse( s, *z.set_array_word64(), hint ), z;
+      case zval::z_array_float:   return Parse( s, *z.set_array_float(), hint ), z;
+      case zval::z_array_double:  return Parse( s, *z.set_array_double(), hint ), z;
+      case zval::z_array_charstr: return Parse( s, *z.set_array_charstr(), hint ), z;
+      case zval::z_array_widestr: return Parse( s, *z.set_array_widestr(), hint ), z;
+      case zval::z_array_zmap:    return Parse( s, *z.set_array_zmap(), {} ), z;
+      case zval::z_array_zval:    return Parse( s, *z.set_array_zval(), hint.next() ), z;
+      default:  break;
+    }
+
+  // untyped xvalue load: object zarray {...}, untyped array [...], string "...", integer -?[0-9]+ or float -?[0-9]+\.?[0-9]*([Ee]-?[0-9]+)?
+    switch ( chnext = s.nospace() )
+    {
+      case '{':
+        return Parse( s.putback( chnext ), *z.set_zmap(), {} ), z;
+
+      case '[':
         {
-          case zval::z_char:        v_type = *revive->get_char();  break;
-          case zval::z_byte:        v_type = *revive->get_byte();  break;
-          case zval::z_int16:       v_type = *revive->get_int16();  break;
-          case zval::z_word16:      v_type = *revive->get_word16();  break;
-          case zval::z_int32:       v_type = *revive->get_int32();  break;
-          case zval::z_word32:      v_type = *revive->get_word32();  break;
-          case zval::z_charstr:     v_type = map_type( *revive->get_charstr() );  break;
-          case zval::z_zmap:
-          case zval::z_array_zmap:  z_data = revive->get_zmap();  break;
-        }
-      }
+          auto  arrval = z.set_array_zval();
+          zval  newval;
+          zval  _zvrev;
 
-      switch ( v_type )
-      {
-        case zval::z_char:    return Parse( s, *z.set_char() ), z;
-        case zval::z_int16:   return Parse( s, *z.set_int16()  ), z;
-        case zval::z_int32:   return Parse( s, *z.set_int32()  ), z;
-        case zval::z_int64:   return Parse( s, *z.set_int64()  ), z;
-        case zval::z_byte:    return Parse( s, *z.set_byte()   ), z;
-        case zval::z_word16:  return Parse( s, *z.set_word16() ), z;
-        case zval::z_word32:  return Parse( s, *z.set_word32() ), z;
-        case zval::z_word64:  return Parse( s, *z.set_word64() ), z;
-        case zval::z_float:   return Parse( s, *z.set_float()  ), z;
-        case zval::z_double:  return Parse( s, *z.set_double() ), z;
-        case zval::z_charstr: return Parse( s, *z.set_charstr() ), z;
-        case zval::z_widestr: return Parse( s, *z.set_widestr() ), z;
-        case zval::z_zmap:    return Parse( s, *z.set_zmap(), z_data ), z;
+          Parse( s.putback( chnext ), *arrval, {} );
 
-        case zval::z_array_char:    return Parse( s, *z.set_array_char() ), z;
-        case zval::z_array_byte:    return Parse( s, *z.set_array_byte() ), z;
-        case zval::z_array_int16:   return Parse( s, *z.set_array_int16() ), z;
-        case zval::z_array_int32:   return Parse( s, *z.set_array_int32() ), z;
-        case zval::z_array_int64:   return Parse( s, *z.set_array_int64() ), z;
-        case zval::z_array_word16:  return Parse( s, *z.set_array_word16() ), z;
-        case zval::z_array_word32:  return Parse( s, *z.set_array_word32() ), z;
-        case zval::z_array_word64:  return Parse( s, *z.set_array_word64() ), z;
-        case zval::z_array_float:   return Parse( s, *z.set_array_float() ), z;
-        case zval::z_array_double:  return Parse( s, *z.set_array_double() ), z;
-        case zval::z_array_charstr: return Parse( s, *z.set_array_charstr() ), z;
-        case zval::z_array_widestr: return Parse( s, *z.set_array_widestr() ), z;
-        default:  break;
-      }
+        // check if std::vector<zval> is convertible to simple types; if is, try convert to simple types
+          if ( arrval->empty() )
+            return z;
 
-    // untyped xvalue load: object zarray {...}, untyped array [...], string "...", integer -?[0-9]+ or float -?[0-9]+\.?[0-9]*([Ee]-?[0-9]+)?
-      switch ( chnext = s.nospace() )
-      {
-        case '{':
-          return Parse( s.putback( chnext ), *z.set_zmap(), z_data ), z;
-
-        case '[':
-          {
-            auto        arrval = z.set_array_zval();
-            zval        newval;
-            zval        _zvrev;
-            const zval* pzvrev = nullptr;
-
-            if ( z_data != nullptr )
-              {
-                _zvrev.set_zmap( *z_data );  pzvrev = &_zvrev;
-              }
-
-            Parse( s.putback( chnext ), *arrval, pzvrev );
-
-          // check if std::vector<zval> is convertible to simple types; if is, try convert to simple types
-            if ( arrval->empty() )
+          for ( auto prev = arrval->begin(), next = prev + 1; next != arrval->end(); prev = next++ )
+            if ( next->get_type() != prev->get_type() )
               return z;
 
-            for ( auto prev = arrval->begin(), next = prev + 1; next != arrval->end(); prev = next++ )
-              if ( next->get_type() != prev->get_type() )
-                return z;
-
-            switch ( arrval->front().get_type() )
-            {
-            # define  derive_transform( _type_ )                                \
-              case zval::z_##_type_:                                            \
-                {                                                               \
-                  mtc::array_##_type_&  newarr = *newval.set_array_##_type_();  \
-                                                                                \
-                  for ( auto it: *arrval )                                      \
-                    newarr.push_back( std::move( *it.get_##_type_() ) );        \
-                  break;                                                        \
-                }
-              derive_transform( char )
-              derive_transform( byte )
-              derive_transform( int16 )
-              derive_transform( int32 )
-              derive_transform( int64 )
-              derive_transform( float )
-              derive_transform( word16 )
-              derive_transform( word32 )
-              derive_transform( word64 )
-              derive_transform( double )
-              derive_transform( charstr )
-              derive_transform( widestr )
-              derive_transform( zmap )
-            # undef  derive_transform
-              default:  return z;
-            }
-            z = std::move( newval );
-          }
-          return z;
-
-        case '\"':
-          return zsLoad( s.putback( chnext ), z );
-
-        default:  break;
-      }
-      if ( is_int_char( chnext ) )
-      {
-        charstr cvalue( 1, chnext );
-        bool    bpoint;
-        bool    bexpon;
-        char    chprev;
-
-        for ( chprev = '\0', bexpon = bpoint = false; ; )
-        {
-          if ( is_num_char( chnext = s.getnext() ) )
+          switch ( arrval->front().get_type() )
           {
-            cvalue.push_back( chprev = chnext );
+          # define  derive_transform( _type_ )                                \
+            case zval::z_##_type_:                                            \
+              {                                                               \
+                mtc::array_##_type_&  newarr = *newval.set_array_##_type_();  \
+                                                                              \
+                for ( auto it: *arrval )                                      \
+                  newarr.push_back( std::move( *it.get_##_type_() ) );        \
+                break;                                                        \
+              }
+            derive_transform( char )
+            derive_transform( byte )
+            derive_transform( int16 )
+            derive_transform( int32 )
+            derive_transform( int64 )
+            derive_transform( float )
+            derive_transform( word16 )
+            derive_transform( word32 )
+            derive_transform( word64 )
+            derive_transform( double )
+            derive_transform( charstr )
+            derive_transform( widestr )
+            derive_transform( zmap )
+          # undef  derive_transform
+            default:  return z;
           }
-            else
-          if ( chnext == '.' )
-          {
-            if ( bpoint || bexpon )
-            {
-              throw error( "unexpected '.' in numeric format" )
-                .set_code_lineid( __LINE__ )
-                .set_json_lineid( s.getline() );
-            }
-            cvalue.push_back( chprev = chnext );
-              bpoint = true;
-          }
-            else
-          if ( chnext == 'e' || chnext == 'E' )
-          {
-            if ( bexpon )
-            {
-              throw error( "unexpected 'e' in numeric format" )
-                .set_code_lineid( __LINE__ )
-                .set_json_lineid( s.getline() );
-            }
-            cvalue.push_back( chprev = chnext );
-              bexpon = true;
-          }
-            else
-          if ( chnext == '-' )
-          {
-            if ( chprev != 'e' && chprev != 'E' )
-            {
-              throw error( "unexpected '-' in numeric format" )
-                .set_code_lineid( __LINE__ )
-                .set_json_lineid( s.getline() );
-            }
-            cvalue.push_back( chprev = chnext );
-          }
-            else
-          {
-            s.putback( chnext );
-            break;
-          }
+          z = std::move( newval );
         }
-        if ( bpoint || bexpon )
-        {
-          char*   endptr;
-          double  dvalue = strtod( cvalue.c_str(), &endptr );
+        return z;
 
-          if ( *endptr != '\0' )
+      case '\"':
+        return zsLoad( s.putback( chnext ), z );
+
+      default:  break;
+    }
+    if ( is_int_char( chnext ) )
+    {
+      charstr cvalue( 1, chnext );
+      bool    bpoint;
+      bool    bexpon;
+      char    chprev;
+
+      for ( chprev = '\0', bexpon = bpoint = false; ; )
+      {
+        if ( is_num_char( chnext = s.getnext() ) )
+        {
+          cvalue.push_back( chprev = chnext );
+        }
+          else
+        if ( chnext == '.' )
+        {
+          if ( bpoint || bexpon )
           {
-            throw error( "invalid numeric format" )
+            throw error( "unexpected '.' in numeric format" )
               .set_code_lineid( __LINE__ )
               .set_json_lineid( s.getline() );
           }
-          z.set_double( dvalue );
+          cvalue.push_back( chprev = chnext );
+            bpoint = true;
+        }
+          else
+        if ( chnext == 'e' || chnext == 'E' )
+        {
+          if ( bexpon )
+          {
+            throw error( "unexpected 'e' in numeric format" )
+              .set_code_lineid( __LINE__ )
+              .set_json_lineid( s.getline() );
+          }
+          cvalue.push_back( chprev = chnext );
+            bexpon = true;
+        }
+          else
+        if ( chnext == '-' )
+        {
+          if ( chprev != 'e' && chprev != 'E' )
+          {
+            throw error( "unexpected '-' in numeric format" )
+              .set_code_lineid( __LINE__ )
+              .set_json_lineid( s.getline() );
+          }
+          cvalue.push_back( chprev = chnext );
         }
           else
         {
-          char*   endptr;
-          int32_t nvalue = strtol( cvalue.c_str(), &endptr, 10 );
+          s.putback( chnext );
+          break;
+        }
+      }
+      if ( bpoint || bexpon )
+      {
+        char*   endptr;
+        double  dvalue = strtod( cvalue.c_str(), &endptr );
 
-          if ( *endptr != '\0' )
-          {
-            throw error( "invalid numeric format" )
-              .set_code_lineid( __LINE__ )
-              .set_json_lineid( s.getline() );
-          }
-          z.set_int32( nvalue );
+        if ( *endptr != '\0' )
+        {
+          throw error( "invalid numeric format" )
+            .set_code_lineid( __LINE__ )
+            .set_json_lineid( s.getline() );
         }
-        return z;
+        z.set_double( dvalue );
       }
+        else
+      {
+        char*   endptr;
+        int32_t nvalue = strtol( cvalue.c_str(), &endptr, 10 );
 
-    // check for boolean represented as byte
-      if ( chnext == 't' )
-      {
-        if ( (chnext = s.getnext()) != 'r'
-          || (chnext = s.getnext()) != 'u'
-          || (chnext = s.getnext()) != 'e' )
+        if ( *endptr != '\0' )
         {
-          throw error( strprintf( "unexpected character '%c'", chnext ) )
+          throw error( "invalid numeric format" )
             .set_code_lineid( __LINE__ )
             .set_json_lineid( s.getline() );
         }
-        return z.set_byte( 1 ), z;
+        z.set_int32( nvalue );
       }
-        else
-      if ( chnext == 'f' )
-      {
-        if ( (chnext = s.getnext()) != 'a'
-          || (chnext = s.getnext()) != 'l'
-          || (chnext = s.getnext()) != 's'
-          || (chnext = s.getnext()) != 'e' )
-        {
-          throw error( strprintf( "unexpected character '%c'", chnext ) )
-            .set_code_lineid( __LINE__ )
-            .set_json_lineid( s.getline() );
-        }
-        return z.set_byte( 0 ), z;
-      }
-        else
-      if ( chnext == 'n' )
-      {
-        if ( (chnext = s.getnext()) != 'u'
-          || (chnext = s.getnext()) != 'l'
-          || (chnext = s.getnext()) != 'l' )
-        {
-          throw error( strprintf( "unexpected character '%c'", chnext ) )
-            .set_code_lineid( __LINE__ )
-            .set_json_lineid( s.getline() );
-        }
-        return z.set_charstr(), z;
-      }
-        else
+      return z;
+    }
+
+  // check for boolean represented as byte
+    if ( chnext == 't' )
+    {
+      if ( (chnext = s.getnext()) != 'r'
+        || (chnext = s.getnext()) != 'u'
+        || (chnext = s.getnext()) != 'e' )
       {
         throw error( strprintf( "unexpected character '%c'", chnext ) )
           .set_code_lineid( __LINE__ )
           .set_json_lineid( s.getline() );
       }
+      return z.set_byte( 1 ), z;
     }
+      else
+    if ( chnext == 'f' )
+    {
+      if ( (chnext = s.getnext()) != 'a'
+        || (chnext = s.getnext()) != 'l'
+        || (chnext = s.getnext()) != 's'
+        || (chnext = s.getnext()) != 'e' )
+      {
+        throw error( strprintf( "unexpected character '%c'", chnext ) )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
+      return z.set_byte( 0 ), z;
+    }
+      else
+    if ( chnext == 'n' )
+    {
+      if ( (chnext = s.getnext()) != 'u'
+        || (chnext = s.getnext()) != 'l'
+        || (chnext = s.getnext()) != 'l' )
+      {
+        throw error( strprintf( "unexpected character '%c'", chnext ) )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
+      return z.set_charstr(), z;
+    }
+      else
+    {
+      throw error( strprintf( "unexpected character '%c'", chnext ) )
+        .set_code_lineid( __LINE__ )
+        .set_json_lineid( s.getline() );
+    }
+  }
 
-  auto  Parse( reader& s, zmap& z, const zmap* revive ) -> zmap&
+  auto  Parse( reader& s, zmap& z, const parse::hints& hint ) -> zmap&
   {
     char  chnext;
 
@@ -885,13 +980,15 @@ namespace parse {
   // char by char until end or '}'
     while ( (chnext = s.nospace()) != '\0' && chnext != '}' )
     {
-      zval        zv_key;
-      zval*       newval = nullptr;
-      const zval* revval = nullptr;
+      zval  zv_key;
+      zval* newval = nullptr;
+      auto  z_hint = hints();
 
     // get variable name as widestring
       try
-      {  Parse( s.putback( chnext ), zv_key );  }
+      {
+        Parse( s.putback( chnext ), zv_key, {} );
+      }
       catch ( const error& jx )
       {
         throw error( strprintf( "%s while parsing variable name", jx.what() ) )
@@ -902,19 +999,19 @@ namespace parse {
       if ( zv_key.get_charstr() != nullptr )
       {
         newval = z.put( *zv_key.get_charstr() );
-        revval = revive != nullptr ? revive->get( *zv_key.get_charstr() ) : nullptr;
+        z_hint = hint[*zv_key.get_charstr()];
       }
         else
       if ( zv_key.get_widestr() != nullptr )
       {
         newval = z.put( *zv_key.get_widestr() );
-        revval = revive != nullptr ? revive->get( *zv_key.get_widestr() ) : nullptr;
+        z_hint = hint[*zv_key.get_widestr()];
       }
         else
       if ( zv_key.get_int32() != nullptr )
       {
         newval = z.put( *zv_key.get_int32() );
-        revval = revive != nullptr ? revive->get( *zv_key.get_int32() ) : nullptr;
+        z_hint = hint[*zv_key.get_int32()];
       }
         else
       {
@@ -933,7 +1030,9 @@ namespace parse {
 
     // get the value
       try
-      {  Parse( s, *newval, revval );  }
+      {
+        Parse( s, *newval, z_hint );
+      }
       catch ( const error& jx )
       {
         throw error( strprintf( "%s -> %s", zv_key.to_string().c_str(), jx.what() ) )
@@ -964,35 +1063,33 @@ namespace parse {
     return z;
   }
 
-  auto  Parse( reader& src, array_char& out, const zval* revive ) -> array_char&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_byte& out, const zval* revive ) -> array_byte&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_int16& out, const zval* revive ) -> array_int16&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_word16& out, const zval* revive ) -> array_word16&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_int32& out,  const zval* revive ) -> array_int32&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_word32& out, const zval* revive ) -> array_word32&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_int64& out,  const zval* revive ) -> array_int64&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_word64& out, const zval* revive ) -> array_word64&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_float& out,  const zval* revive ) -> array_float&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_double& out, const zval* revive ) -> array_double&
-    {  return Parse<>( src, out, revive );  }
-
-  auto  Parse( reader& src, array_charstr& out, const zval* revive ) -> array_charstr&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_widestr& out, const zval* revive ) -> array_widestr&
-    {  return Parse<>( src, out, revive );  }
-
-  auto  Parse( reader& src, array_zmap& out, const zval* revive ) -> array_zmap&
-    {  return Parse<>( src, out, revive );  }
-  auto  Parse( reader& src, array_zval& out, const zval* revive ) -> array_zval&
-    {  return Parse<>( src, out, revive );  }
+  auto  Parse( reader& src, array_char& out, const hints& hint ) -> array_char&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_byte& out, const hints& hint ) -> array_byte&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_int16& out, const hints& hint ) -> array_int16&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_word16& out, const hints& hint ) -> array_word16&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_int32& out,  const hints& hint ) -> array_int32&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_word32& out, const hints& hint ) -> array_word32&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_int64& out,  const hints& hint ) -> array_int64&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_word64& out, const hints& hint ) -> array_word64&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_float& out, const hints& hint ) -> array_float&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_double& out, const hints& hint ) -> array_double&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_charstr& out, const hints& hint ) -> array_charstr&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_widestr& out, const hints& hint ) -> array_widestr&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_zmap& out, const hints& hint ) -> array_zmap&
+    {  return Parse<>( src, out, hint );  }
+  auto  Parse( reader& src, array_zval& out, const hints& hint ) -> array_zval&
+    {  return Parse<>( src, out, hint );  }
 
 }}}

@@ -2072,8 +2072,8 @@ namespace patricia  {
   template <class chartype>
   auto  sink<V>::chunk_t::insert( chartype* k, size_t l ) -> chunk_t*
   {
-    int   cmpres;
-    int   equlen;
+    int     cmpres;
+    size_t  equlen;
 
     std::tie( cmpres, equlen ) = lmatch( k, l );
 

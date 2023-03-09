@@ -164,7 +164,7 @@ namespace json {
   template <class O, class D = print::compact>  O*  Print( O* o, const zval& z, const D& decorate = D() )
     {  return Print( o, zval::dump( &z ), decorate );  }
   template <class O, class D = print::compact>  O*  Print( O* o, const zmap& z, const D& decorate = D() )
-    {  return Print( o, zmap::dump( &z ), decorate );  }
+    {  return Print( o, zmap::dump( z ), decorate );  }
 
   template <class O, class D = print::compact>  O*  Print( O* o, const charstr& s, const D& = D() )
     {  return print::charstr( o, s.c_str(), s.length() );  }
@@ -365,7 +365,7 @@ namespace json {
     };
 
     template <class S>
-    auto  make_source( S* on ) -> source<S> {  return source<S>( on );  };
+    auto  make_source( S* on ) -> source<S> {  return source<S>( on );  }
 
     /*
       json::intl::reader - ориентированный на json вычитыватель символов последовательно, с некоторыми
@@ -390,69 +390,87 @@ namespace json {
       int     getline() const {  return lineId;  }
     };
 
-    auto  Parse( reader&, byte_t&,   const zval* revive = nullptr ) -> byte_t&;
-    auto  Parse( reader&, uint16_t&, const zval* revive = nullptr ) -> uint16_t&;
-    auto  Parse( reader&, uint32_t&, const zval* revive = nullptr ) -> uint32_t&;
-    auto  Parse( reader&, uint64_t&, const zval* revive = nullptr ) -> uint64_t&;
+    class hints: protected zval
+    {
+      const zval* level;
 
-    auto  Parse( reader&, char_t& , const zval* revive = nullptr ) -> char_t&;
-    auto  Parse( reader&, int16_t&, const zval* revive = nullptr ) -> int16_t&;
-    auto  Parse( reader&, int32_t&, const zval* revive = nullptr ) -> int32_t&;
-    auto  Parse( reader&, int64_t&, const zval* revive = nullptr ) -> int64_t&;
+    protected:
+      hints( const zval&, const zval* );
 
-    auto  Parse( reader&, float&  , const zval* revive = nullptr ) -> float&;
-    auto  Parse( reader&, double& , const zval* revive = nullptr ) -> double&;
+    public:
+      hints();
+      hints( const mtc::zmap& );
 
-    auto  Parse( reader&, charstr&, const zval* revive = nullptr ) -> charstr&;
-    auto  Parse( reader&, widestr&, const zval* revive = nullptr ) -> widestr&;
+      auto  operator []( const zmap::key& ) const -> hints;
+      auto  type() const -> zval::z_type;
+      auto  next() const -> hints;
 
-    auto  Parse( reader&, zval&, const zval* revive = nullptr ) -> zval&;
-    auto  Parse( reader&, zmap&, const zmap* revive = nullptr ) -> zmap&;
+    protected:
+      void  IndexVal( zval& );
 
-    auto  Parse( reader&, array_char&,   const zval* revive = nullptr ) -> array_char&;
-    auto  Parse( reader&, array_byte&,   const zval* revive = nullptr ) -> array_byte&;
-    auto  Parse( reader&, array_int16&,  const zval* revive = nullptr ) -> array_int16&;
-    auto  Parse( reader&, array_word16&, const zval* revive = nullptr ) -> array_word16&;
-    auto  Parse( reader&, array_int32&,  const zval* revive = nullptr ) -> array_int32&;
-    auto  Parse( reader&, array_word32&, const zval* revive = nullptr ) -> array_word32&;
-    auto  Parse( reader&, array_int64&,  const zval* revive = nullptr ) -> array_int64&;
-    auto  Parse( reader&, array_word64&, const zval* revive = nullptr ) -> array_word64&;
-    auto  Parse( reader&, array_float&,  const zval* revive = nullptr ) -> array_float&;
-    auto  Parse( reader&, array_double&, const zval* revive = nullptr ) -> array_double&;
+    };
 
-    auto  Parse( reader&, array_charstr&, const zval* revive = nullptr ) -> array_charstr&;
-    auto  Parse( reader&, array_widestr&, const zval* revive = nullptr ) -> array_widestr&;
+    auto  Parse( reader&, byte_t&,   const hints& = {} ) -> byte_t&;
+    auto  Parse( reader&, uint16_t&, const hints& = {} ) -> uint16_t&;
+    auto  Parse( reader&, uint32_t&, const hints& = {} ) -> uint32_t&;
+    auto  Parse( reader&, uint64_t&, const hints& = {} ) -> uint64_t&;
 
-    auto  Parse( reader&, array_zmap&, const zval* revive = nullptr ) -> array_zmap&;
-    auto  Parse( reader&, array_zval&, const zval* revive = nullptr ) -> array_zval&;
+    auto  Parse( reader&, char_t& , const hints& = {} ) -> char_t&;
+    auto  Parse( reader&, int16_t&, const hints& = {} ) -> int16_t&;
+    auto  Parse( reader&, int32_t&, const hints& = {} ) -> int32_t&;
+    auto  Parse( reader&, int64_t&, const hints& = {} ) -> int64_t&;
+
+    auto  Parse( reader&, float&  , const hints& = {} ) -> float&;
+    auto  Parse( reader&, double& , const hints& = {} ) -> double&;
+
+    auto  Parse( reader&, charstr&, const hints& = {} ) -> charstr&;
+    auto  Parse( reader&, widestr&, const hints& = {} ) -> widestr&;
+
+    auto  Parse( reader&, zval&, const hints& = {} ) -> zval&;
+    auto  Parse( reader&, zmap&, const hints& = {} ) -> zmap&;
+
+    auto  Parse( reader&, array_char&,   const hints& = {} ) -> array_char&;
+    auto  Parse( reader&, array_byte&,   const hints& = {} ) -> array_byte&;
+    auto  Parse( reader&, array_int16&,  const hints& = {} ) -> array_int16&;
+    auto  Parse( reader&, array_word16&, const hints& = {} ) -> array_word16&;
+    auto  Parse( reader&, array_int32&,  const hints& = {} ) -> array_int32&;
+    auto  Parse( reader&, array_word32&, const hints& = {} ) -> array_word32&;
+    auto  Parse( reader&, array_int64&,  const hints& = {} ) -> array_int64&;
+    auto  Parse( reader&, array_word64&, const hints& = {} ) -> array_word64&;
+    auto  Parse( reader&, array_float&,  const hints& = {} ) -> array_float&;
+    auto  Parse( reader&, array_double&, const hints& = {} ) -> array_double&;
+    auto  Parse( reader&, array_charstr&, const hints& = {} ) -> array_charstr&;
+    auto  Parse( reader&, array_widestr&, const hints& = {} ) -> array_widestr&;
+    auto  Parse( reader&, array_zmap&, const hints& = {} ) -> array_zmap&;
+    auto  Parse( reader&, array_zval&, const hints& = {} ) -> array_zval&;
 
   }
 
   template <class S, class T>
-  S*  Parse( S* s, T& t, const zval& revive = zmap() )
+  S*  Parse( S* s, T& t, const parse::hints& hint = {} )
   {
     parse::source<S>  stream( s );
     parse::reader     reader( stream );
 
-    return parse::Parse( reader, t, &revive ), stream;
+    return parse::Parse( reader, t, hint ), stream;
   }
 
   template <class S>
-  S*  Parse( S* s, zval& x, const zval& revive = zmap() )
+  S*  Parse( S* s, zval& x, const parse::hints& hint = {} )
   {
     parse::source<S>  stream( s );
     parse::reader     reader( stream );
 
-    return parse::Parse( reader, x, &revive ), stream;
+    return parse::Parse( reader, x, hint ), stream;
   }
 
   template <class S>
-  S*  Parse( S* s, zmap& z, const zmap& revive = zmap() )
+  S*  Parse( S* s, zmap& z, const parse::hints& hint = {} )
   {
     parse::source<S>  stream( s );
     parse::reader     reader( stream );
 
-    return parse::Parse( reader, z, &revive ), stream;
+    return parse::Parse( reader, z, hint ), stream;
   }
 
 }}    // json namespace

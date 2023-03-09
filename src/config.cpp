@@ -1,6 +1,6 @@
 # include "../config.h"
 # include "../wcsstr.h"
-# include "../z_js.h"
+# include "../json.h"
 # include "../file.h"
 
 # if defined( _WIN32 )

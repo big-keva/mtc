@@ -1,7 +1,7 @@
 # pragma once
 # if !defined( __mtc_arena_hpp__ )
 # define __mtc_arena_hpp__
-# include <mtc/ptrpatch.h>
+# include "mtc/ptrpatch.h"
 # include <atomic>
 
 namespace mtc {
@@ -128,6 +128,8 @@ namespace mtc {
   public:
     allocator( Arena& mp ) noexcept:
       memoryPool( mp ) {}
+    allocator( allocator&& a ) noexcept:
+      memoryPool( a.memoryPool )  {}
     allocator( const allocator& other ) noexcept:
       memoryPool( other.memoryPool )  {}
     template< class U >
@@ -146,7 +148,7 @@ namespace mtc {
 
     template <class U, class... Args>
     void  construct( U* p, Args&&... args )
-      {  new( p ) U( args... );  }
+      {  new( p ) U( std::forward<Args>( args )... );  }
     template <class U>
     void  destroy( U* p )
       {  if ( p != nullptr )  p->~U();  }
