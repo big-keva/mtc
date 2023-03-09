@@ -1,7 +1,7 @@
 # pragma once
 # if !defined( __mtc_arena_hpp__ )
 # define __mtc_arena_hpp__
-# include "mtc/ptrpatch.h"
+# include "./ptrpatch.h"
 # include <atomic>
 
 namespace mtc {
