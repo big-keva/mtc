@@ -66,7 +66,7 @@ SOFTWARE.
 # include <cassert>
 # include <string>
 # include <cmath>
-# include "mtc/platform.h"
+# include "./platform.h"
 
 # if !defined( __widechar_defined__ )
 # define  __widechar_defined__

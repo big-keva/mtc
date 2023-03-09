@@ -1,6 +1,6 @@
-# include "mtc/zmap.h"
-# include "mtc/utf.hpp"
-# include "mtc/serialize.h"
+# include "../zmap.h"
+# include "../utf.hpp"
+# include "../serialize.h"
 
 namespace mtc
 {
