@@ -154,6 +154,16 @@ namespace patricia  {
       pend( pbeg )  {}
 
   public:
+   ~page()
+      {
+        for ( auto free = std::move( next ); free != nullptr; )
+        {
+          auto  list = std::move( free->next );
+            free = std::move( list );
+        }
+      }
+
+  public:
     static  std::unique_ptr<page> create( size_t space );
     static  std::unique_ptr<page> create( size_t space, std::unique_ptr<page>&& );
     static  std::unique_ptr<page> create( size_t space, const put_to_head& );
