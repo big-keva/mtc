@@ -2104,6 +2104,7 @@ namespace patricia  {
 }}
 
 template <>
+inline
 auto  Serialize( mtc::patricia::tape::tail* o, const void* p, size_t l ) -> mtc::patricia::tape::tail*
   {  return o->put( p, l ), o;  }
 
