@@ -784,7 +784,7 @@ namespace mtc
     {  return vx_type;  }
 
   auto  zval::is_array() const -> bool
-    {  return vx_type >= z_array_char && vx_type <= z_array_zmap;  }
+    {  return vx_type >= z_array_char && vx_type <= z_array_uuid;  }
 
   auto  zval::is_numeric() const -> bool
     {  return vx_type >= z_char && vx_type <= z_double;  }
