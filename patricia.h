@@ -107,20 +107,17 @@ namespace patricia  {
     class page;
 
   public:
-    class pred;
-    class post;
-
-    template <class O>
-    friend O*  Serialize( tape::pred*, const void*, size_t );
-    template <class O>
-    friend O*  Serialize( tape::post*, const void*, size_t );
+    class tail;
 
   public:
     tape() = default;
+    tape( tape&& );
+   ~tape();
+    tape& operator = ( tape&& t );
 
   public:
-    auto  append() -> post;
-    auto  unwind( size_t ) -> pred;
+    auto  append( unsigned ) -> tail;
+    auto  append( tape&& ) -> tape&;
 
   public:
     size_t  GetBufLen() const;
@@ -128,94 +125,162 @@ namespace patricia  {
     O*      Serialize( O* ) const;
 
   protected:
-    std::unique_ptr<page>   head;
-    std::unique_ptr<page>*  last = &head;
+    page*   list = nullptr;
+    page**  last = &list;
 
   };
 
   class tape::page
   {
     friend class tape;
-    friend class post;
-    friend class pred;
 
-    class put_to_tail {};
-    class put_to_head {};
-
-    std::unique_ptr<page> next;
-    size_t                size;
-    char*                 pbeg;
-    char*                 pend;
-
-    page( size_t nbytes, std::unique_ptr<page>&& ppnext ):
-      next( std::move( ppnext ) ),
-      size( nbytes ),
-      pbeg( head() + nbytes ),
-      pend( pbeg )  {}
+    page*     next;
+    unsigned  size;
+    char*     pend;
 
   public:
-   ~page()
-      {
-        for ( auto free = std::move( next ); free != nullptr; )
-        {
-          auto  list = std::move( free->next );
-            free = std::move( list );
-        }
-      }
+    page( unsigned cch ):
+      next( nullptr ),
+      size( cch ),
+      pend( head() )  {}
+   ~page();
 
   public:
-    static  std::unique_ptr<page> create( size_t space );
-    static  std::unique_ptr<page> create( size_t space, std::unique_ptr<page>&& );
-    static  std::unique_ptr<page> create( size_t space, const put_to_head& );
-    static  std::unique_ptr<page> create( size_t space, const put_to_tail& );
+    static  auto  create( unsigned cch ) -> page*
+      {  return new ( new char[cch + sizeof(page)] ) page( cch );  }
 
   public:
-    void  operator delete( void* p )  {  delete[] (char*)p;  }
-
-  public:
-    auto  head() -> char* {  return (char*)(this + 1);  }
-    auto  tail() -> char* {  return size + (char*)this;  }
+    char* head() const  {  return (char*)(this + 1);  }
+    char* tail() const  {  return size + (char*)(this + 1);  }
 
   };
 
-  class tape::post
+  class tape::tail
   {
     friend class tape;
 
-    tape& parent;
+    page*   target;
 
-    post( tape& to ): parent( to )  {}
+  protected:
+    tail( page* p ): target( p )  {}
 
   public:
-    void  operator()( const void*, size_t );
-    auto  ptr() -> post*  {  return this;  }
+   ~tail();
+
+  public:
+    void  put( const void*, size_t );
+    auto  ptr() -> tail*  {  return this;  }
+
   };
 
-  class tape::pred
+  // tape inline implementation
+
+  inline
+  tape::tape( tape&& t ):
+    list( std::move( t.list ) ),
+    last( &list )
   {
-    friend class tape;
+    t.last = &(t.list = nullptr);
+  }
 
-    std::unique_ptr<page>*  toPage;
-    char*                   pstore;
+  inline
+  tape::~tape()
+  {
+    if ( list != nullptr )
+      delete list;
+  }
 
-    pred( tape& to ):
-      toPage( &to.head ),
-      pstore( toPage->get()->pbeg )  {}
+  inline
+  tape& tape::operator = ( tape&& t )
+  {
+    if ( list != nullptr )
+      delete list;
+    for ( last = &(list = t.list); (*last)->next != nullptr; last = &((*last)->next) )
+      (void)NULL;
+    t.last = &(t.list = nullptr);
+      return *this;
+  }
 
-  public:
-    void  operator()( const void*, size_t );
-    auto  ptr() -> pred*  {  return this;  }
-  };
+  inline
+  auto tape::append( unsigned size ) -> tail
+  {
+    if ( *last == nullptr )
+      return tail( *last = page::create( size ) );
+
+    last = &((*last)->next = page::create( size ));
+      return tail( *last );
+  }
+
+  inline
+  auto  tape::append( tape&& t ) -> tape&
+  {
+    if ( *last == nullptr ) list = t.list;
+      else (*last)->next = t.list;
+
+    while ( (*last)->next != nullptr )
+      last = &((*last)->next);
+
+    t.last = &(t.list = nullptr);
+      return *this;
+  }
+
+  inline
+  size_t tape::GetBufLen() const
+  {
+    size_t  size = 0;
+
+    for ( auto p = list; p != nullptr; p = p->next )
+      size += p->pend - p->head();
+
+    return size;
+  }
+
+  template <class O>
+  O*  tape::Serialize( O* o ) const
+  {
+    for ( auto p = list; p != nullptr && o != nullptr; p = p->next )
+      o = ::Serialize( o, p->head(), p->pend - p->head() );
+
+    return o;
+  }
+
+  // tape::page inline implementation
+
+  inline
+  tape::page::~page()
+  {
+    for ( auto list = next; list != nullptr; )
+    {
+      auto  forw = list->next;
+        list->next = nullptr;
+      delete list;
+        list = forw;
+    }
+  }
+
+  // tape::tail inline implementation
+
+  inline
+  tape::tail::~tail()
+  {
+    if ( target->pend != target->tail() )
+      throw std::logic_error( "invalid tail size pre-calculated" );
+  }
+
+  inline
+  void  tape::tail::put( const void* p, size_t l )
+  {
+    auto  top = (const char*)p;
+    auto  end = (const char*)p + l;
+
+    while ( top != end && target->pend != target->tail() )
+      *target->pend++ = *top++;
+
+    if ( top != end )
+      throw std::logic_error( "not enought space allocated to page" );
+  }
 
 }}
-
-template <>
-inline  auto  Serialize( mtc::patricia::tape::pred* pred, const void* buff, size_t size ) -> mtc::patricia::tape::pred*
-  {  return (*pred)( buff, size ), pred;  }
-
-template <>
-inline  auto  Serialize( mtc::patricia::tape::post* post, const void* buff, size_t size ) -> mtc::patricia::tape::post*
-  {  return (*post)( buff, size ), post;  }
 
 namespace mtc       {
 namespace patricia  {
@@ -545,150 +610,6 @@ namespace patricia  {
     const char* serial;
 
   };
-
-  // tape::page implementation
-
-  inline
-  std::unique_ptr<tape::page> tape::page::create( size_t space )
-  {
-    auto  stub = std::unique_ptr<page>();
-    auto  make = create( space, std::move( stub ) );
-      make->pend =
-      make->pbeg = make->head() + (make->size >> 1);
-    return make;
-  }
-
-  inline
-  std::unique_ptr<tape::page> tape::page::create( size_t space, std::unique_ptr<page>&& to )
-  {
-    auto  nalign = (space + sizeof(page) + 0x1000 - 1) & ~(0x1000 - 1);
-
-    return std::unique_ptr<page>( new ( new char[nalign] ) page(
-      nalign - sizeof(page), std::move( to ) ) );
-  }
-
-  inline
-  std::unique_ptr<tape::page> tape::page::create( size_t space, const put_to_head& )
-  {
-    auto  palloc = create( space );
-      palloc->pbeg =
-      palloc->pend = palloc->tail();
-    return palloc;
-  }
-
-  inline
-  std::unique_ptr<tape::page> tape::page::create( size_t space, const put_to_tail& )
-  {
-    auto  palloc = create( space );
-      palloc->pbeg =
-      palloc->pend = palloc->head();
-    return palloc;
-  }
-
-  // tape::post implementation
-
-  inline
-  void  tape::post::operator ()( const void* p, size_t l )
-  {
-    auto  src = (const char*)p;
-    auto  end = l + src;
-
-    if ( parent.head == nullptr )
-      parent.head = page::create( 0x1000, page::put_to_tail() );
-
-    while ( src != end )
-    {
-      auto& toPage = *parent.last->get();
-      auto  lAvail = toPage.tail() - toPage.pend;
-      auto  endptr = std::min( end, src + lAvail );
-
-      if ( lAvail == 0 )
-        parent.last = &(toPage.next = page::create( toPage.size, page::put_to_tail() ));
-      else while ( src != endptr )  *toPage.pend++ = *src++;
-    }
-  }
-
-  // tape::pred implementation
-
-  inline
-  void  tape::pred::operator()( const void* p, size_t l )
-  {
-    auto  src = (const char*)p;
-    auto  end = l + src;
-
-    while ( src != end )
-    {
-      auto  nAvail = toPage->get()->pend - pstore;
-
-      if ( pstore < toPage->get()->pbeg || pstore > toPage->get()->pend )
-        throw std::range_error( "buffer prepender internal arror" );
-
-      if ( nAvail == 0 )
-      {
-        if ( (toPage = &toPage->get()->next)->get() == nullptr )
-          throw std::range_error( "buffer prepender internal arror: writing more than allocated bytes" );
-        pstore = toPage->get()->pbeg;
-      }
-        else
-      for ( auto srcend = std::min( end, src + nAvail ); src != srcend; )
-        *pstore++ = *src++;
-    }
-  }
-
-  // tape inline implementation
-
-  inline
-  auto  tape::unwind( size_t size ) -> pred
-  {
-    if ( head == nullptr )
-      head = page::create( 0x1000, page::put_to_head() );
-
-    while ( size != 0 )
-    {
-      auto& toPage = *head.get();
-      auto  nAvail = toPage.pbeg - toPage.head();
-
-      if ( nAvail == 0 )
-      {
-        head = page::create(
-          toPage.size, std::move( head ) );
-        if ( last == &head )
-          last = &head->next;
-      }
-        else
-      {
-        auto  nStore = std::min( size, (size_t)nAvail );
-
-        toPage.pbeg -= nStore;
-        size        -= nStore;
-      }
-    }
-    return pred( *this );
-  }
-
-  inline
-  auto  tape::append() -> post
-  {
-    return post( *this );
-  }
-
-  inline
-  size_t tape::GetBufLen() const
-  {
-    auto  size = 0;
-
-    for ( auto p = &head; p->get() != nullptr; p = &(p->get()->next) )
-      size += p->get()->pend - p->get()->pbeg;
-    return size;
-  }
-
-  template <class O> inline
-  O*  tape::Serialize( O* o ) const
-  {
-    for ( auto p = &head; p->get() != nullptr && o != nullptr; p = &(p->get()->next) )
-      o = ::Serialize( o, p->get()->pbeg, p->get()->pend - p->get()->pbeg );
-    return o;
-  }
 
   // patricia implementation
 
@@ -1259,11 +1180,9 @@ namespace patricia  {
       V*  Insert( const key&, const V& );
 
     public:
-      size_t  GetBufLen() const
-      {  return pat != nullptr ? pat->GetBufLen() : ::GetBufLen( 0 ) + ::GetBufLen( 0 ) + ::GetBufLen( 0 );  }
+      size_t  GetBufLen() const;
       template <class O>
-      O*    Serialize( O* o ) const
-      {  return pat != nullptr ? pat->Serialize( o ) : ::Serialize( ::Serialize( ::Serialize( o, 0 ), 0 ), 0 );  }
+      O*    Serialize( O* o ) const;
 
     protected:
       chunk_p   pat;
@@ -1319,9 +1238,8 @@ namespace patricia  {
       auto  setval( const V& v ) -> V*  {  return val = v;  }
 
     public:     // serialization
+      auto  Serialize() -> tape;
       auto  GetBufLen() const -> size_t;
-      template <class O>
-      O*    Serialize( O* ) const;
 
     protected:
       template <class chartype>
@@ -2042,14 +1960,8 @@ namespace patricia  {
   template <class V>
   auto  sink<V>::chunk_t::GetBufLen() const ->size_t
   {
-    auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2;
-    auto  ccjump = val.GetBufLen() + set.GetBufLen();
-
-    if ( sub != nullptr )
-    {
-      arrlen += 2;
-      ccjump += sub->GetBufLen();
-    }
+    auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2 + (sub != nullptr ? 2 : 0);
+    auto  ccjump = val.GetBufLen() + set.GetBufLen() + (sub != nullptr ? sub->GetBufLen() : 0);
 
     return ::GetBufLen( key.size() ) + key.size()
          + ::GetBufLen( arrlen )
@@ -2057,25 +1969,24 @@ namespace patricia  {
   }
 
   template <class V>
-  template <class O>
-  O*    sink<V>::chunk_t::Serialize( O* o ) const
+  auto  sink<V>::chunk_t::Serialize() -> tape
   {
-    auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2;
-    auto  ccjump = val.GetBufLen() + set.GetBufLen();
+    auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2 + (sub != nullptr ? 2 : 0);
+    auto  ccjump = val.GetBufLen() + set.GetBufLen() + (sub != nullptr ? sub->GetBufLen() : 0);
+    auto  cchead = ::GetBufLen( key.size() ) + key.size() + ::GetBufLen( arrlen ) + ::GetBufLen( ccjump );
+    tape  header;
 
     if ( sub != nullptr )
-    {
-      arrlen += 2;
-      ccjump += sub->GetBufLen();
-    }
+      set.append( sub->Serialize() );
 
-    o = set.Serialize( ::Serialize( ::Serialize( ::Serialize( ::Serialize( o, key.size() ), arrlen ),
-      key.c_str(), key.size() ), ccjump ) );
+    ::Serialize( set.append( val.GetBufLen() ).ptr(), val );
 
-    if ( sub != nullptr )
-      o = sub->Serialize( o );
+    ::Serialize(
+    ::Serialize(
+    ::Serialize(
+    ::Serialize( header.append( cchead ).ptr(), key.size() ), arrlen ), key.c_str(), key.size() ), ccjump );
 
-    return val.isset() ? val.Serialize( o ) : o;
+    return std::move( header.append( std::move( set ) ) );
   }
 
   template <class V>
@@ -2101,9 +2012,9 @@ namespace patricia  {
 
       // next character differs from next character in tree; move (possibly) existing
       // 'sub'node to serialized set and create the new one
-      sub->Serialize( set.append().ptr() );
-        ++cnt;
-      return (sub = chunk_p( new chunk_t( k + equlen, l - equlen ) )).get();
+      set.append( sub->Serialize() );
+
+      return ++cnt, (sub = chunk_p( new chunk_t( k + equlen, l - equlen ) )).get();
     }
     if ( cmpres <= 0 )
       throw std::logic_error( "sink must receive keys in increasing order" );
@@ -2118,17 +2029,24 @@ namespace patricia  {
       auto  curlen = key.size() - equlen;
       auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2 + (sub != nullptr ? 2 : 0);
       auto  ccjump = val.GetBufLen() + set.GetBufLen() + (sub != nullptr ? sub->GetBufLen() : 0);
-      auto  tohead = set.unwind(
-        ::GetBufLen( curlen ) + curlen +
-        ::GetBufLen( arrlen ) + ::GetBufLen( ccjump ) );
-      auto  totail = set.append();
+      auto  cchead = ::GetBufLen( curlen ) + curlen + ::GetBufLen( arrlen ) + ::GetBufLen( ccjump );
+      tape  header;
 
-      ::Serialize( ::Serialize( ::Serialize( ::Serialize( tohead.ptr(),
-        curlen ), arrlen ), curkey, curlen ), ccjump );
+      ::Serialize(
+      ::Serialize(
+      ::Serialize(
+      ::Serialize( header.append( cchead ).ptr(), curlen ), arrlen ), curkey, curlen ), ccjump );
+
+      // if there is something stored, append to header
+      header.append( std::move( set ) );
+
+      // store current branch
       if ( sub != nullptr )
-        sub->Serialize( totail.ptr() );
-      val.Serialize( totail.ptr() );
-        cnt = 1;
+        header.append( sub->Serialize() );
+
+      ::Serialize( (set = std::move( header )).append( val.GetBufLen() ).ptr(), val );
+
+      cnt = 1;
     }
     key.resize( equlen );
     val.clear();
@@ -2169,7 +2087,25 @@ namespace patricia  {
   template <class V>
   V*  sink<V>::Insert( const key& k, const V& v )    {  return insert( k.getptr(), k.getlen() )->setval( v );  }
 
+  template <class V>
+  size_t  sink<V>::GetBufLen() const
+  {
+    return pat != nullptr ? pat->GetBufLen() : 3 * ::GetBufLen( 0 );
+  }
+
+  template <class V>
+  template <class O>
+  O*  sink<V>::Serialize( O* o ) const
+  {
+    return pat != nullptr ? pat->Serialize().Serialize( o ) :
+      ::Serialize( ::Serialize( ::Serialize( o, 0 ), 0 ), 0 );
+  }
+
 }}
+
+template <>
+auto  Serialize( mtc::patricia::tape::tail* o, const void* p, size_t l ) -> mtc::patricia::tape::tail*
+  {  return o->put( p, l ), o;  }
 
 namespace mtc {
 
