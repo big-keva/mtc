@@ -116,7 +116,7 @@ namespace patricia  {
     tape& operator = ( tape&& t );
 
   public:
-    auto  append( unsigned ) -> tail;
+    auto  append() -> tail;
     auto  append( tape&& ) -> tape&;
 
   public:
@@ -146,26 +146,30 @@ namespace patricia  {
    ~page();
 
   public:
-    static  auto  create( unsigned cch ) -> page*
-      {  return new ( new char[cch + sizeof(page)] ) page( cch );  }
+    static  auto  create() -> page*
+      {
+        auto  nalign = (sizeof(page) + 0x400000 - 1) & ~(0x400000 - 1);
+        auto  nspace = nalign - sizeof(page);
+
+        return new ( new char[nalign] ) page( nspace );
+      }
 
   public:
     char* head() const  {  return (char*)(this + 1);  }
     char* tail() const  {  return size + (char*)(this + 1);  }
 
+    size_t  space() const {  return tail() - pend;  }
+    size_t  usage() const {  return pend - head();  }
   };
 
   class tape::tail
   {
     friend class tape;
 
-    page*   target;
+    tape& parent;
 
   protected:
-    tail( page* p ): target( p )  {}
-
-  public:
-   ~tail();
+    tail( tape& t ): parent( t )  {}
 
   public:
     void  put( const void*, size_t );
@@ -202,26 +206,46 @@ namespace patricia  {
   }
 
   inline
-  auto tape::append( unsigned size ) -> tail
+  auto tape::append() -> tail
   {
     if ( *last == nullptr )
-      return tail( *last = page::create( size ) );
-
-    last = &((*last)->next = page::create( size ));
-      return tail( *last );
+      *last = page::create();
+    return tail( *this );
   }
 
   inline
   auto  tape::append( tape&& t ) -> tape&
   {
-    if ( *last == nullptr ) list = t.list;
-      else (*last)->next = t.list;
+    if ( *last == nullptr )
+    {
+      for ( last = &(list = t.list); (*last)->next != nullptr; last = &((*last)->next) )
+        (void)NULL;
+    }
+      else
+    if ( t.list != nullptr )
+    {
+      while ( t.list != nullptr && t.list->usage() < (*last)->space() )
+      {
+        auto  src = t.list->head();
+        auto  end = t.list->pend;
+        auto  out = &(*last)->pend;
+        auto  del = t.list;
 
-    while ( (*last)->next != nullptr )
-      last = &((*last)->next);
+        // copy data from source block
+        while ( src != end )
+          *(*out)++ = *src++;
 
+        // unlink and delete source block
+        t.list = t.list->next;
+          del->next = nullptr;
+        delete del;
+      }
+
+      for ( (*last)->next = t.list; (*last)->next != nullptr; last = &((*last)->next) )
+        (void)NULL;
+    }
     t.last = &(t.list = nullptr);
-      return *this;
+    return *this;
   }
 
   inline
@@ -261,23 +285,19 @@ namespace patricia  {
   // tape::tail inline implementation
 
   inline
-  tape::tail::~tail()
-  {
-    if ( target->pend != target->tail() )
-      throw std::logic_error( "invalid tail size pre-calculated" );
-  }
-
-  inline
   void  tape::tail::put( const void* p, size_t l )
   {
     auto  top = (const char*)p;
     auto  end = (const char*)p + l;
 
-    while ( top != end && target->pend != target->tail() )
-      *target->pend++ = *top++;
+    while ( top != end )
+    {
+      if ( (*parent.last)->pend == (*parent.last)->tail() )
+        parent.last = &((*parent.last)->next = page::create());
 
-    if ( top != end )
-      throw std::logic_error( "not enought space allocated to page" );
+      while ( top != end && (*parent.last)->pend != (*parent.last)->tail() )
+        *(*parent.last)->pend++ = *top++;
+    }
   }
 
 }}
@@ -1979,12 +1999,12 @@ namespace patricia  {
     if ( sub != nullptr )
       set.append( sub->Serialize() );
 
-    ::Serialize( set.append( val.GetBufLen() ).ptr(), val );
+    ::Serialize( set.append().ptr(), val );
 
     ::Serialize(
     ::Serialize(
     ::Serialize(
-    ::Serialize( header.append( cchead ).ptr(), key.size() ), arrlen ), key.c_str(), key.size() ), ccjump );
+    ::Serialize( header.append().ptr(), key.size() ), arrlen ), key.c_str(), key.size() ), ccjump );
 
     return std::move( header.append( std::move( set ) ) );
   }
@@ -2035,7 +2055,7 @@ namespace patricia  {
       ::Serialize(
       ::Serialize(
       ::Serialize(
-      ::Serialize( header.append( cchead ).ptr(), curlen ), arrlen ), curkey, curlen ), ccjump );
+      ::Serialize( header.append().ptr(), curlen ), arrlen ), curkey, curlen ), ccjump );
 
       // if there is something stored, append to header
       header.append( std::move( set ) );
@@ -2044,7 +2064,7 @@ namespace patricia  {
       if ( sub != nullptr )
         header.append( sub->Serialize() );
 
-      ::Serialize( (set = std::move( header )).append( val.GetBufLen() ).ptr(), val );
+      ::Serialize( (set = std::move( header )).append().ptr(), val );
 
       cnt = 1;
     }
