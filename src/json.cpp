@@ -867,11 +867,11 @@ namespace parse {
             bexpon = true;
         }
           else
-        if ( chnext == '-' )
+        if ( chnext == '+' || chnext == '-' )
         {
           if ( chprev != 'e' && chprev != 'E' )
           {
-            throw error( "unexpected '-' in numeric format" )
+            throw error( mtc::strprintf( "unexpected '%c' in numeric format", chnext ) )
               .set_code_lineid( __LINE__ )
               .set_json_lineid( s.getline() );
           }
