@@ -138,7 +138,7 @@ namespace patricia  {
     unsigned  size;
     char*     pend;
 
-  public:
+  protected:
     page( unsigned cch ):
       next( nullptr ),
       size( cch ),
@@ -146,13 +146,10 @@ namespace patricia  {
    ~page();
 
   public:
-    static  auto  create() -> page*
-      {
-        auto  nalign = (sizeof(page) + 0x400000 - 1) & ~(0x400000 - 1);
-        auto  nspace = nalign - sizeof(page);
 
-        return new ( new char[nalign] ) page( nspace );
-      }
+  public:
+    static  auto  Create() -> page*;
+            void  Delete();
 
   public:
     char* head() const  {  return (char*)(this + 1);  }
@@ -191,14 +188,14 @@ namespace patricia  {
   tape::~tape()
   {
     if ( list != nullptr )
-      delete list;
+      list->Delete();
   }
 
   inline
   tape& tape::operator = ( tape&& t )
   {
     if ( list != nullptr )
-      delete list;
+      list->Delete();
     for ( last = &(list = t.list); (*last)->next != nullptr; last = &((*last)->next) )
       (void)NULL;
     t.last = &(t.list = nullptr);
@@ -209,7 +206,7 @@ namespace patricia  {
   auto tape::append() -> tail
   {
     if ( *last == nullptr )
-      *last = page::create();
+      *last = page::Create();
     return tail( *this );
   }
 
@@ -238,7 +235,7 @@ namespace patricia  {
         // unlink and delete source block
         t.list = t.list->next;
           del->next = nullptr;
-        delete del;
+        del->Delete();
       }
 
       for ( (*last)->next = t.list; (*last)->next != nullptr; last = &((*last)->next) )
@@ -277,9 +274,25 @@ namespace patricia  {
     {
       auto  forw = list->next;
         list->next = nullptr;
-      delete list;
+      list->Delete();
         list = forw;
     }
+  }
+
+  inline
+  auto  tape::page::Create() -> page*
+  {
+    auto  nalign = (sizeof(page) + 0x400000 - 1) & ~(0x400000 - 1);
+    auto  nspace = nalign - sizeof(page);
+
+    return new ( new char[nalign] ) page( nspace );
+  }
+
+  inline
+  void  tape::page::Delete()
+  {
+    this->~page();
+    delete [] (char*)this;
   }
 
   // tape::tail inline implementation
@@ -293,7 +306,7 @@ namespace patricia  {
     while ( top != end )
     {
       if ( (*parent.last)->pend == (*parent.last)->tail() )
-        parent.last = &((*parent.last)->next = page::create());
+        parent.last = &((*parent.last)->next = page::Create());
 
       while ( top != end && (*parent.last)->pend != (*parent.last)->tail() )
         *(*parent.last)->pend++ = *top++;
@@ -1154,7 +1167,7 @@ namespace patricia  {
         for ( auto nd: atrace )
           achars.insert( achars.end(), nd->key_beg(), nd->key_end() );
 
-        patkey = std::move( patricia::key( achars.data(), achars.size() ) );
+        patkey = patricia::key( achars.data(), achars.size() );
         patval = &atrace.back()->value;
       }
         else
@@ -1703,7 +1716,7 @@ namespace patricia  {
           chrtop = std::copy( t.keyptr, t.keyptr + t.keylen, chrtop );
         }
 
-      patkey = std::move( patricia::key( achars.data(), chrtop - achars.begin() ) );
+      patkey = patricia::key( achars.data(), chrtop - achars.begin() );
       if ( chrtop - achars.begin() != 0 )
         patval = JumpOver( atrace.back().nnodes, atrace.back().dicptr );
       else
@@ -1993,7 +2006,6 @@ namespace patricia  {
   {
     auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2 + (sub != nullptr ? 2 : 0);
     auto  ccjump = val.GetBufLen() + set.GetBufLen() + (sub != nullptr ? sub->GetBufLen() : 0);
-    auto  cchead = ::GetBufLen( key.size() ) + key.size() + ::GetBufLen( arrlen ) + ::GetBufLen( ccjump );
     tape  header;
 
     if ( sub != nullptr )
@@ -2049,7 +2061,6 @@ namespace patricia  {
       auto  curlen = key.size() - equlen;
       auto  arrlen = (val.isset() ? 1 : 0) + cnt * 2 + (sub != nullptr ? 2 : 0);
       auto  ccjump = val.GetBufLen() + set.GetBufLen() + (sub != nullptr ? sub->GetBufLen() : 0);
-      auto  cchead = ::GetBufLen( curlen ) + curlen + ::GetBufLen( arrlen ) + ::GetBufLen( ccjump );
       tape  header;
 
       ::Serialize(
