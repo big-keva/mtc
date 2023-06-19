@@ -198,6 +198,7 @@ public:
   }
   void  deallocate( T* p, size_t n )
   {
+    (void)n;
     free( p );
   }
 };

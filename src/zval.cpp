@@ -421,6 +421,7 @@ namespace mtc
           case zval::z_word32:  return compare::test( *a.get_word32(), b );
           case zval::z_word64:  return compare::test( *a.get_word64(), b );
           case zval::z_double:  return compare::test( *a.get_double(), b );
+          case zval::z_bool:    return compare::test( *a.get_bool(), b );
 
           case zval::z_uuid:    return compare::test( *a.get_uuid(), b );
 
@@ -493,6 +494,7 @@ namespace mtc
         case zval::z_word32:  return compare::test( _1, *_2.get_word32() );
         case zval::z_word64:  return compare::test( _1, *_2.get_word64() );
         case zval::z_double:  return compare::test( _1, *_2.get_double() );
+        case zval::z_bool:    return compare::test( _1, *_2.get_bool() );
 
         case zval::z_uuid:    return compare::test( _1, *_2.get_uuid() );
 
@@ -562,10 +564,6 @@ namespace mtc
 
   zval::~zval() {  clear();  }
 
-  zval::zval( bool b ): vx_type( z_untyped )  {  set_byte( b ? 1 : 0 );  }
-
-  zval& zval::operator= ( bool b )  {  set_byte( b ? 1 : 0 );  return *this;  }
-
   # define derive_init( _type_ )                    \
   zval::zval( _type_##_t t ): vx_type( z_untyped )  \
     {  set_##_type_( t );  }                        \
@@ -581,6 +579,7 @@ namespace mtc
     derive_init( word64 )
     derive_init( float )
     derive_init( double )
+    derive_init( bool )
   # undef derive_init
 
   zval::zval( const char* psz, size_t len ): vx_type( z_untyped )
@@ -668,6 +667,7 @@ namespace mtc
     derive_access_val( word64 )
     derive_access_val( float )
     derive_access_val( double )
+    derive_access_val( bool )
 
     derive_access_ref( charstr )
     derive_access_ref( widestr )
@@ -753,6 +753,7 @@ namespace mtc
         destruct( word64 )
         destruct( float )
         destruct( double )
+        destruct( bool )
 
         destruct( charstr )
         destruct( widestr )
@@ -1006,6 +1007,7 @@ namespace mtc
       derive_size_plain( byte )
       derive_size_plain( int16 )
       derive_size_plain( word16 )
+      derive_size_plain( bool )
 
       derive_size_smart( int32 )
       derive_size_smart( word32 )
@@ -1063,6 +1065,11 @@ namespace mtc
       return (i1 != v1.end()) - (i2 != v2.end());
     }
 
+    template <> int compare( const bool& b1, const bool& b2 )
+    {
+      return b1 ? (b2 ? 0 : 1) : (b2 ? -1 : 0);
+    }
+
     # define derive_compare( _type_ ) template <> int compare( const _type_& t1, const _type_& t2 ) \
       {  return t1 - t2;  }
       derive_compare( char )
@@ -1102,6 +1109,7 @@ namespace mtc
         derive_compare( word64 )
         derive_compare( float )
         derive_compare( double )
+        derive_compare( bool )
 
         derive_compare( charstr )
         derive_compare( widestr )
@@ -1146,6 +1154,7 @@ namespace mtc
         case z_word64:        return "word64";
         case z_float:         return "float";
         case z_double:        return "double";
+        case z_bool:          return "bool";
 
         case z_charstr:       return "charstr";
         case z_widestr:       return "widestr";
@@ -1189,6 +1198,7 @@ namespace mtc
         case z_word64:        return to_string( *get_word64() );
         case z_float:         return to_string( *get_float() );
         case z_double:        return to_string( *get_double() );
+        case z_bool:          return to_string( *get_bool() );
 
         case z_charstr:       return to_string( *get_charstr() );
         case z_widestr:       return to_string( *get_widestr() );
@@ -1236,6 +1246,7 @@ namespace mtc
           move( word64 )
           move( float )
           move( double )
+          move( bool )
 
           move( charstr )
           move( widestr )
@@ -1279,6 +1290,7 @@ namespace mtc
           copy( word64 )
           copy( float )
           copy( double )
+          copy( bool )
 
           copy( charstr )
           copy( widestr )
@@ -1418,6 +1430,7 @@ namespace mtc
   auto  zval::dump::get_word64() const -> value_t<word64_t> derive_get_dump( z_word64, word64 )
   auto  zval::dump::get_float() const -> value_t<float> derive_get_dump( z_float, float )
   auto  zval::dump::get_double() const -> value_t<double> derive_get_dump( z_double, double )
+  auto  zval::dump::get_bool() const -> value_t<bool> derive_get_dump( z_bool, bool )
   auto  zval::dump::get_charstr() const -> value_t<charstr> derive_get_dump( z_charstr, charstr )
   auto  zval::dump::get_widestr() const -> value_t<widestr> derive_get_dump( z_widestr, widestr )
   auto  zval::dump::get_uuid() const -> value_t<uuid> derive_get_dump( z_uuid, uuid )

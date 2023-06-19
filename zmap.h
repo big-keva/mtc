@@ -76,6 +76,8 @@ namespace mtc
   using char_t = char;
   using byte_t = byte;
 
+  using bool_t = bool;
+
   using charstr = std::string;
   using widestr = std::basic_string<widechar>;
 
@@ -168,12 +170,12 @@ namespace mtc
       z_word64  = 8,
       z_float   = 9,
       z_double  = 10,
+      z_bool    = 11,
 
       z_charstr = 16,
       z_widestr = 17,
       z_buffer  = 18,
       z_zmap    = 19,
-
       z_uuid    = 20,
 
       z_array_char    = 32,
@@ -284,6 +286,7 @@ namespace mtc
     declare_access_val( word64 )
     declare_access_val( float )
     declare_access_val( double )
+    declare_access_val( bool )
 
     declare_access_ref( charstr )
     declare_access_ref( widestr )
@@ -398,6 +401,7 @@ namespace mtc
     static  auto  to_string( uint64_t v ) -> std::string  {  return std::to_string( v );  }
     static  auto  to_string( float v )    -> std::string  {  return std::to_string( v );  }
     static  auto  to_string( double v )   -> std::string  {  return std::to_string( v );  }
+    static  auto  to_string( bool v )     -> std::string  {  return v ? "true" : "false";  }
 
     static  auto  to_string( const widechar* v )  -> std::string
       {
@@ -531,6 +535,8 @@ namespace mtc
     auto  get_word64( const key& ) -> word64_t*;
     auto  get_float( const key& ) -> float*;
     auto  get_double( const key& ) -> double*;
+    auto  get_bool( const key& ) -> bool*;
+
     auto  get_charstr( const key& ) -> charstr*;
     auto  get_widestr( const key& ) -> widestr*;
     auto  get_uuid( const key& ) -> uuid*;
@@ -565,6 +571,8 @@ namespace mtc
     auto  get_word64( const key& ) const -> const word64_t*;
     auto  get_float( const key& ) const -> const float*;
     auto  get_double( const key& ) const -> const double*;
+    auto  get_bool( const key& ) const -> const bool*;
+
     auto  get_charstr( const key& ) const -> const charstr*;
     auto  get_widestr( const key& ) const -> const widestr*;
     auto  get_uuid( const key& ) const -> const uuid*;
@@ -599,6 +607,8 @@ namespace mtc
     auto  get_word64( const key&, word64_t ) const -> word64_t;
     auto  get_float( const key&, float ) const -> float;
     auto  get_double( const key&, double ) const -> double;
+    auto  get_bool( const key&, bool ) const -> bool;
+
     auto  get_charstr( const key&, const charstr& ) const -> const charstr&;
     auto  get_widestr( const key&, const widestr& ) const -> const widestr&;
     auto  get_uuid( const key&, const uuid& ) const -> const uuid&;
@@ -633,6 +643,8 @@ namespace mtc
     auto  set_word64( const key& ) -> word64_t*;
     auto  set_float( const key& ) -> float*;
     auto  set_double( const key& ) -> double*;
+    auto  set_bool( const key& ) -> bool*;
+
     auto  set_charstr( const key& ) -> charstr*;
     auto  set_widestr( const key& ) -> widestr*;
     auto  set_uuid( const key& ) -> uuid*;
@@ -667,6 +679,8 @@ namespace mtc
     auto  set_word64( const key&, word64_t ) -> word64_t*;
     auto  set_float( const key&, float ) -> float*;
     auto  set_double( const key&, double ) -> double*;
+    auto  set_bool( const key&, bool ) -> bool*;
+
     auto  set_charstr( const key&, const charstr& ) -> charstr*;
     auto  set_widestr( const key&, const widestr& ) -> widestr*;
     auto  set_uuid( const key&, const uuid& ) -> uuid*;
@@ -911,6 +925,8 @@ namespace mtc
     auto  get_word64() const -> value_t<word64_t>;
     auto  get_float() const -> value_t<float>;
     auto  get_double() const -> value_t<double>;
+    auto  get_bool() const -> value_t<bool>;
+
     auto  get_charstr() const -> value_t<charstr>;
     auto  get_widestr() const -> value_t<widestr>;
     auto  get_uuid() const -> value_t<uuid>;
@@ -1464,6 +1480,7 @@ namespace mtc
     derive_var( word64 )
     derive_var( float )
     derive_var( double )
+    derive_var( bool )
 
     derive_var( charstr )
     derive_var( widestr )
@@ -1499,6 +1516,7 @@ namespace mtc
       derive_put_plain( byte )
       derive_put_plain( int16 )
       derive_put_plain( word16 )
+      derive_put_plain( bool )
 
       derive_put_smart( int32 )
       derive_put_smart( word32 )
@@ -1506,6 +1524,7 @@ namespace mtc
       derive_put_smart( word64 )
       derive_put_smart( float )
       derive_put_smart( double )
+
       derive_put_smart( charstr )
       derive_put_smart( widestr )
       derive_put_smart( zmap )
@@ -1550,6 +1569,7 @@ namespace mtc
       derive_get_plain( byte )
       derive_get_plain( int16 )
       derive_get_plain( word16 )
+      derive_get_plain( bool )
 
       derive_get_smart( int32 )
       derive_get_smart( word32 )
