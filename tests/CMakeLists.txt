@@ -4,7 +4,15 @@ project(mtc)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 11)
 
-link_libraries(mtc)
+link_libraries(mtc dl)
+
+add_executable(mtc-test-buffer
+	test-buffer.cpp
+	test-main.cpp)
+
+add_executable(mtc-test-fileStream
+        test-fileStream.cpp
+	test-main.cpp)
 
 add_executable(mtc-test-serialize
 	test-serialize.cpp)
@@ -24,9 +32,6 @@ add_executable(mtc-test-zmap
 
 add_executable(mtc-test-wcsstr
         test-wcsstr.cpp)
-
-add_executable(mtc-test-fileStream
-        test-fileStream.cpp)
 
 add_executable(mtc-test-sharedMutex
 	test-sharedMutex.cpp)

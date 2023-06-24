@@ -60,6 +60,7 @@ SOFTWARE.
 #   define  NOMINMAX
 #   include <Windows.h>
 # else
+#   define _LARGEFILE64_SOURCE
 #   include <unistd.h>
 #   include <sys/mman.h>
 # endif  // _WIN32
@@ -154,7 +155,7 @@ namespace mtc
     int64_t   Tell  (                                  ) noexcept override;
 
   public:     // overridables from IFileStream
-    api<IByteBuffer>  MemMap( int64_t, uint32_t ) override;
+    api<IByteBuffer>  MemMap( int64_t, word32_t ) override;
     bool              SetLen( int64_t ) noexcept override;
     bool              Sync() override;
 
@@ -277,7 +278,7 @@ namespace mtc
     nshift = off - oalign;
     maplen = ((len + nshift + dwgran) / dwgran) * dwgran;
 
-    if ( (ptrmap = mmap( NULL, maplen, PROT_READ, MAP_SHARED, stm->handle, oalign )) == MAP_FAILED )
+    if ( (ptrmap = mmap( NULL, maplen, PROT_READ, MAP_SHARED | MAP_NORESERVE, stm->handle, oalign )) == MAP_FAILED )
     {
       int   nerror = errno;
 
@@ -569,25 +570,25 @@ namespace mtc
   }
 
   template <class error>
-  int64_t   FileStream<error>::Seek( int64_t     offset ) noexcept
+  int64_t   FileStream<error>::Seek( int64_t  offset ) noexcept
   {
-    return ::lseek( handle, offset, SEEK_SET );
+    return ::lseek64( handle, offset, SEEK_SET );
   }
 
   template <class error>
   int64_t   FileStream<error>::Size() noexcept
   {
-    int64_t curpos = ::lseek( handle, 0, SEEK_CUR );
-    int64_t curlen = ::lseek( handle, 0, SEEK_END );
+    int64_t curpos = ::lseek64( handle, 0, SEEK_CUR );
+    int64_t curlen = ::lseek64( handle, 0, SEEK_END );
 
-    ::lseek( handle, curpos, SEEK_SET );
+    ::lseek64( handle, curpos, SEEK_SET );
     return curlen;
   }
 
   template <class error>
   int64_t   FileStream<error>::Tell() noexcept
   {
-    return ::lseek( handle, 0, SEEK_CUR );
+    return ::lseek64( handle, 0, SEEK_CUR );
   }
 
   template <class error>

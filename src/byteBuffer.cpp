@@ -61,8 +61,15 @@ namespace mtc
     implement_lifetime_control
 
   public:
-    const char* GetPtr() const override {  return data();  }
-    word32_t    GetLen() const override {  return size();  }
+    ByteBuffer() = default;
+    ByteBuffer( uint64_t len ): std::vector<char>( len )  {}
+    ByteBuffer( const void* buf, uint64_t len ): std::vector<char>( (const char*)buf, len + (const char*)buf ) {}
+
+  public:
+    const char* GetPtr() const override
+      {  return data();  }
+    word32_t    GetLen() const override
+      {  return size();  }
     int         SetBuf( const void* p, word32_t l ) override
       {
         try
@@ -81,72 +88,100 @@ namespace mtc
 
   struct throw_error
   {
-    template<class X, class R>
-    static R  result( const X& except, R ) {  throw except;  }
+    template <class X, class R>
+    static  R   result( const X& except, R ) {  throw except;  }
   };
 
   struct nothrow_error
   {
-    template<class X, class R>
-    static R  result( const X&, R result ) {  return result;  }
+    template <class X, class R>
+    static  R     result( const X&, R result ) {  return result;  }
   };
 
-  int   CreateByteBuffer( IByteBuffer** ppi )
+  // create with exceptions
+
+  auto  NewByteBuffer( const enable_exceptions_t& ) -> api<ByteBuffer<throw_error>>
   {
-    ByteBuffer<nothrow_error>*  palloc;
-
-    if ( ppi == nullptr )
-      return EINVAL;
-
-    if ( (palloc = allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>()) == nullptr )
-      return ENOMEM;
-
-    return (*ppi = palloc)->Attach(), 0;
+    return new ByteBuffer<throw_error>();
   }
 
+  auto  NewByteBuffer( const enable_exceptions_t&, word64_t size ) -> api<ByteBuffer<throw_error>>
+  {
+    return new ByteBuffer<throw_error>( size );
+  }
+
+  auto  NewByteBuffer( const enable_exceptions_t&, const void* buff, word64_t size ) -> api<ByteBuffer<throw_error>>
+  {
+    if ( buff != nullptr )
+      return new ByteBuffer<throw_error>( buff, size );
+    else
+      return new ByteBuffer<throw_error>( size );
+  }
+
+  // create without exceptions
+
+  auto  NewByteBuffer( const disable_exceptions_t& ) -> api<ByteBuffer<nothrow_error>>
+  {
+    return allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>();
+  }
+
+  auto  NewByteBuffer( const disable_exceptions_t&, word32_t size ) -> api<ByteBuffer<nothrow_error>>
+  {
+    auto  buffer = allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>();
+
+    return buffer != nullptr && (size == 0 || buffer->SetLen( size ) == 0) ? buffer : nullptr;
+  }
+
+  auto  NewByteBuffer( const disable_exceptions_t&, const void* buff, word64_t size ) -> api<ByteBuffer<nothrow_error>>
+  {
+    auto  buffer = api<ByteBuffer<nothrow_error>>();
+
+    if ( buff == nullptr )
+      return NewByteBuffer( disable_exceptions, size );
+
+    if ( (buffer = allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>()) == nullptr )
+      return nullptr;
+
+    if ( buffer->SetBuf( buff, size ) != 0 )
+      return nullptr;
+
+    return buffer;
+  }
+
+  // CreateByteBuffer( ** ) family
+
+  int   CreateByteBuffer( IByteBuffer** ppi )
+    {  return CreateByteBuffer( ppi, 0 );  }
+  int   CreateByteBuffer( IByteBuffer** ppi, uint32_t length )
+    {  return CreateByteBuffer( ppi, nullptr, length );  }
   int   CreateByteBuffer( IByteBuffer** ppi, const void* memptr, uint32_t length )
   {
-    ByteBuffer<nothrow_error>*  palloc;
+    auto  buffer = decltype( NewByteBuffer( disable_exceptions ) )();
 
     if ( ppi == nullptr )
       return EINVAL;
 
-    if ( (palloc = allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>()) == nullptr )
+    if ( (buffer = NewByteBuffer( disable_exceptions, memptr, length )) == nullptr )
       return ENOMEM;
 
-    if ( palloc->SetBuf( memptr, length ) != 0 )
-      return delete palloc, ENOMEM;
-
-    return (*ppi = palloc)->Attach(), 0;
+    (*ppi = buffer)->Attach();
+      return 0;
   }
 
-  api<IByteBuffer>  CreateByteBuffer( uint32_t cch, const enable_exceptions_t& )
-  {
-    auto  palloc = api<IByteBuffer>( new ByteBuffer<throw_error>() );
+  // CreateByteBuffer( ... ) family
 
-    return palloc->SetLen( cch ), palloc.ptr();
-  }
+  api<IByteBuffer>  CreateByteBuffer( const enable_exceptions_t& )
+    {  return NewByteBuffer( enable_exceptions ).ptr();  }
+  api<IByteBuffer>  CreateByteBuffer( word32_t size, const enable_exceptions_t& )
+    {  return NewByteBuffer( enable_exceptions, size ).ptr();  }
+  api<IByteBuffer>  CreateByteBuffer( const void* buff, word32_t size, const enable_exceptions_t& )
+    {  return NewByteBuffer( enable_exceptions, buff, size ).ptr();  }
 
-  api<IByteBuffer>  CreateByteBuffer( uint32_t cch, const disable_exceptions_t& )
-  {
-    api<IByteBuffer>  palloc;
-
-    return CreateByteBuffer( (IByteBuffer**)palloc ) == 0
-      && palloc->SetLen( cch ) == 0 ? palloc : nullptr;
-  }
-
-  api<IByteBuffer>  CreateByteBuffer( const void* ptr, uint32_t cch, const enable_exceptions_t& )
-  {
-    auto  palloc = api<IByteBuffer>( new ByteBuffer<throw_error>() );
-
-    return palloc->SetBuf( ptr, cch ), palloc.ptr();
-  }
-
-  api<IByteBuffer>  CreateByteBuffer( const void* ptr, uint32_t cch, const disable_exceptions_t& )
-  {
-    api<IByteBuffer>  palloc;
-
-    return CreateByteBuffer( (IByteBuffer**)palloc, ptr, cch ) == 0 ? palloc : nullptr;
-  }
+  api<IByteBuffer>  CreateByteBuffer( const disable_exceptions_t& )
+    {  return NewByteBuffer( disable_exceptions ).ptr();  }
+  api<IByteBuffer>  CreateByteBuffer( word32_t size, const disable_exceptions_t& )
+    {  return NewByteBuffer( disable_exceptions, size ).ptr();  }
+  api<IByteBuffer>  CreateByteBuffer( const void* buff, word32_t size, const disable_exceptions_t& )
+    {  return NewByteBuffer( disable_exceptions, buff, size ).ptr();  }
 
 }
