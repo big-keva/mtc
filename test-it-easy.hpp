@@ -149,7 +149,7 @@ namespace TestItEasy {
   template <class T>
   bool  LValue<T>::operator ()( int shift )
   {
-    if ( !t )
+    if ( t == false )
     {
       ++testsFault;
 

@@ -923,7 +923,7 @@ namespace parse {
           .set_code_lineid( __LINE__ )
           .set_json_lineid( s.getline() );
       }
-      return z.set_bool( true ), z;
+      return z.set_byte( 1 ), z;
     }
       else
     if ( chnext == 'f' )
@@ -937,7 +937,7 @@ namespace parse {
           .set_code_lineid( __LINE__ )
           .set_json_lineid( s.getline() );
       }
-      return z.set_bool( false ), z;
+      return z.set_byte( 0 ), z;
     }
       else
     if ( chnext == 'n' )
