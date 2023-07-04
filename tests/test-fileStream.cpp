@@ -2,6 +2,7 @@
 # include "../utf.hpp"
 # include "../test-it-easy.hpp"
 # include <cstdio>
+# include <unistd.h>
 
 TestItEasy::RegisterFunc  testFileStream( []()
   {
@@ -53,7 +54,7 @@ TestItEasy::RegisterFunc  testFileStream( []()
         }
       }
 
-      SECTION( "fileStream created on existing file may be memmapped" )
+      SECTION( "fileStream created on existing file may be MemMap()'ed" )
       {
         const char  existing_file[] = "/tmp/mtc-existing-file-for-memmap";
 
@@ -71,14 +72,38 @@ TestItEasy::RegisterFunc  testFileStream( []()
 
         REQUIRE_NOTHROW( memmap = stream->MemMap( 0, strlen( existing_file ) ) );
                 REQUIRE( memmap != nullptr );
+
+        remove( existing_file );
+      }
+
+      SECTION( "Long files may be MemMap()'ed" )
+      {
+        const char  existing_file[] = "/tmp/mtc-existing-file-for-memmap64";
+
+        {
+          auto  fd = ::open( existing_file, O_CREAT + O_RDWR, 0666 );
+            REQUIRE( fd != -1 );
+          REQUIRE( ::lseek( fd, (uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 1, SEEK_SET ) == (uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 1 );
+          REQUIRE( ::write( fd, "a", 1 ) == 1 );
+          ::close( fd );
+        }
+        auto  stream = mtc::api<mtc::IFileStream>();
+        auto  memmap = mtc::api<mtc::IByteBuffer>();
+
+        REQUIRE_NOTHROW( stream = mtc::OpenFileStream( existing_file, O_RDONLY, mtc::enable_exceptions ) );
+                REQUIRE( stream != nullptr );
+
+        REQUIRE_NOTHROW( memmap = stream->MemMap( 10, (mtc::word32_t)-1 ) );
+                REQUIRE( memmap != nullptr );
+                REQUIRE( memmap->GetLen() >= (uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 1 );
+                REQUIRE( memmap->GetPtr() != nullptr );
+                REQUIRE( memmap->GetPtr()[(uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 11] == 'a' );
+
+        remove( existing_file );
       }
     }
   } );
 
-int   main()
-{
-  return TestItEasy::Conclusion();
-}
 # if 0
 
 void  TestLoadFileBuffer()

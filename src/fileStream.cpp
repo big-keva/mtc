@@ -272,11 +272,17 @@ namespace mtc
 
     return 0;
 # else
-    int64_t   oalign = (off / dwgran) * dwgran;
+    int64_t   oalign = (off / dwgran) * dwgran;     // смещение в файле как адрес отображения
+      nshift = off - oalign;                        // смещение в памяти до нужных байтов
+    word64_t  blklen = ((word64_t(len) + nshift + dwgran - 1) / dwgran) * dwgran;
 
-    cchmem = len;
-    nshift = off - oalign;
-    maplen = ((len + nshift + dwgran) / dwgran) * dwgran;
+    while ( blklen > (word64_t)(word32_t)-1 )
+      blklen -= dwgran;
+
+    maplen = (word32_t)blklen;
+
+    if ( (cchmem = std::min( maplen - nshift, len )) != len && len != (word32_t)-1 )
+      return error()( EOVERFLOW, file_error( strprintf( "buffer too long to be mmap()'ed" ) ) );
 
     if ( (ptrmap = mmap( NULL, maplen, PROT_READ, MAP_SHARED | MAP_NORESERVE, stm->handle, oalign )) == MAP_FAILED )
     {
@@ -325,9 +331,6 @@ namespace mtc
 
     if ( palloc != nullptr )  memmap = new ( palloc ) FileMemmap<error>();
       else return nullptr;
-
-    if ( length == (word32_t)-1 )
-      length = Size() - offset;
 
     return memmap->Create( this, offset, length ) == 0 ? memmap.ptr() : nullptr;
   }
