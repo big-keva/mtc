@@ -7,6 +7,8 @@
 # include <string>
 # include <cstdio>
 
+#pragma GCC diagnostic ignored "-Wparentheses"
+
 const int   TestItEasyShiftSpace = 0;
 
 namespace TestItEasy {
@@ -149,7 +151,7 @@ namespace TestItEasy {
   template <class T>
   bool  LValue<T>::operator ()( int shift )
   {
-    if ( t == false )
+    if ( !(t) )
     {
       ++testsFault;
 
@@ -237,11 +239,11 @@ namespace TestItEasy {
 
 }
 
- # define __TEST_IT_EASY_REQUIRE_IMPL( X_FILE, X_LINE, XP_STR, ... ) \
+# define __TEST_IT_EASY_REQUIRE_IMPL( X_FILE, X_LINE, XP_STR, ... ) \
   succeeded &= (TestItEasy::Verify( X_FILE, X_LINE, XP_STR ) <= __VA_ARGS__)( TestItEasyShiftSpace )
 
 # define REQUIRE( ... ) \
-  __TEST_IT_EASY_REQUIRE_IMPL( __FILE__, __LINE__, #__VA_ARGS__, (__VA_ARGS__) )
+  __TEST_IT_EASY_REQUIRE_IMPL( __FILE__, __LINE__, #__VA_ARGS__, __VA_ARGS__ )
 
 # define REQUIRE_EXCEPTION( expression, exception ) \
   try {                                             \
@@ -293,7 +295,7 @@ namespace TestItEasy {
 # define SECTION( description ) \
   fprintf( stdout, "%s%s\n", TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), (description) ); \
   for( auto global = TestItEasyShiftSpace, TestItEasyShiftSpace = global + 2, nloops = 1, succeeded = 1; \
-    nloops-- != 0; (void)succeeded )
+    nloops-- != 0; (void)succeeded, (void)TestItEasyShiftSpace )
 
 # define TEST_CASE( description ) \
   fprintf( stdout, "%s[%s]\n", TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), (description) ); \
