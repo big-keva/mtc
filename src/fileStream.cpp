@@ -60,7 +60,9 @@ SOFTWARE.
 #   define  NOMINMAX
 #   include <Windows.h>
 # else
-#   define _LARGEFILE64_SOURCE
+#   if !defined( _LARGEFILE64_SOURCE )
+#     define _LARGEFILE64_SOURCE
+#   endif
 #   include <unistd.h>
 #   include <sys/mman.h>
 # endif  // _WIN32
@@ -191,7 +193,12 @@ namespace mtc
     const char*   GetPtr() const noexcept override {  return buffer;  }
     word32_t      GetLen() const noexcept override {  return length;  }
     int           SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
-    int           SetLen( word32_t ) noexcept override {  return EINVAL;  }
+    int           SetLen( word32_t newlen ) noexcept override
+    {
+      if ( newlen > length )
+        return EINVAL;
+      return (length = newlen), 0;
+    }
 
   public:
     static
@@ -208,8 +215,8 @@ namespace mtc
     void  operator delete( void* p )  {  nothrow_allocator::free( p );  }
 
   protected:  // variables
-    const word32_t  length;
-    char            buffer[1];
+    word32_t  length;
+    char      buffer[1];
 
   };
 
@@ -354,12 +361,16 @@ namespace mtc
   int       FileStream<error>::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len )
   {
     api<filebuffer> buffer;
+    word32_t        cbread;
 
     if ( (buffer = filebuffer::create( len )) == nullptr )
       return ENOMEM;
-    if ( PosGet( (char*)buffer->GetPtr(), off, len ) != len )
+
+    if ( (cbread = PosGet( (char*)buffer->GetPtr(), off, len )) == (word32_t)-1 )
       return EACCES;
-    return (*ppi = buffer.ptr())->Attach(), 0;
+
+    buffer->SetLen( cbread );
+      return (*ppi = buffer.ptr())->Attach(), 0;
   }
 
 # if defined( _WIN32 )
