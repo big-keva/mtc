@@ -563,13 +563,13 @@ namespace mtc
   template <class error>
   word32_t  FileStream<error>::PosGet( void* lpdata, int64_t offset, word32_t length ) noexcept
   {
-    return ::pread( handle, lpdata, length, offset );
+    return ::pread64( handle, lpdata, length, offset );
   }
 
   template <class error>
   word32_t  FileStream<error>::PosPut( const void* pvdata, int64_t offset, word32_t length ) noexcept
   {
-    return ::pwrite( handle, pvdata, length, offset );
+    return ::pwrite64( handle, pvdata, length, offset );
   }
 
   template <class error>
