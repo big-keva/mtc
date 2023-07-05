@@ -210,6 +210,12 @@ namespace json {
     derive_printjson_flo( double )
   # undef derive_printjson_flo
 
+  template <class O, class D = print::compact>  O*  Print( O* o, bool bvalue, const D& = D() )
+    {
+      const char* str = bvalue ? "true" : "false";
+      return ::Serialize( o, str, bvalue ? 4 : 5 );
+    }
+
   template <class O, class D = print::compact>  O*  Print( O* o, const uuid_t& uuid, const D& = D() )
     {
       auto  s = mtc::to_string( uuid );
@@ -252,6 +258,7 @@ namespace json {
       case zval::z_word64:  return Print( o, *v.get_word64() );
       case zval::z_float:   return Print( o, *v.get_float() );
       case zval::z_double:  return Print( o, *v.get_double() );
+      case zval::z_bool:    return Print( o, *v.get_bool() );
       case zval::z_uuid:    return Print( o, *v.get_uuid() );
 
       case zval::z_charstr: return Print( o, *v.get_charstr() );
