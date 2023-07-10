@@ -252,7 +252,7 @@ namespace mtc
   }
 
   template <class error>
-  int   FileMemmap<error>::Create( FileStream<error>* stm, int64_t off, word32_t len )
+  int   FileMemmap<error>::Create( FileStream<error>* stm, int64_t offset, word32_t length )
   {
 # if defined( _WIN32 )
     word32_t  offshi = (word32_t)(off >> 32);
@@ -279,16 +279,18 @@ namespace mtc
 
     return 0;
 # else
-    int64_t   oalign = (off / dwgran) * dwgran;     // смещение в файле как адрес отображения
-      nshift = off - oalign;                        // смещение в памяти до нужных байтов
-    word64_t  blklen = ((word64_t(len) + nshift + dwgran - 1) / dwgran) * dwgran;
+    int64_t   stsize = stm->Size();
+    int64_t   oalign = (offset / dwgran) * dwgran;  // смещение в файле как адрес отображения
+      nshift = offset - oalign;                     // смещение в памяти до нужных байтов
+    word64_t  blklen = std::min( word64_t(stsize - oalign), word64_t(length) + nshift );
+                                                    // длина от базы до конца файла или нужная с выравниванием
 
-    while ( blklen > (word64_t)(word32_t)-1 )
+    for ( blklen = ((blklen + dwgran - 1) / dwgran) * dwgran; blklen > (word64_t)(word32_t)-1; )
       blklen -= dwgran;
 
     maplen = (word32_t)blklen;
 
-    if ( (cchmem = std::min( maplen - nshift, len )) != len && len != (word32_t)-1 )
+    if ( (cchmem = std::min( maplen - nshift, length )) != length && length != (word32_t)-1 )
       return error()( EOVERFLOW, file_error( strprintf( "buffer too long to be mmap()'ed" ) ) );
 
     if ( (ptrmap = mmap( NULL, maplen, PROT_READ, MAP_SHARED | MAP_NORESERVE, stm->handle, oalign )) == MAP_FAILED )
