@@ -358,6 +358,17 @@ namespace mtc
         delete this;                                        \
       return rcount;                                        \
     }
+# define  implement_nonvirtual_lifetime_control             \
+  protected:  mtc::reference_counter lifetime_counter;      \
+  public:     long  Attach()  noexcept                      \
+    {  return ++lifetime_counter;  }                        \
+  public:     long  Detach()  noexcept                      \
+    {                                                       \
+      long rcount;                                          \
+      if ( (rcount = --lifetime_counter) == 0 )             \
+        delete this;                                        \
+      return rcount;                                        \
+    }
 # define  implement_lifetime_stub                           \
   public:     long  Attach()  noexcept override             \
     {  return 1;  }                                         \
