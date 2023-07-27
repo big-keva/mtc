@@ -989,7 +989,7 @@ namespace mtc
     const char* source;   /* source == nullptr => object was loaded if pvalue != nullptr;   */
                           /* source == (char*)-1 => object was passed by external pointer;  */
                           /* else object is absent and would be loaded on access.           */
-    zmap*       pvalue;
+    const zmap* pvalue;
 
   public:     // construction
     template <class T>
