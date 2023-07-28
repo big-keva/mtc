@@ -112,78 +112,80 @@ namespace mtc
   // zmap::dump implementation
 
   zmap::dump::dump( const dump& s ): source( s.source ), pvalue( s.pvalue )
-    {
-      if ( source != (const char*)-1 && pvalue != nullptr )
-        ++*(int*)(1 + pvalue);
-    }
+  {
+    if ( source != (const char*)-1 && pvalue != nullptr )
+      ++*(int*)(1 + pvalue);
+  }
 
   zmap::dump::dump( const zmap& z ): source( nullptr )
-    {
-      *(int*)(1 + (pvalue = new( new char[sizeof(zmap) + sizeof(int)] ) zmap( z ))) = 1;
-    }
+  {
+    *(int*)(1 + (pvalue = new( new char[sizeof(zmap) + sizeof(int)] ) zmap( z ))) = 1;
+  }
 
-  zmap::dump::dump( const zmap* p ): source( (const char*)-1 ), pvalue( (zmap*)p )
+  zmap::dump::dump( const zmap* p ): source( (const char*)-1 ), pvalue( p )
     {}
 
   zmap::dump::~dump()
-    {
-      if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
-        pvalue->~zmap(), delete [] (char*)pvalue;
-    }
+  {
+    if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
+      {  pvalue->~zmap(); delete [] (char*)pvalue;  }
+  }
 
   auto  zmap::dump::operator = ( const dump& d ) -> dump&
-    {
-      if ( this != &d )
-      {
-        if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
-          pvalue->~zmap(), delete [] (char*)pvalue;
-
-        source = d.source;
-        pvalue = d.pvalue;
-
-        if ( pvalue != nullptr && source != (const char*)-1 )
-          ++*(int*)(1 + pvalue);
-      }
-
-      return *this;
-    }
-
-  auto  zmap::dump::operator = ( const zmap& z ) -> dump&
+  {
+    if ( this != &d )
     {
       if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
-        pvalue->~zmap(), delete [] (char*)pvalue;
+        {  pvalue->~zmap(); delete [] (char*)pvalue;  }
 
-      *(int*)(1 + (pvalue = new( new char[sizeof(zmap) + sizeof(int)] ) zmap( z ))) = 1;
+      source = d.source;
+      pvalue = d.pvalue;
 
-      return source = nullptr, *this;
+      if ( pvalue != nullptr && source != (const char*)-1 )
+        ++*(int*)(1 + pvalue);
     }
+
+    return *this;
+  }
+
+  auto  zmap::dump::operator = ( const zmap& z ) -> dump&
+  {
+    if ( pvalue != nullptr && source != (const char*)-1 && --*(int*)(1 + pvalue) == 0 )
+      {  pvalue->~zmap(); delete [] (char*)pvalue;  }
+
+    *(int*)(1 + (pvalue = new( new char[sizeof(zmap) + sizeof(int)] ) zmap( z ))) = 1;
+
+    return source = nullptr, *this;
+  }
 
   auto  zmap::dump::operator = ( const zmap* z ) -> dump&
-    {
-      return source = (const char*)-1, pvalue = (zmap*)z, *this;
-    }
+  {
+    return source = (const char*)-1, pvalue = (zmap*)z, *this;
+  }
 
   auto  zmap::dump::get_dump( const key& k ) const -> zval::dump
-    {
-      auto  pval = pvalue != nullptr ? pvalue->get( k ) : nullptr;
+  {
+    auto  pval = pvalue != nullptr ? pvalue->get( k ) : nullptr;
 
-      return pval != nullptr ? zval::dump( pval ) : zval::dump( serial::find( source, k ) );
-    }
+    return pval != nullptr ? zval::dump( pval ) : zval::dump( serial::find( source, k ) );
+  }
     
   template <class T>
   auto  zmap::dump::get( const value_t<T>& v, const T& t ) -> const T&
-    {  return v != nullptr ? *v : t;  }
+  {
+    return v != nullptr ? *v : t;
+  }
 
   auto  zmap::dump::get( const key& k ) const -> zview_t
-    {
-      if ( pvalue != nullptr )
-        return zview_t( nullptr, pvalue->get( k ) );
+  {
+    if ( pvalue != nullptr )
+      return zview_t( nullptr, pvalue->get( k ) );
 
-      if ( source != nullptr && source != (const char*)-1 )
-        return zview_t( serial::find( source, k ), nullptr );
+    if ( source != nullptr && source != (const char*)-1 )
+      return zview_t( serial::find( source, k ), nullptr );
 
-      return zview_t();
-    }
+    return zview_t();
+  }
 
   auto  zmap::dump::get_char( const key& k ) const -> value_t<char> {  return get_dump( k ).get_char();  }
   auto  zmap::dump::get_byte( const key& k ) const -> value_t<byte> {  return get_dump( k ).get_byte();  }
@@ -215,11 +217,11 @@ namespace mtc
   auto  zmap::dump::get_uuid( const key& k, const uuid& w ) const -> const uuid&  {  return get( get_uuid( k ), w );  }
 
   auto  zmap::dump::get_zmap( const key& k, const zmap& w ) const -> dump
-    {
-      auto  pd = get_zmap( k );
+  {
+    auto  pd = get_zmap( k );
 
-      return pd != nullptr ? *pd : dump( w );
-    }
+    return pd != nullptr ? *pd : dump( w );
+  }
 
   auto  zmap::dump::get_array_char( const key& k ) const -> value_t<array_t<char>> {  return get_dump( k ).get_array_char();  }
   auto  zmap::dump::get_array_byte( const key& k ) const -> value_t<array_t<byte>> {  return get_dump( k ).get_array_byte();  }
@@ -276,42 +278,42 @@ namespace mtc
   }
 
   bool  zmap::dump::operator == ( const dump& z ) const
-    {
-      auto  mp = begin();
-      auto  zp = z.begin();
+  {
+    auto  mp = begin();
+    auto  zp = z.begin();
 
-      while ( mp != end() && zp != z.end() )
-        if ( mp->first != zp->first || mp->second != zp->second ) return false;
-          else ++mp, ++zp;
+    while ( mp != end() && zp != z.end() )
+      if ( mp->first != zp->first || mp->second != zp->second ) return false;
+        else ++mp, ++zp;
 
-      return mp == end() && zp == z.end();
-    }
+    return mp == end() && zp == z.end();
+  }
 
   zmap::dump::operator zmap() const
+  {
+    if ( pvalue == nullptr )
     {
-      if ( pvalue == nullptr )
-      {
-        zmap  v;
+      zmap  v;
 
-        if ( source != nullptr )
-          v.FetchFrom( source );
-        return v;
-      }
-      return *pvalue;
+      if ( source != nullptr )
+        v.FetchFrom( source );
+      return v;
     }
+    return *pvalue;
+  }
 
   auto  zmap::dump::begin() const -> const_iterator
+  {
+    if ( pvalue != nullptr )
     {
-      if ( pvalue != nullptr )
-      {
-        auto  it = pvalue->cbegin();
+      auto  it = pvalue->cbegin();
 
-        if ( it != pvalue->cend() ) return { it };
-      }
-      if ( source != nullptr && source != (const char*)-1 )
-        return { source };
-      return const_iterator();
+      if ( it != pvalue->cend() ) return { it };
     }
+    if ( source != nullptr && source != (const char*)-1 )
+      return { source };
+    return const_iterator();
+  }
 
   auto  zmap::dump::end() const -> const_iterator {  return {};  }
   auto  zmap::dump::cbegin() const -> const_iterator {  return begin();  }
@@ -322,42 +324,50 @@ namespace mtc
   */
 
   zmap::dump::const_iterator::const_iterator( const char* source )
-    {  asDump = std::make_shared<dump_iterator>( source );  }
+  {
+    asDump = std::make_shared<dump_iterator>( source );
+  }
 
   zmap::dump::const_iterator::const_iterator( const zmap::const_iterator& zi )
-    {  asZmap = std::make_shared<zmap_iterator>( zi );  }
+  {
+    asZmap = std::make_shared<zmap_iterator>( zi );
+  }
 
   bool  zmap::dump::const_iterator::operator == ( const const_iterator& match ) const
+  {
+    if ( !is_empty() && !match.is_empty() )
     {
-      if ( !is_empty() && !match.is_empty() )
-      {
-        auto& me = this->asDump != nullptr ? this->asDump->getvalue() : this->asZmap->getvalue();
-        auto& to = match.asDump != nullptr ? match.asDump->getvalue() : match.asZmap->getvalue();
+      auto& me = this->asDump != nullptr ? this->asDump->getvalue() : this->asZmap->getvalue();
+      auto& to = match.asDump != nullptr ? match.asDump->getvalue() : match.asZmap->getvalue();
 
-        return me.first == to.first && me.second == to.second;
-      }
-      return is_empty() && match.is_empty();
+      return me.first == to.first && me.second == to.second;
     }
+    return is_empty() && match.is_empty();
+  }
 
   auto  zmap::dump::const_iterator::operator ++() -> const_iterator&
-    {
-      if ( asDump != nullptr )  {  if ( !asDump->jumpnext() ) asDump = nullptr;  }
-        else
-      if ( asZmap != nullptr )  {  if ( !asZmap->jumpnext() ) asZmap = nullptr;  }
-        else  throw std::logic_error( "invalid iterator call" );
-      return *this;
-    }
+  {
+    if ( asDump != nullptr )  {  if ( !asDump->jumpnext() ) asDump = nullptr;  }
+      else
+    if ( asZmap != nullptr )  {  if ( !asZmap->jumpnext() ) asZmap = nullptr;  }
+      else  throw std::logic_error( "invalid iterator call" );
+    return *this;
+  }
 
   auto  zmap::dump::const_iterator::operator ++(int) -> const_iterator
-    {
-      auto  prev( *this );  return operator ++(), prev;
-    }
+  {
+    auto  prev( *this );  return operator ++(), prev;
+  }
 
   auto  zmap::dump::const_iterator::operator -> () const -> const iterator_data*
-    {  return asDump != nullptr ? &asDump->getvalue() : &asZmap->getvalue();  }
+  {
+    return asDump != nullptr ? &asDump->getvalue() : &asZmap->getvalue();
+  }
 
   auto  zmap::dump::const_iterator::operator * () const -> const iterator_data&
-    {  return asDump != nullptr ? asDump->getvalue() : asZmap->getvalue();  }
+  {
+    return asDump != nullptr ? asDump->getvalue() : asZmap->getvalue();
+  }
 
  /*
   * iterator_node::iterator_node( source )
@@ -367,125 +377,129 @@ namespace mtc
   * на первый вложенный элемент.
   */
   bool  zmap::dump::const_iterator::dump_iterator::iterator_node::init_element( const char* s )
+  {
+    word32_t  lfetch;
+    size_t    sublen;
+
+    s = ::FetchFrom( s, lfetch );
+
+    if ( (lfetch & 0x0200) != 0 )       // check if value at node; save value pointer
+      s = zval::SkipToEnd( value = ::FetchFrom( s, xtype ) );
+    else {  value = nullptr; xtype = (byte)-1;  }
+
+    if ( (lfetch & 0x0400) != 0 )       // check if patricia-style element
     {
-      word32_t  lfetch;
-      size_t    sublen;
+      pnext = nullptr;
+      count = 0;
+      level = (ptext = s) + (ltext = fragment_len( lfetch ));
+    }
+      else
+    if ( (count = lfetch & 0x1ff) != 0 )
+    {
+      --count;
+        level = ::FetchFrom( (ptext = s) + (ltext = 1), sublen );
+        pnext = level + sublen;
+    }
+      else
+    {
+      ptext = pnext = level = nullptr;
+      ltext = 0;
+    }
+    return true;
+  }
 
-      s = ::FetchFrom( s, lfetch );
+  bool  zmap::dump::const_iterator::dump_iterator::iterator_node::move_to_next()
+  {
+    size_t  sublen;
 
-      if ( (lfetch & 0x0200) != 0 )       // check if value at node; save value pointer
-        s = zval::SkipToEnd( value = ::FetchFrom( s, xtype ) );
-      else {  value = nullptr; xtype = (byte)-1;  }
-
-      if ( (lfetch & 0x0400) != 0 )       // check if patricia-style element
-      {
-        pnext = nullptr;
-        count = 0;
-        level = (ptext = s) + (ltext = fragment_len( lfetch ));
-      }
-        else
-      if ( (count = lfetch & 0x1ff) != 0 )
-      {
-        --count;
-          level = ::FetchFrom( (ptext = s) + (ltext = 1), sublen );
-          pnext = level + sublen;
-      }
-        else
-      {
-        ptext = pnext = level = nullptr;
-        ltext = 0;
-      }
+    if ( count != 0 )
+    {
+      --count;
+        level = ::FetchFrom( (ptext = pnext) + 1, sublen );
+        pnext = level + sublen;
       return true;
     }
 
-  bool  zmap::dump::const_iterator::dump_iterator::iterator_node::move_to_next()
-    {
-      size_t  sublen;
-
-      if ( count != 0 )
-      {
-        --count;
-          level = ::FetchFrom( (ptext = pnext) + 1, sublen );
-          pnext = level + sublen;
-        return true;
-      }
-
-      return false;
-    }
+    return false;
+  }
 
   zmap::dump::const_iterator::dump_iterator::dump_iterator( const char* s )
+  {
+    if ( s != nullptr )
     {
-      if ( s != nullptr )
+      tree.push_back( iterator_node( s ) );
+
+      while ( tree.back().value == nullptr && tree.back().level != nullptr )
       {
-        tree.push_back( iterator_node( s ) );
-
-        while ( tree.back().value == nullptr && tree.back().level != nullptr )
-        {
-          buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
-          tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
-        }
-
-        buff.push_back( '\0' ), makedata();
+        buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
+        tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
       }
+
+      buff.push_back( '\0' ), makedata();
     }
+  }
 
   bool  zmap::dump::const_iterator::dump_iterator::jumpnext()
+  {
+    if ( !tree.empty() )
     {
-      if ( !tree.empty() )
+      buff.resize( buff.size() - (buff.empty() ? 0 : 1) );  // remove trailing '\0'
+
+      for ( ; !tree.empty(); )
       {
-        buff.resize( buff.size() - (buff.empty() ? 0 : 1) );  // remove trailing '\0'
-
-        for ( ; !tree.empty(); )
+        if ( tree.back().level != nullptr )
         {
-          if ( tree.back().level != nullptr )
-          {
-            do  {
-              buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
-              tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
-            } while ( tree.back().value == nullptr && tree.back().level != nullptr );
+          do  {
+            buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
+            tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
+          } while ( tree.back().value == nullptr && tree.back().level != nullptr );
 
-            break;
-          }
-
-          if ( tree.back().move_to_next() )
-          {
-            while ( tree.back().value == nullptr && tree.back().level != nullptr )
-            {
-              buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
-              tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
-            }
-
-            break;
-          }
-            else
-          {
-            tree.pop_back();
-            buff.resize( buff.size() - (tree.empty() ? 0 : tree.back().ltext) );
-          }
+          break;
         }
-        if ( buff.size() != 0 )
-          return buff.push_back( '\0' ), makedata(), true;
+
+        if ( tree.back().move_to_next() )
+        {
+          while ( tree.back().value == nullptr && tree.back().level != nullptr )
+          {
+            buff.insert( buff.end(), tree.back().ptext, tree.back().ptext + tree.back().ltext );
+            tree.push_back( iterator_node( exchange( tree.back().level, (const char*)nullptr ) ) );
+          }
+
+          break;
+        }
+          else
+        {
+          tree.pop_back();
+          buff.resize( buff.size() - (tree.empty() ? 0 : tree.back().ltext) );
+        }
       }
-      return false;
+      if ( buff.size() != 0 )
+        return buff.push_back( '\0' ), makedata(), true;
     }
+    return false;
+  }
 
   void  zmap::dump::const_iterator::dump_iterator::makedata()
-    {
-      if ( tree.empty() != 0 )  data = { key(), zval::dump() };
-        else data = { key( tree.back().xtype, buff.data(), buff.size() - 1 ), zval::dump( tree.back().value ) };
-    }
+  {
+    if ( tree.empty() != 0 )  data = { key(), zval::dump() };
+      else data = { key( tree.back().xtype, buff.data(), buff.size() - 1 ), zval::dump( tree.back().value ) };
+  }
 
   bool  zmap::dump::const_iterator::zmap_iterator::jumpnext()
-    {  return iter != zmap::const_iterator() && ++iter != zmap::const_iterator();  }
+  {
+    return iter != zmap::const_iterator() && ++iter != zmap::const_iterator();
+  }
 
   // zmap::key implementation
 
   zmap::key::key(): _typ( none ), _psz( nullptr ), _len( 0 )  {}
+
   zmap::key::key( unsigned t, const uint8_t* b, size_t l ): _typ( t ), _len( l )
-    {
-      if ( _typ == 0 )  _psz = (const uint8_t*)memcpy( _buf, b, l );
-        else _psz = b;
-    }
+  {
+    if ( _typ == 0 )  _psz = (const uint8_t*)memcpy( _buf, b, l );
+      else _psz = b;
+  }
+
   zmap::key::key( unsigned k ): _typ( uint ), _psz( _buf ), _len( keys::int_to_key( _buf, k ) )  {}
   zmap::key::key( const char* k ): _typ( cstr ), _psz( (const uint8_t*)k ), _len( w_strlen( k ) ) {}
   zmap::key::key( const widechar* k ): _typ( wstr ), _psz( (const uint8_t*)k ), _len( sizeof(widechar) * w_strlen( k ) )  {}
@@ -496,41 +510,41 @@ namespace mtc
   zmap::key::key( const key& k ): _typ( k._typ ), _psz( k._psz ), _len( k._len )
     {  if ( _typ == 0 ) _psz = (const uint8_t*)memcpy( _buf, k._buf, sizeof(k._buf) );  }
   zmap::key&  zmap::key::operator= ( const key& k )
-    {
-      _typ = k._typ;
-      _len = k._len;
-      if ( k._psz == k._buf ) _psz = (const uint8_t*)memcpy( _buf, k._buf, k._len );
-        else _psz = k._psz;
-      return *this;
-    }
+  {
+    _typ = k._typ;
+    _len = k._len;
+    if ( k._psz == k._buf ) _psz = (const uint8_t*)memcpy( _buf, k._buf, k._len );
+      else _psz = k._psz;
+    return *this;
+  }
 
   auto  zmap::key::operator == ( const key& k ) const -> bool
+  {
+    if ( _typ != k._typ )
+      return false;
+    switch ( _typ )
     {
-      if ( _typ != k._typ )
-        return false;
-      switch ( _typ )
-        {
-          case uint:  return (unsigned)*this == (unsigned)k;
-          case cstr:  return w_strcmp( (const char*)*this, (const char*)k ) == 0;
-          case wstr:  return w_strcmp( (const widechar*)*this, (const widechar*)k ) == 0;
-          default  :  return true;
-        }
+      case uint:  return (unsigned)*this == (unsigned)k;
+      case cstr:  return w_strcmp( (const char*)*this, (const char*)k ) == 0;
+      case wstr:  return w_strcmp( (const widechar*)*this, (const widechar*)k ) == 0;
+      default  :  return true;
     }
+  }
 
   auto  zmap::key::compare( const key& k ) const -> int
-    {
-      int   rc;
+  {
+    int   rc;
 
-      if ( (rc = _typ - k._typ) != 0 )
-        return rc;
-      switch ( _typ )
-        {
-          case uint:  return (unsigned)*this - (unsigned)k;
-          case cstr:  return w_strcmp( (const char*)*this, (const char*)k );
-          case wstr:  return w_strcmp( (const widechar*)*this, (const widechar*)k );
-          default  :  throw std::logic_error( "undefined key type for compare" );
-        }
-    }
+    if ( (rc = _typ - k._typ) != 0 )
+      return rc;
+    switch ( _typ )
+      {
+        case uint:  return (unsigned)*this - (unsigned)k;
+        case cstr:  return w_strcmp( (const char*)*this, (const char*)k );
+        case wstr:  return w_strcmp( (const widechar*)*this, (const widechar*)k );
+        default  :  throw std::logic_error( "undefined key type for compare" );
+      }
+  }
 
   zmap::key::operator unsigned () const {  return _typ == uint ? keys::key_to_int( _psz, _len ) : 0;  }
   zmap::key::operator const char* () const {  return _typ == cstr ? (const char*)_psz : nullptr;  }
@@ -547,102 +561,102 @@ namespace mtc
     std::vector<ztree_t>( std::move( zt ) ), chnode( zt.chnode ), keyset( zt.keyset ), pvalue( std::move( zt.pvalue ) ) {  zt.keyset = key::none;  }
 
   zmap::ztree_t&  zmap::ztree_t::operator = ( ztree_t&& zt )
-    {
-      std::vector<ztree_t>::operator=( std::move( zt ) );
-      chnode = zt.chnode;
-      keyset = zt.keyset;  zt.keyset = key::none;
-      pvalue = std::move( zt.pvalue );
-      return *this;
-    }
+  {
+    std::vector<ztree_t>::operator=( std::move( zt ) );
+    chnode = zt.chnode;
+    keyset = zt.keyset;  zt.keyset = key::none;
+    pvalue = std::move( zt.pvalue );
+    return *this;
+  }
 
   auto  zmap::ztree_t::insert( const uint8_t* key, size_t cch ) -> zmap::ztree_t*
-    {
-      for ( auto expand = this; ; ++key, --cch )
-      {
-        if ( cch > 0 )
-        {
-          uint8_t chnext = *key;
-          auto    ptrtop = expand->begin();
-          auto    ptrend = expand->end();
-
-          while ( ptrtop < ptrend && ptrtop->chnode < chnext )
-            ++ptrtop;
-          if ( ptrtop >= ptrend || ptrtop->chnode != chnext )
-            ptrtop = static_cast<std::vector<ztree_t>&>( *expand ).insert( ptrtop, ztree_t( chnext ) );
-          expand = expand->data() + (ptrtop - expand->begin());
-        }
-          else
-        return expand;
-      }
-    }
-
-  auto  zmap::ztree_t::remove( const uint8_t* key, size_t cch ) -> size_t
+  {
+    for ( auto expand = this; ; ++key, --cch )
     {
       if ( cch > 0 )
       {
-        auto  chr = *key;
-        auto  top = this->begin();
-        auto  end = this->end();
+        uint8_t chnext = *key;
+        auto    ptrtop = expand->begin();
+        auto    ptrend = expand->end();
 
-        while ( top != end && top->chnode < chr )
-          ++top;
-
-        if ( top == end || top->chnode != chr )
-          return 0;
-          
-        if ( top->remove( key + 1, cch - 1 ) == 0 )
-          return 0;
-
-        if ( top->size() == 0 && top->pvalue == nullptr )
-          this->erase( top );
-
-        return 1;
+        while ( ptrtop < ptrend && ptrtop->chnode < chnext )
+          ++ptrtop;
+        if ( ptrtop >= ptrend || ptrtop->chnode != chnext )
+          ptrtop = static_cast<std::vector<ztree_t>&>( *expand ).insert( ptrtop, ztree_t( chnext ) );
+        expand = expand->data() + (ptrtop - expand->begin());
       }
         else
-      if ( pvalue != nullptr )
-      {
-        keyset = key::none;
-        pvalue.reset();
-        return 1;
-      }
-      return 0;
+      return expand;
     }
+  }
+
+  auto  zmap::ztree_t::remove( const uint8_t* key, size_t cch ) -> size_t
+  {
+    if ( cch > 0 )
+    {
+      auto  chr = *key;
+      auto  top = this->begin();
+      auto  end = this->end();
+
+      while ( top != end && top->chnode < chr )
+        ++top;
+
+      if ( top == end || top->chnode != chr )
+        return 0;
+
+      if ( top->remove( key + 1, cch - 1 ) == 0 )
+        return 0;
+
+      if ( top->size() == 0 && top->pvalue == nullptr )
+        this->erase( top );
+
+      return 1;
+    }
+      else
+    if ( pvalue != nullptr )
+    {
+      keyset = key::none;
+      pvalue.reset();
+      return 1;
+    }
+    return 0;
+  }
 
   template <class self>
   auto  zmap::ztree_t::search( self& _me, const uint8_t* key, size_t cch ) -> self*
+  {
+    auto  ptop = &_me;
+
+    while ( cch-- > 0 )
     {
-      auto  ptop = &_me;
+      auto  chr = *key++;
+      auto  top = ptop->begin();
+      auto  end = ptop->end();
 
-      while ( cch-- > 0 )
-      {
-        auto  chr = *key++;
-        auto  top = ptop->begin();
-        auto  end = ptop->end();
+      while ( top != end && top->chnode < chr )
+        ++top;
+      if ( top == end || top->chnode != chr )
+        return nullptr;
 
-        while ( top != end && top->chnode < chr )
-          ++top;
-        if ( top == end || top->chnode != chr )
-          return nullptr;
-
-        ptop = ptop->data() + (top - ptop->begin());
-      }
-      return ptop;
+      ptop = ptop->data() + (top - ptop->begin());
     }
+    return ptop;
+  }
 
   auto  zmap::ztree_t::copyit() const -> ztree_t
-    {
-      ztree_t mkcopy( chnode );
+  {
+    ztree_t mkcopy( chnode );
 
-      for ( auto ptr = begin(); ptr != end(); ++ptr )
-        mkcopy.push_back( ptr->copyit() );
+    for ( auto ptr = begin(); ptr != end(); ++ptr )
+      mkcopy.push_back( ptr->copyit() );
 
-      mkcopy.keyset = keyset;
+    mkcopy.keyset = keyset;
 
-      if ( pvalue != nullptr )
-        mkcopy.pvalue = std::unique_ptr<zval>( new zval( *pvalue.get() ) );
+    if ( pvalue != nullptr )
+      mkcopy.pvalue = std::unique_ptr<zval>( new zval( *pvalue.get() ) );
 
-      return mkcopy;
-    }
+    return mkcopy;
+  }
 
   auto  zmap::ztree_t::plain_branchlen() const -> int
   {
