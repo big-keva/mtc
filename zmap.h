@@ -1287,8 +1287,8 @@ namespace mtc
     auto  operator = ( const T* t ) -> value_t&
     {
       this->delete_it();
-        this->source = this->invalid;
-        this->stored = (T*)t;
+        this->source = invalid;
+        this->object = (T*)t;
       return *this;
     }
   };
