@@ -89,6 +89,7 @@ namespace mtc {
     auto set_value( const type##_t*, const zmap::key& k ) -> type##_t*              \
       {  return set_##type( k );  }
 
+    derive_get( bool )
     derive_get( char )
     derive_get( byte )
     derive_get( int16 )
