@@ -195,7 +195,7 @@ namespace parse {
 
   auto  hints::type() const -> zval::z_type
   {
-    return zval::z_type( level != nullptr ? level->get_type() : zval::z_untyped );
+    return zval::z_type( level != nullptr ? (zval::z_type)level->get_type() : zval::z_untyped );
   }
 
   auto  hints::next() const -> hints

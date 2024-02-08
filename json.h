@@ -178,8 +178,7 @@ namespace json {
     inline O* Print( O* o, T t, const D& deco = D() ) { ... }
   */
   # define  derive_printjson_dec( _type_, _tmpl_ )                    \
-  template <class O, class D = print::compact>                        \
-  inline  O*  Print( O* o, _type_ t, const D& = D() )                 \
+    template <class O, class D = print::compact>  O*  Print( O* o, _type_ t, const D& = D() ) \
     {                                                                 \
       char  decval[0x40];                                             \
       return ::Serialize( o, decval, sprintf( decval, _tmpl_, t ) );  \
@@ -199,28 +198,27 @@ namespace json {
   # endif  // _MSC_VER
   # undef derive_printjson_dec
 
-  # define  derive_printjson_flo( _type_ )                          \
-    template <class O, class D = print::compact>                    \
-    inline  O*  Print( O* o, _type_ t, const D& = D() )             \
-    {                                                               \
-      char  floval[0x10];                                           \
-      return ::Serialize( o, floval, sprintf( floval, "%f", t ) );  \
+  # define  derive_printjson_flo( _type_ )              \
+    template <class O, class D = print::compact>  O*  Print( O* o, _type_ t, const D& = D() )         \
+    {                                                   \
+      auto  s = std::to_string( t );                    \
+      return ::Serialize( o, s.c_str(), s.length() );   \
     }
     derive_printjson_flo( float )
     derive_printjson_flo( double )
   # undef derive_printjson_flo
 
   template <class O, class D = print::compact>  O*  Print( O* o, bool bvalue, const D& = D() )
-    {
-      const char* str = bvalue ? "true" : "false";
-      return ::Serialize( o, str, bvalue ? 4 : 5 );
-    }
+  {
+    const char* str = bvalue ? "true" : "false";
+    return ::Serialize( o, str, bvalue ? 4 : 5 );
+  }
 
   template <class O, class D = print::compact>  O*  Print( O* o, const uuid_t& uuid, const D& = D() )
-    {
-      auto  s = mtc::to_string( uuid );
-      return ::Serialize( o, s.c_str(), s.length() );
-    }
+  {
+    auto  s = mtc::to_string( uuid );
+    return ::Serialize( o, s.c_str(), s.length() );
+  }
 
 // vectors
   template <class O, class T1, class T2, class D = print::compact>
