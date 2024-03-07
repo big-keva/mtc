@@ -343,7 +343,8 @@ namespace patricia  {
   {
     auto  l1 = getlen();
     auto  l2 = k.getlen();
-    auto  rc = memcmp( getptr(), k.getptr(), std::min( l1, l2 ) );
+    auto  lc = std::min( l1, l2 );
+    auto  rc = lc != 0 ? memcmp( getptr(), k.getptr(), lc ) : 0;
 
     return rc != 0 ? rc : l1 - l2;
   }
