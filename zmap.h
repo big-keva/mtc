@@ -146,6 +146,7 @@ namespace mtc
     public:
       enum: size_t  {  value = get_size<types...>::size  };
     };
+
   }
 
   class zval
@@ -153,6 +154,16 @@ namespace mtc
     friend class zmap;
 
     union inner_t;
+
+    enum values: size_t
+    {
+      bytes = impl::get_max_size<uint64_t, double,
+        charstr,
+        widestr, array_charstr>::value,
+      align = alignof(array_charstr)
+    };
+
+    using storage_t = typename std::aligned_storage<values::bytes, values::align>::type;
 
   public:     // z_%%% types
     class dump;
@@ -444,12 +455,8 @@ namespace mtc
     auto  inner()       ->       inner_t&;
 
   protected:  // inplace storage
-    char    storage[impl::get_max_size<uint64_t, double,
-      charstr,
-      widestr,
-      std::vector<uint64_t>,
-      std::vector<widestr>>::value];
-    byte_t  vx_type;
+    storage_t storage;
+    byte_t    vx_type;
 
   };
 

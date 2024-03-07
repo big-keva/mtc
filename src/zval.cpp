@@ -549,8 +549,8 @@ namespace mtc
 
   // zval implementation
 
-  auto  zval::inner() const -> const zval::inner_t& {  return *reinterpret_cast<const inner_t*>( storage );  }
-  auto  zval::inner()       ->       zval::inner_t& {  return *reinterpret_cast<      inner_t*>( storage );  }
+  auto  zval::inner() const -> const zval::inner_t& {  return *reinterpret_cast<const inner_t*>( &storage );  }
+  auto  zval::inner()       ->       zval::inner_t& {  return *reinterpret_cast<      inner_t*>( &storage );  }
 
   zval::zval(): vx_type( z_untyped )  {}
 
