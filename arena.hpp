@@ -75,6 +75,13 @@ namespace mtc {
 
       return new( palloc ) Object( std::move( args... ), *this );
     }
+    template <class Object, class ... Args> [[nodiscard]]
+    auto  Create( const Args&... args ) -> Object*
+    {
+      auto  palloc = allocate( sizeof(Object), alignof(Object) );
+
+      return new( palloc ) Object( args..., *this );
+    }
 
   protected:
     enum: std::size_t{  allocation_unit_size = 0x10000  };
