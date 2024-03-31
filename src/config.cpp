@@ -134,8 +134,7 @@ namespace mtc
   }
 
   template <class C, class V>
-  bool  parse_double( double& val, const std::basic_string<C>& str,
-    const std::initializer_list<std::pair<const char*, V>>& suf )
+  bool  parse_double( double& val, const strbase<C>& str, const std::initializer_list<std::pair<const char*, V>>& suf )
   {
     C*    endp;
     auto  dval = mtc::w_strtod( str.c_str(), &endp );

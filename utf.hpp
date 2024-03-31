@@ -150,7 +150,7 @@ namespace mtc {
 
   public:
     typedef char  chartype;
-    typedef std::basic_string<chartype> string_t;
+    typedef strbase<chartype> string_t;
     
   protected:
     template <class _char>
@@ -170,7 +170,7 @@ namespace mtc {
     static  auto  in( const widechar* str, size_t len = (size_t)-1 ) -> input<widechar>;
     static  auto  in( const widestr& str ) -> input<widechar>;
     static  auto  in( const uint32_t* str, size_t len = (size_t)-1 ) -> input<uint32_t>;
-    static  auto  in( const std::basic_string<uint32_t>& str ) -> input<uint32_t>;
+    static  auto  in( const strbase<uint32_t>& str ) -> input<uint32_t>;
 
     static  auto  out( chartype* str, size_t len ) -> outptr;
     static  auto  out( string_t& str ) -> outstr;
@@ -183,7 +183,7 @@ namespace mtc {
 
     static  bool  detect( const charstr&  src ) {  return detect( src.c_str(), src.length() );  }
     static  bool  detect( const widestr&  src ) {  return detect( src.c_str(), src.length() );  }
-    static  bool  detect( const std::basic_string<uint32_t>&  src ) {  return detect( src.c_str(), src.length() );  }
+    static  bool  detect( const strbase<uint32_t>&  src ) {  return detect( src.c_str(), src.length() );  }
 
   public:     // encoders
     static  auto  encode( char* out, size_t len, uint32_t chr ) -> size_t;
@@ -197,13 +197,13 @@ namespace mtc {
     static  auto  encode( charstr&, const uint32_t* str, size_t cch = (size_t)-1 ) -> charstr&;
 
     static  auto  encode( charstr&, const widestr& ) -> charstr&;
-    static  auto  encode( charstr&, const std::basic_string<uint32_t>& ) -> charstr&;
+    static  auto  encode( charstr&, const strbase<uint32_t>& ) -> charstr&;
 
     static  auto  encode( const widechar* str, size_t cch = (size_t)-1 ) -> charstr;
     static  auto  encode( const uint32_t* str, size_t cch = (size_t)-1 ) -> charstr;
 
     static  auto  encode( const widestr& ) -> charstr;
-    static  auto  encode( const std::basic_string<uint32_t>& ) -> charstr;
+    static  auto  encode( const strbase<uint32_t>& ) -> charstr;
 
   public:
     static  auto  charsize( uint32_t uch ) -> size_t;
@@ -222,7 +222,7 @@ namespace mtc {
 
   public:
     typedef widechar  chartype;
-    typedef std::basic_string<chartype> string_t;
+    typedef strbase<chartype> string_t;
     
   protected:
     class input;
@@ -250,13 +250,13 @@ namespace mtc {
     static  auto  encode( string_t&, const uint32_t* str, size_t cch = (size_t)-1 ) -> string_t&;
 
     static  auto  encode( string_t&, const utf8::string_t& ) -> string_t&;
-    static  auto  encode( string_t&, const std::basic_string<uint32_t>& ) -> string_t&;
+    static  auto  encode( string_t&, const strbase<uint32_t>& ) -> string_t&;
 
     static  auto  encode( const char* str, size_t cch = (size_t)-1 ) -> string_t;
     static  auto  encode( const uint32_t* str, size_t cch = (size_t)-1 ) -> string_t;
 
     static  auto  encode( const utf8::string_t& ) -> string_t;
-    static  auto  encode( const std::basic_string<uint32_t>& ) -> string_t;
+    static  auto  encode( const strbase<uint32_t>& ) -> string_t;
 
   public:     // expand from utf8/utf32
     static  auto  expand( const char*, size_t = (size_t)-1 ) -> string_t;
@@ -271,7 +271,7 @@ namespace mtc {
   {
   public:
     typedef uint32_t  chartype;
-    typedef std::basic_string<chartype> string_t;
+    typedef strbase<chartype> string_t;
     
   protected:
     class input;
@@ -322,7 +322,7 @@ namespace mtc {
 
   public:
     input( const _char*, size_t );
-    input( const std::basic_string<_char>& str ): src( str.c_str() ), end( str.c_str() + str.length() ) {}
+    input( const strbase<_char>& str ): src( str.c_str() ), end( str.c_str() + str.length() ) {}
     input( const input& in ): src( in.src ), end( in.end ) {}
 
   public:
@@ -753,7 +753,7 @@ namespace mtc {
   inline  auto  utf8::in( const widechar* str, size_t len ) -> input<widechar> {  return input<widechar>( str, len );  }
   inline  auto  utf8::in( const widestr& str ) -> input<widechar> {  return input<widechar>( str );  }
   inline  auto  utf8::in( const uint32_t* str, size_t len ) -> input<uint32_t> {  return input<uint32_t>( str, len );  }
-  inline  auto  utf8::in( const std::basic_string<uint32_t>& str ) -> input<uint32_t> {  return input<uint32_t>( str );  }
+  inline  auto  utf8::in( const strbase<uint32_t>& str ) -> input<uint32_t> {  return input<uint32_t>( str );  }
 
   inline  auto  utf8::out( char* str, size_t len ) -> outptr  {  return outptr( str, len );  }
   inline  auto  utf8::out( charstr& str ) -> outstr {  return outstr( str );  }
@@ -781,7 +781,7 @@ namespace mtc {
 
   inline  auto  utf8::encode( charstr& out, const widestr& str ) -> charstr&
     {  return utf::encode( utf8::out( out ), utf16::in( str ) );  }
-  inline  auto  utf8::encode( charstr& out, const std::basic_string<uint32_t>& str ) -> charstr&
+  inline  auto  utf8::encode( charstr& out, const strbase<uint32_t>& str ) -> charstr&
     {  return utf::encode( utf8::out( out ), utf32::in( str ) );  }
 
   inline  auto  utf8::encode( const widechar* str, size_t cch ) -> charstr
@@ -797,7 +797,7 @@ namespace mtc {
 
   inline  auto  utf8::encode( const widestr& str ) -> charstr
     {  return encode( str.c_str(), str.length() );  }
-  inline  auto  utf8::encode( const std::basic_string<uint32_t>& str ) -> charstr
+  inline  auto  utf8::encode( const strbase<uint32_t>& str ) -> charstr
     {  return encode( str.c_str(), str.length() );  }
 
   inline  auto  utf8::charsize( uint32_t uch ) -> size_t
@@ -882,7 +882,7 @@ namespace mtc {
 
   inline  auto  utf16::encode( string_t& out, const utf8::string_t& str ) -> string_t&
     {  return utf::encode( utf16::out( out ), utf8::in( str ) );  }
-  inline  auto  utf16::encode( string_t& out, const std::basic_string<uint32_t>& src ) -> string_t&
+  inline  auto  utf16::encode( string_t& out, const strbase<uint32_t>& src ) -> string_t&
     {  return utf::encode( utf16::out( out ), utf32::in( src ) );  }
 
   inline  auto  utf16::encode( const char* str, size_t cch ) -> string_t
@@ -892,7 +892,7 @@ namespace mtc {
 
   inline  auto  utf16::encode( const utf8::string_t& str ) -> string_t
     {  return utf::encode( utf16::out(), utf8::in( str ) );  }
-  inline  auto  utf16::encode( const std::basic_string<uint32_t>& str ) -> string_t
+  inline  auto  utf16::encode( const strbase<uint32_t>& str ) -> string_t
     {  return utf::encode( utf16::out(), utf32::in( str ) );  }
 
   inline  auto  utf16::expand( const char* str, size_t len ) -> string_t

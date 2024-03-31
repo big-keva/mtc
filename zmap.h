@@ -78,8 +78,17 @@ namespace mtc
 
   using bool_t = bool;
 
-  using charstr = std::string;
-  using widestr = std::basic_string<widechar>;
+# if !defined( mtc_charstr_defined )
+  template <class C>
+  using strbase = std::basic_string<C, std::char_traits<C>, std::allocator<C>>;
+
+# define mtc_charstr_defined
+  using charstr = strbase<char>;
+# endif
+# if !defined( mtc_widestr_defined )
+# define mtc_widestr_defined
+  using widestr = strbase<widechar>;
+# endif
 
   using array_char   = std::vector<char_t>;
   using array_byte   = std::vector<byte_t>;

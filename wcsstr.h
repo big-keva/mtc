@@ -81,12 +81,15 @@ namespace mtc
 {
 
 # if !defined( mtc_charstr_defined )
+  template <class C>
+  using strbase = std::basic_string<C, std::char_traits<C>, std::allocator<C>>;
+
 # define mtc_charstr_defined
-  using charstr = std::string;
+  using charstr = strbase<char>;
 # endif
 # if !defined( mtc_widestr_defined )
 # define mtc_widestr_defined
-  using widestr = std::basic_string<widechar>;
+  using widestr = strbase<widechar>;
 # endif
 
   struct getwidechar
