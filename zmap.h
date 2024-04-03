@@ -475,6 +475,9 @@ namespace mtc
     class zdata_t;
     class zbuff_t;
 
+    template <class S>  class storage;
+    template <class S>  class limiter;
+
   public:     // iterator support
     class key;
     class iterator;
@@ -1752,6 +1755,47 @@ namespace mtc
 
   };
 
+  template <class S>
+  class zmap::storage
+  {
+    S*      source;
+
+  public:
+    storage( S* s, size_t ): source( s ) {}
+
+  public:
+    template <class T>
+    S*  operator()( T& t, size_t n )  {  return t.FetchFrom( source, n );  }
+  };
+
+  template <class S>
+  class zmap::limiter: protected pmr::storage
+  {
+    S*      source;
+    size_t  length;
+
+  public:
+    limiter( S* s, size_t l = (size_t)-1 ):
+      source( s ),
+      length( l )  {}
+
+  public:
+    template <class T>
+    S*  operator()( T& t, size_t n )
+    {
+      return t.FetchFrom( (pmr::storage*)this, n ), this->source;
+    }
+
+  protected:
+    auto  FetchFrom( void* p, size_t l ) -> storage* override
+    {
+      if ( source != nullptr && l <= length && (source = ::FetchFrom( source, p, l )) != nullptr )
+        return length -= l, this;
+      else
+        return source = nullptr, nullptr;
+    }
+  };
+
   template <class value>
   class zmap::iterator_data
   {
@@ -2052,10 +2096,14 @@ namespace mtc
         byte_t  chnext;
         size_t  sublen;
 
-        if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
-          return nullptr;
-        push_back( ztree_t( chnext ) );
-          s = back().FetchFrom( s, n );
+        if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) != nullptr )
+        {
+          using reader_t = typename std::conditional<std::is_same<S, pmr::storage>::value,
+            storage<S>, limiter<S>>::type;
+
+          push_back( ztree_t( chnext ) );
+            s = reader_t( s, sublen )( back(), n );
+        }
       }
     }
     return s;
