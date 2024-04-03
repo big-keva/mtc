@@ -150,6 +150,16 @@ template <class S,
 
 namespace mtc
 {
+  namespace pmr
+  {
+    struct storage
+    {
+      virtual storage*  FetchFrom( void*,       size_t )  {  return nullptr;  }
+      virtual storage*  Serialize( const void*, size_t )  {  return nullptr;  }
+      virtual storage*  SkipBytes(              size_t )  {  return nullptr;  }
+    };
+  }
+
   class sourcebuf
   {
     const char* p;
@@ -169,10 +179,10 @@ namespace mtc
     sourcebuf* ptr() const {  return const_cast<sourcebuf*>( this );  }
     operator sourcebuf* () const    {  return ptr();  }
     const char* getptr() const      {  return p < e ? p : nullptr;  }
-    sourcebuf*  skipto( size_t l )  {  return (p = l + p) <= e ? this : nullptr;  }
 
   public:     // fetch
     sourcebuf*  FetchFrom( void* o, size_t l )  {  return p + l <= e ? (memcpy( o, p, l ), p += l, this) : (p = e, nullptr);  }
+    sourcebuf*  SkipBytes(          size_t l )  {  return (p = l + p) <= e ? this : nullptr;  }
   };
 
   class serialbuf
@@ -793,8 +803,15 @@ S*  SkipToEnd( S* s, const std::tuple<T...>* )
  */
 template <> inline  auto  FetchFrom( mtc::sourcebuf* s, void* p, size_t l ) -> mtc::sourcebuf*
   {  return s != nullptr ? s->FetchFrom( p, l ) : s;  }
-template <> inline  auto  SkipBytes( mtc::sourcebuf* s, size_t l ) -> mtc::sourcebuf*
-  {  return s != nullptr ? s->skipto( l ) : s;  }
+template <> inline  auto  SkipBytes( mtc::sourcebuf* s,          size_t l ) -> mtc::sourcebuf*
+  {  return s != nullptr ? s->SkipBytes(    l ) : s;  }
+
+template <> inline  auto  Serialize( mtc::pmr::storage* s, const void* p, size_t l ) -> mtc::pmr::storage*
+  {  return s != nullptr ? s->Serialize( p, l ) : s;  }
+template <> inline  auto  FetchFrom( mtc::pmr::storage* s, void* p,       size_t l ) -> mtc::pmr::storage*
+  {  return s != nullptr ? s->FetchFrom( p, l ) : s;  }
+template <> inline  auto  SkipBytes( mtc::pmr::storage* s,                size_t l ) -> mtc::pmr::storage*
+  {  return s != nullptr ? s->SkipBytes(    l ) : s;  }
 
 namespace mtc
 {
