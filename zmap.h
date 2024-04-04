@@ -2128,8 +2128,8 @@ namespace mtc
   template <class S>
   S*  zmap::FetchFrom( S*  s )
   {
-    if ( p_data != nullptr )
-      p_data->detach();
+    if ( p_data != nullptr && p_data->detach() == 0 )
+      delete p_data;
     (p_data = new zdata_t())->attach();
 
     return p_data->FetchFrom( s, p_data->n_vals );
