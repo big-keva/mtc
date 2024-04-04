@@ -682,8 +682,11 @@ namespace mtc
     zmap::zdata_t implementation
   */
 
-  zmap::zdata_t::zdata_t(): n_vals( 0 ), _refer( 0 )  {}
-  zmap::zdata_t::zdata_t( ztree_t&& t, size_t n ):  ztree_t( std::move( t ) ), n_vals( n ), _refer( 0 ) {}
+  zmap::zdata_t::zdata_t():
+    n_vals( 0 ), _refer( 0 )  {}
+
+  zmap::zdata_t::zdata_t( ztree_t&& t, size_t n ):
+    ztree_t( std::move( t ) ), n_vals( n ), _refer( 0 ) {}
 
   long  zmap::zdata_t::attach()
   {
