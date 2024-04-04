@@ -1765,7 +1765,7 @@ namespace mtc
 
   public:
     template <class T>
-    S*  operator()( T& t, size_t n )  {  return t.FetchFrom( source, n );  }
+    S*  operator()( T& t, size_t& n )  {  return t.FetchFrom( source, n );  }
   };
 
   template <class S>
@@ -1781,7 +1781,7 @@ namespace mtc
 
   public:
     template <class T>
-    S*  operator()( T& t, size_t n )
+    S*  operator()( T& t, size_t& n )
     {
       return t.FetchFrom( (pmr::storage*)this, n ), this->source;
     }
