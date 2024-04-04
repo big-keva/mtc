@@ -1730,7 +1730,7 @@ namespace mtc
   public:
     long  attach();
     long  detach();
-    auto  copyit() -> zdata_t*;
+    auto  docopy() -> zdata_t*;
 
   public:
     size_t      n_vals;

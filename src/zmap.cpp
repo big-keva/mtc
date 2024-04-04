@@ -686,22 +686,37 @@ namespace mtc
   zmap::zdata_t::zdata_t( ztree_t&& t, size_t n ):  ztree_t( std::move( t ) ), n_vals( n ), _refer( 0 ) {}
 
   long  zmap::zdata_t::attach()
-    {
-      std::unique_lock<std::mutex>  aulock( _mutex );
-      return ++_refer;
-    }
+  {
+    std::unique_lock<std::mutex>  aulock( _mutex );
+    return ++_refer;
+  }
 
   long  zmap::zdata_t::detach()
-    {
-      std::unique_lock<std::mutex>  aulock( _mutex );
-      return --_refer;
-    }
+  {
+    std::unique_lock<std::mutex>  aulock( _mutex );
+    return --_refer;
+  }
 
-  auto  zmap::zdata_t::copyit() -> zdata_t*
-    {
-      std::unique_lock<std::mutex>  aulock( _mutex );
-      return new zdata_t( ztree_t::copyit(), n_vals );
-    }
+ /*
+  * for copy-on-write, returns 1-counted object pointer which is:
+  *   either itself, if the object is 1-counted,
+  *   or a copy of existing object, if it is >1-counted
+  */
+  auto  zmap::zdata_t::docopy() -> zdata_t*
+  {
+    std::unique_lock<std::mutex>  xlock( _mutex );
+    zdata_t*                      pcopy;
+
+    assert( _refer > 0 );
+
+    if ( _refer == 1 )
+      return this;
+
+    (pcopy = new zdata_t( ztree_t::copyit(), n_vals ))->_refer = 1;
+      --_refer;
+
+    return pcopy;
+  }
 
   /*
     zmap::zbuff_t implementation
@@ -958,18 +973,7 @@ namespace mtc
       if ( p_data == nullptr )
         return (p_data = new zdata_t())->attach(), p_data;
 
-      auto  lcount = (p_data->attach(), p_data->detach());
-      
-      if ( lcount == 1 )
-        return p_data;
-
-      zdata_t*  p_copy = p_data->copyit();
-
-      p_data->detach();
-
-      (p_data = p_copy)->attach();
-
-      return p_data;
+      return p_data = p_data->docopy();
     }
 
   auto  zmap::put( const key& k, zval&& v ) -> zval*
@@ -978,14 +982,14 @@ namespace mtc
       ztree_t*  pfound;
 
       if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
-        {
-          pfound->pvalue = std::unique_ptr<zval>( new zval( std::move( v ) ) );
-          ++mydata->n_vals;
-        }
-      else
-        {
-          *pfound->pvalue = std::move( v );
-        }
+      {
+        pfound->pvalue = std::unique_ptr<zval>( new zval( std::move( v ) ) );
+        ++mydata->n_vals;
+      }
+        else
+      {
+        *pfound->pvalue = std::move( v );
+      }
       pfound->keyset = k.type();
 
       return pfound->pvalue.get();
@@ -997,14 +1001,14 @@ namespace mtc
       ztree_t*  pfound;
 
       if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
-        {
-          pfound->pvalue = std::unique_ptr<zval>( new zval( v ) );
-          ++mydata->n_vals;
-        }
-      else
-        {
-          *pfound->pvalue = v;
-        }
+      {
+        pfound->pvalue = std::unique_ptr<zval>( new zval( v ) );
+        ++mydata->n_vals;
+      }
+        else
+      {
+        *pfound->pvalue = v;
+      }
       pfound->keyset = k.type();
 
       return pfound->pvalue.get();
