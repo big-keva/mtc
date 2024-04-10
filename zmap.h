@@ -53,6 +53,7 @@ SOFTWARE.
 # if !defined( __zmap_hpp__ )
 # define __zmap_hpp__
 # include "serialize.h"
+# include "ptrpatch.h"
 # include "wcsstr.h"
 # include "uuid.h"
 # include <cassert>
@@ -506,12 +507,47 @@ namespace mtc
     friend  bool  is_array( const place_t<obj>& );
 
   protected:
-    auto  private_data() -> zdata_t*;
+    class lockdata_ptr
+    {
+      friend class zmap;
+
+      std::atomic<zdata_t*>*  origin;
+
+      lockdata_ptr( std::atomic<zdata_t*>& p ): origin( &p ) {}
+      lockdata_ptr( const lockdata_ptr& ) = delete;
+    public:
+      lockdata_ptr( lockdata_ptr&& p ): origin( p.origin )  {  p.origin = nullptr;  }
+     ~lockdata_ptr()
+      {
+        if ( origin != nullptr )
+          *origin = ptr::clean( origin->load() );
+      }
+
+    public:
+      auto  operator -> () const  -> const zdata_t*
+      {
+        if ( origin == nullptr )
+          throw std::logic_error( "invalid call" );
+        return ptr::clean( origin->load() );
+      }
+      auto  operator -> ()  -> zdata_t*
+      {
+        if ( origin == nullptr )
+          throw std::logic_error( "invalid call" );
+        return ptr::clean( origin->load() );
+      }
+      bool  operator == ( nullptr_t ) const {  return ptr::clean( origin->load() ) == nullptr;  }
+      bool  operator != ( nullptr_t ) const {  return !(*this == nullptr);  }
+
+    };
+
+    auto  private_data() -> lockdata_ptr;
+    auto  readers_data() const -> lockdata_ptr;
     static
     auto  fragment_len( word32_t u ) -> size_t {  assert( (u & 0x0400) != 0 );  return (u & 0x1ff) | ((u >> 2) & ~0x1ff);  }
 
   public:
-    zmap() = default;
+    zmap();
     zmap( zmap&& );
     zmap( const zmap& );
     zmap( const std::initializer_list<std::pair<key, zval>>& );
@@ -805,7 +841,7 @@ namespace mtc
     bool operator>= ( const zmap& z ) const {  return compare( z ) >= 0;  }
 
   protected:
-    zdata_t*  p_data = nullptr;
+    mutable std::atomic<zdata_t*> pzdata;
 
   };
 
@@ -1715,16 +1751,15 @@ namespace mtc
 
   class zmap::zdata_t: public ztree_t
   {
-    friend class zmap;
-
     zdata_t( zdata_t&& ) = delete;
     zdata_t( const zdata_t& ) = delete;
     zdata_t&  operator= ( zdata_t&& ) = delete;
     zdata_t&  operator= ( const zdata_t& ) = delete;
 
-    zdata_t( ztree_t&&, size_t );
+   ~zdata_t() = default;
 
   public:
+    zdata_t( ztree_t&&, size_t );
     zdata_t();
 
   public:
@@ -2116,23 +2151,40 @@ namespace mtc
   inline
   size_t  zmap::GetBufLen() const
   {
+    auto  p_data = readers_data();
+
     return p_data != nullptr ? p_data->GetBufLen() : 1;
   }
 
   template <class O>
   O*  zmap::Serialize( O* o ) const
   {
+    auto  p_data = readers_data();
+
     return p_data != nullptr ? p_data->Serialize( o ) : ::Serialize( o, (char)0 );
   }
 
   template <class S>
   S*  zmap::FetchFrom( S*  s )
   {
-    if ( p_data != nullptr && p_data->detach() == 0 )
-      delete p_data;
-    (p_data = new zdata_t())->attach();
+    auto  p_data = ptr::clean( pzdata.load() );
 
-    return p_data->FetchFrom( s, p_data->n_vals );
+    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
+      p_data = ptr::clean( p_data );
+
+    if ( p_data != nullptr )
+      p_data->detach();
+
+    (p_data = new zdata_t())->attach();
+      s = p_data->FetchFrom( s, p_data->n_vals );
+
+    if ( p_data->n_vals == 0 )
+    {
+      p_data->detach();
+      p_data = nullptr;
+    }
+
+    return pzdata = p_data, s;
   }
 
   template <class S>
