@@ -1087,8 +1087,11 @@ namespace mtc
     p_tree = p_data != nullptr ?
       p_data->search( k.data(), k.size() ) : nullptr;
 
-    if ( p_tree != nullptr )
-      p_tree = private_data()->search( k.data(), k.size() );
+    if ( p_tree == nullptr )
+      return pzdata = p_data, nullptr;
+
+    p_tree = (p_data = p_data->docopy())->search(
+      k.data(), k.size() );
 
     return pzdata = p_data, p_tree != nullptr ? p_tree->pvalue.get() : nullptr;
   }
