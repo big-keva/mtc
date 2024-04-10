@@ -1394,8 +1394,6 @@ namespace mtc
 
     if ( p_data != nullptr )
       p_data->detach();
-
-    p_data = nullptr;
   }
 
   auto  zmap::erase( const key& k ) -> size_t
