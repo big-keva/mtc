@@ -1321,7 +1321,9 @@ namespace mtc
     if ( p_data == nullptr )
       return pzdata = p_data, iterator();
 
-    return pzdata = p_data, iterator( p_data->begin(), p_data->end() );
+    auto  it = iterator( p_data, p_data->begin(), p_data->end() );
+
+    return pzdata = p_data, it;
   }
 
   zmap::iterator  zmap::end()
@@ -1339,7 +1341,9 @@ namespace mtc
     if ( p_data == nullptr )
       return pzdata = p_data, const_iterator();
 
-    return pzdata = p_data, const_iterator( p_data->begin(), p_data->end() );
+    auto  it = const_iterator( p_data, p_data->begin(), p_data->end() );
+
+    return pzdata = p_data, it;
   }
 
   zmap::const_iterator  zmap::cend() const
