@@ -61,11 +61,9 @@ SOFTWARE.
 # include <algorithm>
 # include <vector>
 # include <string>
-# include <atomic>
 # include <type_traits>
 # include <memory>
 # include <limits>
-# include <mutex>
 # include <cstddef>
 
 namespace mtc
@@ -1738,8 +1736,8 @@ namespace mtc
     size_t      n_vals;
 
   protected:
-    std::mutex  _mutex;
     long        _refer;
+
   };
 
   class zmap::zbuff_t: private std::vector<char>

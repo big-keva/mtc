@@ -690,13 +690,11 @@ namespace mtc
 
   long  zmap::zdata_t::attach()
   {
-    std::unique_lock<std::mutex>  aulock( _mutex );
     return ++_refer;
   }
 
   long  zmap::zdata_t::detach()
   {
-    auto  aulock = std::unique_lock<std::mutex>( _mutex );
     auto  rcount = --_refer;
 
     if ( rcount == 0 )
@@ -711,8 +709,7 @@ namespace mtc
   */
   auto  zmap::zdata_t::docopy() -> zdata_t*
   {
-    std::unique_lock<std::mutex>  xlock( _mutex );
-    zdata_t*                      pcopy;
+    zdata_t*  pcopy;
 
     assert( _refer > 0 );
 
