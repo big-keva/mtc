@@ -506,48 +506,12 @@ namespace mtc
     template <class obj>
     friend  bool  is_array( const place_t<obj>& );
 
-  protected:
-    class lockdata_ptr
-    {
-      friend class zmap;
-
-      std::atomic<zdata_t*>*  origin;
-
-      lockdata_ptr( std::atomic<zdata_t*>& p ): origin( &p ) {}
-      lockdata_ptr( const lockdata_ptr& ) = delete;
-    public:
-      lockdata_ptr( lockdata_ptr&& p ): origin( p.origin )  {  p.origin = nullptr;  }
-     ~lockdata_ptr()
-      {
-        if ( origin != nullptr )
-          *origin = ptr::clean( origin->load() );
-      }
-
-    public:
-      auto  operator -> () const  -> const zdata_t*
-      {
-        if ( origin == nullptr )
-          throw std::logic_error( "invalid call" );
-        return ptr::clean( origin->load() );
-      }
-      auto  operator -> ()  -> zdata_t*
-      {
-        if ( origin == nullptr )
-          throw std::logic_error( "invalid call" );
-        return ptr::clean( origin->load() );
-      }
-      bool  operator == ( nullptr_t ) const {  return ptr::clean( origin->load() ) == nullptr;  }
-      bool  operator != ( nullptr_t ) const {  return !(*this == nullptr);  }
-
-    };
-
-    auto  private_data() -> lockdata_ptr;
-    auto  readers_data() const -> lockdata_ptr;
     static
     auto  fragment_len( word32_t u ) -> size_t {  assert( (u & 0x0400) != 0 );  return (u & 0x1ff) | ((u >> 2) & ~0x1ff);  }
+    auto  private_data() -> zdata_t*;
 
   public:
-    zmap();
+    zmap() = default;
     zmap( zmap&& );
     zmap( const zmap& );
     zmap( const std::initializer_list<std::pair<key, zval>>& );
@@ -842,7 +806,7 @@ namespace mtc
     bool operator>= ( const zmap& z ) const {  return compare( z ) >= 0;  }
 
   protected:
-    mutable std::atomic<zdata_t*> pzdata;
+    zdata_t*  p_data = nullptr;
 
   };
 
@@ -1857,13 +1821,12 @@ namespace mtc
     friend class zmap;
 
   protected:
-    iterator_base( zdata_t* ptr, z_iterator beg, z_iterator end );
+    iterator_base( z_iterator beg, z_iterator end );
 
   public:
     iterator_base() = default;
     iterator_base( iterator_base&& );
     iterator_base( const iterator_base& );
-   ~iterator_base();
 
   public:
     auto  operator -> () const -> const value*;
@@ -1896,7 +1859,6 @@ namespace mtc
     auto  last() const -> const zpos& {  return zstack.back();  }
 
   protected:
-    zdata_t*          p_data = nullptr;
     value             zvalue;
     std::vector<zpos> zstack;
     zbuff_t           keybuf;
@@ -2156,27 +2118,18 @@ namespace mtc
   inline
   size_t  zmap::GetBufLen() const
   {
-    auto  p_data = readers_data();
-
     return p_data != nullptr ? p_data->GetBufLen() : 1;
   }
 
   template <class O>
   O*  zmap::Serialize( O* o ) const
   {
-    auto  p_data = readers_data();
-
     return p_data != nullptr ? p_data->Serialize( o ) : ::Serialize( o, (char)0 );
   }
 
   template <class S>
   S*  zmap::FetchFrom( S*  s )
   {
-    auto  p_data = ptr::clean( pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
-
     if ( p_data != nullptr )
       p_data->detach();
 
@@ -2189,7 +2142,7 @@ namespace mtc
       p_data = nullptr;
     }
 
-    return pzdata = p_data, s;
+    return s;
   }
 
   template <class S>
@@ -2230,44 +2183,25 @@ namespace mtc
 
   template <class value, class z_iterator>
   zmap::iterator_base<value, z_iterator>::iterator_base( iterator_base&& it ):
-    p_data( std::move( it.p_data ) ),
     zstack( std::move( it.zstack ) ),
     keybuf( std::move( it.keybuf ) )
-  {
-    it.p_data = nullptr;  init();
-  }
+  {  init();  }
 
   template <class value, class z_iterator>
   zmap::iterator_base<value, z_iterator>::iterator_base( const iterator_base& it ):
-    p_data( it.p_data ),
     zstack( it.zstack ),
     keybuf( it.keybuf )
-  {
-    if ( p_data != nullptr )
-      p_data->attach();
-    init();
-  }
+  {  init();  }
 
   template <class value, class z_iterator>
-  zmap::iterator_base<value, z_iterator>::iterator_base( zdata_t* ptr, z_iterator beg, z_iterator end ):
-    p_data( ptr )
+  zmap::iterator_base<value, z_iterator>::iterator_base( z_iterator beg, z_iterator end )
   {
-    if ( p_data != nullptr )
-      p_data->attach();
-
     if ( beg != end )
     {
       zstack.push_back( { beg, end } );
       keybuf.push_back( beg->chnode );
       find();
     }
-  }
-
-  template <class value, class z_iterator>
-  zmap::iterator_base<value, z_iterator>::~iterator_base()
-  {
-    if ( p_data != nullptr )
-      p_data->detach();
   }
 
   template <class value, class z_iterator>

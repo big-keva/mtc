@@ -911,33 +911,18 @@ namespace mtc
     zmap implementation
   */
 
-  zmap::zmap():
-    pzdata( nullptr ) {}
-
-  zmap::zmap( zmap&& z )
+  zmap::zmap( zmap&& z ): p_data( z.p_data )
   {
-    auto  p_data = ptr::clean( z.pzdata.load() );
-
-    while ( !z.pzdata.compare_exchange_strong( p_data, nullptr ) )
-      p_data = ptr::clean( p_data );
-
-    pzdata = p_data;
+    z.p_data = nullptr;
   }
 
-  zmap::zmap( const zmap& z )
+  zmap::zmap( const zmap& z ): p_data( z.p_data )
   {
-    auto  p_data = ptr::clean( z.pzdata.load() );
-
-    while ( !z.pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
-
     if ( p_data != nullptr )
       p_data->attach();
-
-    pzdata = z.pzdata = p_data;
   }
 
-  zmap::zmap( const std::initializer_list<std::pair<key, zval>>& il ): pzdata( nullptr )
+  zmap::zmap( const std::initializer_list<std::pair<key, zval>>& il ): zmap()
   {
     for ( auto& keyval: il )
       put( keyval.first, keyval.second );
@@ -951,39 +936,20 @@ namespace mtc
 
   zmap& zmap::operator=( zmap&& z )
   {
-    auto  my_ptr = ptr::clean( pzdata.load() );
-    auto  he_ptr = ptr::clean( z.pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( my_ptr, ptr::dirty( my_ptr ) ) )
-      my_ptr = ptr::clean( my_ptr );
-
-    if ( my_ptr != nullptr )
-      my_ptr->detach();
-
-    while ( !z.pzdata.compare_exchange_strong( he_ptr, nullptr ) )
-      he_ptr = ptr::clean( he_ptr );
-
-    return pzdata = he_ptr, *this;
+    if ( p_data != nullptr )
+      p_data->detach();
+    if ( (p_data = z.p_data) != nullptr )
+      z.p_data = nullptr;
+    return *this;
   }
 
   zmap& zmap::operator=( const zmap& z )
   {
-    auto  my_ptr = ptr::clean( pzdata.load() );
-    auto  he_ptr = ptr::clean( z.pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( my_ptr, ptr::dirty( my_ptr ) ) )
-      my_ptr = ptr::clean( my_ptr );
-
-    if ( my_ptr != nullptr )
-      my_ptr->detach();
-
-    while ( !z.pzdata.compare_exchange_strong( he_ptr, ptr::dirty( he_ptr ) ) )
-      he_ptr = ptr::clean( he_ptr );
-
-    if ( he_ptr != nullptr )
-      he_ptr->attach();
-
-    return pzdata = z.pzdata = he_ptr, *this;
+    if ( p_data != nullptr )
+      p_data->detach();
+    if ( (p_data = z.p_data) != nullptr )
+      p_data->attach();
+    return *this;
   }
 
   zmap& zmap::operator= ( const std::initializer_list<std::pair<key, zval>>& il )
@@ -1001,99 +967,67 @@ namespace mtc
     clear();
   }
 
-  auto  zmap::private_data() -> lockdata_ptr
+  auto  zmap::private_data() -> zdata_t*
   {
-    auto  p_data = ptr::clean( pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
-
     if ( p_data == nullptr )  (p_data = new zdata_t())->attach();
       else p_data = p_data->docopy();
-
-    return pzdata = ptr::dirty( p_data ), lockdata_ptr( pzdata );
-  }
-
-  auto  zmap::readers_data() const -> lockdata_ptr
-  {
-    auto  p_data = ptr::clean( pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
-
-    return lockdata_ptr( pzdata );
+    return p_data;
   }
 
   auto  zmap::put( const key& k, zval&& v ) -> zval*
+  {
+    auto      mydata = private_data();
+    ztree_t*  pfound;
+
+    if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
     {
-      auto      mydata = private_data();
-      ztree_t*  pfound;
-
-      if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
-      {
-        pfound->pvalue = std::unique_ptr<zval>( new zval( std::move( v ) ) );
-        ++mydata->n_vals;
-      }
-        else
-      {
-        *pfound->pvalue = std::move( v );
-      }
-      pfound->keyset = k.type();
-
-      return pfound->pvalue.get();
+      pfound->pvalue = std::unique_ptr<zval>( new zval( std::move( v ) ) );
+      ++mydata->n_vals;
     }
+      else
+    {
+      *pfound->pvalue = std::move( v );
+    }
+    pfound->keyset = k.type();
+
+    return pfound->pvalue.get();
+  }
 
   auto  zmap::put( const key& k, const zval& v ) -> zval*
+  {
+    auto      mydata = private_data();
+    ztree_t*  pfound;
+
+    if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
     {
-      auto      mydata = private_data();
-      ztree_t*  pfound;
-
-      if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
-      {
-        pfound->pvalue = std::unique_ptr<zval>( new zval( v ) );
-        ++mydata->n_vals;
-      }
-        else
-      {
-        *pfound->pvalue = v;
-      }
-      pfound->keyset = k.type();
-
-      return pfound->pvalue.get();
+      pfound->pvalue = std::unique_ptr<zval>( new zval( v ) );
+      ++mydata->n_vals;
     }
+      else
+    {
+      *pfound->pvalue = v;
+    }
+    pfound->keyset = k.type();
+
+    return pfound->pvalue.get();
+  }
 
   auto  zmap::get( const key& k ) const -> const zval*
   {
-    auto            p_data = ptr::clean( pzdata.load() );
     const ztree_t*  p_tree;
 
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
-
-    p_tree = p_data != nullptr ?
-      p_data->search( k.data(), k.size() ) : nullptr;
-
-    return pzdata = p_data, p_tree != nullptr ? p_tree->pvalue.get() : nullptr;
+    if ( p_data != nullptr && (p_tree = p_data->search( k.data(), k.size() )) != nullptr )
+      return p_tree->pvalue.get();
+    return nullptr;
   }
 
   auto  zmap::get( const key& k ) -> zval*
   {
-    auto      p_data = ptr::clean( pzdata.load() );
     ztree_t*  p_tree;
 
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
-
-    p_tree = p_data != nullptr ?
-      p_data->search( k.data(), k.size() ) : nullptr;
-
-    if ( p_tree == nullptr )
-      return pzdata = p_data, nullptr;
-
-    p_tree = (p_data = p_data->docopy())->search(
-      k.data(), k.size() );
-
-    return pzdata = p_data, p_tree != nullptr ? p_tree->pvalue.get() : nullptr;
+    if ( p_data != nullptr && (p_tree = p_data->search( k.data(), k.size() )) != nullptr )
+      return p_tree->pvalue.get();
+    return nullptr;
   }
 
   auto  zmap::get_type( const key& k ) const -> decltype(zval::vx_type)
@@ -1305,25 +1239,13 @@ namespace mtc
 
   auto  zmap::size() const -> size_t
   {
-    auto  p_data = readers_data();
-
     return p_data != nullptr ? p_data->n_vals : 0;
   }
 
   // !!! iterator would block the map
   zmap::iterator  zmap::begin()
   {
-    auto  p_data = ptr::clean( pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
-
-    if ( p_data == nullptr )
-      return pzdata = p_data, iterator();
-
-    auto  it = iterator( p_data, p_data->begin(), p_data->end() );
-
-    return pzdata = p_data, it;
+    return p_data != nullptr ? iterator( p_data->begin(), p_data->end() ) : iterator();
   }
 
   zmap::iterator  zmap::end()
@@ -1333,17 +1255,7 @@ namespace mtc
 
   zmap::const_iterator  zmap::cbegin() const
   {
-    auto  p_data = ptr::clean( pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
-
-    if ( p_data == nullptr )
-      return pzdata = p_data, const_iterator();
-
-    auto  it = const_iterator( p_data, p_data->begin(), p_data->end() );
-
-    return pzdata = p_data, it;
+    return p_data != nullptr ? const_iterator( p_data->begin(), p_data->end() ) : const_iterator();
   }
 
   zmap::const_iterator  zmap::cend() const
@@ -1388,35 +1300,23 @@ namespace mtc
   auto  zmap::copy() const -> mtc::zmap
   {
     auto  newmap = zmap();
-    auto  p_data = ptr::clean( pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
 
     if ( p_data != nullptr )
-      (newmap.pzdata = new zdata_t( p_data->copyit(), p_data->n_vals ))->_refer = 1;
+      (newmap.p_data = new zdata_t( p_data->copyit(), p_data->n_vals ))->_refer = 1;
 
-    return pzdata = p_data, newmap;
+    return newmap;
   }
 
   auto  zmap::clear() -> void
   {
-    auto  p_data = ptr::clean( pzdata.load() );
-
-    while ( !pzdata.compare_exchange_strong( p_data, nullptr ) )
-      p_data = ptr::clean( p_data );
-
     if ( p_data != nullptr )
       p_data->detach();
+    p_data = nullptr;
   }
 
   auto  zmap::erase( const key& k ) -> size_t
   {
-    auto  p_data = ptr::clean( pzdata.load() );
     auto  n_dels = size_t(0);
-
-    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
-      p_data = ptr::clean( p_data );
 
     if ( p_data != nullptr )
     {
@@ -1429,7 +1329,7 @@ namespace mtc
       }
     }
 
-    return pzdata = p_data, n_dels;
+    return n_dels;
   }
 
   int   zmap::compare( const mtc::zmap& z ) const
