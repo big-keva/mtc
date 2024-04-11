@@ -805,6 +805,7 @@ namespace mtc
     auto  operator []( const key& ) const -> const const_place_t;
 
   public:     // modifiers
+    auto  copy() const -> mtc::zmap;
     auto  clear() -> void;
 
     /*
@@ -1751,6 +1752,8 @@ namespace mtc
 
   class zmap::zdata_t: public ztree_t
   {
+    friend class zmap;
+
     zdata_t( zdata_t&& ) = delete;
     zdata_t( const zdata_t& ) = delete;
     zdata_t&  operator= ( zdata_t&& ) = delete;

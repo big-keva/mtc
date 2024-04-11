@@ -1385,6 +1385,20 @@ namespace mtc
   auto  zmap::operator []( const key& k ) -> patch_place_t
     {  return patch_place_t( k, *this );  }
 
+  auto  zmap::copy() const -> mtc::zmap
+  {
+    auto  newmap = zmap();
+    auto  p_data = ptr::clean( pzdata.load() );
+
+    while ( !pzdata.compare_exchange_strong( p_data, ptr::dirty( p_data ) ) )
+      p_data = ptr::clean( p_data );
+
+    if ( p_data != nullptr )
+      (newmap.pzdata = new zdata_t( p_data->copyit(), p_data->n_vals ))->_refer = 1;
+
+    return pzdata = p_data, newmap;
+  }
+
   auto  zmap::clear() -> void
   {
     auto  p_data = ptr::clean( pzdata.load() );
