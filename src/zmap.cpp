@@ -711,7 +711,7 @@ namespace mtc
   {
     zdata_t*  pcopy;
 
-    assert( _refer > 0 );
+    assert( nrefer.load() > 0 );
 
     if ( nrefer == 1 )
       return this;
