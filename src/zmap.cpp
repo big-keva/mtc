@@ -683,19 +683,19 @@ namespace mtc
   */
 
   zmap::zdata_t::zdata_t():
-    n_vals( 0 ), _refer( 0 )  {}
+    n_vals( 0 ), nrefer( 0 )  {}
 
   zmap::zdata_t::zdata_t( ztree_t&& t, size_t n ):
-    ztree_t( std::move( t ) ), n_vals( n ), _refer( 0 ) {}
+    ztree_t( std::move( t ) ), n_vals( n ), nrefer( 0 ) {}
 
   long  zmap::zdata_t::attach()
   {
-    return ++_refer;
+    return ++nrefer;
   }
 
   long  zmap::zdata_t::detach()
   {
-    auto  rcount = --_refer;
+    auto  rcount = --nrefer;
 
     if ( rcount == 0 )
       delete this;
@@ -713,11 +713,11 @@ namespace mtc
 
     assert( _refer > 0 );
 
-    if ( _refer == 1 )
+    if ( nrefer == 1 )
       return this;
 
-    (pcopy = new zdata_t( ztree_t::copy(), n_vals ))->_refer = 1;
-      --_refer;
+    (pcopy = new zdata_t( ztree_t::copy(), n_vals ))->nrefer = 1;
+      --nrefer;
 
     return pcopy;
   }
@@ -1299,7 +1299,7 @@ namespace mtc
     auto  newmap = zmap();
 
     if ( p_data != nullptr )
-      (newmap.p_data = new zdata_t( p_data->copy(), p_data->n_vals ))->_refer = 1;
+      (newmap.p_data = new zdata_t( p_data->copy(), p_data->n_vals ))->nrefer = 1;
 
     return newmap;
   }

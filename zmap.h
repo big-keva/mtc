@@ -64,6 +64,7 @@ SOFTWARE.
 # include <type_traits>
 # include <memory>
 # include <limits>
+# include <atomic>
 # include <cstddef>
 
 namespace mtc
@@ -1738,10 +1739,8 @@ namespace mtc
     auto  docopy() -> zdata_t*;
 
   public:
-    size_t      n_vals;
-
-  protected:
-    long        _refer;
+    size_t            n_vals;
+    std::atomic_long  nrefer;
 
   };
 
