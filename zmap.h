@@ -261,7 +261,6 @@ namespace mtc
     zval& operator = ( float_t );
     zval& operator = ( double_t );
 
-
   # define declare_init_ref( _type_ )     \
     zval( _type_##_t&& );                 \
     zval( const _type_##_t& );            \
@@ -346,6 +345,7 @@ namespace mtc
   # undef declare_access_val
 
   public:     // operations
+    auto  copy() const -> zval;
     bool  empty() const;
     auto  clear() -> zval&;
     auto  get_type() const -> unsigned;

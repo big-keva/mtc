@@ -735,10 +735,11 @@ namespace mtc
   # undef derive_access_ref
   # undef derive_access_val
 
+  auto  zval::copy() const -> zval
+    {  return zval( *this, force_copy() );  }
+
   bool  zval::empty() const
-    {
-      return vx_type == z_untyped;
-    }
+    {  return vx_type == z_untyped;  }
 
   auto  zval::clear() -> zval&
     {
