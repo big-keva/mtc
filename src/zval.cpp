@@ -558,6 +558,8 @@ namespace mtc
 
   zval::zval( const zval& zv ): vx_type( z_untyped )  {  fetch( zv );  }
 
+  zval::zval( const zval& zv, const force_copy& force ): vx_type( z_untyped ) {  fetch( zv, force );  }
+
   zval& zval::operator = ( zval&& zv )  {  return fetch( std::move( zv ) );  }
 
   zval& zval::operator = ( const zval& zv ) {  return fetch( zv );  }
@@ -1274,48 +1276,112 @@ namespace mtc
     }
 
   auto  zval::fetch( const zval& zv ) -> zval&
-    {
-      if ( this != &zv )
-        switch ( clear().vx_type = zv.vx_type )
-        {
-        # define  copy( _type_ )  case z_##_type_:    \
-        new( &inner().v_##_type_ ) _type_##_t( zv.inner().v_##_type_ );  break;
-          copy( char )
-          copy( byte )
-          copy( int16 )
-          copy( int32 )
-          copy( int64 )
-          copy( word16 )
-          copy( word32 )
-          copy( word64 )
-          copy( float )
-          copy( double )
-          copy( bool )
+  {
+    if ( this != &zv )
+      switch ( clear().vx_type = zv.vx_type )
+      {
+      # define  copy( _type_ )  case z_##_type_:    \
+      new( &inner().v_##_type_ ) _type_##_t( zv.inner().v_##_type_ );  break;
+        copy( char )
+        copy( byte )
+        copy( int16 )
+        copy( int32 )
+        copy( int64 )
+        copy( word16 )
+        copy( word32 )
+        copy( word64 )
+        copy( float )
+        copy( double )
+        copy( bool )
 
-          copy( charstr )
-          copy( widestr )
-          copy( zmap )
-          copy( uuid )
+        copy( charstr )
+        copy( widestr )
+        copy( zmap )
+        copy( uuid )
 
-          copy( array_char )
-          copy( array_byte )
-          copy( array_int16 )
-          copy( array_int32 )
-          copy( array_int64 )
-          copy( array_word16 )
-          copy( array_word32 )
-          copy( array_word64 )
-          copy( array_float )
-          copy( array_double )
-          copy( array_charstr )
-          copy( array_widestr )
-          copy( array_zval )
-          copy( array_zmap )
-          copy( array_uuid )
-        # undef copy
-        }
-      return *this;
-    }
+        copy( array_char )
+        copy( array_byte )
+        copy( array_int16 )
+        copy( array_int32 )
+        copy( array_int64 )
+        copy( array_word16 )
+        copy( array_word32 )
+        copy( array_word64 )
+        copy( array_float )
+        copy( array_double )
+        copy( array_charstr )
+        copy( array_widestr )
+        copy( array_zval )
+        copy( array_zmap )
+        copy( array_uuid )
+      # undef copy
+      }
+    return *this;
+  }
+
+  auto  zval::fetch( const zval& zv, const force_copy& ) -> zval&
+  {
+    if ( this != &zv )
+      switch ( clear().vx_type = zv.vx_type )
+      {
+      # define  copy_value( _type_ )  case z_##_type_:    \
+      new( &inner().v_##_type_ ) _type_##_t( zv.inner().v_##_type_ );  break;
+        copy_value( char )
+        copy_value( byte )
+        copy_value( int16 )
+        copy_value( int32 )
+        copy_value( int64 )
+        copy_value( word16 )
+        copy_value( word32 )
+        copy_value( word64 )
+        copy_value( float )
+        copy_value( double )
+        copy_value( bool )
+
+        copy_value( charstr )
+        copy_value( widestr )
+        copy_value( uuid )
+
+        copy_value( array_char )
+        copy_value( array_byte )
+        copy_value( array_int16 )
+        copy_value( array_int32 )
+        copy_value( array_int64 )
+        copy_value( array_word16 )
+        copy_value( array_word32 )
+        copy_value( array_word64 )
+        copy_value( array_float )
+        copy_value( array_double )
+        copy_value( array_charstr )
+        copy_value( array_widestr )
+        copy_value( array_uuid )
+
+        case z_zmap:
+          new( &inner().v_zmap ) zmap( zv.inner().v_zmap.copy() );  break;
+
+        case z_array_zval:
+          {
+            auto& source = zv.inner().v_array_zval;
+            auto  target = new( &inner().v_array_zval ) array_zval();
+
+            for ( auto& value: source )
+              target->emplace_back( value, force_copy() );
+            break;
+          }
+
+        case z_array_zmap:
+          {
+            auto& source = zv.inner().v_array_zmap;
+            auto  target = new( &inner().v_array_zmap ) array_zmap();
+
+            for ( auto& value: source )
+              target->emplace_back( value.copy() );
+            break;
+          }
+      # undef copy
+      }
+    return *this;
+  }
 
   // zval::dump implementation
 

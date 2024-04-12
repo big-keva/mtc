@@ -219,10 +219,14 @@ namespace mtc
       z_untyped       = (byte_t)-1
     };
 
+  public:
+    struct force_copy  {  explicit force_copy() = default;  };
+
   public:     // construction
     zval();
     zval( zval&& );
     zval( const zval& );
+    zval( const zval&, const force_copy& );
     zval& operator = ( zval&& );
     zval& operator = ( const zval& );
    ~zval();
@@ -458,6 +462,7 @@ namespace mtc
   protected:  // helpers
     auto  fetch( zval&& ) -> zval&;
     auto  fetch( const zval& ) -> zval&;
+    auto  fetch( const zval&, const force_copy& ) -> zval&;
 
     auto  inner() const -> const inner_t&;
     auto  inner()       ->       inner_t&;
@@ -1681,7 +1686,7 @@ namespace mtc
     std::unique_ptr<zval> pvalue;     // the element value
 
   protected:
-    auto  copyit() const -> ztree_t;
+    auto  copy() const -> ztree_t;
 
   public:
     ztree_t( byte_t chinit = '\0' );

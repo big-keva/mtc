@@ -643,17 +643,17 @@ namespace mtc
     return ptop;
   }
 
-  auto  zmap::ztree_t::copyit() const -> ztree_t
+  auto  zmap::ztree_t::copy() const -> ztree_t
   {
     ztree_t mkcopy( chnode );
 
     for ( auto ptr = begin(); ptr != end(); ++ptr )
-      mkcopy.push_back( ptr->copyit() );
+      mkcopy.push_back( ptr->copy() );
 
     mkcopy.keyset = keyset;
 
     if ( pvalue != nullptr )
-      mkcopy.pvalue = std::unique_ptr<zval>( new zval( *pvalue.get() ) );
+      mkcopy.pvalue = std::unique_ptr<zval>( new zval( *pvalue.get(), zval::force_copy() ) );
 
     return mkcopy;
   }
@@ -716,7 +716,7 @@ namespace mtc
     if ( _refer == 1 )
       return this;
 
-    (pcopy = new zdata_t( ztree_t::copyit(), n_vals ))->_refer = 1;
+    (pcopy = new zdata_t( ztree_t::copy(), n_vals ))->_refer = 1;
       --_refer;
 
     return pcopy;
@@ -1299,7 +1299,7 @@ namespace mtc
     auto  newmap = zmap();
 
     if ( p_data != nullptr )
-      (newmap.p_data = new zdata_t( p_data->copyit(), p_data->n_vals ))->_refer = 1;
+      (newmap.p_data = new zdata_t( p_data->copy(), p_data->n_vals ))->_refer = 1;
 
     return newmap;
   }
