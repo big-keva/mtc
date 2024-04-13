@@ -933,19 +933,29 @@ namespace mtc
 
   zmap& zmap::operator=( zmap&& z )
   {
-    if ( p_data != nullptr )
-      p_data->detach();
-    if ( (p_data = z.p_data) != nullptr )
-      z.p_data = nullptr;
+    if ( p_data != z.p_data )
+    {
+      auto  mycopy( *this );
+
+      if ( p_data != nullptr )
+        p_data->detach();
+      if ( (p_data = z.p_data) != nullptr )
+        z.p_data = nullptr;
+    }
     return *this;
   }
 
   zmap& zmap::operator=( const zmap& z )
   {
-    if ( p_data != nullptr )
-      p_data->detach();
-    if ( (p_data = z.p_data) != nullptr )
-      p_data->attach();
+    if ( p_data != z.p_data )
+    {
+      auto  mycopy( *this );
+
+      if ( p_data != nullptr )
+        p_data->detach();
+      if ( (p_data = z.p_data) != nullptr )
+        p_data->attach();
+    }
     return *this;
   }
 
