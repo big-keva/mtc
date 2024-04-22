@@ -674,7 +674,7 @@ namespace patricia  {
   {
     size_t  minlen = len != 0 ? len : 1;
     size_t  cchstr = (minlen + 0x0f) & ~0x0f;
-    size_t  nalloc = sizeof(node) - sizeof(node::chars) + cchstr;
+    size_t  nalloc = (sizeof(node) * 2 - sizeof(node::chars) + cchstr - 1) / sizeof(node);
     auto    palloc = rebind<A, node>( mem ).allocate( nalloc );
 
     return new ( palloc ) node( mem, key, len, nex );
