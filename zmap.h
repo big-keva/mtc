@@ -1112,7 +1112,7 @@ namespace mtc
     auto  cbegin() const -> const_iterator;
     auto  cend() const -> const_iterator;
 
-    bool  empty() const {  return pvalue == nullptr && source == nullptr;  }
+    bool  empty() const {  return pvalue == nullptr && (source == nullptr || source == invalid);  }
 
   public:
     bool  operator == ( const dump& v ) const;
