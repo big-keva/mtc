@@ -167,7 +167,13 @@ namespace mtc
   {
     auto  pval = pvalue != nullptr ? pvalue->get( k ) : nullptr;
 
-    return pval != nullptr ? zval::dump( pval ) : zval::dump( serial::find( source, k ) );
+    if ( pval != nullptr )
+      return zval::dump( pval );
+
+    if ( source != nullptr && source != invalid )
+      return zval::dump( serial::find( source, k ) );
+
+    return {};
   }
     
   template <class T>
@@ -179,12 +185,12 @@ namespace mtc
   auto  zmap::dump::get( const key& k ) const -> zview_t
   {
     if ( pvalue != nullptr )
-      return zview_t( nullptr, pvalue->get( k ) );
+      return { nullptr, pvalue->get( k ) };
 
-    if ( source != nullptr && source != (const char*)-1 )
-      return zview_t( serial::find( source, k ), nullptr );
+    if ( source != nullptr && source != invalid )
+      return { serial::find( source, k ), nullptr };
 
-    return zview_t();
+    return {};
   }
 
   auto  zmap::dump::get_char( const key& k ) const -> value_t<char> {  return get_dump( k ).get_char();  }
