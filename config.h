@@ -44,6 +44,7 @@ namespace mtc {
     auto  begin () const -> decltype(cfgmap.begin()) {  return cfgmap.begin();  }
     auto  end   () const -> decltype(cfgmap.end())   {  return cfgmap.end();    }
     auto  size  () const -> decltype(cfgmap.size())  {  return cfgmap.size();   }
+    bool  empty () const                             {  return cfgmap.empty();  }
 
   public:     // access
     auto  get_section ( const zmap::key& ) const -> config;
