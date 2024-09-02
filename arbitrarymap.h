@@ -59,10 +59,13 @@ SOFTWARE.
 namespace mtc
 {
 
-  template <class V, class M = def_alloc>
+  template <class V, class A = std::allocator<char>>
   class   arbitrarymap
   {
-    M   allocator;
+    template <class Base, class T>
+    using rebind = typename std::allocator_traits<Base>::template rebind_alloc<T>;
+
+    A   alloc;
 
     struct  keyrec
     {
@@ -81,38 +84,46 @@ namespace mtc
   protected:  // allocation
     template <class... constructor_args>
     keyrec* Create( const void* k, unsigned l, constructor_args... a )
-      {
-        keyrec* palloc;
+    {
+      auto    nalloc = (sizeof(keyrec) + l + sizeof(keyrec) - 1) / sizeof(keyrec);
+      keyrec* palloc;
 
-        if ( (palloc = (keyrec*)allocator.alloc( l - 1 + sizeof(keyrec) )) != nullptr )
-        {
-          new( palloc ) keyrec( a... );
-            memcpy( palloc->key, k, palloc->len = l );
-        }
-        return palloc;
+      if ( (palloc = rebind<A, keyrec>( alloc ).allocate( nalloc )) != nullptr )
+      {
+        new( palloc ) keyrec( a... );
+          memcpy( palloc->key, k, palloc->len = l );
       }
+      return palloc;
+    }
+    template <class R, class S> static
+    auto  Search( const void*, size_t, S& ) -> R*;
 
   public:     // construction
-    arbitrarymap( unsigned tablen = 69959 );
+    arbitrarymap( const A& a = {} ):
+      arbitrarymap( 69959, a ) {}
+    arbitrarymap( unsigned tablen, const A& a = {} ):
+      alloc( a ), maplen( tablen )  {}
    ~arbitrarymap();
+
+  protected:
     arbitrarymap( const arbitrarymap& ) = delete;
     arbitrarymap& operator = ( const arbitrarymap& ) = delete;
     
   public:     // methods
     int           Append( const arbitrarymap& );
-    int           Delete( const void*, unsigned );
+    int           Delete( const void* k, size_t );
     int           Delete( const widechar* s ) {  return Delete( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
     int           Delete( const char* s )     {  return Delete( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
     void          DelAll();
     unsigned      GetLen() const  {  return ncount;  }
     unsigned      MapLen() const  {  return maplen;  }
-          V*      Insert( const void*, unsigned, const V& v = V() );
+          V*      Insert( const void* k, size_t l, const V& v = V() );
           V*      Insert( const widechar* s, const V& v = V() ) {  return Insert( s, sizeof(*s) * (w_strlen( s ) + 1), v );  }
           V*      Insert( const char*     s, const V& v = V() ) {  return Insert( s, sizeof(*s) * (w_strlen( s ) + 1), v );  }
-    const V*      Search( const void*, unsigned ) const;
+    const V*      Search( const void* k, size_t l ) const {  return Search<const V>( k, l, *this);  }
     const V*      Search( const widechar* s ) const {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
     const V*      Search( const char*     s ) const {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
-          V*      Search( const void*, unsigned );
+          V*      Search( const void* k, size_t l )       {  return Search<V>( k, l, *this ); }
           V*      Search( const widechar* s ) {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
           V*      Search( const char*     s ) {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
 
@@ -134,242 +145,207 @@ namespace mtc
   protected:  // helpers
     int     NewMap()
       {
-        assert( pitems == nullptr && maplen != 0 );
-
         if ( pitems != nullptr || maplen == 0 )
           return EINVAL;
-        if ( (pitems = (keyrec**)allocator.alloc( maplen * sizeof(keyrec*) )) == nullptr )
+        if ( (pitems = rebind<A, keyrec*>( alloc ).allocate( maplen )) == nullptr )
           return ENOMEM;
         for ( auto p = pitems; p < pitems + maplen; )
           *p++ = nullptr;
         return 0;
       }
-    unsigned  gethash( const unsigned char* p, unsigned c ) const
+    static unsigned gethash( const unsigned char* p, size_t c )
       {
         unsigned  int nHash = 0;
         while ( c-- > 0 )
           nHash = (nHash << 5) + nHash + *p++;
         return nHash;
       }
-    bool      isequal( const void*  p1, unsigned l1,
-                       const void*  p2, unsigned l2 ) const
-      {
-        return l1 == l2 && memcmp( p1, p2, l1 ) == 0;
-      }
+    static bool     isequal(
+      const void* p1, size_t l1,
+      const void* p2, size_t l2 )  {  return l1 == l2 && memcmp( p1, p2, l1 ) == 0;  }
 
   private:
-    keyrec**  pitems;
+    keyrec**  pitems = nullptr;
     unsigned  maplen;
-    unsigned  ncount;
+    unsigned  ncount = 0;
 
   };
 
   // Map inline implementation
 
-  template <class V, class M>
-  arbitrarymap<V, M>::arbitrarymap( unsigned tablen ): pitems( nullptr ), maplen( tablen ), ncount( 0 )
-    {
-    }
-
-  template <class V, class M>
-  arbitrarymap<V, M>::~arbitrarymap()
-    {
-      if ( pitems != nullptr )
-      {
-        DelAll();
-        allocator.free( pitems );
-      }
-    }
-
-  template <class V, class M>
-  int   arbitrarymap<V, M>::Append( const arbitrarymap<V, M>& s )
-    {
-      for ( const void* p = nullptr; (p = s.Enum( p )) != nullptr; )
-        if ( Insert( GetKey( p ), KeyLen( p ), GetVal( p ) ) == nullptr )
-          return ENOMEM;
-
-      return 0;
-    }
-
-  template <class V, class M>
-  int   arbitrarymap<V, M>::Delete( const void* k, unsigned l )
-    {
-      if ( pitems != nullptr && ncount != 0 )
-      {
-        unsigned  pos = gethash( (const byte_t*)k, l ) % maplen;
-        keyrec**  ptr = &pitems[pos];
-
-        assert( *ptr == nullptr || pos == (*ptr)->pos );
-
-        while ( *ptr != nullptr && !isequal( (*ptr)->key, (*ptr)->len, k, l ) )
-          ptr = &(*ptr)->lpn;
-
-        if ( *ptr != nullptr )
-        {
-          keyrec* del = *ptr;
-          
-          *ptr = del->lpn;
-            del->~keyrec();
-            allocator.free( del );
-          --ncount;
-        }
-        return 0;
-      }
-      return EINVAL;
-    }
-
-  template <class V, class M>
-  void  arbitrarymap<V, M>::DelAll()
-    {
-      keyrec* del;
-
-      if ( pitems != nullptr )
-        for ( auto p = pitems; p < pitems + maplen; ++p )
-          while ( (del = *p) != nullptr )
-          {
-            *p = del->lpn;
-              del->~keyrec();
-            allocator.free( del );
-          }
-      ncount = 0;
-    }
-
-  template <class V, class M>
-  V*    arbitrarymap<V, M>::Insert( const void* k, unsigned l, const V& v )
-    {
-      unsigned  pos = gethash( (const byte_t*)k, l ) % maplen;
-      keyrec*   ptr;
-
-      if ( pitems == nullptr && NewMap() != 0 )
-        return nullptr;
-
-      if ( (ptr = Create( k, l, v, pos, pitems[pos] )) != nullptr ) pitems[pos] = ptr;
-        else return nullptr;
-
-      ++ncount;
-        return 0;
-    }
-
-  template <class V, class M>
-  const V*  arbitrarymap<V, M>::Search( const void* k, unsigned l ) const
-    {
-      if ( pitems != nullptr )
-      {
-        unsigned      pos = gethash( (const unsigned char*)k, l ) % maplen;
-        const keyrec* ptr = pitems[pos];
-
-        assert( ptr == nullptr || pos == ptr->pos );
-
-        while ( ptr != nullptr && !isequal( ptr->key, ptr->len, k, l ) )
-          ptr = ptr->lpn;
-
-        return ptr != nullptr ? &ptr->val : nullptr;
-      }
-      return nullptr;
-    }
-
-  template <class V, class M>
-  V*      arbitrarymap<V, M>::Search( const void* k, unsigned l )
-    {
-      if ( pitems != nullptr )
-      {
-        unsigned  pos = gethash( (const unsigned char*)k, l ) % maplen;
-        keyrec*   ptr = pitems[pos];
-
-        assert( ptr == nullptr || pos == ptr->pos );
-
-        while ( ptr != nullptr && !isequal( ptr->key, ptr->len, k, l ) )
-          ptr = ptr->lpn;
-
-        return ptr != nullptr ? &ptr->val : nullptr;
-      }
-      return nullptr;
-    }
-
-  template <class V, class M>
-  const void* arbitrarymap<V, M>::Enum( const void* pvn ) const
-    {
-      auto  ppktop = pitems;
-      auto  ppkend = pitems + maplen;
-
-    // Check pitems initialized
-      if ( pitems == nullptr )
-        return nullptr;
-
-    // For the first call, make valid object pointer
-      if ( pvn != nullptr )
-      {
-        const keyrec* lpnext;
-
-        if ( (lpnext = ((const keyrec*)pvn)->lpn) != nullptr )
-          return lpnext;
-
-        ppktop = pitems + ((const keyrec*)pvn)->pos + 1;
-      }
-        else
-      ppktop = pitems;
-
-      for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
-        (void)NULL;
-
-      return ppktop < ppkend ? *ppktop : nullptr;
-    }
-
-  template <class V, class M>
-  void* arbitrarymap<V, M>::Enum( void* pvn )
-    {
-      keyrec**  ppktop;
-      keyrec**  ppkend;
-
-    // Check pitems initialized
-      if ( pitems == nullptr )
-        return nullptr;
-
-    // For the first call, make valid object pointer
-      if ( pvn != nullptr )
-      {
-        keyrec* lpnext;
-
-        if ( (lpnext = ((keyrec*)pvn)->lpn) != nullptr )
-          return lpnext;
-
-        ppktop = pitems + ((const keyrec*)pvn)->pos + 1;
-      }
-        else
-      ppktop = pitems;
-
-      for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
-        (void)NULL;
-
-      return ppktop < ppkend ? *ppktop : nullptr;
-    }
-
-  template <class V, class M>
-  const void* arbitrarymap<V, M>::GetKey( const void*  pvn )
-    {
-      assert( pvn != nullptr );
-
-      return ((keyrec*)pvn)->key;
-    }
-
-  template <class V, class M>
-  unsigned    arbitrarymap<V, M>::KeyLen( const void*  pvn )
+  template <class V, class A>
+  arbitrarymap<V, A>::~arbitrarymap()
   {
-    assert( pvn != nullptr );
-
-    return ((keyrec*)pvn)->len;
+    if ( pitems != nullptr )
+    {
+      DelAll();
+      rebind<A, keyrec*>( alloc ).deallocate( pitems, 0 );
+    }
   }
 
-  template <class V, class M>
-  inline  const V&  arbitrarymap<V, M>::GetVal( const void*  pvn )
+  template <class V, class A>
+  int   arbitrarymap<V, A>::Append( const arbitrarymap<V, A>& s )
+  {
+    for ( const void* p = nullptr; (p = s.Enum( p )) != nullptr; )
+      if ( Insert( GetKey( p ), KeyLen( p ), GetVal( p ) ) == nullptr )
+        return ENOMEM;
+
+    return 0;
+  }
+
+  template <class V, class A>
+  template <class R, class S>
+  auto  arbitrarymap<V, A>::Search( const void* k, size_t l, S& s ) -> R*
+  {
+    if ( s.pitems != nullptr )
+    {
+      unsigned  pos = gethash( (const unsigned char*)k, l ) % s.maplen;
+      auto      ptr = s.pitems[pos];
+
+      while ( ptr != nullptr && !isequal( ptr->key, ptr->len, k, l ) )
+        ptr = ptr->lpn;
+
+      return ptr != nullptr ? &ptr->val : nullptr;
+    }
+    return nullptr;
+  }
+
+  template <class V, class A>
+  int   arbitrarymap<V, A>::Delete( const void* k, size_t l )
+  {
+    if ( pitems != nullptr && ncount != 0 )
+    {
+      unsigned  pos = gethash( (const byte_t*)k, l ) % maplen;
+      keyrec**  ptr = &pitems[pos];
+
+      while ( *ptr != nullptr && !isequal( (*ptr)->key, (*ptr)->len, k, l ) )
+        ptr = &(*ptr)->lpn;
+
+      if ( *ptr != nullptr )
+      {
+        keyrec* del = *ptr;
+
+        *ptr = del->lpn;
+          del->~keyrec();
+          rebind<A, keyrec>( alloc ).deallocate( del, 0 );
+        --ncount;
+      }
+      return 0;
+    }
+    return EINVAL;
+  }
+
+  template <class V, class A>
+  void  arbitrarymap<V, A>::DelAll()
+  {
+    keyrec* del;
+
+    if ( pitems != nullptr )
+      for ( auto p = pitems; p < pitems + maplen; ++p )
+        while ( (del = *p) != nullptr )
+        {
+          *p = del->lpn;
+            del->~keyrec();
+          rebind<A, keyrec>( alloc ).deallocate( del, 0 );
+        }
+    ncount = 0;
+  }
+
+  template <class V, class A>
+  V*    arbitrarymap<V, A>::Insert( const void* k, size_t l, const V& v )
+  {
+    unsigned  pos = gethash( (const byte_t*)k, l ) % maplen;
+    keyrec*   ptr;
+
+    if ( pitems == nullptr && NewMap() != 0 )
+      return nullptr;
+
+    if ( (ptr = Create( k, l, v, pos, pitems[pos] )) != nullptr ) pitems[pos] = ptr;
+      else return nullptr;
+
+    return ++ncount, &ptr->val;
+  }
+
+  template <class V, class A>
+  const void* arbitrarymap<V, A>::Enum( const void* pvn ) const
+  {
+    auto  ppktop = pitems;
+    auto  ppkend = pitems + maplen;
+
+  // Check pitems initialized
+    if ( pitems == nullptr )
+      return nullptr;
+
+  // For the first call, make valid object pointer
+    if ( pvn != nullptr )
+    {
+      const keyrec* lpnext;
+
+      if ( (lpnext = ((const keyrec*)pvn)->lpn) != nullptr )
+        return lpnext;
+
+      ppktop = pitems + ((const keyrec*)pvn)->pos + 1;
+    }
+      else
+    ppktop = pitems;
+
+    for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
+      (void)NULL;
+
+    return ppktop < ppkend ? *ppktop : nullptr;
+  }
+
+  template <class V, class A>
+  void* arbitrarymap<V, A>::Enum( void* pvn )
+  {
+    keyrec**  ppktop;
+    keyrec**  ppkend;
+
+  // Check pitems initialized
+    if ( pitems == nullptr )
+      return nullptr;
+
+  // For the first call, make valid object pointer
+    if ( pvn != nullptr )
+    {
+      keyrec* lpnext;
+
+      if ( (lpnext = ((keyrec*)pvn)->lpn) != nullptr )
+        return lpnext;
+
+      ppktop = pitems + ((const keyrec*)pvn)->pos + 1;
+    }
+      else
+    ppktop = pitems;
+
+    for ( ppkend = pitems + maplen; ppktop < ppkend && *ppktop == nullptr; ++ppktop )
+      (void)NULL;
+
+    return ppktop < ppkend ? *ppktop : nullptr;
+  }
+
+  template <class V, class A>
+  const void* arbitrarymap<V, A>::GetKey( const void*  pvn )
+  {
+    return pvn != nullptr ? ((keyrec*)pvn)->key : nullptr;
+  }
+
+  template <class V, class A>
+  unsigned    arbitrarymap<V, A>::KeyLen( const void*  pvn )
+  {
+    return pvn != nullptr ? ((keyrec*)pvn)->len : 0;
+  }
+
+  template <class V, class A>
+  inline  const V&  arbitrarymap<V, A>::GetVal( const void*  pvn )
   {
     assert( pvn != nullptr );
 
     return ((const keyrec*)pvn)->val;
   }
 
-  template <class V, class M>
-  inline  V&  arbitrarymap<V, M>::GetVal( void*  pvn )
+  template <class V, class A>
+  inline  V&  arbitrarymap<V, A>::GetVal( void*  pvn )
   {
     assert( pvn != nullptr );
 
