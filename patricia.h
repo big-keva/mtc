@@ -1030,24 +1030,29 @@ namespace patricia  {
           return p_this;
 
       // найти элемент во вложенном массиве, у которого первый символ ключа равен первому символу вставляемого ключа
-        auto  keychr = *thekey;
+        auto  keychr = *thekey++;
         auto  p_scan = p_this->plist;
 
         while ( p_scan != nullptr && keychr > p_scan->chars[0] )
           p_scan = p_scan->pnext;
 
         if ( p_scan != nullptr && keychr == p_scan->chars[0] )
-          {
-            auto  curlen = p_scan->keylen();
+        {
+          auto  curlen = p_scan->keylen();
 
-            if ( cchkey >= curlen && memcmp( thekey, p_scan->chars, curlen ) == 0 )
-              {
-                p_this = p_scan;
-                thekey += curlen;
-                cchkey -= curlen;
-                continue;
-              }
+          if ( cchkey >= curlen )
+          {
+            auto  srcptr = p_scan->chars + 1;
+            auto  srcend = p_scan->chars + curlen;
+
+            for ( cchkey -= curlen; srcptr < srcend; )
+              if ( *srcptr++ != *thekey++ )
+                return nullptr;
+
+            p_this = p_scan;
+            continue;
           }
+        }
 
         return nullptr;
       }
