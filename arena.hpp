@@ -265,15 +265,16 @@ namespace mtc {
 
         // else block can not provide subblock, perhaps is filled; switch chain to
         // it's next subblock
-        while ( (*pplast).load() != nullptr && !pchain.compare_exchange_strong( pplast, &(*pplast).load()->next ) )
+        while ( ptr::clean( (*pplast).load() ) != nullptr && !pchain.compare_exchange_strong( pplast, &(*pplast).load()->next ) )
           (void)NULL;
-        continue;
       }
-
+        else
       // else pblock is broken nullptr; try initialize it
-      assert( pblock == nullptr && (*pplast).load() == ptr::dirty( pblock ) );
+      {
+        assert( pblock == nullptr && (*pplast).load() == ptr::dirty( pblock ) );
 
-      ++nblock, *pplast = block::Create( size + align, lblock );
+        ++nblock, *pplast = block::Create( size + align, lblock );
+      }
     }
   }
 
