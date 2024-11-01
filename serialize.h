@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __mtc_serialize__ )
 # define  __mtc_serialize__
 # include <cstdlib>
+# include <cstdint>
 # include <cstring>
 # include <string>
 # include <vector>
