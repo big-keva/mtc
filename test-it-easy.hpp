@@ -240,7 +240,8 @@ namespace TestItEasy {
 }
 
 # define __TEST_IT_EASY_REQUIRE_IMPL( X_FILE, X_LINE, XP_STR, ... ) \
-  succeeded &= (TestItEasy::Verify( X_FILE, X_LINE, XP_STR ) <= __VA_ARGS__)( TestItEasyShiftSpace )
+  ((TestItEasy::Verify( X_FILE, X_LINE, XP_STR ) <= __VA_ARGS__)( TestItEasyShiftSpace ) ? \
+    true : succeeded = false)
 
 # define REQUIRE( ... ) \
   __TEST_IT_EASY_REQUIRE_IMPL( __FILE__, __LINE__, #__VA_ARGS__, __VA_ARGS__ )
