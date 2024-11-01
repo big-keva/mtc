@@ -70,97 +70,84 @@ namespace mtc
    ~Iface() {}
   };
 
-  namespace impl
+  template <class iface>  class API;
+  template <class iface>  class api;
+
+  class api_impl
   {
-    template <class T>  class att
-      {  public: void operator ()( T* p ){  const_cast<typename std::remove_cv<T>::type*>( p )->Attach();  }  };
-    template <class T>  class det
-      {  public: void operator ()( T* p ){  const_cast<typename std::remove_cv<T>::type*>( p )->Detach();  }  };
-
-  }
-
-  template <class iface, class attach = impl::att<iface>, class detach = impl::det<iface>>  class api;
-  template <class iface, class attach = impl::att<iface>, class detach = impl::det<iface>>  class API;
+  protected:
+    template <class iface>
+      static  long  attach( iface* p )
+        {  return ((typename std::remove_const<iface>::type*)p)->Attach();  }
+    template <class iface>
+      static  long  detach( iface* p )
+        {  return ((typename std::remove_const<iface>::type*)p)->Detach();  }
+  };
 
   /*
     non-thread-safe api pointer; is faster but may not be used for pointers can be modified while working
   */
-  template <class iface, class attach, class detach>
-  class api
+  template <class iface>
+  class api: public api_impl
   {
     mutable iface*  piface;
 
+  protected:
+    api( decltype(API<iface>( nullptr ).ptr()) p ):
+      piface( p != nullptr && attach( p ) > 0 ? p : nullptr ) {}
+    api&  operator = ( decltype(API<iface>( nullptr ).ptr()) p )
+    {
+      if ( piface != nullptr )
+        detach( piface );
+      piface = p != nullptr && attach( p ) > 0 ? p : nullptr;
+        return *this;
+    }
+
   public:       // construction/destruction
-    api( iface* p = nullptr ) noexcept
-      {
-        if ( (piface = p) != nullptr )
-          attach()( p );
-      }
-    api( const api& a ) noexcept
-      {
-        if ( (piface = a.piface) != nullptr )
-          attach()( piface );
-      }
-    api( api&& a ) noexcept: piface( a.piface )
-      {
-        a.piface = nullptr;
-      }
-    api( const API<iface, attach, detach>& a ) noexcept
-      {
-        if ( (piface = a.ptr()) != nullptr )
-          attach()( piface );
-      }
+    api( iface* p = nullptr ) noexcept:
+      piface( p != nullptr && attach( p ) > 0 ? p : nullptr ) {}
+    api( const api& a ) noexcept:
+      api( a.piface ) {}
+    api( api&& a ) noexcept:
+      piface( a.piface )  {  a.piface = nullptr;  }
+    api( const API<iface>& a ) noexcept:
+      api( a.ptr() ) {}
    ~api()
-      {
-        if ( piface != nullptr )
-          detach()( piface );
-      }
+    {
+      if ( piface != nullptr )
+        detach( piface );
+    }
 
   public:     // operators
     api& operator = ( iface* p )
-      {
-        if ( piface != nullptr )
-          detach()( piface );
-        if ( (piface = p) != nullptr )
-          attach()( piface );
+    {
+      if ( piface != nullptr )
+        detach( piface );
+      piface = p != nullptr && attach( p ) > 0 ? p : nullptr;
         return *this;
-      }
-    api& operator = ( const api& a )
-      {
-        if ( piface != nullptr )
-          detach()( piface );
-        if ( (piface = a.piface) != nullptr )
-          attach()( piface );
-        return *this;
-      }
+    }
     api& operator = ( api&& a ) noexcept
-      {
-        if ( piface != nullptr )
-          detach()( piface );
-        if ( (piface = a.piface) != nullptr )
-          a.piface = nullptr;
-        return *this;
-      }
-    api& operator = ( const API<iface, attach, detach>& a )
-      {
-        if ( piface != nullptr )
-          detach()( piface );
-        if ( (piface = a.ptr()) != nullptr )
-          attach()( piface );
-        return *this;
-      }
+    {
+      if ( piface != nullptr )
+        detach( piface );
+      if ( (piface = a.piface) != nullptr )
+        a.piface = nullptr;
+      return *this;
+    }
+    api& operator = ( const api& a )  {  return operator=( a.piface );  }
+    api& operator = ( const API<iface>& a )  {  return operator=( a.ptr() );  }
 
   public:     // methods
     iface*  release()
-      {
-        auto  p = piface;
-          piface = nullptr;
-        return p;
-      }
+    {
+      auto  p = piface;
+        piface = nullptr;
+      return p;
+    }
 
   public:     // conversions
-          iface*  operator -> () const {  assert( piface != nullptr );  return piface;  }
-          iface*  ptr() const          {  return piface;  }
+    iface*  operator -> () const {  assert( piface != nullptr );  return piface;  }
+    iface*  ptr() const          {  return piface;  }
 
     operator iface*() const {  return piface;  }
 
@@ -169,23 +156,23 @@ namespace mtc
 
   };
 
-  template <class i, class att, class det>
-  bool  operator == ( const api<i, att, det>& i1, const api<i, att, det>& i2 ) {  return i1.ptr() == i2.ptr();  }
-  template <class i, class att, class det>
-  bool  operator != ( const api<i, att, det>& i1, const api<i, att, det>& i2 ) {  return !(i1 == i2);  }
+  template <class i>
+  bool  operator == ( const api<i>& i1, const api<i>& i2 ) {  return i1.ptr() == i2.ptr();  }
+  template <class i>
+  bool  operator != ( const api<i>& i1, const api<i>& i2 ) {  return !(i1 == i2);  }
 
-  template <class i, class att, class det>
-  bool  operator == ( const api<i, att, det>& ci, std::nullptr_t np ) {  return ci.ptr() == np;  }
-  template <class i, class att, class det>
-  bool  operator != ( const api<i, att, det>& ci, std::nullptr_t np ) {  return !(ci == np);  }
+  template <class i>
+  bool  operator == ( const api<i>& ci, std::nullptr_t np ) {  return ci.ptr() == np;  }
+  template <class i>
+  bool  operator != ( const api<i>& ci, std::nullptr_t np ) {  return !(ci == np);  }
 
-  template <class i, class att, class det>
-  bool  operator == ( std::nullptr_t np, const api<i, att, det>& ci ) {  return ci.ptr() == np;  }
-  template <class i, class att, class det>
-  bool  operator != ( std::nullptr_t np, const api<i, att, det>& ci ) {  return !(ci == np);  }
+  template <class i>
+  bool  operator == ( std::nullptr_t np, const api<i>& ci ) {  return ci.ptr() == np;  }
+  template <class i>
+  bool  operator != ( std::nullptr_t np, const api<i>& ci ) {  return !(ci == np);  }
 
-  template <class iface, class attach, class detach>
-  class API
+  template <class iface>
+  class API: public api_impl
   {
     using usemutex = std::recursive_mutex;
     using autolock = std::lock_guard<usemutex>;
@@ -199,25 +186,6 @@ namespace mtc
       {  autolock  aulock( locker );  return do_();  }
 
   protected:
-    class ppvoid
-    {
-      friend class API;
-
-    protected:
-      ppvoid( API& a ): papi( &a )          {  papi->locker.lock();  }
-      ppvoid( ppvoid&& p ): papi( p.papi )  {  p.papi = nullptr;  }
-     ~ppvoid()                              {  if ( papi != nullptr ) papi->locker.unlock();  }
-      ppvoid( const ppvoid& ) = delete;
-      ppvoid& operator = ( const ppvoid& ) = delete;
-
-    public:
-      operator iface**  ()  {  assert( papi != nullptr );  return &papi->piface;  }
-      operator  void**  ()  {  return (void**)(iface**)*this;  }
-
-    protected:
-      API*  papi;
-
-    };
 
     class pvalue
     {
@@ -265,63 +233,40 @@ namespace mtc
 
     };
 
+  protected:
+    API( pvalue p ):
+      piface( p != nullptr && attach( p.piface ) > 0 ? p : nullptr ) {}
   public:       // construction/destruction
-    API( iface* p = nullptr )
-      {
-        if ( (piface = p) != nullptr )
-          attach()( p );
-      }
-    API( const API& a )
-      {
-        auto  avalue = a.ptr();
-
-        if ( (piface = (iface*)(const iface*)avalue) != nullptr )
-          attach()( piface );
-      }
-    API( const api<iface, attach, detach>& a )
-      {
-        if ( (piface = a.ptr()) != nullptr )
-          attach()( piface );
-      }
+    API( iface* p = nullptr ):
+      piface( p != nullptr && attach( p ) > 0 ? p : nullptr ) {}
+    API( const API& a ):
+      API( a.ptr() )  {}
+    API( const api<iface>& a ):
+      API( a.ptr() )  {}
    ~API()
-      {
-        autolock  aulock( locker );
-
-        if ( piface != nullptr )
-          detach()( piface );
-      }
+    {
+      if ( piface != nullptr )
+        detach( piface );
+    }
 
   public:     // operators
     API& operator = ( iface* p )
-      {
-        autolock  aulock( locker );
+    {
+      autolock  aulock( locker );
 
-        if ( piface != nullptr )
-          detach()( piface );
-        if ( (piface = p) != nullptr )
-          attach()( piface );
+      if ( piface != nullptr )
+        detach( piface );
+      piface = p != nullptr && attach( p ) > 0 ? p : nullptr;
         return *this;
-      }
+    }
     API& operator = ( const API& a )
-      {
-        autolock  aulock( locker );
-
-        if ( piface != nullptr )
-          detach()( piface );
-        if ( (piface = (iface*)(const iface*)a.ptr()) != nullptr )
-          attach()( piface );
-        return *this;
-      }
-    API& operator = ( const api<iface, attach, detach>& a )
-      {
-        autolock  aulock( locker );
-
-        if ( piface != nullptr )
-          detach()( piface );
-        if ( (piface = (iface*)(const iface*)a.ptr()) != nullptr )
-          attach()( piface );
-        return *this;
-      }
+    {
+      return operator =( a.ptr() );
+    }
+    API& operator = ( const api<iface>& a )
+    {
+      return operator =( a.ptr() );
+    }
 
   public:     // conversions
           pvalue operator -> ()       {  return interlocked( [&]{  return pvalue( piface );  } );  }

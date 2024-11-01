@@ -343,7 +343,8 @@ namespace patricia  {
   {
     auto  l1 = getlen();
     auto  l2 = k.getlen();
-    auto  rc = memcmp( getptr(), k.getptr(), std::min( l1, l2 ) );
+    auto  lc = std::min( l1, l2 );
+    auto  rc = lc != 0 ? memcmp( getptr(), k.getptr(), lc ) : 0;
 
     return rc != 0 ? rc : l1 - l2;
   }
@@ -673,8 +674,8 @@ namespace patricia  {
   {
     size_t  minlen = len != 0 ? len : 1;
     size_t  cchstr = (minlen + 0x0f) & ~0x0f;
-    size_t  nalloc = sizeof(node) - sizeof(node::chars) + cchstr;
-    auto    palloc = mem.allocate( nalloc );
+    size_t  nalloc = (sizeof(node) * 2 - sizeof(node::chars) + cchstr - 1) / sizeof(node);
+    auto    palloc = rebind<A, node>( mem ).allocate( nalloc );
 
     return new ( palloc ) node( mem, key, len, nex );
   }
@@ -1029,24 +1030,29 @@ namespace patricia  {
           return p_this;
 
       // найти элемент во вложенном массиве, у которого первый символ ключа равен первому символу вставляемого ключа
-        auto  keychr = *thekey;
+        auto  keychr = *thekey++;
         auto  p_scan = p_this->plist;
 
         while ( p_scan != nullptr && keychr > p_scan->chars[0] )
           p_scan = p_scan->pnext;
 
         if ( p_scan != nullptr && keychr == p_scan->chars[0] )
-          {
-            auto  curlen = p_scan->keylen();
+        {
+          auto  curlen = p_scan->keylen();
 
-            if ( cchkey >= curlen && memcmp( thekey, p_scan->chars, curlen ) == 0 )
-              {
-                p_this = p_scan;
-                thekey += curlen;
-                cchkey -= curlen;
-                continue;
-              }
+          if ( cchkey >= curlen )
+          {
+            auto  srcptr = p_scan->chars + 1;
+            auto  srcend = p_scan->chars + curlen;
+
+            for ( cchkey -= curlen; srcptr < srcend; )
+              if ( *srcptr++ != *thekey++ )
+                return nullptr;
+
+            p_this = p_scan;
+            continue;
           }
+        }
 
         return nullptr;
       }

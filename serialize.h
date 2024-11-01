@@ -52,6 +52,7 @@ SOFTWARE.
 # if !defined( __mtc_serialize__ )
 # define  __mtc_serialize__
 # include <cstdlib>
+# include <cstdint>
 # include <cstring>
 # include <string>
 # include <vector>
@@ -85,7 +86,8 @@ template <class S>  S*  SkipBytes( S*, size_t );
  * std:: types serialization/deserialization declarations
  */
 
-template <class C>  size_t  GetBufLen( const std::basic_string<C>& );
+template <class C,
+          class A>  size_t  GetBufLen( const std::basic_string<C, std::char_traits<C>, A>& );
 template <class T,
           class A>  size_t  GetBufLen( const std::vector<T, A>& );
 template <class T>  size_t  GetBufLen( const std::list<T>& );
@@ -97,7 +99,8 @@ template <
        class ... T> size_t  GetBufLen( const std::tuple<T...>& );
 
 template <class O,
-          class C>  O*  Serialize( O*, const std::basic_string<C>& );
+          class C,
+          class A>  O*  Serialize( O*, const std::basic_string<C, std::char_traits<C>, A>& );
 template <class O,
           class T,
           class A>  O*  Serialize( O* o, const std::vector<T, A>& );
@@ -113,9 +116,11 @@ template <class O,
        class ... T> O*  Serialize( O* o, const std::tuple<T...>& );
 
 template <class S,
-          class C>  S*  FetchFrom( S*, std::basic_string<C>& );
+          class C,
+          class A>  S*  FetchFrom( S*, std::basic_string<C, std::char_traits<C>, A>& );
 template <class S,
-          class T>  S*  FetchFrom( S*, std::vector<T>& );
+          class T,
+          class A>  S*  FetchFrom( S*, std::vector<T, A>& );
 template <class S,
           class T>  S*  FetchFrom( S*, std::list<T>& );
 template <class S,
@@ -128,9 +133,11 @@ template <class S,
       class ... T> S*  FetchFrom( S*, std::tuple<T...>& );
 
 template <class S,
-          class C>  S*  SkipToEnd( S*, const std::basic_string<C>* );
+          class C,
+          class A>  S*  SkipToEnd( S*, const std::basic_string<C, std::char_traits<C>, A>* );
 template <class S,
-          class T>  S*  SkipToEnd( S*, const std::vector<T>* );
+          class T,
+          class A>  S*  SkipToEnd( S*, const std::vector<T, A>* );
 template <class S,
           class T>  S*  SkipToEnd( S*, const std::list<T>* );
 template <class S,
@@ -144,6 +151,16 @@ template <class S,
 
 namespace mtc
 {
+  namespace pmr
+  {
+    struct storage
+    {
+      virtual storage*  FetchFrom( void*,       size_t )  {  return nullptr;  }
+      virtual storage*  Serialize( const void*, size_t )  {  return nullptr;  }
+      virtual storage*  SkipBytes(              size_t )  {  return nullptr;  }
+    };
+  }
+
   class sourcebuf
   {
     const char* p;
@@ -163,10 +180,10 @@ namespace mtc
     sourcebuf* ptr() const {  return const_cast<sourcebuf*>( this );  }
     operator sourcebuf* () const    {  return ptr();  }
     const char* getptr() const      {  return p < e ? p : nullptr;  }
-    sourcebuf*  skipto( size_t l )  {  return (p = l + p) <= e ? this : nullptr;  }
 
   public:     // fetch
     sourcebuf*  FetchFrom( void* o, size_t l )  {  return p + l <= e ? (memcpy( o, p, l ), p += l, this) : (p = e, nullptr);  }
+    sourcebuf*  SkipBytes(          size_t l )  {  return (p = l + p) <= e ? this : nullptr;  }
   };
 
   class serialbuf
@@ -379,9 +396,9 @@ template <class S>  inline  S*  FetchFrom( S* s, const char*& r ) {  return Fetc
  */
 namespace mtc
 {
-  template <class T>
+  template <class ... Args>
   struct class_is_string  {  static const bool value = false;  };
-  template <class T>
+  template <class ... Args>
   struct class_is_vector  {  static const bool value = false;  };
   template <class T>
   struct class_is_list    {  static const bool value = false;  };
@@ -392,18 +409,18 @@ namespace mtc
   template <class T>
   struct class_is_tuple   {  static const bool value = false;  };
 
-  template <class T>
-  struct class_is_string<std::basic_string<T>>  {  static const bool value = true;  };
+  template <class ... Args>
+  struct class_is_string<std::basic_string<Args...>>  {  static const bool value = true;  };
   template <class T, class A>
-  struct class_is_vector<std::vector<T, A>>     {  static const bool value = true;  };
+  struct class_is_vector<std::vector<T, A>>           {  static const bool value = true;  };
   template <class T>
-  struct class_is_list<std::list<T>>            {  static const bool value = true;  };
+  struct class_is_list<std::list<T>>                  {  static const bool value = true;  };
   template <class ... T>
-  struct class_is_map<std::map<T...>>           {  static const bool value = true;  };
+  struct class_is_map<std::map<T...>>                 {  static const bool value = true;  };
   template <class ... T>
-  struct class_is_pair<std::pair<T...>>         {  static const bool value = true;  };
+  struct class_is_pair<std::pair<T...>>               {  static const bool value = true;  };
   template <class ... T>
-  struct class_is_tuple<std::tuple<T...>>       {  static const bool value = true;  };
+  struct class_is_tuple<std::tuple<T...>>             {  static const bool value = true;  };
 
   struct value_as_scalar
   {
@@ -536,20 +553,20 @@ S*  SkipToEnd( S* s, const T* )
 /*
  * std::basic_string<>
  */
-template <class C>
-size_t  GetBufLen( const std::basic_string<C>& s )
+template <class C, class A>
+size_t  GetBufLen( const std::basic_string<C, std::char_traits<C>, A>& s )
 {
   return ::GetBufLen( s.length() ) + sizeof(C) * s.length();
 }
 
-template <class O,
-class C>  O*  Serialize( O* o, const std::basic_string<C>& s )
+template <class O, class C, class A>
+O*      Serialize( O* o, const std::basic_string<C, std::char_traits<C>, A>& s )
 {
   return ::Serialize( ::Serialize( o, s.length() ), s.c_str(), sizeof(C) * s.length() );
 }
 
-template <class S, class C>
-S*  FetchFrom( S* s, std::basic_string<C>& o )
+template <class S, class C, class A>
+S*      FetchFrom( S* s, std::basic_string<C, std::char_traits<C>, A>& o )
 {
   int   l;
 
@@ -562,8 +579,8 @@ S*  FetchFrom( S* s, std::basic_string<C>& o )
   return s;
 }
 
-template <class S, class C>
-S*  SkipToEnd( S* s, const std::basic_string<C>* )
+template <class S, class C, class A>
+S*  SkipToEnd( S* s, const std::basic_string<C, std::char_traits<C>, A>* )
 {
   int   l;
 
@@ -571,32 +588,46 @@ S*  SkipToEnd( S* s, const std::basic_string<C>* )
 }
 
 /*
+ * iterable objects serialization
+ * begin(), end() && size() expected to be present
+ */
+struct iterable
+{
+  template <class Iterable>
+  static size_t GetBufLen( const Iterable& v )
+  {
+    auto  value_size = ::GetBufLen( v.size() );
+
+    for ( auto& element: v )
+      value_size += ::GetBufLen( element );
+
+    return value_size;
+  }
+
+  template <class O, class Iterable>
+  static  O*  Serialize( O* o, const Iterable& a )
+  {
+    o = ::Serialize( o, a.size() );
+
+    for ( auto& element: a )
+      o = ::Serialize( o, element );
+
+    return o;
+  }
+
+};
+
+/*
  * std::vector<>
  */
 template <class T, class A>
-size_t  GetBufLen( const std::vector<T, A>& v )
-{
-  auto  value_size = ::GetBufLen( v.size() );
-
-  for ( auto& element: v )
-    value_size += ::GetBufLen( element );
-
-  return value_size;
-}
+size_t  GetBufLen( const std::vector<T, A>& v )       {  return iterable::GetBufLen( v );  }
 
 template <class O, class T, class A>
-O*  Serialize( O* o, const std::vector<T, A>& a )
-{
-  o = ::Serialize( o, a.size() );
+O*      Serialize( O* o, const std::vector<T, A>& v ) {  return iterable::Serialize( o, v );  }
 
-  for ( auto& element: a )
-    o = ::Serialize( o, element );
-
-  return o;
-}
-
-template <class S, class T>
-S*  FetchFrom( S* s, std::vector<T>& a )
+template <class S, class T, class A>
+S*  FetchFrom( S* s, std::vector<T, A>& a )
 {
   size_t  array_size;
 
@@ -614,8 +645,8 @@ S*  FetchFrom( S* s, std::vector<T>& a )
   return s;
 }
 
-template <class S, class T>
-S*  SkipToEnd( S* s, const std::vector<T>* )
+template <class S, class T, class A>
+S*  SkipToEnd( S* s, const std::vector<T, A>* )
 {
   int   l;
 
@@ -628,26 +659,10 @@ S*  SkipToEnd( S* s, const std::vector<T>* )
  * std::list<>
  */
 template <class T>
-size_t  GetBufLen( const std::list<T>& v )
-{
-  auto  value_size = ::GetBufLen( v.size() );
-
-  for ( auto& element: v )
-    value_size += ::GetBufLen( element );
-
-  return value_size;
-}
+size_t  GetBufLen( const std::list<T>& v )          {  return iterable::GetBufLen( v );  }
 
 template <class O, class T>
-O*  Serialize( O* o, const std::list<T>& a )
-{
-  o = ::Serialize( o, a.size() );
-
-  for ( auto& element: a )
-    o = ::Serialize( o, element );
-
-  return o;
-}
+O*      Serialize( O* o, const std::list<T>& v )    {  return iterable::Serialize( v );  }
 
 template <class S,
 class T>
@@ -789,8 +804,15 @@ S*  SkipToEnd( S* s, const std::tuple<T...>* )
  */
 template <> inline  auto  FetchFrom( mtc::sourcebuf* s, void* p, size_t l ) -> mtc::sourcebuf*
   {  return s != nullptr ? s->FetchFrom( p, l ) : s;  }
-template <> inline  auto  SkipBytes( mtc::sourcebuf* s, size_t l ) -> mtc::sourcebuf*
-  {  return s != nullptr ? s->skipto( l ) : s;  }
+template <> inline  auto  SkipBytes( mtc::sourcebuf* s,          size_t l ) -> mtc::sourcebuf*
+  {  return s != nullptr ? s->SkipBytes(    l ) : s;  }
+
+template <> inline  auto  Serialize( mtc::pmr::storage* s, const void* p, size_t l ) -> mtc::pmr::storage*
+  {  return s != nullptr ? s->Serialize( p, l ) : s;  }
+template <> inline  auto  FetchFrom( mtc::pmr::storage* s, void* p,       size_t l ) -> mtc::pmr::storage*
+  {  return s != nullptr ? s->FetchFrom( p, l ) : s;  }
+template <> inline  auto  SkipBytes( mtc::pmr::storage* s,                size_t l ) -> mtc::pmr::storage*
+  {  return s != nullptr ? s->SkipBytes(    l ) : s;  }
 
 namespace mtc
 {

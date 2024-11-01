@@ -167,7 +167,13 @@ namespace mtc
   {
     auto  pval = pvalue != nullptr ? pvalue->get( k ) : nullptr;
 
-    return pval != nullptr ? zval::dump( pval ) : zval::dump( serial::find( source, k ) );
+    if ( pval != nullptr )
+      return zval::dump( pval );
+
+    if ( source != nullptr && source != invalid )
+      return zval::dump( serial::find( source, k ) );
+
+    return {};
   }
     
   template <class T>
@@ -179,12 +185,12 @@ namespace mtc
   auto  zmap::dump::get( const key& k ) const -> zview_t
   {
     if ( pvalue != nullptr )
-      return zview_t( nullptr, pvalue->get( k ) );
+      return { nullptr, pvalue->get( k ) };
 
-    if ( source != nullptr && source != (const char*)-1 )
-      return zview_t( serial::find( source, k ), nullptr );
+    if ( source != nullptr && source != invalid )
+      return { serial::find( source, k ), nullptr };
 
-    return zview_t();
+    return {};
   }
 
   auto  zmap::dump::get_char( const key& k ) const -> value_t<char> {  return get_dump( k ).get_char();  }
@@ -643,17 +649,17 @@ namespace mtc
     return ptop;
   }
 
-  auto  zmap::ztree_t::copyit() const -> ztree_t
+  auto  zmap::ztree_t::copy() const -> ztree_t
   {
     ztree_t mkcopy( chnode );
 
     for ( auto ptr = begin(); ptr != end(); ++ptr )
-      mkcopy.push_back( ptr->copyit() );
+      mkcopy.push_back( ptr->copy() );
 
     mkcopy.keyset = keyset;
 
     if ( pvalue != nullptr )
-      mkcopy.pvalue = std::unique_ptr<zval>( new zval( *pvalue.get() ) );
+      mkcopy.pvalue = std::unique_ptr<zval>( new zval( *pvalue.get(), zval::force_copy() ) );
 
     return mkcopy;
   }
@@ -682,26 +688,45 @@ namespace mtc
     zmap::zdata_t implementation
   */
 
-  zmap::zdata_t::zdata_t(): n_vals( 0 ), _refer( 0 )  {}
-  zmap::zdata_t::zdata_t( ztree_t&& t, size_t n ):  ztree_t( std::move( t ) ), n_vals( n ), _refer( 0 ) {}
+  zmap::zdata_t::zdata_t():
+    n_vals( 0 ), nrefer( 0 )  {}
+
+  zmap::zdata_t::zdata_t( ztree_t&& t, size_t n ):
+    ztree_t( std::move( t ) ), n_vals( n ), nrefer( 0 ) {}
 
   long  zmap::zdata_t::attach()
-    {
-      std::unique_lock<std::mutex>  aulock( _mutex );
-      return ++_refer;
-    }
+  {
+    return ++nrefer;
+  }
 
   long  zmap::zdata_t::detach()
-    {
-      std::unique_lock<std::mutex>  aulock( _mutex );
-      return --_refer;
-    }
+  {
+    auto  rcount = --nrefer;
 
-  auto  zmap::zdata_t::copyit() -> zdata_t*
-    {
-      std::unique_lock<std::mutex>  aulock( _mutex );
-      return new zdata_t( ztree_t::copyit(), n_vals );
-    }
+    if ( rcount == 0 )
+      delete this;
+    return rcount;
+  }
+
+ /*
+  * for copy-on-write, returns 1-counted object pointer which is:
+  *   either itself, if the object is 1-counted,
+  *   or a copy of existing object, if it is >1-counted
+  */
+  auto  zmap::zdata_t::docopy() -> zdata_t*
+  {
+    zdata_t*  pcopy;
+
+    assert( nrefer.load() > 0 );
+
+    if ( nrefer == 1 )
+      return this;
+
+    (pcopy = new zdata_t( ztree_t::copy(), n_vals ))->nrefer = 1;
+      --nrefer;
+
+    return pcopy;
+  }
 
   /*
     zmap::zbuff_t implementation
@@ -890,148 +915,140 @@ namespace mtc
   */
 
   zmap::zmap( zmap&& z ): p_data( z.p_data )
-    {  z.p_data = nullptr;  }
+  {
+    z.p_data = nullptr;
+  }
 
-  zmap::zmap( const zmap& z )
+  zmap::zmap( const zmap& z ): p_data( z.p_data )
+  {
+    if ( p_data != nullptr )
+      p_data->attach();
+  }
+
+  zmap::zmap( const std::initializer_list<std::pair<key, zval>>& il ): zmap()
+  {
+    for ( auto& keyval: il )
+      put( keyval.first, keyval.second );
+  }
+
+  zmap::zmap( const zmap& from, const std::initializer_list<std::pair<key, zval>>& il ): zmap( from )
+  {
+    for ( auto& keyval: il )
+      put( keyval.first, keyval.second );
+  }
+
+  zmap& zmap::operator=( zmap&& z )
+  {
+    if ( p_data != z.p_data )
     {
+      auto  mycopy( *this );
+
+      if ( p_data != nullptr )
+        p_data->detach();
+      if ( (p_data = z.p_data) != nullptr )
+        z.p_data = nullptr;
+    }
+    return *this;
+  }
+
+  zmap& zmap::operator=( const zmap& z )
+  {
+    if ( p_data != z.p_data )
+    {
+      auto  mycopy( *this );
+
+      if ( p_data != nullptr )
+        p_data->detach();
       if ( (p_data = z.p_data) != nullptr )
         p_data->attach();
     }
-
-  zmap::zmap( const std::initializer_list<std::pair<key, zval>>& il ): p_data( nullptr )
-    {
-      for ( auto& keyval: il )
-        put( keyval.first, keyval.second );
-    }
-
-  zmap::zmap( const zmap& from, const std::initializer_list<std::pair<key, zval>>& il ): zmap( from )
-    {
-      for ( auto& keyval: il )
-        put( keyval.first, keyval.second );
-    }
-
-  zmap& zmap::operator=( zmap&& z )
-    {
-      auto  set( std::move( z ) );
-
-      if ( p_data != nullptr && p_data->detach() == 0 )
-        delete p_data;
-      if ( (p_data = set.p_data) != nullptr )
-        set.p_data = nullptr;
-      return *this;
-    }
-
-  zmap& zmap::operator=( const zmap& z )
-    {
-      auto  set( z );
-
-      if ( p_data != nullptr && p_data->detach() == 0 )
-        delete p_data;
-      if ( (p_data = set.p_data) != nullptr )
-        p_data->attach();
-      return *this;
-    }
+    return *this;
+  }
 
   zmap& zmap::operator= ( const std::initializer_list<std::pair<key, zval>>& il )
-    {
-      if ( p_data != nullptr )
-      {
-        if ( p_data->detach() == 0 )
-          delete p_data;
-        p_data = nullptr;
-      }
+  {
+    clear();
 
-      for ( auto& keyval: il )
-        put( keyval.first, keyval.second );
+    for ( auto& keyval: il )
+      put( keyval.first, keyval.second );
 
-      return *this;
-    }
+    return *this;
+  }
 
   zmap::~zmap()
-    {
-      if ( p_data != nullptr && p_data->detach() == 0 )
-        delete p_data;
-    }
+  {
+    clear();
+  }
 
   auto  zmap::private_data() -> zdata_t*
-    {
-      if ( p_data == nullptr )
-        return (p_data = new zdata_t())->attach(), p_data;
-
-      auto  lcount = (p_data->attach(), p_data->detach());
-      
-      if ( lcount == 1 )
-        return p_data;
-
-      zdata_t*  p_copy = p_data->copyit();
-
-      p_data->detach();
-
-      (p_data = p_copy)->attach();
-
-      return p_data;
-    }
+  {
+    if ( p_data == nullptr )  (p_data = new zdata_t())->attach();
+      else p_data = p_data->docopy();
+    return p_data;
+  }
 
   auto  zmap::put( const key& k, zval&& v ) -> zval*
+  {
+    auto      mydata = private_data();
+    ztree_t*  pfound;
+
+    if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
     {
-      auto      mydata = private_data();
-      ztree_t*  pfound;
-
-      if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
-        {
-          pfound->pvalue = std::unique_ptr<zval>( new zval( std::move( v ) ) );
-          ++mydata->n_vals;
-        }
-      else
-        {
-          *pfound->pvalue = std::move( v );
-        }
-      pfound->keyset = k.type();
-
-      return pfound->pvalue.get();
+      pfound->pvalue = std::unique_ptr<zval>( new zval( std::move( v ) ) );
+      ++mydata->n_vals;
     }
+      else
+    {
+      *pfound->pvalue = std::move( v );
+    }
+    pfound->keyset = k.type();
+
+    return pfound->pvalue.get();
+  }
 
   auto  zmap::put( const key& k, const zval& v ) -> zval*
+  {
+    auto      mydata = private_data();
+    ztree_t*  pfound;
+
+    if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
     {
-      auto      mydata = private_data();
-      ztree_t*  pfound;
-
-      if ( (pfound = mydata->insert( k.data(), k.size() ))->pvalue == nullptr )
-        {
-          pfound->pvalue = std::unique_ptr<zval>( new zval( v ) );
-          ++mydata->n_vals;
-        }
-      else
-        {
-          *pfound->pvalue = v;
-        }
-      pfound->keyset = k.type();
-
-      return pfound->pvalue.get();
+      pfound->pvalue = std::unique_ptr<zval>( new zval( v ) );
+      ++mydata->n_vals;
     }
+      else
+    {
+      *pfound->pvalue = v;
+    }
+    pfound->keyset = k.type();
+
+    return pfound->pvalue.get();
+  }
 
   auto  zmap::get( const key& k ) const -> const zval*
-    {
-      auto  zt = p_data != nullptr ? p_data->search( k.data(), k.size() ) : nullptr;
+  {
+    const ztree_t*  p_tree;
 
-      return zt != nullptr ? zt->pvalue.get() : nullptr;
-    }
+    if ( p_data != nullptr && (p_tree = p_data->search( k.data(), k.size() )) != nullptr )
+      return p_tree->pvalue.get();
+    return nullptr;
+  }
 
   auto  zmap::get( const key& k ) -> zval*
-    {
-      auto  zv = p_data != nullptr ? p_data->search( k.data(), k.size() ) : nullptr;
+  {
+    ztree_t*  p_tree;
 
-      if ( zv != nullptr )
-        zv = private_data()->search( k.data(), k.size() );
-
-      return zv != nullptr ? zv->pvalue.get() : nullptr;
-    }
+    if ( p_data != nullptr && (p_tree = p_data->search( k.data(), k.size() )) != nullptr )
+      return p_tree->pvalue.get();
+    return nullptr;
+  }
 
   auto  zmap::get_type( const key& k ) const -> decltype(zval::vx_type)
-    {
-      auto  pv = get( k );
-      return pv != nullptr ? pv->get_type() : decltype(zval::vx_type)(zval::z_untyped);
-    }
+  {
+    auto  pv = get( k );
+
+    return pv != nullptr ? pv->get_type() : decltype(zval::vx_type)(zval::z_untyped);
+  }
 
   /* zmap get_xxx/set_xxx impl */
 
@@ -1228,27 +1245,46 @@ namespace mtc
   # undef derive_set_val
   # undef derive_set
 
-  auto  zmap::empty() const -> bool {  return p_data == nullptr || p_data->n_vals == 0;  }
-  auto  zmap::size() const -> size_t {  return p_data != nullptr ? p_data->n_vals : 0;  }
+  auto  zmap::empty() const -> bool
+  {
+    return size() == 0;
+  }
 
+  auto  zmap::size() const -> size_t
+  {
+    return p_data != nullptr ? p_data->n_vals : 0;
+  }
+
+  // !!! iterator would block the map
   zmap::iterator  zmap::begin()
-    {
-      if ( p_data == nullptr )
-        return iterator();
-      return iterator( p_data->begin(), p_data->end() );
-    }
-  zmap::iterator  zmap::end()  {  return iterator();  }
+  {
+    return p_data != nullptr ? iterator( p_data->begin(), p_data->end() ) : iterator();
+  }
+
+  zmap::iterator  zmap::end()
+  {
+    return iterator();
+  }
 
   zmap::const_iterator  zmap::cbegin() const
-    {
-      if ( p_data == nullptr )
-        return const_iterator();
-      return const_iterator( p_data->begin(), p_data->end() );
-    }
-  zmap::const_iterator  zmap::cend() const {  return const_iterator();  }
+  {
+    return p_data != nullptr ? const_iterator( p_data->begin(), p_data->end() ) : const_iterator();
+  }
 
-  zmap::const_iterator  zmap::begin() const {  return cbegin();  }
-  zmap::const_iterator  zmap::end() const {  return cend();  }
+  zmap::const_iterator  zmap::cend() const
+  {
+    return const_iterator();
+  }
+
+  zmap::const_iterator  zmap::begin() const
+  {
+    return cbegin();
+  }
+
+  zmap::const_iterator  zmap::end() const
+  {
+    return cend();
+  }
 
   auto  zmap::at( const key& k ) -> zval&
     {
@@ -1274,28 +1310,40 @@ namespace mtc
   auto  zmap::operator []( const key& k ) -> patch_place_t
     {  return patch_place_t( k, *this );  }
 
+  auto  zmap::copy() const -> mtc::zmap
+  {
+    auto  newmap = zmap();
+
+    if ( p_data != nullptr )
+      (newmap.p_data = new zdata_t( p_data->copy(), p_data->n_vals ))->nrefer = 1;
+
+    return newmap;
+  }
+
   auto  zmap::clear() -> void
-    {
-      if ( p_data != nullptr && p_data->detach() == 0 )
-        delete p_data;
-      p_data = nullptr;
-    }
+  {
+    if ( p_data != nullptr )
+      p_data->detach();
+    p_data = nullptr;
+  }
 
   auto  zmap::erase( const key& k ) -> size_t
+  {
+    auto  n_dels = size_t(0);
+
+    if ( p_data != nullptr )
     {
-      if ( p_data != nullptr )
+      p_data = p_data->docopy();
+
+      if ( (p_data->n_vals -= (n_dels = p_data->remove( k.data(), k.size() ))) == 0 )
       {
-        auto    p_tree = private_data();
-        size_t  n_dels;
-
-        if ( (p_data->n_vals -= (n_dels = p_tree->remove( k.data(), k.size() ))) == 0 )
-          clear();
-
-        return n_dels;
+        p_data->detach();
+        p_data = nullptr;
       }
-
-      return 0;
     }
+
+    return n_dels;
+  }
 
   int   zmap::compare( const mtc::zmap& z ) const
   {

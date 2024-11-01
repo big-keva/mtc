@@ -10,41 +10,44 @@ namespace mtc {
   {
     class block;
 
-    const size_t          lblock;
-    std::atomic<block*>   blocks;   // list of elements
-    std::atomic<
-    std::atomic<block*>*> pchain;   // last in list
-    std::atomic_uint32_t  nblock;   // count of blocks
-    std::atomic_uint32_t  mcount;   // count of blocks
-    std::atomic_uint64_t  musage;   // memory allocated
+    class arena
+    {
+      friend class Arena;
+
+      const size_t          lblock;
+      std::atomic<block*>   blocks;   // list of elements
+      std::atomic<
+      std::atomic<block*>*> pchain;   // last in list
+      std::atomic_uint32_t  nblock;   // count of blocks
+      std::atomic_uint32_t  mcount;   // count of blocks
+      std::atomic_uint64_t  musage;   // memory allocated
+
+      std::atomic_long      rcount;   // arena lifetime
+
+    public:
+      arena( size_t section );
+     ~arena();
+
+    public:
+      void*   allocate( size_t len, size_t align );
+      auto    capacity() const -> std::uint64_t {  return mcount * lblock;  }
+      auto    memcount() const -> std::uint32_t {  return mcount;  }
+      auto    memusage() const -> std::uint64_t {  return musage;  }
+    };
+
+    arena*  memory = nullptr;
 
   public:
     template <class T>
     class allocator;
 
   public:
-    Arena( size_t section = 0x4 * 0x400 * 0x400 ):
-      lblock( section ),
-      blocks( nullptr ),
-      pchain( &blocks ),
-      nblock( 0 ),
-      mcount( 0 ),
-      musage( 0 ) {}
-    Arena( Arena&& a ):
-      lblock( a.lblock ),
-      blocks( a.blocks.load() ),
-      pchain( a.pchain.load() ),
-      nblock( a.nblock.load() ),
-      mcount( a.mcount.load() ),
-      musage( a.musage.load() )
-    {
-      a.blocks = nullptr;
-      a.pchain = nullptr;
-      a.nblock = 0;
-      a.mcount = 0;
-      a.musage = 0;
-    }
+    Arena( size_t section = 0x4 * 0x400 * 0x400 );
+    Arena( const Arena& );
+    Arena( Arena&& );
    ~Arena();
+    Arena& operator = ( Arena&& );
+    Arena& operator = ( const Arena& );
 
   public:
     template <class T>
@@ -52,10 +55,10 @@ namespace mtc {
     auto  get_default_allocator() -> allocator<void>;
 
   public:
-    void*   allocate( size_t len, size_t align );
-    auto    capacity() const -> std::uint64_t {  return mcount * lblock;  }
-    auto    memcount() const -> std::uint32_t {  return mcount;  }
-    auto    memusage() const -> std::uint64_t {  return musage;  }
+    void*   allocate( size_t bytes, size_t align );
+    auto    capacity() const -> std::uint64_t     {  return memory != nullptr ? memory->capacity() : 0;  }
+    auto    memcount() const -> std::uint32_t     {  return memory != nullptr ? memory->memcount() : 0;  }
+    auto    memusage() const -> std::uint64_t     {  return memory != nullptr ? memory->memusage() : 0;  }
 
   public:
     template <class Object> [[nodiscard]]
@@ -63,7 +66,7 @@ namespace mtc {
     {
       auto  palloc = allocate( sizeof(Object), alignof(Object) );
 
-      return new( palloc ) Object( *this );
+      return new( palloc ) Object( get_allocator<char>() );
     }
     template <class Object, class ... Args> [[nodiscard]]
     auto  Create( Args&&... args ) -> Object*
@@ -72,9 +75,16 @@ namespace mtc {
 
       return new( palloc ) Object( std::move( args... ), *this );
     }
+    template <class Object, class ... Args> [[nodiscard]]
+    auto  Create( const Args&... args ) -> Object*
+    {
+      auto  palloc = allocate( sizeof(Object), alignof(Object) );
+
+      return new( palloc ) Object( args..., *this );
+    }
 
   protected:
-    std::size_t allocation_unit_size = 0x10000;
+    enum: std::size_t{  allocation_unit_size = 0x10000  };
 
   };
 
@@ -124,27 +134,23 @@ namespace mtc {
     using propagate_on_container_move_assignment = std::true_type;
 
     allocator() noexcept = delete;
+    allocator( Arena& mp ) noexcept:  memory( mp.memory ) {}
 
   public:
-    allocator( Arena& mp ) noexcept:
-      memoryPool( mp ) {}
-    allocator( allocator&& a ) noexcept:
-      memoryPool( a.memoryPool )  {}
-    allocator( const allocator& other ) noexcept:
-      memoryPool( other.memoryPool )  {}
+    allocator( allocator&& a ) noexcept:  memory( a.memory )  {  a.memory = nullptr;  }
+    allocator( const allocator& other ) noexcept: memory( other.memory )  {}
     template< class U >
-    allocator( const allocator<U>& other ) noexcept:
-      memoryPool( other.memoryPool )  {}
+    allocator( const allocator<U>& other ) noexcept:  memory( other.memory )  {}
    ~allocator() = default;
 
   public:
     T*    allocate( std::size_t n )
-      {  return (T*)memoryPool.allocate( n * (sizeof(T) + alignof(T)), alignof(T) );  }
+      {  return (T*)memory->allocate( n * (sizeof(T) + alignof(T)), alignof(T) );  }
     void  deallocate( T* p, std::size_t n )
       {  (void)p, (void)n;  }
 
     size_type max_size() const noexcept
-      {  return memoryPool.allocation_unit_size / (sizeof(T) + alignof(T));  }
+      {  return Arena::allocation_unit_size / (sizeof(T) + alignof(T));  }
 
     template <class U, class... Args>
     void  construct( U* p, Args&&... args )
@@ -154,73 +160,27 @@ namespace mtc {
       {  if ( p != nullptr )  p->~U();  }
 
   protected:
-    Arena& memoryPool;
+    arena*  memory;
 
   };
 
-  template <class T1, class Another>
-  bool  operator != ( const Arena::allocator<T1>&, const Another& ) noexcept
-    {  return true;  }
-
-  template <class T1, class Another>
-  bool  operator == ( const Arena::allocator<T1>&, const Another& ) noexcept
-    {  return false;  }
-
+  template <class T, class Another>
+  bool  operator != ( const Arena::allocator<T>& me, const Another& to ) noexcept {  return !(me == to);  }
+  template <class T, class Another>
+  bool  operator != ( const Another& me, const Arena::allocator<T>& to ) noexcept {  return !(me == to);  }
   template <class T1, class T2>
-  bool  operator != ( const Arena::allocator<T1>& lhs, const Arena::allocator<T2>& rhs ) noexcept
-    {  return !(lhs == rhs);  }
+  bool  operator != ( const Arena::allocator<T1>& me, const Arena::allocator<T2>& to ) noexcept {  return !(me == to);  }
 
+  template <class T, class Another>
+  bool  operator == ( const Arena::allocator<T>&, const Another& ) noexcept {  return false;  }
+  template <class T, class Another>
+  bool  operator == ( const Another&, const Arena::allocator<T>& ) noexcept {  return false;  }
   template <class T1, class T2>
-  bool  operator == ( const Arena::allocator<T1>& lhs, const Arena::allocator<T2>& rhs ) noexcept;
+  bool  operator == ( const Arena::allocator<T1>&, const Arena::allocator<T2>& ) noexcept {  return false;  }
 
-  // Arena implemntation
-
-  inline
-  Arena::~Arena()
-  {
-    for ( auto pblock = ptr::clean( blocks.load() ); pblock != nullptr; )
-    {
-      while ( pblock != nullptr && !blocks.compare_exchange_strong( pblock, nullptr ) )
-        pblock = ptr::clean( pblock );
-      if ( pblock != nullptr )
-        pblock->Delete();
-    }
-  }
-
-  inline
-  void* Arena::allocate( size_t size, size_t align )
-  {
-    auto  pplast = ptr::clean( pchain.load() );   // &atomic<block*>, never nullptr
-
-    for ( ; ; )
-    {
-      auto  pblock = ptr::clean( (*pplast).load() );  // pointer to last block, may be nullptr
-      void* newptr;
-
-      // set pointer to be eigher !nullptr, or dirty nullptr
-      while ( pblock == nullptr && !(*pplast).compare_exchange_strong( pblock, ptr::dirty( pblock ) ) )
-        pblock = ptr::clean( pblock );
-
-      // if !nullptr, try allocate subblock
-      if ( pblock != nullptr )
-      {
-        // if allocated, finish work
-        if ( (newptr = pblock->allocate( size, align )) != nullptr )
-          return musage += ((size + align - 1) & ~(align - 1)), ++mcount, newptr;
-
-        // else block can not provide subblock, perhaps is filled; switch chain to
-        // it's next subblock
-        while ( (*pplast).load() != nullptr && !pchain.compare_exchange_strong( pplast, &(*pplast).load()->next ) )
-          (void)NULL;
-        continue;
-      }
-
-      // else pblock is broken nullptr; try initialize it
-      assert( pblock == nullptr && (*pplast).load() == ptr::dirty( pblock ) );
-
-      ++nblock, *pplast = block::Create( size + align, lblock );
-    }
-  }
+  template <class T>
+  bool  operator == ( const Arena::allocator<T>& me, const Arena::allocator<T>& to ) noexcept
+    {  return &me.memoryPool == &to.memoryPool;  }
 
   // Arena::block implementation
 
@@ -258,13 +218,132 @@ namespace mtc {
     }
   }
 
+  // Arena::arena implementation
+
+  inline
+  Arena::arena::arena( size_t section ):
+    lblock( section ),
+    blocks( nullptr ),
+    pchain( &blocks ),
+    nblock( 0 ),
+    mcount( 0 ),
+    musage( 0 ),
+    rcount( 1 ) {}
+
+  inline
+  Arena::arena::~arena()
+  {
+    for ( auto pblock = ptr::clean( blocks.load() ); pblock != nullptr; )
+    {
+      while ( pblock != nullptr && !blocks.compare_exchange_strong( pblock, nullptr ) )
+        pblock = ptr::clean( pblock );
+      if ( pblock != nullptr )
+        pblock->Delete();
+    }
+  }
+
+  inline
+  void* Arena::arena::allocate( size_t size, size_t align )
+  {
+    auto  pplast = ptr::clean( pchain.load() );   // &atomic<block*>, never nullptr
+
+    for ( ; ; )
+    {
+      auto  pblock = ptr::clean( (*pplast).load() );  // pointer to last block, may be nullptr
+      void* newptr;
+
+      // set pointer to be eigher !nullptr, or dirty nullptr
+      while ( pblock == nullptr && !(*pplast).compare_exchange_strong( pblock, ptr::dirty( pblock ) ) )
+        pblock = ptr::clean( pblock );
+
+      // if !nullptr, try allocate subblock
+      if ( pblock != nullptr )
+      {
+        // if allocated, finish work
+        if ( (newptr = pblock->allocate( size, align )) != nullptr )
+          return musage += ((size + align - 1) & ~(align - 1)), ++mcount, newptr;
+
+        // else block can not provide subblock, perhaps is filled; switch chain to
+        // it's next subblock
+        while ( ptr::clean( (*pplast).load() ) != nullptr && !pchain.compare_exchange_strong( pplast, &(*pplast).load()->next ) )
+          (void)NULL;
+      }
+        else
+      // else pblock is broken nullptr; try initialize it
+      {
+        assert( pblock == nullptr && (*pplast).load() == ptr::dirty( pblock ) );
+
+        ++nblock, *pplast = block::Create( size + align, lblock );
+      }
+    }
+  }
+
+  // Arena implemntation
+
+  inline
+  Arena::Arena( size_t section ):
+    memory( new arena( section ) )  {}
+
+  inline
+  Arena::Arena( const Arena& a ):
+    memory( a.memory )
+  {
+    if ( memory != nullptr )
+      ++memory->rcount;
+  }
+
+  inline
+  Arena::Arena( Arena&& a ):
+    memory( a.memory )  {  a.memory = nullptr;  }
+
+  inline
+  Arena::~Arena()
+  {
+    if ( memory != nullptr && --memory->rcount == 0 )
+      delete memory;
+  }
+
+  inline
+  Arena& Arena::operator = ( Arena&& a )
+  {
+    if ( memory != nullptr && --memory->rcount == 0 )
+      delete memory;
+    if ( (memory = a.memory) != nullptr )
+      a.memory = nullptr;
+    return *this;
+  }
+
+  inline
+  Arena& Arena::operator = ( const Arena& a )
+  {
+    if ( memory != nullptr && --memory->rcount == 0 )
+      delete memory;
+    if ( (memory = a.memory) != nullptr )
+      ++memory->rcount;
+    return *this;
+  }
+
+  inline
+  void* Arena::allocate( size_t size, size_t align )
+  {
+    return memory != nullptr ? memory->allocate( size, align ) : nullptr;
+  }
+
   // Arena implementation
 
   template <class T>
-  auto  Arena::get_allocator() -> allocator<T>  {  return allocator<T>( *this );  }
+  auto  Arena::get_allocator() -> allocator<T>
+  {
+    if ( memory == nullptr )
+      throw std::logic_error( "call to allocator on uninitialized arena" );
+    return allocator<T>( *this );
+  }
 
   inline
-  auto  Arena::get_default_allocator() -> allocator<void>  {  return get_allocator<void>();  }
+  auto  Arena::get_default_allocator() -> allocator<void>
+  {
+    return get_allocator<void>();
+  }
 
 }
 

@@ -53,6 +53,7 @@ SOFTWARE.
 # if !defined( __zmap_hpp__ )
 # define __zmap_hpp__
 # include "serialize.h"
+# include "ptrpatch.h"
 # include "wcsstr.h"
 # include "uuid.h"
 # include <cassert>
@@ -60,11 +61,10 @@ SOFTWARE.
 # include <algorithm>
 # include <vector>
 # include <string>
-# include <atomic>
 # include <type_traits>
 # include <memory>
 # include <limits>
-# include <mutex>
+# include <atomic>
 # include <cstddef>
 
 namespace mtc
@@ -78,8 +78,17 @@ namespace mtc
 
   using bool_t = bool;
 
-  using charstr = std::string;
-  using widestr = std::basic_string<widechar>;
+# if !defined( mtc_charstr_defined )
+  template <class C>
+  using strbase = std::basic_string<C, std::char_traits<C>, std::allocator<C>>;
+
+# define mtc_charstr_defined
+  using charstr = strbase<char>;
+# endif
+# if !defined( mtc_widestr_defined )
+# define mtc_widestr_defined
+  using widestr = strbase<widechar>;
+# endif
 
   using array_char   = std::vector<char_t>;
   using array_byte   = std::vector<byte_t>;
@@ -146,6 +155,7 @@ namespace mtc
     public:
       enum: size_t  {  value = get_size<types...>::size  };
     };
+
   }
 
   class zval
@@ -153,6 +163,16 @@ namespace mtc
     friend class zmap;
 
     union inner_t;
+
+    enum values: size_t
+    {
+      bytes = impl::get_max_size<uint64_t, double,
+        charstr,
+        widestr, array_charstr>::value,
+      align = alignof(array_charstr)
+    };
+
+    using storage_t = typename std::aligned_storage<values::bytes, values::align>::type;
 
   public:     // z_%%% types
     class dump;
@@ -200,10 +220,14 @@ namespace mtc
       z_untyped       = (byte_t)-1
     };
 
+  public:
+    struct force_copy  {  explicit force_copy() = default;  };
+
   public:     // construction
     zval();
     zval( zval&& );
     zval( const zval& );
+    zval( const zval&, const force_copy& );
     zval& operator = ( zval&& );
     zval& operator = ( const zval& );
    ~zval();
@@ -237,7 +261,6 @@ namespace mtc
     zval& operator = ( word64_t );
     zval& operator = ( float_t );
     zval& operator = ( double_t );
-
 
   # define declare_init_ref( _type_ )     \
     zval( _type_##_t&& );                 \
@@ -323,6 +346,7 @@ namespace mtc
   # undef declare_access_val
 
   public:     // operations
+    auto  copy() const -> zval;
     bool  empty() const;
     auto  clear() -> zval&;
     auto  get_type() const -> unsigned;
@@ -439,17 +463,14 @@ namespace mtc
   protected:  // helpers
     auto  fetch( zval&& ) -> zval&;
     auto  fetch( const zval& ) -> zval&;
+    auto  fetch( const zval&, const force_copy& ) -> zval&;
 
     auto  inner() const -> const inner_t&;
     auto  inner()       ->       inner_t&;
 
   protected:  // inplace storage
-    char    storage[impl::get_max_size<uint64_t, double,
-      charstr,
-      widestr,
-      std::vector<uint64_t>,
-      std::vector<widestr>>::value];
-    byte_t  vx_type;
+    storage_t storage;
+    byte_t    vx_type;
 
   };
 
@@ -458,6 +479,9 @@ namespace mtc
     class ztree_t;
     class zdata_t;
     class zbuff_t;
+
+    template <class S>  class storage;
+    template <class S>  class limiter;
 
   public:     // iterator support
     class key;
@@ -486,10 +510,9 @@ namespace mtc
     template <class obj>
     friend  bool  is_array( const place_t<obj>& );
 
-  protected:
-    auto  private_data() -> zdata_t*;
     static
     auto  fragment_len( word32_t u ) -> size_t {  assert( (u & 0x0400) != 0 );  return (u & 0x1ff) | ((u >> 2) & ~0x1ff);  }
+    auto  private_data() -> zdata_t*;
 
   public:
     zmap() = default;
@@ -750,6 +773,7 @@ namespace mtc
     auto  operator []( const key& ) const -> const const_place_t;
 
   public:     // modifiers
+    auto  copy() const -> mtc::zmap;
     auto  clear() -> void;
 
     /*
@@ -1088,7 +1112,7 @@ namespace mtc
     auto  cbegin() const -> const_iterator;
     auto  cend() const -> const_iterator;
 
-    bool  empty() const {  return pvalue == nullptr && source == nullptr;  }
+    bool  empty() const {  return pvalue == nullptr && (source == nullptr || source == invalid);  }
 
   public:
     bool  operator == ( const dump& v ) const;
@@ -1663,7 +1687,7 @@ namespace mtc
     std::unique_ptr<zval> pvalue;     // the element value
 
   protected:
-    auto  copyit() const -> ztree_t;
+    auto  copy() const -> ztree_t;
 
   public:
     ztree_t( byte_t chinit = '\0' );
@@ -1703,22 +1727,21 @@ namespace mtc
     zdata_t&  operator= ( zdata_t&& ) = delete;
     zdata_t&  operator= ( const zdata_t& ) = delete;
 
-    zdata_t( ztree_t&&, size_t );
+   ~zdata_t() = default;
 
   public:
+    zdata_t( ztree_t&&, size_t );
     zdata_t();
 
   public:
     long  attach();
     long  detach();
-    auto  copyit() -> zdata_t*;
+    auto  docopy() -> zdata_t*;
 
   public:
-    size_t      n_vals;
+    size_t            n_vals;
+    std::atomic_long  nrefer;
 
-  protected:
-    std::mutex  _mutex;
-    long        _refer;
   };
 
   class zmap::zbuff_t: private std::vector<char>
@@ -1734,6 +1757,47 @@ namespace mtc
     auto  size() const -> size_t;
     auto  data() const -> const char*;
 
+  };
+
+  template <class S>
+  class zmap::storage
+  {
+    S*      source;
+
+  public:
+    storage( S* s, size_t ): source( s ) {}
+
+  public:
+    template <class T>
+    S*  operator()( T& t, size_t& n )  {  return t.FetchFrom( source, n );  }
+  };
+
+  template <class S>
+  class zmap::limiter: protected pmr::storage
+  {
+    S*      source;
+    size_t  length;
+
+  public:
+    limiter( S* s, size_t l = (size_t)-1 ):
+      source( s ),
+      length( l )  {}
+
+  public:
+    template <class T>
+    S*  operator()( T& t, size_t& n )
+    {
+      return t.FetchFrom( (pmr::storage*)this, n ), this->source;
+    }
+
+  protected:
+    auto  FetchFrom( void* p, size_t l ) -> storage* override
+    {
+      if ( source != nullptr && l <= length && (source = ::FetchFrom( source, p, l )) != nullptr )
+        return length -= l, this;
+      else
+        return source = nullptr, nullptr;
+    }
   };
 
   template <class value>
@@ -2036,10 +2100,14 @@ namespace mtc
         byte_t  chnext;
         size_t  sublen;
 
-        if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) == nullptr )
-          return nullptr;
-        push_back( ztree_t( chnext ) );
-          s = back().FetchFrom( s, n );
+        if ( (s = ::FetchFrom( ::FetchFrom( s, (char&)chnext ), sublen )) != nullptr )
+        {
+          using reader_t = typename std::conditional<std::is_same<S, pmr::storage>::value,
+            storage<S>, limiter<S>>::type;
+
+          push_back( ztree_t( chnext ) );
+            s = reader_t( s, sublen )( back(), n );
+        }
       }
     }
     return s;
@@ -2066,9 +2134,17 @@ namespace mtc
   {
     if ( p_data != nullptr )
       p_data->detach();
-    (p_data = new zdata_t())->attach();
 
-    return p_data->FetchFrom( s, p_data->n_vals );
+    (p_data = new zdata_t())->attach();
+      s = p_data->FetchFrom( s, p_data->n_vals );
+
+    if ( p_data->n_vals == 0 )
+    {
+      p_data->detach();
+      p_data = nullptr;
+    }
+
+    return s;
   }
 
   template <class S>
@@ -2110,23 +2186,25 @@ namespace mtc
   template <class value, class z_iterator>
   zmap::iterator_base<value, z_iterator>::iterator_base( iterator_base&& it ):
     zstack( std::move( it.zstack ) ),
-    keybuf( std::move( it.keybuf ) ) {  init();  }
+    keybuf( std::move( it.keybuf ) )
+  {  init();  }
 
   template <class value, class z_iterator>
   zmap::iterator_base<value, z_iterator>::iterator_base( const iterator_base& it ):
     zstack( it.zstack ),
-    keybuf( it.keybuf ) {  init();  }
+    keybuf( it.keybuf )
+  {  init();  }
 
   template <class value, class z_iterator>
   zmap::iterator_base<value, z_iterator>::iterator_base( z_iterator beg, z_iterator end )
+  {
+    if ( beg != end )
     {
-      if ( beg != end )
-      {
-        zstack.push_back( { beg, end } );
-        keybuf.push_back( beg->chnode );
-        find();
-      }
+      zstack.push_back( { beg, end } );
+      keybuf.push_back( beg->chnode );
+      find();
     }
+  }
 
   template <class value, class z_iterator>
   auto  zmap::iterator_base<value, z_iterator>::operator -> () const -> const value*
