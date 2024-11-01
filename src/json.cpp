@@ -883,32 +883,31 @@ namespace parse {
           break;
         }
       }
-      if ( bpoint || bexpon )
-      {
-        char*   endptr;
-        double  dvalue = strtod( cvalue.c_str(), &endptr );
 
-        if ( *endptr != '\0' )
-        {
-          throw error( "invalid numeric format" )
-            .set_code_lineid( __LINE__ )
-            .set_json_lineid( s.getline() );
-        }
+      char*   endptr;
+      double  dvalue = strtod( cvalue.c_str(), &endptr );
+
+      if ( *endptr != '\0' )
+      {
+        throw error( "invalid numeric format" )
+          .set_code_lineid( __LINE__ )
+          .set_json_lineid( s.getline() );
+      }
+
+      if ( bpoint
+        || bexpon
+        || dvalue > std::numeric_limits<uint64_t>::max()
+        || dvalue < std::numeric_limits< int64_t>::min() )
+      {
         z.set_double( dvalue );
       }
         else
-      {
-        char*   endptr;
-        int32_t nvalue = strtol( cvalue.c_str(), &endptr, 10 );
-
-        if ( *endptr != '\0' )
-        {
-          throw error( "invalid numeric format" )
-            .set_code_lineid( __LINE__ )
-            .set_json_lineid( s.getline() );
-        }
-        z.set_int32( nvalue );
-      }
+      if ( dvalue >  std::numeric_limits<uint32_t>::max() ) z.set_word64( uint64_t(dvalue) );
+        else
+      if ( dvalue >  std::numeric_limits< int32_t>::max() ) z.set_word32( uint64_t(dvalue) );
+        else
+      if ( dvalue >= std::numeric_limits< int32_t>::min() ) z.set_int32( int32_t(dvalue) );
+        else  z.set_int64( int64_t(dvalue) );
       return z;
     }
 
