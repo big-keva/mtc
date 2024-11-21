@@ -2,6 +2,7 @@
 # include <vector>
 # include <mutex>
 # include <fcntl.h>
+# include <stdexcept>
 # define ZLIB_WINAPI
 # include <zlib.h>
 
