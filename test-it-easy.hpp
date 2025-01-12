@@ -45,6 +45,15 @@ namespace TestItEasy {
     const Verify& v;
     const T&      t;
 
+    template <class T1, class T2>
+    static  bool  equals( const T1& _1, const T2& _2 )  {  return _1 == _2;  }
+
+    static  bool  equals( int _i, unsigned _j )  {  return _i >= 0 ? unsigned(_i) == _j : false;  }
+    static  bool  equals( unsigned _i, int _j )  {  return equals( _j, _i );  }
+
+    static  bool  equals( int _i, long unsigned _j )  {  return _i >= 0 ? unsigned(_i) == _j : false;  }
+    static  bool  equals( long unsigned _i, int _j )  {  return equals( _j, _i );  }
+
   public:
     LValue( const Verify& vx, const T& va ): v( vx ), t( va )  {}
 
@@ -62,8 +71,8 @@ namespace TestItEasy {
     template <class P>  auto  operator >= ( const P& p ) -> FCheck<LValue<T>, P>;
 
   public:
-    template <class P>  bool  eq( const P& p ) const  {  return t == p;  }
-    template <class P>  bool  ne( const P& p ) const  {  return t != p;  }
+    template <class P>  bool  eq( const P& p ) const  {  return equals( t, p );  }
+    template <class P>  bool  ne( const P& p ) const  {  return !equals( t, p );  }
     template <class P>  bool  le( const P& p ) const  {  return t <= p;  }
     template <class P>  bool  lt( const P& p ) const  {  return t < p;  }
     template <class P>  bool  gt( const P& p ) const  {  return t > p;  }
