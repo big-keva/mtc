@@ -51,6 +51,7 @@ SOFTWARE.
 # if !defined( __mtc_patricia_h__ )
 # define __mtc_patricia_h__
 # include "serialize.h"
+# include <stdexcept>
 # include <cstdint>
 # include <cassert>
 # include <string>
