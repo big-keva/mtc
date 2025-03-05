@@ -384,11 +384,11 @@ namespace mtc
     if ( __impl__::fullpath( szpath, sizeof(szpath), path ) == nullptr )
       throw error( strprintf( "could not create the full file path '%s'", path ) );
 
-    return std::move( config( std::move( getcfg ), charstr( szpath ) ) );
+    return config( std::move( getcfg ), charstr( szpath ) );
   }
 
   auto  config::Open( const charstr& path, const zmap& revive ) -> config
-  {  return std::move( Open( path.c_str(), revive ) );  }
+  {  return Open( path.c_str(), revive );  }
 
   auto  config::Load( const char* source, const char* path ) -> config
   {
@@ -405,11 +405,11 @@ namespace mtc
 
     json::Parse( source, getcfg );
 
-    return std::move( config( std::move( getcfg ), charstr( szpath ) ) );
+    return config( std::move( getcfg ), charstr( szpath ) );
   }
 
   auto  config::Load( const std::string& source, const std::string& path ) -> config
-  {  return std::move( Load( source.c_str(), path.c_str() ) );  }
+  {  return Load( source.c_str(), path.c_str() );  }
 
   auto  config::get_uint32( const zval* val, uint32_t def, const suffixes<uint32_t>& suf ) -> uint32_t
   {
