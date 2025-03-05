@@ -130,7 +130,7 @@ template <class S,
           class T1,
           class T2> S*  FetchFrom( S*, std::pair<T1, T2>& );
 template <class S,
-      class ... T> S*  FetchFrom( S*, std::tuple<T...>& );
+      class ... T> S*   FetchFrom( S*, std::tuple<T...>& );
 
 template <class S,
           class C,
