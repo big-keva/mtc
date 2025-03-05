@@ -20,52 +20,50 @@ add_library(mtc STATIC
   src/json.cpp
 
   src/test-it-easy.cpp
-
-  dir.cpp
-
-  net/sockets.cpp
 )
 
 install(TARGETS mtc DESTINATION lib)
+
 install(
   FILES
-    arbitrarymap.h
-    arena.hpp
-    bitset.h
+    utf.hpp
+    wcsstr.h
+
+    serialize.h
+
+    interfaces.h
+    iBuffer.h
+    iStream.h
+
     byteBuffer.h
+    fileStream.h
+    zipStream.h
+
     charstream.h
-    dir.hpp
+
+    arena.hpp
+
+    arbitrarymap.h
+    patricia.h
+
+    test-it-easy.hpp
+
+    bitset.h
     directory.h
     file.h
-    fileStream.h
-    iBuffer.h
-    interfaces.h
-    iStream.h
     json.h
-    patricia.h
     platform.h
     ptrpatch.h
     recursive_shared_mutex.hpp
-    serialize.h
     strptime.h
-    stringmap.h
-    utf.hpp
     uuid.h
-    wcsstr.h
     config.h
     zmap.h
     zmap-alias.h
-    zipStream.h
-    test-it-easy.hpp
   DESTINATION include/mtc
 )
-install(
-  FILES
-    net/sockets.hpp
-  DESTINATION include/mtc/net
-)
 
-add_subdirectory(tutorial)
+# add_subdirectory(tutorial)
 
 # enable_testing()
 # add_subdirectory(tests)
