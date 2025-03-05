@@ -88,7 +88,6 @@ namespace patricia  {
     auto    begin() const -> const unsigned char*   {  return getptr();  }
     auto    end()   const -> const unsigned char*   {  return getptr() + getlen();  }
 
-
   public:     // serialization
     size_t  GetBufLen(      ) const {  return ::GetBufLen( len ) + len;  }
     template <class O>

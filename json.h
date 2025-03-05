@@ -172,7 +172,7 @@ namespace json {
     {  return print::widestr( o, s.c_str(), s.length() );  }
 
   /*
-    Набор примитивов для печати базовых типов zarray<>
+    Набор примитивов для печати базовых типов zmap
 
     template <class O, class T, class D = print_compact>
     inline O* Print( O* o, T t, const D& deco = D() ) { ... }

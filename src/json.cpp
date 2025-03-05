@@ -771,7 +771,7 @@ namespace parse {
       default:  break;
     }
 
-  // untyped xvalue load: object zarray {...}, untyped array [...], string "...", integer -?[0-9]+ or float -?[0-9]+\.?[0-9]*([Ee]-?[0-9]+)?
+  // untyped xvalue load: object zmap {...}, untyped array [...], string "...", integer -?[0-9]+ or float -?[0-9]+\.?[0-9]*([Ee]-?[0-9]+)?
     switch ( chnext = s.nospace() )
     {
       case '{':
