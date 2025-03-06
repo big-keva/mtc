@@ -160,19 +160,19 @@ namespace mtc
 
   template <class Mtx>
   auto  make_unique_lock( Mtx& mtx ) -> std::unique_lock<Mtx>
-    {  return std::move( std::unique_lock<Mtx>( mtx ) );  }
+    {  return std::unique_lock<Mtx>( mtx );  }
 
   template <class Mtx>
   auto  make_unique_lock( Mtx& mtx, const std::defer_lock_t& defer ) -> std::unique_lock<Mtx>
-    {  return std::move( std::unique_lock<Mtx>( mtx, defer ) );  }
+    {  return std::unique_lock<Mtx>( mtx, defer );  }
 
   template <class Mtx>
   auto  make_shared_lock( Mtx& mtx ) -> mtc::shared_lock<Mtx>
-    {  return std::move( mtc::shared_lock<Mtx>( mtx ) );  }
+    {  return mtc::shared_lock<Mtx>( mtx );  }
 
   template <class Mtx>
   auto  make_shared_lock( Mtx& mtx, const std::defer_lock_t& ) -> mtc::shared_lock<Mtx>
-    {  return std::move( mtc::shared_lock<Mtx>( mtx, std::defer_lock ) );  }
+    {  return mtc::shared_lock<Mtx>( mtx, std::defer_lock );  }
 
   template <class lock, class action, class ...argset>
   auto  interlocked( lock, action fn, argset... ag ) -> decltype(fn(ag...))
