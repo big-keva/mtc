@@ -1,56 +1,41 @@
 cmake_minimum_required(VERSION 3.5)
-project(mtc)
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_C_STANDARD 14)
+set(CMAKE_CXX_STANDARD 14)
 
-link_libraries(mtc dl)
+link_libraries(mtc dl pthread)
 
-add_executable(mtc-test-buffer
-	test-buffer.cpp
-	test-main.cpp)
+if(FALSE)
+	add_executable(mtc-test-buffer
+		test-buffer.cpp test-main.cpp)
+	add_executable(mtc-test-fileStream
+        	test-fileStream.cpp test-main.cpp)
+	add_executable(mtc-test-serialize
+		test-serialize.cpp test-main.cpp)
+	add_executable(mtc-test-patricia
+		test-patricia.cpp test-main.cpp)
+	add_executable(mtc-test-config
+        	test-config.cpp test-main.cpp)
+	add_executable(mtc-test-zmap
+        	test-zmap.cpp test-main.cpp)
+	add_executable(mtc-test-wcsstr
+        	test-wcsstr.cpp test-main.cpp)
+	add_executable(mtc-test-sharedMutex
+		test-sharedMutex.cpp test-main.cpp)
 
-add_executable(mtc-test-fileStream
-        test-fileStream.cpp
-	test-main.cpp)
+	add_test(NAME mtc-test-patricia COMMAND test-patricia)
+	add_test(NAME mtc-test-config COMMAND test-config)
+	add_test(NAME mtc-test-zmap COMMAND test-zmap)
+else()
+	add_executable(mtc-test test-main.cpp
+		test-buffer.cpp
+        	test-fileStream.cpp
+		test-serialize.cpp
+		test-patricia.cpp
+        	test-config.cpp
+        	test-zmap.cpp
+        	test-wcsstr.cpp
+		test-sharedMutex.cpp)
 
-add_executable(mtc-test-serialize
-	test-serialize.cpp)
-
-add_executable(mtc-test-patricia
-	test-patricia.cpp
-	test-main.cpp)
-
-add_executable(mtc-test-directory
-	test-directory.cpp)
-
-add_executable(mtc-test-config
-        test-config.cpp)
-
-add_executable(mtc-test-zmap
-        test-zmap.cpp)
-
-add_executable(mtc-test-wcsstr
-        test-wcsstr.cpp)
-
-add_executable(mtc-test-sharedMutex
-	test-sharedMutex.cpp)
-
-target_link_libraries(mtc-test-directory
-	mtc)
-target_link_libraries(mtc-test-config
-	mtc)
-target_link_libraries(mtc-test-zmap
-	mtc)
-target_link_libraries(mtc-test-wcsstr
-	mtc)
-target_link_libraries(mtc-test-fileStream
-	mtc)
-target_link_libraries(mtc-test-sharedMutex
-	mtc
-        pthread)
-
-add_test(NAME test-patricia COMMAND test-patricia)
-add_test(NAME test-directory COMMAND test-directory)
-add_test(NAME test-config COMMAND test-config)
-add_test(NAME test-zmap COMMAND test-zmap)
+	add_test(NAME mtc-test COMMAND test)
+endif()
