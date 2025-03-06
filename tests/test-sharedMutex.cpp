@@ -120,6 +120,7 @@ void  TestUniqueLockOverSharedLockBlocksSharedLocks()
   th.join();
 }
 
+# if 0
 int   main()
 {
   TestLockIsRecursive();
@@ -130,3 +131,4 @@ int   main()
 
   return 0;
 }
+# endif

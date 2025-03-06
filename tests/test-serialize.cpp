@@ -1,3 +1,4 @@
+# include "../test-it-easy.hpp"
 # include "../serialize.h"
 # include <initializer_list>
 # include <cassert>
@@ -142,31 +143,9 @@ std::map<K, V>  make_map( const std::initializer_list<std::pair<K, V>>& l )
   return map;
 }
 
-template <class ... Pairs>
-bool  TestGetBufLen( FILE* output, const Pairs&... pairs );
 template <class ... Types>
 bool  TestSerializeDeserialize( FILE*, const Types&... values );
 
-template <class T1, class T2, class ... Pairs>
-bool  TestGetBufLen( FILE* output, const std::pair<T1, T2>& p, const Pairs&... pairs )
-{
-  auto  buflen = ::GetBufLen( p.first );
-  bool  result = true;
-
-  if ( buflen != (size_t)p.second )
-  {
-    fprintf( output, "'%s' value of type '%s' size mismatch: %s vs %s\n",
-      to_string( p.first ).c_str(), type_name( &p.first ).c_str(),
-      to_string( buflen ).c_str(),
-      to_string( p.second ).c_str() );
-    result = false;
-  }
-
-  return TestGetBufLen( output, pairs... ) && result;
-}
-
-template <>
-bool  TestGetBufLen( FILE* ) { return true; }
 template <>
 bool  TestSerializeDeserialize( FILE* ) { return true; }
 
@@ -258,114 +237,119 @@ bool  TestCrossTypeIterableSerialization( FILE* output, const T1& obj1, const T2
   return true;
 }
 
-int   main()
+TestItEasy::RegisterFunc  testSerialize( []()
 {
-  auto  result = true;
+  TEST_CASE( "mtc/serialize" )
+  {
+    SECTION( "GetBufLen()" )
+    {
+      REQUIRE( ::GetBufLen( (char)0 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (char)256 ) == 1 ) ;
 
-  result &= TestGetBufLen( stdout,
-    std::make_pair( (char)0, 1 ),
-    std::make_pair( (char)256, 1 ),
+      REQUIRE( ::GetBufLen( (unsigned char)0 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (unsigned char)256 ) == 1 ) ;
 
-    std::make_pair( (unsigned char)0, 1 ),
-    std::make_pair( (unsigned char)256, 1 ),
+      REQUIRE( ::GetBufLen( (int16_t)0 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (int16_t)127 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (int16_t)128 ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (int16_t)0x3fff ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (int16_t)0x4000 ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (int16_t)0xffff ) == 3 ) ;
 
-    std::make_pair( (int16_t)0, 1 ),
-    std::make_pair( (int16_t)127, 1 ),
-    std::make_pair( (int16_t)128, 2 ),
-    std::make_pair( (int16_t)0x3fff, 2 ),
-    std::make_pair( (int16_t)0x4000, 3 ),
-    std::make_pair( (int16_t)0xffff, 3 ),
+      REQUIRE( ::GetBufLen( (int32_t)0 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)127 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)128 ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)0x3fff ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)0x4000 ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)0xffff ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)0x01fffff ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)0x03fffff ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)0x0fffffff ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)0x1fffffff ) == 5 ) ;
+      REQUIRE( ::GetBufLen( (int32_t)0xffffffff ) == 5 ) ;
 
-    std::make_pair( (int32_t)0, 1 ),
-    std::make_pair( (int32_t)127, 1 ),
-    std::make_pair( (int32_t)128, 2 ),
-    std::make_pair( (int32_t)0x3fff, 2 ),
-    std::make_pair( (int32_t)0x4000, 3 ),
-    std::make_pair( (int32_t)0xffff, 3 ),
-    std::make_pair( (int32_t)0x01fffff, 3 ),
-    std::make_pair( (int32_t)0x03fffff, 4 ),
-    std::make_pair( (int32_t)0x0fffffff, 4 ),
-    std::make_pair( (int32_t)0x1fffffff, 5 ),
-    std::make_pair( (int32_t)0xffffffff, 5 ),
+      REQUIRE( ::GetBufLen( (uint32_t)0 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)127 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)128 ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)0x3fff ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)0x4000 ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)0xffff ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)0x01fffff ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)0x03fffff ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)0x0fffffff ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)0x1fffffff ) == 5 ) ;
+      REQUIRE( ::GetBufLen( (uint32_t)0xffffffff ) == 5 ) ;
 
-    std::make_pair( (uint32_t)0, 1 ),
-    std::make_pair( (uint32_t)127, 1 ),
-    std::make_pair( (uint32_t)128, 2 ),
-    std::make_pair( (uint32_t)0x3fff, 2 ),
-    std::make_pair( (uint32_t)0x4000, 3 ),
-    std::make_pair( (uint32_t)0xffff, 3 ),
-    std::make_pair( (uint32_t)0x01fffff, 3 ),
-    std::make_pair( (uint32_t)0x03fffff, 4 ),
-    std::make_pair( (uint32_t)0x0fffffff, 4 ),
-    std::make_pair( (uint32_t)0x1fffffff, 5 ),
-    std::make_pair( (uint32_t)0xffffffff, 5 ),
+      REQUIRE( ::GetBufLen( (int64_t)0 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)127 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)128 ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x3fff ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x4000 ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0xffff ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x01fffff ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x03fffff ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x0fffffff ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x1fffffff ) == 5 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0xffffffff ) == 5 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x07ffffffff ) == 5 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x0fffffffff ) == 6 ) ;
 
-    std::make_pair( (int64_t)0, 1 ),
-    std::make_pair( (int64_t)127, 1 ),
-    std::make_pair( (int64_t)128, 2 ),
-    std::make_pair( (int64_t)0x3fff, 2 ),
-    std::make_pair( (int64_t)0x4000, 3 ),
-    std::make_pair( (int64_t)0xffff, 3 ),
-    std::make_pair( (int64_t)0x01fffff, 3 ),
-    std::make_pair( (int64_t)0x03fffff, 4 ),
-    std::make_pair( (int64_t)0x0fffffff, 4 ),
-    std::make_pair( (int64_t)0x1fffffff, 5 ),
-    std::make_pair( (int64_t)0xffffffff, 5 ),
-    std::make_pair( (int64_t)0x07ffffffff, 5 ),
-    std::make_pair( (int64_t)0x0fffffffff, 6 ),
+      REQUIRE( ::GetBufLen( (uint64_t)0 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)127 ) == 1 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)128 ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)0x3fff ) == 2 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)0x4000 ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)0xffff ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)0x01fffff ) == 3 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)0x03fffff ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)0x0fffffff ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)0x1fffffff ) == 5 ) ;
+      REQUIRE( ::GetBufLen( (uint64_t)0xffffffff ) == 5 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x07ffffffff ) == 5 ) ;
+      REQUIRE( ::GetBufLen( (int64_t)0x0fffffffff ) == 6 ) ;
 
-    std::make_pair( (uint64_t)0, 1 ),
-    std::make_pair( (uint64_t)127, 1 ),
-    std::make_pair( (uint64_t)128, 2 ),
-    std::make_pair( (uint64_t)0x3fff, 2 ),
-    std::make_pair( (uint64_t)0x4000, 3 ),
-    std::make_pair( (uint64_t)0xffff, 3 ),
-    std::make_pair( (uint64_t)0x01fffff, 3 ),
-    std::make_pair( (uint64_t)0x03fffff, 4 ),
-    std::make_pair( (uint64_t)0x0fffffff, 4 ),
-    std::make_pair( (uint64_t)0x1fffffff, 5 ),
-    std::make_pair( (uint64_t)0xffffffff, 5 ),
-    std::make_pair( (int64_t)0x07ffffffff, 5 ),
-    std::make_pair( (int64_t)0x0fffffffff, 6 ),
+      REQUIRE( ::GetBufLen( (float)1 ) == 4 ) ;
+      REQUIRE( ::GetBufLen( (double)1 ) == 8 ) ;
 
-    std::make_pair( (float)1, 4 ),
-    std::make_pair( (double)1, 8 ),
+      REQUIRE( ::GetBufLen( "char string" ) == 12 ) ;
 
-    std::make_pair( "char string", 12 ),
+      REQUIRE( ::GetBufLen( std::string( "char string" ) ) == 12 ) ;
 
-    std::make_pair( std::string( "char string" ), 12 ),
+      REQUIRE( ::GetBufLen( std::make_pair( (double).7, "float value" ) ) == 20 ) ;
 
-    std::make_pair( std::make_pair( (double).7, "float value" ), 20 ),
+      REQUIRE( ::GetBufLen( std::make_tuple( "tuple of keys", (float).9, 127U ) ) == 19 ) ;
 
-    std::make_pair( std::make_tuple( "tuple of keys", (float).9, 127U ), 19 ),
+      REQUIRE( ::GetBufLen( make_vector( { 1U, 2U, 3U } ) ) == 4 ) ;
+      REQUIRE( ::GetBufLen( make_vector( { (float).1, (float).3 } ) ) == 9 ) ;
 
-    std::make_pair( make_vector( { 1U, 2U, 3U } ), 4 ),
-    std::make_pair( make_vector( { (float).1, (float).3 } ), 9 ),
+      REQUIRE( ::GetBufLen( make_list( { 1U, 2U, 3U } ) ) == 4 ) ;
 
-    std::make_pair( make_list( { 1U, 2U, 3U } ), 4 ),
-
-    std::make_pair( make_map<char const*, int>( { { "_1", 1 }, { "_2", 2 } } ), 9 ) );
-
-  result &= TestSerializeDeserialize( stdout,
-    (char)'A',
-    (unsigned char)256,
-    (int16_t)72456,
-    (int32_t)724569,
-    (int64_t)7245693019,
-    (uint16_t)72456,
-    (uint32_t)724569,
-    (uint64_t)7245693019,
-    (float)7245693019,
-    (double)72456,
-    (const char*)"char string",    // !!!memory lost!!!
-    std::string( "c++ string" ),
-    std::make_pair( 1, std::string( "c++ string" ) ),
-    std::make_tuple( 1, std::string( "c++ string" ), .1 ),
-    make_vector( { std::make_pair( std::string( "_1" ), 1U ), std::make_pair( std::string( "_2" ), 2U ) } ),
-    make_map<std::string, unsigned>( { { std::string( "_1" ), 1U }, { std::string( "_2" ), 2U } } ) );
-
-  result &= TestCrossTypeIterableSerialization( stdout,
-    make_vector( { 1U, 2U, 3U, 4U, 5U } ), (std::list<unsigned>*)nullptr );
-
-  return result ? 0 : EINVAL;
-}
+      REQUIRE( ::GetBufLen( make_map<char const*, int>( { { "_1", 1 }, { "_2", 2 } } ) ) == 9 );
+    }
+    SECTION( "Serialize()/FetchFrom()" )
+    {
+      REQUIRE( TestSerializeDeserialize( stdout,
+        (char)'A',
+        (unsigned char)256,
+        (int16_t)72456,
+        (int32_t)724569,
+        (int64_t)7245693019,
+        (uint16_t)72456,
+        (uint32_t)724569,
+        (uint64_t)7245693019,
+        (float)7245693019,
+        (double)72456,
+        (const char*)"char string",    // !!!memory lost!!!
+        std::string( "c++ string" ),
+        std::make_pair( 1, std::string( "c++ string" ) ),
+        std::make_tuple( 1, std::string( "c++ string" ), .1 ),
+        make_vector( { std::make_pair( std::string( "_1" ), 1U ), std::make_pair( std::string( "_2" ), 2U ) } ),
+        make_map<std::string, unsigned>( { { std::string( "_1" ), 1U }, { std::string( "_2" ), 2U } } ) ) );
+    }
+    SECTION( "cross-type Serialize()/FetchFrom() is possible" )
+    {
+      REQUIRE( TestCrossTypeIterableSerialization( stdout,
+        make_vector( { 1U, 2U, 3U, 4U, 5U } ), (std::list<unsigned>*)nullptr ) );
+    }
+  }
+} );

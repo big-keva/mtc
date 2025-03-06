@@ -2,8 +2,6 @@
 # include "../arbitrarymap.h"
 # include <cstdio>
 
-# include <map>
-
 using namespace mtc;
 
 TestItEasy::RegisterFunc  testArbitraryMap( []()

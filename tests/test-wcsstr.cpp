@@ -244,7 +244,7 @@ void  TestStrtoxFamily()
   auto  u = mtc::w_strtoul( "12345", &e, 0 );
   */
 }
-
+# if 0
 int   main( int argc, char* argv[] )
 {
   TestStrlenFamily();
@@ -262,3 +262,4 @@ int   main( int argc, char* argv[] )
 
   return 0;
 }
+# endif

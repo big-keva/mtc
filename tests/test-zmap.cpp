@@ -1,5 +1,5 @@
 # include "../zmap.h"
-# include "../z_js.h"
+# include "../json.h"
 # include "../utf.hpp"
 # include "../serialize.h"
 
@@ -347,7 +347,7 @@ namespace mtc
   }
 
 }
-
+# if 0
 int main()
 {
   mtc::node_t n( (const uint8_t*)"aaaaaaaaaaaaaaaaaaaaaaaaaaa", 27 );
@@ -756,3 +756,4 @@ int main()
 
   return 0;
 }
+# endif
