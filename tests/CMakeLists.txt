@@ -37,5 +37,5 @@ else()
         	test-wcsstr.cpp
 		test-sharedMutex.cpp)
 
-	add_test(NAME mtc-test COMMAND test)
+	add_test(NAME mtc-test COMMAND mtc-test)
 endif()
