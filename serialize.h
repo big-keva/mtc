@@ -355,8 +355,8 @@ template <class S>  inline  S*  SkipToEnd( S* s, const uint64_t* )   {  return m
 /*
  * C strings serialization/deserialization specializations
  */
-template <>
-inline  size_t  GetBufLen( const char* const& string )
+template <> inline
+size_t  GetBufLen( const char* const& string )
 {
   auto length = strlen( string );
 
@@ -364,8 +364,10 @@ inline  size_t  GetBufLen( const char* const& string )
 }
 
 template <> inline
-size_t  GetBufLen( char* const& string )
-  {  return GetBufLen( (char * const&)string );  }
+size_t  GetBufLen( char* const& string )  {  return GetBufLen( (char * const&)string );  }
+
+template <size_t N> inline
+size_t  GetBufLen( const char (&s)[N] )   {  return GetBufLen( (const char*)s );  }
 
 template <class O>  inline  O*  Serialize( O* o, const char* const& s )
 {

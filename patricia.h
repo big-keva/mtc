@@ -512,12 +512,12 @@ namespace patricia  {
     void  insert( std::initializer_list<std::pair<key, V>> l )  {  insert( l.begin(), l.end() );  }
 
   public:     // iterable access
-    auto  find       ( const key& k ) const -> const_iterator {  return std::move( findit<const_iterator>( k, *this ) );  }
-    auto  find       ( const key& k )       ->       iterator {  return std::move( findit<      iterator>( k, *this ) );  }
-    auto  lower_bound( const key& k ) const -> const_iterator {  return std::move( lbound<const_iterator>( k, *this ) );  }
-    auto  lower_bound( const key& k )       ->       iterator {  return std::move( lbound<      iterator>( k, *this ) );  }
-    auto  upper_bound( const key& k ) const -> const_iterator {  return std::move( findit<const_iterator>( k, *this ) );  }
-    auto  upper_bound( const key& k )       ->       iterator {  return std::move( findit<      iterator>( k, *this ) );  }
+    auto  find       ( const key& k ) const -> const_iterator {  return findit<const_iterator>( k, *this );  }
+    auto  find       ( const key& k )       ->       iterator {  return findit<      iterator>( k, *this );  }
+    auto  lower_bound( const key& k ) const -> const_iterator {  return lbound<const_iterator>( k, *this );  }
+    auto  lower_bound( const key& k )       ->       iterator {  return lbound<      iterator>( k, *this );  }
+    auto  upper_bound( const key& k ) const -> const_iterator {  return findit<const_iterator>( k, *this );  }
+    auto  upper_bound( const key& k )       ->       iterator {  return findit<      iterator>( k, *this );  }
 
   public:     // serialization
                         size_t  GetBufLen(    ) const;

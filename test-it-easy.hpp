@@ -233,6 +233,9 @@ namespace TestItEasy {
     return ++testsSucceeded, true;
   }
 
+  template <class T>
+  auto  immediate( T t ) -> decltype( t() ) {  return t();  }
+
   // Verify implementation
 
   template <class T>
@@ -288,19 +291,23 @@ namespace TestItEasy {
   }
 
 # define REQUIRE_NOTHROW( expression )              \
-  try {                                             \
-    (expression);                                   \
-    ++TestItEasy::testsSucceeded;                   \
-  }                                                 \
-  catch ( ... ) {                                   \
-    ++TestItEasy::testsFault;                       \
-    succeeded = false;                              \
-    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[31m" "FAULT" "\x1b[0m\n",          \
-      TestItEasy::spaces( TestItEasyShiftSpace ).c_str(),                             \
-      __FILE__,                                                                       \
-      __LINE__ );                                                                     \
-    fprintf( stdout, "%s\texpression: %s\n", TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), #expression );  \
-  }
+  TestItEasy::immediate( [&]() -> bool {            \
+    try {                                           \
+      (expression);                                 \
+      ++TestItEasy::testsSucceeded;                 \
+      return true;                                  \
+    }                                               \
+    catch ( ... ) {                                 \
+      ++TestItEasy::testsFault;                     \
+      succeeded = false;                            \
+      fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[31m" "FAULT" "\x1b[0m\n",  \
+        TestItEasy::spaces( TestItEasyShiftSpace ).c_str(),                     \
+        __FILE__,                                                               \
+        __LINE__ );                                                             \
+      fprintf( stdout, "%s\texpression: %s\n", TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), #expression );  \
+      return false;                                 \
+    }                                               \
+  } )
 
 # define SECTION( description ) \
   fprintf( stdout, "%s%s\n", TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), (description) ); \

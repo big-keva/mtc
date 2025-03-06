@@ -56,6 +56,7 @@ SOFTWARE.
 # include <climits>
 # include <thread>
 # include <shared_mutex>
+# include <stdexcept>
 # include <mutex>
 
 namespace mtc
