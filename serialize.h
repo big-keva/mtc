@@ -147,7 +147,7 @@ template <class S,
           class T1,
           class T2> S*  SkipToEnd( S*, const std::pair<T1, T2>* );
 template <class S,
-      class ... T> S*  SkipToEnd( S*, const std::tuple<T...>* );
+      class ... T>  S*  SkipToEnd( S*, const std::tuple<T...>* );
 
 namespace mtc
 {
