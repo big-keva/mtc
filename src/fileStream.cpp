@@ -83,6 +83,8 @@ SOFTWARE.
 
 # include <limits>
 
+#include "../file.h"
+
 namespace mtc
 {
   template <class error>
@@ -94,8 +96,6 @@ namespace mtc
     implement_lifetime_control
 
     friend class  FileStream<error>;
-
-    void  operator delete( void* p )  {  free( p );  }
 
   protected:     // construction
     FileMemmap();
@@ -136,7 +136,7 @@ namespace mtc
   protected:    // construction
     FileStream( const char* szname, size_t ccname );
 
-    void  operator  delete( void* p ) {  nothrow_allocator::free( p );  }
+    void  operator  delete( void* p ) {  delete[] (char*)p;  }
 
   public:
    ~FileStream();
@@ -186,33 +186,31 @@ namespace mtc
   {
     implement_lifetime_control
 
-  public:     // construction
     filebuffer( word32_t l ): length( l ) {}
 
+  protected:     // construction
+    void  operator delete( void* p ) {  delete [] (char*)p;  }
+
   public:     // overridables
-    const char*   GetPtr() const noexcept override {  return buffer;  }
-    word32_t      GetLen() const noexcept override {  return length;  }
-    int           SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;  }
+    const char*   GetPtr() const noexcept override
+      {  return buffer;  }
+    word32_t      GetLen() const noexcept override
+      {  return length;  }
+    int           SetBuf( const void*, word32_t ) noexcept override
+      {  return EINVAL;  }
     int           SetLen( word32_t newlen ) noexcept override
-    {
-      if ( newlen > length )
-        return EINVAL;
-      return (length = newlen), 0;
-    }
+      {  return newlen > length ? EINVAL : (length = newlen), 0;  }
 
   public:
-    static
-    auto  create( word32_t length ) -> api<filebuffer>
+    static  auto  create( word32_t length ) -> api<filebuffer>
     {
-      filebuffer* palloc;
-
-      if ( (palloc = (filebuffer*)nothrow_allocator::alloc( sizeof(filebuffer) + length - 1 )) == nullptr )
-        return (filebuffer*)error()( nullptr, std::bad_alloc() );
-      return new( palloc ) filebuffer( length );
+      try
+        {  return new ( new char[sizeof(filebuffer) + length - 1] ) filebuffer( length );  }
+      catch ( const std::bad_alloc& xp )
+        {  return error()( nullptr, xp );  }
+      catch ( ... )
+        {  return error()( nullptr, std::current_exception() );  }
     }
-
-  protected:
-    void  operator delete( void* p )  {  nothrow_allocator::free( p );  }
 
   protected:  // variables
     word32_t  length;
@@ -309,7 +307,7 @@ namespace mtc
   template <class error>
   FileStream<error>::FileStream( const char* szname, size_t ccname )
   {
-    strncpy( FileName(), szname, ccname )[ccname] = '\0';
+    strncpy( FileName(), szname, ccname + 1 )[ccname] = '\0';
       win32_decl( handle = INVALID_HANDLE_VALUE );
       posix_decl( handle = -1 );
   }
@@ -325,21 +323,26 @@ namespace mtc
   {
     size_t  cchstr = ccname != (size_t)-1 ? ccname : strlen( szname );
     size_t  nalloc = sizeof(FileStream<error>) + cchstr + 1;
-    auto    palloc = (FileStream<error>*)nothrow_allocator::alloc( nalloc );
 
-    if ( palloc != nullptr )
-      new( palloc ) FileStream<error>( szname, cchstr );
-    return palloc;
+    try
+      {  return new ( new char[nalloc] ) FileStream<error>( szname, cchstr );  }
+    catch ( const std::bad_alloc& xp )
+      {  return error()( nullptr, xp );  }
+    catch ( ... )
+      {  return error()( nullptr, std::current_exception() );  }
   }
 
   template <class error>
   api<IByteBuffer>  FileStream<error>::MemMap( int64_t offset, word32_t length )
   {
-    auto  palloc = (FileMemmap<error>*)malloc( sizeof(FileMemmap<error>) );
     auto  memmap = api<FileMemmap<error>>();
 
-    if ( palloc != nullptr )  memmap = new ( palloc ) FileMemmap<error>();
-      else return nullptr;
+    try
+      {  memmap = new FileMemmap<error>();  }
+    catch ( const std::bad_alloc& xp )
+      {  return error()( nullptr, xp );  }
+    catch ( ... )
+      {  return error()( nullptr, std::current_exception() );  }
 
     return memmap->Create( this, offset, length ) == 0 ? memmap.ptr() : nullptr;
   }
