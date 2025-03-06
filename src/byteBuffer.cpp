@@ -61,91 +61,67 @@ namespace mtc
     implement_lifetime_control
 
   public:
-    ByteBuffer() = default;
-    ByteBuffer( uint64_t len ): std::vector<char>( len )  {}
+    ByteBuffer( uint64_t len = 0 ): std::vector<char>( len )  {}
     ByteBuffer( const void* buf, uint64_t len ): std::vector<char>( (const char*)buf, len + (const char*)buf ) {}
 
   public:
-    const char* GetPtr() const override
-      {  return data();  }
-    word32_t    GetLen() const override
-      {  return size();  }
+    const char* GetPtr() const override {  return data();  }
+    word32_t    GetLen() const override {  return size();  }
     int         SetBuf( const void* p, word32_t l ) override
+    {
+      try
       {
-        try
-        {  return resize( l ), memcpy( data(), p, l ), 0;  }
-        catch ( const std::bad_alloc& x )
-        {  return error::result( x, ENOMEM );  }
+        resize( l );
+        memcpy( data(), p, l );
+        return 0;
       }
+      catch ( const std::bad_alloc& x ) {  return error()( ENOMEM, x );  }
+    }
     int         SetLen( word32_t l ) override
+    {
+      try
       {
-        try
-        {  return resize( l ), 0;  }
-        catch ( const std::bad_alloc& x )
-        {  return error::result( x, ENOMEM );  }
+        resize( l );
+        return 0;
       }
+      catch ( const std::bad_alloc& x ) {  return error()( ENOMEM, x );  }
+    }
   };
 
   struct throw_error
   {
-    template <class X, class R>
-    static  R   result( const X& except, R ) {  throw except;  }
+    template <class R, class X>
+    R operator()( R, const X& except ) const {  throw except;  }
   };
 
   struct nothrow_error
   {
-    template <class X, class R>
-    static  R     result( const X&, R result ) {  return result;  }
+    template <class R, class X>
+    R operator()( R result, const X& ) const {  return result;  }
   };
 
-  // create with exceptions
+  // create the buffer
 
-  auto  NewByteBuffer( const enable_exceptions_t& ) -> api<ByteBuffer<throw_error>>
+  template <class error>
+  auto  NewByteBuffer( word64_t size ) -> api<ByteBuffer<error>>
   {
-    return new ByteBuffer<throw_error>();
+    try
+      {  return new ByteBuffer<error>( size );  }
+    catch ( const std::bad_alloc& xp )
+      {  return error()( nullptr, xp );  }
+    catch ( ... )
+      {  return error()( nullptr, std::current_exception());  }
   }
 
-  auto  NewByteBuffer( const enable_exceptions_t&, word64_t size ) -> api<ByteBuffer<throw_error>>
+  template <class error>
+  auto  NewByteBuffer( const void* buff, word64_t size ) -> api<ByteBuffer<error>>
   {
-    return new ByteBuffer<throw_error>( size );
-  }
-
-  auto  NewByteBuffer( const enable_exceptions_t&, const void* buff, word64_t size ) -> api<ByteBuffer<throw_error>>
-  {
-    if ( buff != nullptr )
-      return new ByteBuffer<throw_error>( buff, size );
-    else
-      return new ByteBuffer<throw_error>( size );
-  }
-
-  // create without exceptions
-
-  auto  NewByteBuffer( const disable_exceptions_t& ) -> api<ByteBuffer<nothrow_error>>
-  {
-    return allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>();
-  }
-
-  auto  NewByteBuffer( const disable_exceptions_t&, word32_t size ) -> api<ByteBuffer<nothrow_error>>
-  {
-    auto  buffer = allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>();
-
-    return buffer != nullptr && (size == 0 || buffer->SetLen( size ) == 0) ? buffer : nullptr;
-  }
-
-  auto  NewByteBuffer( const disable_exceptions_t&, const void* buff, word64_t size ) -> api<ByteBuffer<nothrow_error>>
-  {
-    auto  buffer = api<ByteBuffer<nothrow_error>>();
-
-    if ( buff == nullptr )
-      return NewByteBuffer( disable_exceptions, size );
-
-    if ( (buffer = allocate_with<nothrow_allocator, ByteBuffer<nothrow_error>>()) == nullptr )
-      return nullptr;
-
-    if ( buffer->SetBuf( buff, size ) != 0 )
-      return nullptr;
-
-    return buffer;
+    try
+      {  return buff != nullptr ? new ByteBuffer<error>( buff, size ) : new ByteBuffer<error>( size );  }
+    catch ( const std::bad_alloc& xp )
+      {  return error()( nullptr, xp );  }
+    catch ( ... )
+      {  return error()( nullptr, std::current_exception());  }
   }
 
   // CreateByteBuffer( ** ) family
@@ -156,32 +132,32 @@ namespace mtc
     {  return CreateByteBuffer( ppi, nullptr, length );  }
   int   CreateByteBuffer( IByteBuffer** ppi, const void* memptr, uint32_t length )
   {
-    auto  buffer = decltype( NewByteBuffer( disable_exceptions ) )();
+    if ( ppi != nullptr )
+    {
+      auto  buffer = NewByteBuffer<nothrow_error>( memptr, length );
 
-    if ( ppi == nullptr )
-      return EINVAL;
+      if ( (*ppi = buffer.ptr()) == nullptr )
+        return ENOMEM;
 
-    if ( (buffer = NewByteBuffer( disable_exceptions, memptr, length )) == nullptr )
-      return ENOMEM;
-
-    (*ppi = buffer)->Attach();
-      return 0;
+      return (*ppi)->Attach(), 0;
+    }
+    return EINVAL;
   }
 
   // CreateByteBuffer( ... ) family
 
   api<IByteBuffer>  CreateByteBuffer( const enable_exceptions_t& )
-    {  return NewByteBuffer( enable_exceptions ).ptr();  }
+    {  return NewByteBuffer<throw_error>( 0 ).ptr();  }
   api<IByteBuffer>  CreateByteBuffer( word32_t size, const enable_exceptions_t& )
-    {  return NewByteBuffer( enable_exceptions, size ).ptr();  }
+    {  return NewByteBuffer<throw_error>( size ).ptr();  }
   api<IByteBuffer>  CreateByteBuffer( const void* buff, word32_t size, const enable_exceptions_t& )
-    {  return NewByteBuffer( enable_exceptions, buff, size ).ptr();  }
+    {  return NewByteBuffer<throw_error>( buff, size ).ptr();  }
 
   api<IByteBuffer>  CreateByteBuffer( const disable_exceptions_t& )
-    {  return NewByteBuffer( disable_exceptions ).ptr();  }
+    {  return NewByteBuffer<nothrow_error>( 0 ).ptr();  }
   api<IByteBuffer>  CreateByteBuffer( word32_t size, const disable_exceptions_t& )
-    {  return NewByteBuffer( disable_exceptions, size ).ptr();  }
+    {  return NewByteBuffer<nothrow_error>( size ).ptr();  }
   api<IByteBuffer>  CreateByteBuffer( const void* buff, word32_t size, const disable_exceptions_t& )
-    {  return NewByteBuffer( disable_exceptions, buff, size ).ptr();  }
+    {  return NewByteBuffer<nothrow_error>( buff, size ).ptr();  }
 
 }
