@@ -863,9 +863,6 @@ namespace patricia  {
   template <class V, class A>
   void  tree<V, A>::node::setlen( size_t l )
   {
-    size_t  minlen = (usets & ~0x80000000) != 0 ? usets & ~0x80000000 : 1;
-    size_t  maxlen = (minlen + 0x0f) & ~0x0f;   assert( l <= maxlen );
-
     usets = (usets & 0x80000000) | (uint32_t)l;
   }
 
