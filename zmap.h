@@ -1246,7 +1246,7 @@ namespace mtc
       if ( source == nullptr )
         throw std::logic_error( "mtc::zval::dump::store_t is not initialized" );
 
-      ::FetchFrom( source, ((zvalue*)(holder = new zvalue{ T(), 1 }))->value );
+      (void)::FetchFrom( source, ((zvalue*)(holder = new zvalue{ T(), 1 }))->value );
         source = nullptr;
 
       return holder->value;
@@ -1480,8 +1480,10 @@ namespace mtc
 
     if ( (first == nullptr || count == 0) && a_beg == a_end )
       throw std::range_error( "iterator limits out of bounds" );
-    if ( a_beg != a_end ) return (T1)*a_beg;
-      else return ::FetchFrom( first, el ), std::move( el );
+    if ( a_beg != a_end )
+      return (T1)*a_beg;
+    (void)::FetchFrom( first, el );
+      return el;
   }
 
   inline  std::string to_string( const zval& z ) {  return z.to_string();  }
