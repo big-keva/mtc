@@ -72,7 +72,7 @@ namespace json {
       int   nlevel;
 
     public:     // construction
-      decorated(): nlevel( 0 ) {  }
+      decorated( int l = 0 ): nlevel( l ) {  }
       decorated( const decorated& js ): nlevel( js.nlevel + 1 ) {  }
 
     public:     // shifts
