@@ -42,7 +42,7 @@ namespace mtc {
     class allocator;
 
   public:
-    Arena( size_t section = 0x4 * 0x400 * 0x400 );
+    Arena( size_t section = allocation_unit_size );
     Arena( const Arena& );
     Arena( Arena&& );
    ~Arena();
@@ -84,7 +84,7 @@ namespace mtc {
     }
 
   protected:
-    enum: std::size_t{  allocation_unit_size = 0x10000  };
+    enum: std::size_t{  allocation_unit_size = 4 * 0x400 * 0x144  };
 
   };
 
@@ -156,7 +156,7 @@ namespace mtc {
       {  (void)p, (void)n;  }
 
     size_type max_size() const noexcept
-      {  return allocation_unit_size / (sizeof(T) + alignof(T));  }
+      {  return memory->lblock / (sizeof(T) + alignof(T));  }
 
     template <class U, class... Args>
     void  construct( U* p, Args&&... args )
