@@ -73,7 +73,7 @@ namespace mtc {
     {
       auto  palloc = allocate( sizeof(Object), alignof(Object) );
 
-      return new( palloc ) Object( std::move( args... ), *this );
+      return new( palloc ) Object( std::forward<Args>( args )..., *this );
     }
     template <class Object, class ... Args> [[nodiscard]]
     auto  Create( const Args&... args ) -> Object*
@@ -136,12 +136,18 @@ namespace mtc {
     allocator() noexcept = delete;
     allocator( Arena& mp ) noexcept:  memory( mp.memory ) {}
 
+    auto  operator = ( const allocator& other ) -> allocator&
+      {  return memory = other.memory, *this;  }
+
   public:
     allocator( allocator&& a ) noexcept:  memory( a.memory )  {  a.memory = nullptr;  }
     allocator( const allocator& other ) noexcept: memory( other.memory )  {}
     template< class U >
     allocator( const allocator<U>& other ) noexcept:  memory( other.memory )  {}
    ~allocator() = default;
+
+    bool  operator == ( const allocator& other ) const noexcept
+      {  return memory == other.memory;  }
 
   public:
     T*    allocate( std::size_t n )
@@ -150,7 +156,7 @@ namespace mtc {
       {  (void)p, (void)n;  }
 
     size_type max_size() const noexcept
-      {  return Arena::allocation_unit_size / (sizeof(T) + alignof(T));  }
+      {  return allocation_unit_size / (sizeof(T) + alignof(T));  }
 
     template <class U, class... Args>
     void  construct( U* p, Args&&... args )
@@ -177,10 +183,6 @@ namespace mtc {
   bool  operator == ( const Another&, const Arena::allocator<T>& ) noexcept {  return false;  }
   template <class T1, class T2>
   bool  operator == ( const Arena::allocator<T1>&, const Arena::allocator<T2>& ) noexcept {  return false;  }
-
-  template <class T>
-  bool  operator == ( const Arena::allocator<T>& me, const Arena::allocator<T>& to ) noexcept
-    {  return &me.memoryPool == &to.memoryPool;  }
 
   // Arena::block implementation
 
