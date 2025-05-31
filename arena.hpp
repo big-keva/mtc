@@ -140,13 +140,17 @@ namespace mtc {
       {  return memory = other.memory, *this;  }
 
   public:
-    allocator( allocator&& a ) noexcept:  memory( a.memory )  {  a.memory = nullptr;  }
+    allocator( allocator&& a ) noexcept:  memory( a.memory )  {}
     allocator( const allocator& other ) noexcept: memory( other.memory )  {}
     template< class U >
     allocator( const allocator<U>& other ) noexcept:  memory( other.memory )  {}
    ~allocator() = default;
 
-    bool  operator == ( const allocator& other ) const noexcept
+    template <class Another>
+    bool  operator == ( const Another& ) const noexcept
+      {  return false;  }
+    template <class T2>
+    bool  operator == ( const Arena::allocator<T2>& other ) const noexcept
       {  return memory == other.memory;  }
 
   public:
@@ -179,10 +183,6 @@ namespace mtc {
 
   template <class T, class Another>
   bool  operator == ( const Arena::allocator<T>&, const Another& ) noexcept {  return false;  }
-  template <class T, class Another>
-  bool  operator == ( const Another&, const Arena::allocator<T>& ) noexcept {  return false;  }
-  template <class T1, class T2>
-  bool  operator == ( const Arena::allocator<T1>&, const Arena::allocator<T2>& ) noexcept {  return false;  }
 
   // Arena::block implementation
 
