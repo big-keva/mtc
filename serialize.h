@@ -67,20 +67,20 @@ SOFTWARE.
 
 template <class T>
 size_t  GetBufLen( const T& );
-template <class O, class T>
+template <class O, class T> [[nodiscard]]
 O*      Serialize( O*, const T& );
-template <class S, class T>
+template <class S, class T> [[nodiscard]]
 S*      FetchFrom( S*, T& );
-template <class S, class T>
+template <class S, class T> [[nodiscard]]
 S*      SkipToEnd( S*, const T* );
 
 /*
  * common serialization templates declaration for base get/put operations   []
  */
 
-template <class O>  O*  Serialize( O*, const void*, size_t );
-template <class S>  S*  FetchFrom( S*,       void*, size_t );
-template <class S>  S*  SkipBytes( S*, size_t );
+template <class O>  [[nodiscard]] O*  Serialize( O*, const void*, size_t );
+template <class S>  [[nodiscard]] S*  FetchFrom( S*,       void*, size_t );
+template <class S>  [[nodiscard]] S*  SkipBytes( S*, size_t );
 
 /*
  * std:: types serialization/deserialization declarations

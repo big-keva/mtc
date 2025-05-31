@@ -1,11 +1,10 @@
 /*
 The MIT License (MIT)
 
-Copyright (c) 2016 Андрей Коваленко aka Keva
-  keva@meta.ua
+Copyright (c) 2016-2025 Андрей Коваленко aka Keva
   keva@rambler.ru
-  skype: big_keva
-  phone: +7(495)648-4058, +7(916)015-5592
+  @Big_keva
+  phone: +7(495)648-4058, +7(926)513-2991, +7(707)129-1418
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -84,9 +83,13 @@ namespace patricia  {
   public:     // key access
     auto    getptr() const -> const unsigned char*  {  return ptr;  }
     auto    getlen() const -> size_t                {  return len;  }
+    auto    data() const -> const unsigned char*    {  return ptr;  }
+    auto    size() const -> size_t                  {  return len;  }
 
     auto    begin() const -> const unsigned char*   {  return getptr();  }
     auto    end()   const -> const unsigned char*   {  return getptr() + getlen();  }
+
+    auto    to_string() const -> std::string {  return { (const char*)getptr(), getlen() };  }
 
   public:     // serialization
     size_t  GetBufLen(      ) const {  return ::GetBufLen( len ) + len;  }
@@ -2078,7 +2081,7 @@ namespace patricia  {
       if ( sub != nullptr )
         header.append( sub->Serialize() );
 
-      ::Serialize( (set = std::move( header )).append().ptr(), val );
+      (void)::Serialize( (set = std::move( header )).append().ptr(), val );
 
       cnt = 1;
     }

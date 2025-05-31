@@ -51,7 +51,8 @@ SOFTWARE.
 */
 # if !defined( __mtc_arbitrarymap_h__ )
 # define  __mtc_arbitrarymap_h__
-# include "platform.h"
+# include "wcsstr.h"
+# include "serialize.h"
 # include <assert.h>
 # include <stdlib.h>
 # include <errno.h>
@@ -101,6 +102,14 @@ namespace mtc
   public:     // construction
     arbitrarymap( const A& a = {} ):
       arbitrarymap( 69959, a ) {}
+    arbitrarymap( arbitrarymap&& m ): alloc( m.alloc ),
+      pitems( m.pitems ),
+      maplen( m.maplen ),
+      ncount( m.ncount )
+    {
+      m.pitems = nullptr;
+      m.ncount = 0;
+    }
     arbitrarymap( unsigned tablen, const A& a = {} ):
       alloc( a ), maplen( tablen )  {}
    ~arbitrarymap();
@@ -126,6 +135,13 @@ namespace mtc
           V*      Search( const void* k, size_t l )       {  return Search<V>( k, l, *this ); }
           V*      Search( const widechar* s ) {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
           V*      Search( const char*     s ) {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
+
+  public:     // serialization
+    auto  GetBufLen() const -> size_t;;
+    template <class O>
+    auto  Serialize( O* ) const -> O*;
+    template <class S>
+    auto  FetchFrom( S* ) -> S*;
 
   public:     // stl compat
     int     size() const  {  return GetLen();  }
@@ -264,6 +280,38 @@ namespace mtc
       else return nullptr;
 
     return ++ncount, &ptr->val;
+  }
+
+  template <class V, class A>
+  size_t  arbitrarymap<V, A>::GetBufLen() const
+  {
+    auto  res = ::GetBufLen( ncount );
+
+    for ( const void* p = nullptr; (p = Enum( p )) != nullptr; )
+    {
+      auto  len = KeyLen( p );
+      auto& val = GetVal( p );
+
+      res += ::GetBufLen( len ) + len + ::GetBufLen( val );
+    }
+    return res;
+  }
+
+  template <class V, class A>
+  template <class O>
+  O*  arbitrarymap<V, A>::Serialize( O* o ) const
+  {
+    o = ::Serialize( o, ncount );
+
+    for ( const void* p = nullptr; o != nullptr && (p = Enum( p )) != nullptr; )
+    {
+      auto  key = GetKey( p );
+      auto  len = KeyLen( p );
+      auto& val = GetVal( p );
+
+      o = ::Serialize( ::Serialize( ::Serialize( o, len ), key, len ), val );
+    }
+    return o;
   }
 
   template <class V, class A>
