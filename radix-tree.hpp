@@ -73,9 +73,11 @@ namespace radix {
   public:     // construction
     key() = default;
     template <class chartype>
-    key( const chartype*, size_t = (size_t)-1 );
+      key( const chartype*, size_t = (size_t)-1 );
+    template <class chartype>
+      key( const chartype*, const chartype* );
     template <class chartype, class traits, class alloc>
-    key( const std::basic_string<chartype, traits, alloc>& s ): key( s.c_str(), s.length() ) {}
+      key( const std::basic_string<chartype, traits, alloc>& s ): key( s.c_str(), s.length() ) {}
 
   public:     // key access
     auto    data() const -> const unsigned char*    {  return ptr;  }
@@ -103,6 +105,9 @@ namespace radix {
   template <class T, class A = std::allocator<T>>
   class tree: protected std::vector<tree<T, A>, A>
   {
+    template <class X, class Y>
+    friend class tree;
+
     using string_type = std::basic_string<uint8_t, std::char_traits<uint8_t>, A>;
     using vector_type = std::vector<tree<T, A>, A>;
 
@@ -115,6 +120,20 @@ namespace radix {
 
     template <class From, class To>
     using rebind = typename std::allocator_traits<From>::template rebind_alloc<To>;
+
+    struct stored_object
+    {
+      template <class M>
+      static  auto  create( const M&, void*& place ) -> T*
+        {  return (T*)&place;  }
+    };
+
+    struct onheap_object
+    {
+      template <class M>
+      static  auto  create( const M& alloc, void*& place ) -> T*
+        {  return (T*)(place = rebind<M, T>( alloc ).allocate( 1 ));  }
+    };
 
     template <class V>
     class iterator_base;
@@ -133,9 +152,9 @@ namespace radix {
     explicit tree( const A& );
     template <class InputIterator>
     tree( InputIterator, InputIterator, const A& = A() );
-    tree( const uint8_t*, const uint8_t*, const T&, const A& = A() );
-    tree( const uint8_t*, const uint8_t*, T&&, const A& = A() );
-    tree( const uint8_t*, const uint8_t*, const A& = A() );
+    tree( const key&, const T&, const A& = A() );
+    tree( const key&, T&&, const A& = A() );
+    tree( const key&, const A& = A() );
     tree( const std::initializer_list<value_type>&, const A& = A() );
     tree( const tree& );
     template <class OtherAllocator>
@@ -236,6 +255,10 @@ namespace radix {
     size_t      valCount = 0;
     uint16_t    nodeSets = 0;   // lower 8 bits are the key character, upper mean value
 
+  private:
+    using create = typename std::conditional<sizeof(T) <= sizeof(valueBuf),
+      stored_object,
+      onheap_object>::type;
   };
 
   template <class T, class A>
@@ -347,6 +370,10 @@ namespace radix {
     len *= sizeof(chartype);
   }
 
+  template <class chartype>
+  key::key( const chartype* beg, const chartype* end ):
+    ptr( (const unsigned char*)beg ), len( sizeof(chartype) * (end - beg) )  {}
+
   inline int key::compare( const key& k ) const
   {
     auto  l1 = size();
@@ -387,7 +414,7 @@ namespace radix {
           {
             auto  offset = it_ptr - it_beg;
 
-            ((vector_type*)objptr)->emplace( it_ptr, addkey, addend, fragment.get_allocator() );
+            ((vector_type*)objptr)->emplace( it_ptr, key{ addkey, addend }, vector_type::get_allocator() );
               ++valCount;
             return &(*(vector_type*)objptr)[offset];
           }
@@ -411,8 +438,8 @@ namespace radix {
 
         if ( rescmp < 0 )
         {
-          objptr->emplace_back( addkey, addend, fragment.get_allocator() );
-          objptr->emplace_back( objkey, objend, fragment.get_allocator() );
+          objptr->emplace_back( key{ addkey, addend }, vector_type::get_allocator() );
+          objptr->emplace_back( key{ objkey, objend }, vector_type::get_allocator() );
             ((vector_type&)objptr->back()) = std::move( subvec );
 
           if ( objptr->has_value() )
@@ -426,7 +453,7 @@ namespace radix {
         }
           else
         {
-          objptr->emplace_back( objkey, objend, fragment.get_allocator() );
+          objptr->emplace_back( key{ objkey, objend }, vector_type::get_allocator() );
             ((vector_type&)objptr->back()) = std::move( subvec );
 
           if ( objptr->has_value() )
@@ -438,7 +465,7 @@ namespace radix {
 
           if ( rescmp > 0 )
           {
-            objptr->emplace_back( addkey, addend, fragment.get_allocator() );
+            objptr->emplace_back( key{ addkey, addend }, vector_type::get_allocator() );
               ++valCount;
             return &(*(vector_type*)objptr)[1];
           }
@@ -485,7 +512,7 @@ namespace radix {
           {
             auto  offset = it_ptr - it_beg;
 
-            ((vector_type*)objptr)->emplace( it_ptr, addkey, addend, fragment.get_allocator() );
+            ((vector_type*)objptr)->emplace( it_ptr, addkey, addend, vector_type::get_allocator() );
               ++valCount;
             vec.push_back( &(*(vector_type*)objptr)[offset] );
               return vec.back();
@@ -510,8 +537,8 @@ namespace radix {
 
         if ( rescmp < 0 )
         {
-          objptr->emplace_back( addkey, addend, fragment.get_allocator() );
-          objptr->emplace_back( objkey, objend, fragment.get_allocator() );
+          objptr->emplace_back( addkey, addend, vector_type::get_allocator() );
+          objptr->emplace_back( objkey, objend, vector_type::get_allocator() );
             ((vector_type&)objptr->back()) = std::move( subvec );
 
           if ( has_value() )
@@ -526,7 +553,7 @@ namespace radix {
         }
           else
         {
-          objptr->emplace_back( objkey, objend, fragment.get_allocator() );
+          objptr->emplace_back( objkey, objend, vector_type::get_allocator() );
             ((vector_type&)objptr->back()) = std::move( subvec );
 
           if ( has_value() )
@@ -538,7 +565,7 @@ namespace radix {
 
           if ( rescmp > 0 )
           {
-            objptr->emplace_back( addkey, addend, fragment.get_allocator() );
+            objptr->emplace_back( addkey, addend, vector_type::get_allocator() );
               vec.push_back( &(*(vector_type*)objptr)[1] );
             return vec.back();
           }
@@ -747,7 +774,7 @@ namespace radix {
       get_value().~T();
 
       if ( sizeof(T) > sizeof(valueBuf) )
-        rebind<A, T>( fragment.get_allocator() ).deallocate( (T*)valueBuf, 0 );
+        rebind<A, T>( vector_type::get_allocator() ).deallocate( (T*)valueBuf, 0 );
       nodeSets &= ~0x0100;
     }
   }
@@ -763,9 +790,9 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::get_value() -> T&
   {
-    if ( has_value() )     // check if valie is initialized
+    if ( has_value() )     // check if value is initialized
       return sizeof(T) <= sizeof(valueBuf) ? *(T*)&valueBuf : *(T*)valueBuf;
-    return *(new( sizeof(T) <= sizeof(valueBuf) ? &valueBuf : valueBuf ) T());
+    return *(new( create::create( vector_type::get_allocator(), valueBuf ) ) T());
   }
 
   template <class T, class A>
@@ -776,8 +803,7 @@ namespace radix {
 
     nodeSets |= 0x0100;
 
-    if ( sizeof(T) <= sizeof(valueBuf) )  return *(new( (T*)&valueBuf ) T( t ));
-      else return *(new( valueBuf = rebind<A, T>( fragment.get_allocator() ).allocate( 1 ) ) T( t ));
+    return *(new( create::create( vector_type::get_allocator(), valueBuf ) ) T( t ));
   }
 
   template <class T, class A>
@@ -788,8 +814,7 @@ namespace radix {
 
     nodeSets |= 0x0100;
 
-    if ( sizeof(T) <= sizeof(valueBuf) )  return *(new( (T*)&valueBuf ) T( std::move( t ) ));
-      else return *(new( valueBuf = rebind<A, T>( fragment.get_allocator() ).allocate( 1 ) ) T( std::move( t ) ));
+    return *(new( create::create( vector_type::get_allocator(), valueBuf ) ) T( std::move( t ) ));
   }
 
   template <class T, class A>
@@ -981,24 +1006,22 @@ namespace radix {
   // tree implementation
 
   template <class T, class A>
-  tree<T, A>::tree( const uint8_t* beg, const uint8_t* end, const T& val, const A& mem ):
-    vector_type( mem ), fragment( beg, end, mem ), nodeSets( 0x0100 )
+  tree<T, A>::tree( const key& k, const T& val, const A& mem ):
+    vector_type( mem ), fragment( k.begin(), k.end(), mem ), nodeSets( 0x0100 )
   {
-    if ( sizeof(T) <= sizeof(valueBuf) )  new( &valueBuf ) T( val );
-      else valueBuf = new( rebind<A, T>( mem ).allocate( 1 ) ) T( val );
+    new( create::create( mem, valueBuf ) ) T( val );
   }
 
   template <class T, class A>
-  tree<T, A>::tree( const uint8_t* beg, const uint8_t* end, T&& val, const A& mem ):
-    vector_type( mem ), fragment( beg, end, mem ), nodeSets( 0x0100 )
+  tree<T, A>::tree( const key& k, T&& val, const A& mem ):
+    vector_type( mem ), fragment( k.begin(), k.end(), mem ), nodeSets( 0x0100 )
   {
-    if ( sizeof(T) <= sizeof(valueBuf) )  new( &valueBuf ) T( std::move( val ) );
-      else valueBuf = new( rebind<A, T>( mem ).allocate( 1 ) ) T( std::move( val ) );
+    new( create::create( mem, valueBuf ) ) T( std::move( val ) );
   }
 
   template <class T, class A>
-  tree<T, A>::tree( const uint8_t* beg, const uint8_t* end, const A& mem ):
-    vector_type( mem ), fragment( beg, end, mem ) {}
+  tree<T, A>::tree( const key& k, const A& mem ):
+    vector_type( mem ), fragment( k.begin(), k.end(), mem ) {}
 
   template <class T, class A>
   tree<T, A>::tree( const A& mem ):
@@ -1148,11 +1171,11 @@ namespace radix {
     unsigned  offset[256];
     unsigned* offptr = offset;
     uint8_t   offlen = 0;
-    unsigned  ofprev = 0;
+    unsigned  ofprev;
 
     // get value flags
-    if ( has_value() )
-      ofprev = ::GetBufLen( get_value() );
+    if ( has_value() )  ofprev = ::GetBufLen( get_value() );
+      else ofprev = 0;
 
     // get nested nodes lengths and offsets; calc node shifts
     for ( auto& next: *(vector_type*)this )
@@ -1282,7 +1305,7 @@ namespace radix {
     auto  key = pos->key.data();
     auto  end = pos->key.data() + pos->key.size();
 
-    return remove( key, end ), lower_bound( { key, end - key } );
+    return remove( key, end ), lower_bound( { key, size_t(end - key) } );
   }
 
   template <class T, class A>
