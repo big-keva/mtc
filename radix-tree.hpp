@@ -57,6 +57,8 @@ SOFTWARE.
 # include <string>
 # include <vector>
 
+#include "patricia.h"
+
 namespace mtc {
 namespace radix {
 
@@ -206,16 +208,16 @@ namespace radix {
 
   protected:
     auto  insert( const uint8_t*, const uint8_t* ) -> tree*;
-    auto  insert( const uint8_t*, const uint8_t*, std::vector<tree*>& ) -> tree*;
+    auto  insert( const uint8_t*, const uint8_t*, std::vector<tree*, A>& ) -> tree*;
     bool  remove( const uint8_t*, const uint8_t* );
     template <class S> static
     auto  search( S*, const uint8_t*, const uint8_t* ) -> S*;
     template <class S> static
-    auto  search( S*, const uint8_t*, const uint8_t*, std::vector<S*>& ) -> S*;
+    auto  search( S*, const uint8_t*, const uint8_t*, std::vector<S*, A>& ) -> S*;
     template <class S> static
-    auto  lbound( S*, const uint8_t*, const uint8_t*, string_type&, std::vector<S*>& ) -> S*;
+    auto  lbound( S*, const uint8_t*, const uint8_t*, string_type&, std::vector<S*, A>& ) -> S*;
     template <class S> static
-    auto  ubound( S*, const uint8_t*, const uint8_t*, string_type&, std::vector<S*>& ) -> S*;
+    auto  ubound( S*, const uint8_t*, const uint8_t*, string_type&, std::vector<S*, A>& ) -> S*;
 
   public:     // insert operations
     void  clear();
@@ -247,7 +249,7 @@ namespace radix {
     auto  set_value( const T& ) -> T&;
     auto  set_value( T&& ) -> T&;
     template <class N> static
-    auto  move_down( N*, string_type&, std::vector<N*>& ) -> N*;
+    auto  move_down( N*, string_type&, std::vector<N*, A>& ) -> N*;
 
   protected:
     string_type fragment;
@@ -268,9 +270,10 @@ namespace radix {
     friend class tree;
 
     using tree_t = same_const_as_t<V, tree>;
+    using trace_t = std::vector<tree_t*, A>;
 
     string_type           itkey;
-    std::vector<tree_t*>  trace;
+    trace_t               trace;
 
   public:
     struct iterator_value
@@ -286,7 +289,7 @@ namespace radix {
       alignof(iterator_value)>::type value;
 
   public:
-    iterator_base() = default;
+    iterator_base( const A& = A() );
     iterator_base( iterator_base&& );
     iterator_base( const iterator_base& );
 
@@ -294,8 +297,8 @@ namespace radix {
     auto  operator = ( const iterator_base& it ) -> iterator_base&;
 
   protected:
-    iterator_base( tree_t* );
-    iterator_base( const key&, std::vector<tree_t*>&& );
+    iterator_base( tree_t& );
+    iterator_base( const key&, trace_t&& );
 
   public:
     template <class M>
@@ -335,6 +338,11 @@ namespace radix {
   {
     const char*  root;
 
+    struct level;
+
+  public:
+    class const_iterator;
+
   public:
     dump( const char* s = nullptr ): root( s ) {}
     dump( std::function<const char*()> s ): root( s() ) {}
@@ -344,6 +352,24 @@ namespace radix {
   public:
     auto  Search( const key& key ) const -> const char*
       {  return search( root, key.begin(), key.end() );  }
+
+  public:     // iterators
+    auto  begin() const -> const_iterator;
+    auto  end() const -> const_iterator;
+    auto  cbegin() const -> const_iterator;
+    auto  cend() const -> const_iterator;
+
+  public:
+    auto  find( const key& ) const -> const_iterator;
+    bool  contains( const key& ) const;
+    auto  lower_bound( const key& ) const -> const_iterator;
+    auto  upper_bound( const key& ) const -> const_iterator;
+
+  protected:
+    static  bool  search( const char*, const uint8_t*, const uint8_t*, std::vector<level>& );
+    static  bool  lbound( const char*, const uint8_t*, const uint8_t*, std::string&, std::vector<level>& );
+    static  auto  search( const char*, const uint8_t*, const uint8_t* ) -> const char*;
+    static  bool  godown( const char*, std::string&, std::vector<level>& );
 
   protected:
     template <class U>
@@ -356,7 +382,82 @@ namespace radix {
     static  auto  get_4b( const char*, U& ) -> const char*;
     template <class U>
     static  auto  getint( const char*, U&, size_t ) -> const char*;
-    static  auto  search( const char*, const uint8_t*, const uint8_t* ) -> const char*;
+
+  };
+
+  struct dump<const char>::level
+  {
+    const char* pchars;
+    size_t      ccfrag;
+    uint8_t     kcount;
+    uint8_t     bflags;
+    uint8_t     offset;
+
+    auto  get_value() const -> const char*
+    {
+      return pchars + (2 + (bflags & 0x03)) * kcount;
+    }
+    bool  has_value() const
+    {
+      return (bflags & 0x40) != 0;
+    }
+    auto  get_level() const
+    {
+      auto  target = pchars + kcount;
+      auto  cbOffs = 1 + (bflags & 0x03);
+      auto  cbJump = size_t();
+
+      getint( target + offset * cbOffs, cbJump, cbOffs );
+
+      return target + kcount * cbOffs + cbJump;
+    }
+
+    bool  operator != ( const level& it ) const  {  return !(*this == it);  }
+    bool  operator == ( const level& it ) const  {  return pchars == it.pchars;  }
+
+  };
+
+  class dump<const char>::const_iterator
+  {
+    friend class dump;
+
+    std::string         itkey;
+    std::vector<level>  trace;
+    uint8_t             index = 0;
+
+  public:
+    struct iterator_value
+    {
+      const radix::key  key;
+      const char*       value;
+      const radix::key& first = key;
+      const char*&      second = value;
+    };
+
+  protected:
+    typename std::aligned_storage<sizeof(iterator_value),
+      alignof(iterator_value)>::type value;
+
+    const_iterator() = default;
+
+  public:
+    const_iterator( const_iterator&& );
+    const_iterator( const const_iterator& );
+
+    auto  operator = ( const_iterator&& it ) -> const_iterator&;
+    auto  operator = ( const const_iterator& it ) -> const_iterator&;
+
+  protected:
+    const_iterator( const char* );
+    const_iterator( const key&, std::vector<level>&& );
+
+  public:
+    bool  operator == ( const const_iterator& ) const;
+    bool  operator != ( const const_iterator& it ) const {  return !(*this == it);  }
+    auto  operator-> () const -> const iterator_value*;
+    auto  operator* () const -> const iterator_value&;
+    auto  operator++() -> const_iterator&;
+    auto  operator++( int ) -> const_iterator;
 
   };
 
@@ -481,7 +582,7 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto  tree<T, A>::insert( const uint8_t* addkey, const uint8_t* addend, std::vector<tree*>& vec ) -> tree*
+  auto  tree<T, A>::insert( const uint8_t* addkey, const uint8_t* addend, std::vector<tree*, A>& vec ) -> tree*
   {
     for ( auto  objptr = this; ; )
     {
@@ -512,7 +613,7 @@ namespace radix {
           {
             auto  offset = it_ptr - it_beg;
 
-            ((vector_type*)objptr)->emplace( it_ptr, addkey, addend, vector_type::get_allocator() );
+            ((vector_type*)objptr)->emplace( it_ptr, key( addkey, addend ), vector_type::get_allocator() );
               ++valCount;
             vec.push_back( &(*(vector_type*)objptr)[offset] );
               return vec.back();
@@ -537,8 +638,8 @@ namespace radix {
 
         if ( rescmp < 0 )
         {
-          objptr->emplace_back( addkey, addend, vector_type::get_allocator() );
-          objptr->emplace_back( objkey, objend, vector_type::get_allocator() );
+          objptr->emplace_back( key( addkey, addend ), vector_type::get_allocator() );
+          objptr->emplace_back( key( objkey, objend ), vector_type::get_allocator() );
             ((vector_type&)objptr->back()) = std::move( subvec );
 
           if ( has_value() )
@@ -553,7 +654,7 @@ namespace radix {
         }
           else
         {
-          objptr->emplace_back( objkey, objend, vector_type::get_allocator() );
+          objptr->emplace_back( key( objkey, objend ), vector_type::get_allocator() );
             ((vector_type&)objptr->back()) = std::move( subvec );
 
           if ( has_value() )
@@ -565,7 +666,7 @@ namespace radix {
 
           if ( rescmp > 0 )
           {
-            objptr->emplace_back( addkey, addend, vector_type::get_allocator() );
+            objptr->emplace_back( key( addkey, addend ), vector_type::get_allocator() );
               vec.push_back( &(*(vector_type*)objptr)[1] );
             return vec.back();
           }
@@ -677,9 +778,9 @@ namespace radix {
   template <class T, class A>
   template <class S>
   auto  tree<T, A>::search( S* ptr,
-    const uint8_t*    key,
-    const uint8_t*    end,
-    std::vector<S*>&  vec ) -> S*
+    const uint8_t*      key,
+    const uint8_t*      end,
+    std::vector<S*, A>& vec ) -> S*
   {
     while ( ptr != nullptr )
     {
@@ -715,10 +816,10 @@ namespace radix {
   template <class T, class A>
   template <class S>
   auto  tree<T, A>::lbound( S* ptr,
-    const uint8_t*    key,
-    const uint8_t*    end,
-    string_type&      str,
-    std::vector<S*>&  vec ) -> S*
+    const uint8_t*       key,
+    const uint8_t*       end,
+    string_type&         str,
+    std::vector<S*, A>&  vec ) -> S*
   {
     auto  ptrtop = ptr->fragment.data();
     auto  ptrend = ptr->fragment.size() + ptrtop;
@@ -819,7 +920,7 @@ namespace radix {
 
   template <class T, class A>
   template <class N>
-  auto  tree<T, A>::move_down( N* n, string_type& s, std::vector<N*>& v ) -> N*
+  auto  tree<T, A>::move_down( N* n, string_type& s, std::vector<N*, A>& v ) -> N*
   {
     for ( ; ; )
     {
@@ -837,12 +938,17 @@ namespace radix {
 
   template <class T, class A>
   template <class V>
+  tree<T, A>::iterator_base<V>::iterator_base( const A& a ):
+    itkey( a ), trace( a )  {}
+
+  template <class T, class A>
+  template <class V>
   tree<T, A>::iterator_base<V>::iterator_base( iterator_base&& it ):
     itkey( std::move( it.itkey ) ),
     trace( std::move( it.trace ) )
   {
     if ( !trace.empty() && trace.back()->has_value() )
-      new( &value ) iterator_value{ itkey, trace.back()->get_value(), itkey, trace.back()->get_value() };
+      new( &value ) iterator_value{ itkey, trace.back()->get_value() };
   }
 
   template <class T, class A>
@@ -882,20 +988,19 @@ namespace radix {
 
   template <class T, class A>
   template <class V>
-  tree<T, A>::iterator_base<V>::iterator_base( tree_t* pn )
+  tree<T, A>::iterator_base<V>::iterator_base( tree_t& node ):
+    itkey( node.get_allocator() ),
+    trace( node.get_allocator() )
   {
-    if ( pn != nullptr )
-    {
-      if ( (pn = move_down( pn, itkey, trace )) != nullptr )
-        new( &value ) iterator_value{ itkey, trace.back()->get_value() };
-      else throw std::logic_error( "uninitialized iterator" );
-    }
+    if ( move_down( &node, itkey, trace ) )
+      new( &value ) iterator_value{ itkey, trace.back()->get_value() };
+    else throw std::logic_error( "uninitialized iterator" );
   }
 
   template <class T, class A>
   template <class V>
-  tree<T, A>::iterator_base<V>::iterator_base( const key& str, std::vector<tree_t*>&& vec ):
-    itkey( str.data(), str.size() ),
+  tree<T, A>::iterator_base<V>::iterator_base( const key& str, trace_t&& vec ):
+    itkey( str.data(), str.size(), vec.get_allocator() ),
     trace( std::move( vec ) )
   {
     if ( !trace.empty() && trace.back()->has_value() )
@@ -979,10 +1084,9 @@ namespace radix {
     // go to parent next node
       if ( ++ppnode != pplast )
       {
-        auto  target = move_down( ppnode, itkey, trace );
-
-        if ( target != nullptr ) new( &value ) iterator_value{ itkey, target->get_value() };
-          else throw std::logic_error( "broken iterator_base<V> data" );
+        if ( move_down( ppnode, itkey, trace ) )
+          new( &value ) iterator_value{ itkey, trace.back()->get_value() };
+        else throw std::logic_error( "broken iterator_base<V> data" );
 
         return *this;
       }
@@ -1239,22 +1343,28 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto tree<T, A>::cbegin() const -> const_iterator {  return const_iterator( this );  }
+  auto tree<T, A>::cbegin() const -> const_iterator
+    {  return this->empty() ? cend() : const_iterator( *this );  }
 
   template <class T, class A>
-  auto tree<T, A>::cend() const -> const_iterator {  return const_iterator();  }
+  auto tree<T, A>::cend() const -> const_iterator
+    {  return const_iterator( vector_type::get_allocator() );  }
 
   template <class T, class A>
-  auto tree<T, A>::begin() const -> const_iterator  {  return const_iterator( this );  }
+  auto tree<T, A>::begin() const -> const_iterator
+    {  return this->empty() ? end() : const_iterator( *this );  }
 
   template <class T, class A>
-  auto tree<T, A>::end() const -> const_iterator {  return const_iterator();  }
+  auto tree<T, A>::end() const -> const_iterator
+    {  return const_iterator( vector_type::get_allocator() );  }
 
   template <class T, class A>
-  auto tree<T, A>::begin() -> iterator  {  return iterator( this );  }
+  auto tree<T, A>::begin() -> iterator
+    {  return this->empty() ? end() : iterator( *this );  }
 
   template <class T, class A>
-  auto tree<T, A>::end() -> iterator {  return iterator();  }
+  auto tree<T, A>::end() -> iterator
+    {  return iterator( vector_type::get_allocator() );  }
 
   template <class T, class A>
   void tree<T, A>::clear()
@@ -1267,8 +1377,8 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::insert( const value_type& ins ) -> std::pair<iterator, bool>
   {
-    std::vector<tree*>  vec;
-    auto                ptr = insert( ins.first.begin(), ins.first.end(), vec );
+    auto  vec = std::vector<tree*, A>( vector_type::get_allocator() );
+    auto  ptr = insert( ins.first.begin(), ins.first.end(), vec );
 
     if ( ptr->has_value() )
       return { iterator( ins.first, std::move( vec ) ), false };
@@ -1279,8 +1389,8 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::insert( value_type&& mv ) -> std::pair<iterator, bool>
   {
-    std::vector<tree*>  vec;
-    auto                ptr = insert( mv.first.begin(), mv.first.end(), vec );
+    auto  vec = std::vector<tree*, A>( vector_type::get_allocator() );
+    auto  ptr = insert( mv.first.begin(), mv.first.end(), vec );
 
     if ( ptr->has_value() )
       return { iterator( mv.first, std::move( vec ) ), false };
@@ -1346,7 +1456,7 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::find( const key& key ) const -> const_iterator
   {
-    auto  atrace = std::vector<const tree*>();
+    auto  atrace = std::vector<const tree*, A>( vector_type::get_allocator() );
     auto  pfound = search( this, key.begin(), key.end(), atrace );
 
     return pfound != nullptr && pfound->has_value() ?
@@ -1356,7 +1466,7 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::find( const key& key ) -> iterator
   {
-    auto  atrace = std::vector<tree*>();
+    auto  atrace = std::vector<tree*, A>( vector_type::get_allocator() );
     auto  pfound = search( this, key.begin(), key.end(), atrace );
 
     return pfound != nullptr && pfound->has_value() ?
@@ -1385,12 +1495,12 @@ namespace radix {
   template <class T, class A>
   auto tree<T, A>::lower_bound( const key& key ) -> iterator
   {
-    auto  keystr = string_type();
-    auto  atrace = std::vector<tree*>();
+    auto  keystr = string_type( vector_type::get_allocator() );
+    auto  atrace = std::vector<tree*, A>( vector_type::get_allocator() );
     auto  pfound = lbound( this, key.begin(), key.end(), keystr, atrace );
 
     return pfound != nullptr && pfound->has_value() ?
-      iterator( std::move( keystr ), std::move( atrace ) ) : iterator();
+      iterator( std::move( keystr ), std::move( atrace ) ) : iterator( vector_type::get_allocator() );
   }
 /*
   template <class T, class A>
@@ -1519,6 +1629,60 @@ namespace radix {
 
   // dump<const char> template specification
 
+  inline
+  auto  dump<const char>::begin() const -> const_iterator
+    {  return root != nullptr ? const_iterator( root ) : end();  }
+
+  inline
+  auto  dump<const char>::end() const -> const_iterator
+    {  return const_iterator();  }
+
+  inline
+  auto  dump<const char>::cbegin() const -> const_iterator
+    {  return root != nullptr ? const_iterator( root ) : end();  }
+
+  inline
+  auto  dump<const char>::cend() const -> const_iterator
+    {  return const_iterator();  }
+
+  inline
+  auto  dump<const char>::find( const key& key ) const -> const_iterator
+  {
+    auto  atrace = std::vector<level>();
+
+    return root != nullptr && search( root, key.begin(), key.end(), atrace ) ?
+      const_iterator( key, std::move( atrace ) ) : const_iterator();
+  }
+
+  inline
+  bool  dump<const char>::contains( const key& key ) const
+  {
+    return search( root, key.begin(), key.end() ) != nullptr;
+  }
+
+  inline
+  auto  dump<const char>::lower_bound( const key& key ) const -> const_iterator
+  {
+    auto  inkey = std::string();
+    auto  trace = std::vector<level>();
+
+    return root != nullptr && lbound( root, key.begin(), key.end(), inkey, trace ) ?
+      const_iterator( std::move( inkey ), std::move( trace ) ) : const_iterator();
+  }
+
+  inline
+  auto  dump<const char>::upper_bound( const key& key ) const -> const_iterator
+  {
+   /*
+    auto  keystr = string_type();
+    auto  atrace = std::vector<const tree*>();
+    auto  pfound = ubound( this, key.begin(), key.end(), keystr, atrace );
+
+    return pfound != nullptr && pfound->has_value() ?
+    const_iterator( std::move( keystr ), std::move( atrace ) ) : const_iterator();
+    */
+  }
+
   template <class U>
   auto  dump<const char>::get_1b( const char* s, U& u ) -> const char*
   {
@@ -1614,6 +1778,318 @@ namespace radix {
       s += offset + (1 + b2offs) * bcount;
     }
     return s;
+  }
+
+  inline
+  bool  dump<const char>::search( const char* s, const uint8_t* key, const uint8_t* end, std::vector<level>& vec )
+  {
+    while ( s != nullptr )
+    {
+      size_t      cchkey;   // level key length
+      uint8_t     kcount;   // branch count
+      uint8_t     bflags;   // level flags
+      const char* pmatch;
+      size_t      offset;
+      size_t      b2offs;
+
+      // get level key length
+      if ( (s = ::FetchFrom( s, cchkey )) == nullptr )
+        return false;
+
+      // check key match
+      if ( key + cchkey > end )
+        return false;
+
+      for ( size_t i = 0; i != cchkey; ++i )
+      {
+        if ( *key++ != uint8_t(*s++) )
+          return false;
+      }
+
+      // get branch count and level flags
+      kcount = uint8_t(*s++);
+      bflags = uint8_t(*s++);
+
+      b2offs = 1 + (bflags & 0x3);
+
+      vec.emplace_back( level{ s, cchkey, kcount, bflags, 0 } );
+
+      // check if the key is completely scanned
+      if ( key == end )
+        return vec.back().has_value();
+
+      // find matching branch
+      for ( pmatch = s; pmatch != s + kcount && uint8_t(*pmatch) < *key; ++pmatch )
+        (void)NULL;
+
+      if ( pmatch == s + kcount || *key != uint8_t(*pmatch) )
+        return false;
+
+      // get branch offset
+      if ( getint( s + kcount + b2offs * (pmatch - s), offset, b2offs ) == nullptr )
+        return false;
+
+      // add next level
+      vec.back().offset = pmatch - s;
+
+      // skip the rest of relocations
+      s += offset + (1 + b2offs) * kcount;
+    }
+    return false;
+  }
+
+  inline
+  bool  dump<const char>::lbound( const char* ptr, const uint8_t* key, const uint8_t* end,
+    std::string& str, std::vector<level>&  vec )
+  {
+    auto    origin( ptr );
+    size_t  cchstr;
+
+    if ( (ptr = ::FetchFrom( ptr, cchstr )) != nullptr )
+    {
+      auto  top = ptr;
+
+      // check partial match
+      while ( top != ptr + cchstr && key != end && *key == *top )
+        ++top, ++key;
+
+      // if node key is not completely covered, it is lower bound, or it's
+      // first descendant is;
+      // else lookup nested branches looking for the first one non-less
+      // than the key searched for
+      if ( top == ptr + cchstr && key != end )
+      {
+        auto  kcount = uint8_t(ptr[cchstr]);
+        auto  bflags = uint8_t(ptr[cchstr + 1]);
+        auto  it_beg = ptr + cchstr + 2;
+        auto  it_end = it_beg + kcount;
+        auto  bitlen = 1 + (bflags & 0x03);
+        auto  subofs = size_t{};
+
+        while ( it_beg != it_end && uint8_t(*it_beg) < *key )
+          ++it_beg;
+
+        // - if non-less char not found, return nullptr hoping the level upper will find it;
+        if ( it_beg == it_end )
+          return false;
+
+        vec.push_back(
+          level{ ptr + cchstr + 2, cchstr, kcount, bflags, uint8_t(it_beg - ptr - cchstr - 2 ) } );
+        str.append( ptr, cchstr );
+
+        getint( ptr + cchstr + 2 + kcount + vec.back().offset * bitlen,
+          subofs, bitlen );
+
+        // - if upper char is found, add this node and return subbranch key;
+        // - if equal char is found, add current node and try go deeper level;
+        // if not found, remove added key and ptr and go next
+        if ( uint8_t(*it_beg) == *key )
+        {
+          if ( lbound( ptr + cchstr + 2 + kcount * (1 + bitlen) + subofs, key, end, str, vec ) )
+            return true;
+
+          if ( ++it_beg == it_end )
+          {
+            str.resize( str.length() - vec.back().ccfrag );
+            vec.pop_back();
+            return false;
+          }
+        }
+        return godown( ptr + cchstr + 2 + kcount * (1 + bitlen) + subofs, str, vec );
+      }
+      return godown( origin, str, vec );
+    }
+    return false;
+  }
+
+  inline
+  bool  dump<const char>::godown( const char* tree, std::string& key, std::vector<level>& trace )
+  {
+    while ( tree != nullptr )
+    {
+      size_t  ccfrag;
+      uint8_t kcount;
+      uint8_t bflags;
+      size_t  cbJump;
+
+      if ( (tree = ::FetchFrom( tree, ccfrag )) == nullptr )
+        return false;
+
+      key.append( tree, ccfrag );
+      tree += ccfrag;
+
+      kcount = *tree++;
+      bflags = *tree++;
+
+      trace.emplace_back( level{ tree, ccfrag, kcount, bflags, 0 } );
+
+      if ( trace.back().has_value() )
+        return true;
+
+      getint( tree += kcount, cbJump, 1 + (bflags & 0x03) );
+      tree += kcount * (1 + (bflags & 0x03)) + cbJump;
+    }
+    return false;
+  }
+
+  // dump<const char>::const_iterator implementation
+
+  inline
+  dump<const char>::const_iterator::const_iterator( const_iterator&& it ):
+    itkey( std::move( it.itkey ) ),
+    trace( std::move( it.trace ) ),
+    index( std::move( it.index ) )
+  {
+    if ( !trace.empty() && trace.back().has_value() )
+      new( &value ) iterator_value{ itkey, trace.back().get_value() };
+  }
+
+  inline
+  dump<const char>::const_iterator::const_iterator( const const_iterator& it ):
+    itkey( it.itkey ),
+    trace( it.trace ),
+    index( it.index )
+  {
+    if ( !trace.empty() && trace.back().has_value() )
+      new( &value ) iterator_value{ itkey, trace.back().get_value() };
+  }
+
+  inline
+  auto  dump<const char>::const_iterator::operator=( const_iterator&& it ) -> const_iterator&
+  {
+    itkey = std::move( it.itkey );
+    trace = std::move( it.trace );
+    index = std::move( it.index );
+
+    if ( !trace.empty() && trace.back().has_value() )
+      new( &value ) iterator_value{ itkey, trace.back().get_value() };
+
+    return *this;
+  }
+
+  inline
+  auto  dump<const char>::const_iterator::operator=( const const_iterator& it ) -> const_iterator&
+  {
+    itkey = it.itkey;
+    trace = it.trace;
+    index = it.index;
+
+    if ( !trace.empty() && trace.back().has_value() )
+      new( &value ) iterator_value{ itkey, trace.back().get_value() };
+
+    return *this;
+  }
+
+  inline
+  dump<const char>::const_iterator::const_iterator( const char* dump )
+  {
+    if ( dump != nullptr )
+    {
+      if ( godown( dump, itkey, trace ) )
+        new( &value ) iterator_value{ itkey, trace.back().get_value() };
+      else throw std::logic_error( "uninitialized iterator" );
+    }
+  }
+
+  inline
+  dump<const char>::const_iterator::const_iterator( const key& str, std::vector<level>&& vec ):
+    itkey( (const char*)str.data(), str.size() ),
+    trace( std::move( vec ) )
+  {
+    if ( !trace.empty() && trace.back().has_value() )
+      new( &value ) iterator_value{ itkey, trace.back().get_value() };
+    else throw std::logic_error( "uninitialized iterator" );
+  }
+
+  inline
+  bool  dump<const char>::const_iterator::operator == ( const const_iterator& it ) const
+  {
+    if ( trace.size() == it.trace.size() )
+    {
+      auto  i1 = trace.begin();
+      auto  i2 = it.trace.begin();
+
+      for ( auto is = trace.end(); i1 != is; ++i1, ++i2 )
+        if ( *i1 != *i2 ) return false;
+
+      return index == it.index;
+    }
+    return false;
+  }
+
+  inline
+  auto  dump<const char>::const_iterator::operator->() const -> const iterator_value*
+  {
+    if ( !trace.empty() && trace.back().has_value() )
+      return (const iterator_value*)&value;
+
+    throw std::range_error( "iterator_base<V>::operator->() out of range" );
+  }
+
+  inline
+  auto  dump<const char>::const_iterator::operator*() const -> const iterator_value&
+  {
+    if ( !trace.empty() && trace.back().has_value() )
+      return *(const iterator_value*)&value;
+
+    throw std::range_error( "iterator_base<V>::operator->() out of range" );
+  }
+
+  inline
+  auto  dump<const char>::const_iterator::operator++() -> const_iterator&
+  {
+    auto  pleave = (level*){};
+
+    if ( trace.empty() )
+      throw std::range_error( "const_iterator::operator++() out of range" );
+
+  // if the iterator is on some node, check if the node has subbranches;
+  // go down until the first key is meeted
+    if ( trace.back().kcount != 0 )
+      for ( ; ; )
+      {
+        auto  subptr = trace.back().pchars + trace.back().kcount;
+        auto  subOfs = size_t{};
+        auto  ofSize = 1 + (trace.back().bflags & 0x3);
+
+        getint( subptr, subOfs, ofSize );
+
+        godown( subptr + trace.back().kcount * ofSize + subOfs, itkey, trace );
+
+        return new( &value )
+          iterator_value{ itkey, trace.back().get_value() }, *this;
+      }
+
+  // if on ending leaf, go up until any more branches
+    while ( !trace.empty() && ++trace.back().offset >= trace.back().kcount )
+    {
+      itkey.resize( itkey.length() - trace.back().ccfrag );
+        trace.pop_back();
+    }
+
+  // check if have any branches
+    if ( !trace.empty() )
+    {
+      godown( trace.back().get_level(), itkey, trace );
+
+      new( &value )
+        iterator_value{ itkey, trace.back().get_value() };
+    }
+      else
+    {
+      trace.clear();
+      itkey.clear();
+    }
+
+    return *this;
+  }
+
+  inline
+  auto  dump<const char>::const_iterator::operator++( int ) -> const_iterator
+  {
+    auto  self( *this );
+      operator++();
+    return self;
   }
 
 }}
