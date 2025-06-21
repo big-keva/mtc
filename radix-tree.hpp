@@ -368,6 +368,7 @@ namespace radix {
   protected:
     static  bool  search( const char*, const uint8_t*, const uint8_t*, std::vector<level>& );
     static  bool  lbound( const char*, const uint8_t*, const uint8_t*, std::string&, std::vector<level>& );
+    static  bool  hbound( const char*, const uint8_t*, const uint8_t*, std::string&, std::vector<level>& );
     static  auto  search( const char*, const uint8_t*, const uint8_t* ) -> const char*;
     static  bool  godown( const char*, std::string&, std::vector<level>& );
 
@@ -1673,14 +1674,11 @@ namespace radix {
   inline
   auto  dump<const char>::upper_bound( const key& key ) const -> const_iterator
   {
-   /*
-    auto  keystr = string_type();
-    auto  atrace = std::vector<const tree*>();
-    auto  pfound = ubound( this, key.begin(), key.end(), keystr, atrace );
+    auto  inkey = std::string();
+    auto  trace = std::vector<level>();
 
-    return pfound != nullptr && pfound->has_value() ?
-    const_iterator( std::move( keystr ), std::move( atrace ) ) : const_iterator();
-    */
+    return root != nullptr && hbound( root, key.begin(), key.end(), inkey, trace ) ?
+      const_iterator( std::move( inkey ), std::move( trace ) ) : const_iterator();
   }
 
   template <class U>
@@ -2038,8 +2036,6 @@ namespace radix {
   inline
   auto  dump<const char>::const_iterator::operator++() -> const_iterator&
   {
-    auto  pleave = (level*){};
-
     if ( trace.empty() )
       throw std::range_error( "const_iterator::operator++() out of range" );
 
