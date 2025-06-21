@@ -1,5 +1,7 @@
 # if !defined( __mtc_ptrpatch_h__ )
 # define __mtc_ptrpatch_h__
+# include <type_traits>
+# include <cstddef>
 # include <cstdint>
 
 namespace mtc {
