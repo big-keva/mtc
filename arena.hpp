@@ -160,7 +160,7 @@ namespace mtc {
       {  (void)p, (void)n;  }
 
     size_type max_size() const noexcept
-      {  return memory->lblock / (sizeof(T) + alignof(T));  }
+      {  return std::size_t(__PTRDIFF_MAX__ - 0x100) / sizeof(T);  }
 
     template <class U, class... Args>
     void  construct( U* p, Args&&... args )
