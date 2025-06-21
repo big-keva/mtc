@@ -203,10 +203,11 @@ namespace mtc
         }
       char*       doread()
         {
-          for ( szname = nullptr; szname == nullptr && dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr; )
+          while ( dirptr != nullptr && (pentry = readdir( dirptr )) != nullptr )
             if ( *filter == '\0' || fnmatch( filter, pentry->d_name, FNM_NOESCAPE | FNM_PATHNAME ) == 0 )
-              szname = pentry->d_name;
-          return szname;
+              return szname = pentry->d_name;
+
+          return szname = nullptr;
         }
 # endif   // WIN32
 
