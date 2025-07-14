@@ -2,6 +2,7 @@
 # if !defined( __mtc_arena_hpp__ )
 # define __mtc_arena_hpp__
 # include "./ptrpatch.h"
+# include <stdexcept>
 # include <atomic>
 
 namespace mtc {
