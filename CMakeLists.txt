@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.1)
 project(mtc)
 
-set(CMAKE_C_STANDARD 14)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
 if(MSVC)
   add_compile_options(-MP)
 else()
@@ -11,6 +11,7 @@ endif()
 add_compile_options(-mfpmath=sse -fstack-protector-all -g -W -Wall -Wextra -Wcast-align -pedantic -Wfloat-equal -Wpointer-arith -Wformat-security -Wmissing-format-attribute -Wformat=1 -Wwrite-strings -Wcast-align -Wno-long-long -Woverloaded-virtual -Wno-suggest-attribute=format)
 
 add_library(mtc STATIC
+  src/sharedLibrary.cpp
   src/byteBuffer.cpp
   src/fileStream.cpp
   src/zipStream.cpp
@@ -26,6 +27,8 @@ install(TARGETS mtc DESTINATION lib)
 
 install(
   FILES
+    sharedLibrary.hpp
+
     utf.hpp
     wcsstr.h
 
