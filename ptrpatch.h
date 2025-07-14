@@ -21,7 +21,7 @@ namespace ptr {
 
   template <class V>
   inline  auto  align( V* v, size_t cb ) -> V*
-  {  return (V*)((((pointer_to_integer::to_int)v) + cb - 1) & ~(cb - 1));  }
+  {  return cb != 0 ? (V*)((((pointer_to_integer::to_int)v) + cb - 1) & ~(cb - 1)) : v;  }
 
   template <class V>
   inline  auto  align( V* v ) -> V* {  return align( v, alignof(V) );  }
