@@ -78,7 +78,8 @@ namespace mtc
 
     public:   // construction
       keyrec( const V& v, unsigned p, keyrec* n ): val( v ), pos( p ), lpn( n ) {}
-      keyrec(             unsigned p, keyrec* n ):           pos( p ), lpn( n ) {}
+      keyrec( V&& v, unsigned p, keyrec* n ): val( std::move( v ) ), pos( p ), lpn( n ) {}
+      keyrec( unsigned p, keyrec* n ):           pos( p ), lpn( n ) {}
 
     };
 
@@ -91,7 +92,7 @@ namespace mtc
 
       if ( (palloc = rebind<A, keyrec>( alloc ).allocate( nalloc )) != nullptr )
       {
-        new( palloc ) keyrec( a... );
+        new( palloc ) keyrec( std::forward<constructor_args>( a )... );
           memcpy( palloc->key, k, palloc->len = l );
       }
       return palloc;
@@ -127,6 +128,7 @@ namespace mtc
     unsigned      GetLen() const  {  return ncount;  }
     unsigned      MapLen() const  {  return maplen;  }
           V*      Insert( const void* k, size_t l, const V& v = V() );
+          V*      Insert( const void* k, size_t l, V&& );
           V*      Insert( const widechar* s, const V& v = V() ) {  return Insert( s, sizeof(*s) * (w_strlen( s ) + 1), v );  }
           V*      Insert( const char*     s, const V& v = V() ) {  return Insert( s, sizeof(*s) * (w_strlen( s ) + 1), v );  }
     const V*      Search( const void* k, size_t l ) const {  return Search<const V>( k, l, *this);  }
@@ -137,7 +139,7 @@ namespace mtc
           V*      Search( const char*     s ) {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
 
   public:     // serialization
-    auto  GetBufLen() const -> size_t;;
+    auto  GetBufLen() const -> size_t;
     template <class O>
     auto  Serialize( O* ) const -> O*;
     template <class S>
@@ -283,6 +285,21 @@ namespace mtc
   }
 
   template <class V, class A>
+  V*    arbitrarymap<V, A>::Insert( const void* k, size_t l, V&& v )
+  {
+    unsigned  pos = gethash( (const byte_t*)k, l ) % maplen;
+    keyrec*   ptr;
+
+    if ( pitems == nullptr && NewMap() != 0 )
+      return nullptr;
+
+    if ( (ptr = Create( k, l, std::move( v ), pos, pitems[pos] )) != nullptr ) pitems[pos] = ptr;
+      else return nullptr;
+
+    return ++ncount, &ptr->val;
+  }
+
+  template <class V, class A>
   size_t  arbitrarymap<V, A>::GetBufLen() const
   {
     auto  res = ::GetBufLen( ncount );
@@ -397,7 +414,7 @@ namespace mtc
   {
     assert( pvn != nullptr );
 
-    return ((const keyrec*)pvn)->val;
+    return ((keyrec*)pvn)->val;
   }
 
 }
