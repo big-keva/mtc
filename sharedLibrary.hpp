@@ -21,6 +21,7 @@ namespace mtc {
     SharedLibrary( const SharedLibrary& );
     SharedLibrary& operator = ( SharedLibrary&& );
     SharedLibrary& operator = ( const SharedLibrary& );
+   ~SharedLibrary();
 
     bool  operator == ( const SharedLibrary& ) const;
     bool  operator == ( nullptr_t ) const;
