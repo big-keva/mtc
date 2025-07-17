@@ -52,6 +52,12 @@ namespace mtc {
     return *this;
   }
 
+  SharedLibrary::~SharedLibrary()
+  {
+    if ( module != nullptr && --module->rcount == 0 )
+      delete module;
+  }
+
   bool  SharedLibrary::operator == ( const SharedLibrary& lib ) const
   {
     return module == lib.module || (module != nullptr && lib.module != nullptr
