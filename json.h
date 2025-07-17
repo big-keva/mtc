@@ -205,7 +205,7 @@ namespace json {
       auto  e = s.c_str() + s.length();                 \
       auto  p = strrchr( s.c_str(), '.' );              \
                                                         \
-      if ( p++ != nullptr && strspn( p, "0123456789" ) == e - p ) \
+      if ( p++ != nullptr && strspn( p, "0123456789" ) == size_t(e - p) ) \
       {                                                 \
         for ( ++p; e > p && e[-1] == '0'; --e )         \
           (void)NULL;                                   \
