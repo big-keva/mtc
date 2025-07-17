@@ -66,8 +66,8 @@ namespace mtc
 
   public:
     const char* GetPtr() const override {  return data();  }
-    word32_t    GetLen() const override {  return size();  }
-    int         SetBuf( const void* p, word32_t l ) override
+    size_t      GetLen() const override {  return size();  }
+    int         SetBuf( const void* p, size_t l ) override
     {
       try
       {
@@ -77,7 +77,7 @@ namespace mtc
       }
       catch ( const std::bad_alloc& x ) {  return error()( ENOMEM, x );  }
     }
-    int         SetLen( word32_t l ) override
+    int         SetLen( size_t l ) override
     {
       try
       {
