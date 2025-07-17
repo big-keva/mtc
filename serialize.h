@@ -171,6 +171,15 @@ namespace mtc
       p( (const char*)t ), e( l + (const char*)t ) {}
     sourcebuf( const sourcebuf& s ):
       p( s.p ), e( s.e ) {}
+    template <class Allocator>
+    sourcebuf( const std::vector<char, Allocator>& s ):
+      sourcebuf( s.data(), s.size() ) {}
+    template <class Allocator>
+    sourcebuf( const std::vector<unsigned char, Allocator>& s ):
+      sourcebuf( s.data(), s.size() ) {}
+    template <class Allocator>
+    sourcebuf( const std::basic_string<char, std::char_traits<char>, Allocator>& s ):
+      sourcebuf( s.data(), s.size() ) {}
     sourcebuf&  operator = ( const sourcebuf& s )
     {
       p = s.p;
