@@ -19,10 +19,10 @@ namespace zip {
     ZipBuffer( size_t size ): std::vector<char>( size ) {}
 
   public:     // IByteBuffer overridables
-    const char* GetPtr(                       ) const noexcept override {  return data();  }
-    word32_t    GetLen(                       ) const noexcept override {  return size();  }
-    int         SetBuf( const void*, word32_t ) noexcept override {  return EINVAL;   }
-    int         SetLen( word32_t              ) noexcept override {  return EINVAL;   }
+    const char* GetPtr(                     ) const noexcept override {  return data();  }
+    size_t      GetLen(                     ) const noexcept override {  return size();  }
+    int         SetBuf( const void*, size_t ) noexcept override {  return EINVAL;   }
+    int         SetLen( size_t              ) noexcept override {  return EINVAL;   }
 
   };
 
@@ -36,16 +36,17 @@ namespace zip {
    ~ZipStream();
 
   public:     // from IByteStream
-    word32_t  Get(       void*, word32_t ) override;
-    word32_t  Put( const void*, word32_t ) override;
+    uint32_t  Get(       void*, uint32_t ) override;
+    uint32_t  Put( const void*, uint32_t ) override;
 
   public:     // from IFlatStream
-    int       GetBuf( IByteBuffer**, int64_t, word32_t ) override;
-    word32_t  PosGet(       void*,   int64_t, word32_t ) override;
-    word32_t  PosPut( const void*,   int64_t, word32_t ) override;
-    int64_t   Seek  ( int64_t                          ) override;
-    int64_t   Size  (                                  ) override {  return -1;  }
-    int64_t   Tell  (                                  ) override;
+    auto  PGet(                int64_t, uint32_t ) -> mtc::api<IByteBuffer> override;
+    int   PGet( IByteBuffer**, int64_t, uint32_t ) override;
+    auto  PGet(       void*,   int64_t, uint32_t ) -> uint32_t override;
+    auto  PPut( const void*,   int64_t, uint32_t ) -> uint32_t override;
+    auto  Seek( int64_t                          ) -> int64_t override;
+    auto  Size(                                  ) -> int64_t override {  return -1;  }
+    auto  Tell(                                  ) -> int64_t override;
 
   protected:  // variables
     std::mutex  gzlock;
@@ -63,21 +64,21 @@ namespace zip {
   }
 
   template <class error>
-  word32_t  ZipStream<error>::Get( void* p, word32_t l )
+  uint32_t  ZipStream<error>::Get( void* p, uint32_t l )
   {
     return interlocked( make_unique_lock( gzlock ),[&]()
-      {  return (word32_t)gzread( gzfile, p, l );  } );
+      {  return (uint32_t)gzread( gzfile, p, l );  } );
   }
 
   template <class error>
-  word32_t  ZipStream<error>::Put( const void* p, word32_t l )
+  uint32_t  ZipStream<error>::Put( const void* p, uint32_t l )
   {
     return interlocked( make_unique_lock( gzlock ),[&]()
-      {  return (word32_t)gzwrite( gzfile, p, l );  } );
+      {  return (uint32_t)gzwrite( gzfile, p, l );  } );
   }
 
   template <class error>
-  int   ZipStream<error>::GetBuf( IByteBuffer** buf, int64_t pos, word32_t len )
+  int   ZipStream<error>::PGet( IByteBuffer** buf, int64_t pos, uint32_t len )
   {
     api<ZipBuffer>  palloc;
 
@@ -88,7 +89,7 @@ namespace zip {
     {
       palloc = new ZipBuffer( len );
 
-      if ( PosGet( (char*)palloc->data(), pos, palloc->size() ) != (word32_t)palloc->size() )
+      if ( PGet( (char*)palloc->data(), pos, palloc->size() ) != (uint32_t)palloc->size() )
         return EACCES;
 
       return ((*buf = palloc.ptr())->Attach(), 0);
@@ -98,19 +99,19 @@ namespace zip {
   }
 
   template <class error>
-  word32_t  ZipStream<error>::PosGet( void* ptr, int64_t pos, word32_t len )
+  uint32_t  ZipStream<error>::PGet( void* ptr, int64_t pos, uint32_t len )
   {
     return interlocked( make_unique_lock( gzlock ), [&]()
       {  return gzseek( gzfile, (z_off_t)pos, SEEK_SET ) == pos ?
-        (word32_t)gzread( gzfile, ptr, len ) : (word32_t)-1;  } );
+        (uint32_t)gzread( gzfile, ptr, len ) : (uint32_t)-1;  } );
   }
 
   template <class error>
-  word32_t  ZipStream<error>::PosPut( const void* ptr, int64_t pos, word32_t len )
+  uint32_t  ZipStream<error>::PPut( const void* ptr, int64_t pos, uint32_t len )
   {
     return interlocked( make_unique_lock( gzlock ), [&]()
       {  return gzseek( gzfile, (z_off_t)pos, SEEK_SET ) == pos ?
-        (word32_t)gzwrite( gzfile, ptr, len ) : (word32_t)-1;  } );
+        (uint32_t)gzwrite( gzfile, ptr, len ) : (uint32_t)-1;  } );
   }
 
   template <class error>
@@ -177,7 +178,7 @@ namespace zip {
     api<IFlatStream>  infile;
     api<ZipBuffer>    buffer;
     char              zipbuf[0x400 * 0x40];
-    word32_t          cbread;
+    uint32_t          cbread;
 
     if ( (infile = openStream<error>( sz, O_RDONLY, 0x400 * 0x400 )) == nullptr )
       return nullptr;
@@ -186,7 +187,7 @@ namespace zip {
     {
       buffer = new ZipBuffer( 0 );
 
-      while ( (cbread = infile->Get( zipbuf, sizeof(zipbuf) )) != (word32_t)-1 )
+      while ( (cbread = infile->Get( zipbuf, sizeof(zipbuf) )) != (uint32_t)-1 )
       {
         buffer->insert( buffer->end(), zipbuf, zipbuf + cbread );
 

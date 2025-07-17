@@ -83,7 +83,7 @@ SOFTWARE.
 
 # include <limits>
 
-#include "../file.h"
+# define LineId( arg )  "" #arg
 
 namespace mtc
 {
@@ -104,19 +104,19 @@ namespace mtc
     FileMemmap& operator = ( const FileMemmap& ) = delete;
 
   public:     // overridables
-    const char* GetPtr(                       ) const noexcept override {  return nshift + (char*)ptrmap;  }
-    word32_t    GetLen(                       ) const noexcept override {  return cchmem;  }
-    int         SetBuf( const void*, word32_t )       noexcept override {  return EINVAL;  }
-    int         SetLen( word32_t              )       noexcept override {  return EINVAL;  }
+    const char* GetPtr(                     ) const noexcept override {  return nshift + (char*)ptrmap;  }
+    size_t      GetLen(                     ) const noexcept override {  return cchmem;  }
+    int         SetBuf( const void*, size_t )       noexcept override {  return EINVAL;  }
+    int         SetLen( size_t              )       noexcept override {  return EINVAL;  }
 
   public:     // helpers
-    int         Create( FileStream<error>*, int64_t, word32_t );
+    int         Create( FileStream<error>*, int64_t, uint32_t );
 
   protected:  // variables
-    word32_t  cchmem;
+    uint32_t  cchmem;
     unsigned  dwgran;
     unsigned  nshift;
-    word32_t  maplen;
+    uint32_t  maplen;
     void*     ptrmap;
 # if defined( _WIN32 )
     HANDLE    handle;
@@ -145,19 +145,20 @@ namespace mtc
     static  auto      Create( const char* szname, size_t ccname = (size_t)-1 ) -> FileStream*;
 
   public:     // overridables from IStream
-    word32_t  Get (       void*,   word32_t ) noexcept override;
-    word32_t  Put ( const void*,   word32_t ) noexcept override;
+    uint32_t  Get (       void*,   uint32_t ) noexcept override;
+    uint32_t  Put ( const void*,   uint32_t ) noexcept override;
 
   public:     // overridables from IFlatStream
-    int       GetBuf( IByteBuffer**, int64_t, word32_t )          override;
-    word32_t  PosGet(       void*,   int64_t, word32_t ) noexcept override;
-    word32_t  PosPut( const void*,   int64_t, word32_t ) noexcept override;
-    int64_t   Seek  ( int64_t                          ) noexcept override;
-    int64_t   Size  (                                  ) noexcept override;
-    int64_t   Tell  (                                  ) noexcept override;
+    auto  PGet(                int64_t, uint32_t ) -> mtc::api<IByteBuffer> override;
+    int   PGet( IByteBuffer**, int64_t, uint32_t ) override;
+    auto  PGet(       void*,   int64_t, uint32_t ) noexcept -> uint32_t override;
+    auto  PPut( const void*,   int64_t, uint32_t ) noexcept -> uint32_t override;
+    auto  Seek( int64_t                          ) noexcept -> int64_t  override;
+    auto  Size(                                  ) noexcept -> int64_t  override;
+    auto  Tell(                                  ) noexcept -> int64_t  override;
 
   public:     // overridables from IFileStream
-    api<IByteBuffer>  MemMap( int64_t, word32_t ) override;
+    api<IByteBuffer>  MemMap( int64_t, uint32_t ) override;
     bool              SetLen( int64_t ) noexcept override;
     bool              Sync() override;
 
@@ -186,23 +187,23 @@ namespace mtc
   {
     implement_lifetime_control
 
-    filebuffer( word32_t l ): length( l ) {}
+    filebuffer( size_t l ): length( l ) {}
 
   protected:     // construction
     void  operator delete( void* p ) {  delete [] (char*)p;  }
 
   public:     // overridables
-    const char*   GetPtr() const noexcept override
+    const char* GetPtr() const noexcept override
       {  return buffer;  }
-    word32_t      GetLen() const noexcept override
+    size_t      GetLen() const noexcept override
       {  return length;  }
-    int           SetBuf( const void*, word32_t ) noexcept override
+    int         SetBuf( const void*, size_t ) noexcept override
       {  return EINVAL;  }
-    int           SetLen( word32_t newlen ) noexcept override
+    int           SetLen( size_t newlen ) noexcept override
       {  return newlen > length ? EINVAL : (length = newlen), 0;  }
 
   public:
-    static  auto  create( word32_t length ) -> api<filebuffer>
+    static  auto  create( size_t length ) -> api<filebuffer>
     {
       try
         {  return new ( new char[sizeof(filebuffer) + length - 1] ) filebuffer( length );  }
@@ -213,8 +214,8 @@ namespace mtc
     }
 
   protected:  // variables
-    word32_t  length;
-    char      buffer[1];
+    size_t  length;
+    char    buffer[1];
 
   };
 
@@ -250,12 +251,12 @@ namespace mtc
   }
 
   template <class error>
-  int   FileMemmap<error>::Create( FileStream<error>* stm, int64_t offset, word32_t length )
+  int   FileMemmap<error>::Create( FileStream<error>* stm, int64_t offset, uint32_t length )
   {
 # if defined( _WIN32 )
-    word32_t  offshi = (word32_t)(off >> 32);
-    word32_t  offslo = (word32_t)(off);
-    word32_t  oalign = offslo / dwgran * dwgran;
+    uint32_t  offshi = (uint32_t)(off >> 32);
+    uint32_t  offslo = (uint32_t)(off);
+    uint32_t  oalign = offslo / dwgran * dwgran;
 
   // create mapping view
     if ( (handle = CreateFileMapping( stm->handle, nullptr, PAGE_READONLY | SEC_COMMIT, 0, 0, nullptr )) == nullptr )
@@ -283,12 +284,12 @@ namespace mtc
     word64_t  blklen = std::min( word64_t(stsize - oalign), word64_t(length) + nshift );
                                                     // длина от базы до конца файла или нужная с выравниванием
 
-    for ( blklen = ((blklen + dwgran - 1) / dwgran) * dwgran; blklen > (word64_t)(word32_t)-1; )
+    for ( blklen = ((blklen + dwgran - 1) / dwgran) * dwgran; blklen > (word64_t)(uint32_t)-1; )
       blklen -= dwgran;
 
-    maplen = (word32_t)blklen;
+    maplen = (uint32_t)blklen;
 
-    if ( (cchmem = std::min( maplen - nshift, length )) != length && length != (word32_t)-1 )
+    if ( (cchmem = std::min( maplen - nshift, length )) != length && length != (uint32_t)-1 )
       return error()( EOVERFLOW, file_error( strprintf( "buffer too long to be mmap()'ed" ) ) );
 
     if ( (ptrmap = mmap( NULL, maplen, PROT_READ, MAP_SHARED | MAP_NORESERVE, stm->handle, oalign )) == MAP_FAILED )
@@ -333,7 +334,7 @@ namespace mtc
   }
 
   template <class error>
-  api<IByteBuffer>  FileStream<error>::MemMap( int64_t offset, word32_t length )
+  api<IByteBuffer>  FileStream<error>::MemMap( int64_t offset, uint32_t length )
   {
     auto  memmap = api<FileMemmap<error>>();
 
@@ -359,19 +360,37 @@ namespace mtc
     if ( (buf = filebuffer::create( len )) == nullptr )
       return nullptr;
 
-    return PosGet( (char*)buf->GetPtr(), 0, (word32_t)len ) == len ? buf.ptr() : nullptr;
+    return PGet( (char*)buf->GetPtr(), 0, (uint32_t)len ) == len ? buf.ptr() : nullptr;
   }
 
   template <class error>
-  int       FileStream<error>::GetBuf( IByteBuffer** ppi, int64_t off, word32_t len )
+  auto  FileStream<error>::PGet( int64_t off, uint32_t len ) -> mtc::api<IByteBuffer>
   {
     api<filebuffer> buffer;
-    word32_t        cbread;
+    uint32_t        cbread;
+
+    if ( (buffer = filebuffer::create( len )) == nullptr )
+      return error()( nullptr, std::bad_alloc() );
+
+    if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
+    {
+      return error()( nullptr, file_error( strprintf( "error reading file '%s' @" __FILE__ ":%u, error code %d",
+        FileName(), LineId( __LINE__ ), errno ) ) );
+    }
+
+    return buffer->SetLen( cbread ), buffer.ptr();
+  }
+
+  template <class error>
+  int       FileStream<error>::PGet( IByteBuffer** ppi, int64_t off, uint32_t len )
+  {
+    api<filebuffer> buffer;
+    uint32_t        cbread;
 
     if ( (buffer = filebuffer::create( len )) == nullptr )
       return ENOMEM;
 
-    if ( (cbread = PosGet( (char*)buffer->GetPtr(), off, len )) == (word32_t)-1 )
+    if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
       return EACCES;
 
     buffer->SetLen( cbread );
@@ -381,10 +400,10 @@ namespace mtc
 # if defined( _WIN32 )
 
   template <class error>
-  word32_t  FileStream<error>::Get( void* out, word32_t len ) noexcept
+  uint32_t  FileStream<error>::Get( void* out, uint32_t len ) noexcept
   {
     DWORD     cbread;
-    word32_t  dwread = ReadFile( handle, out, len, &cbread, nullptr ) ? cbread : 0;
+    uint32_t  dwread = ReadFile( handle, out, len, &cbread, nullptr ) ? cbread : 0;
 
     debug_decl( DWORD uError = GetLastError() );
 
@@ -392,7 +411,7 @@ namespace mtc
   }
 
   template <class error>
-  word32_t  FileStream<error>::Put( const void* src, word32_t len ) noexcept
+  uint32_t  FileStream<error>::Put( const void* src, uint32_t len ) noexcept
   {
     DWORD nwrite;
 
@@ -400,7 +419,7 @@ namespace mtc
   }
 
   template <class error>
-  unsigned  FileStream<error>::PosGet( void* out, int64_t off, word32_t len ) noexcept
+  unsigned  FileStream<error>::PosGet( void* out, int64_t off, uint32_t len ) noexcept
   {
     DWORD       cbread;
     OVERLAPPED  reinfo;
@@ -416,7 +435,7 @@ namespace mtc
   }
 
   template <class error>
-  unsigned  FileStream<error>::PosPut( const void* src, int64_t off, word32_t len ) noexcept
+  unsigned  FileStream<error>::PosPut( const void* src, int64_t off, uint32_t len ) noexcept
   {
     DWORD       nwrite;
     OVERLAPPED  reinfo;
@@ -565,25 +584,25 @@ namespace mtc
   }
 
   template <class error>
-  word32_t  FileStream<error>::Get( void* lpdata, word32_t cbdata ) noexcept
+  uint32_t  FileStream<error>::Get( void* lpdata, uint32_t cbdata ) noexcept
   {
     return ::read( handle, lpdata, cbdata );
   }
 
   template <class error>
-  word32_t  FileStream<error>::Put( const void* lpdata, word32_t cbdata ) noexcept
+  uint32_t  FileStream<error>::Put( const void* lpdata, uint32_t cbdata ) noexcept
   {
     return ::write( handle, lpdata, cbdata );
   }
 
   template <class error>
-  word32_t  FileStream<error>::PosGet( void* lpdata, int64_t offset, word32_t length ) noexcept
+  uint32_t  FileStream<error>::PGet( void* lpdata, int64_t offset, uint32_t length ) noexcept
   {
     return ::pread64( handle, lpdata, length, offset );
   }
 
   template <class error>
-  word32_t  FileStream<error>::PosPut( const void* pvdata, int64_t offset, word32_t length ) noexcept
+  uint32_t  FileStream<error>::PPut( const void* pvdata, int64_t offset, uint32_t length ) noexcept
   {
     return ::pwrite64( handle, pvdata, length, offset );
   }

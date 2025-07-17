@@ -62,36 +62,38 @@ namespace mtc
   //
   struct  IByteStream: public Iface
   {
-    virtual word32_t  Get(       void*, word32_t ) = 0;
-    virtual word32_t  Put( const void*, word32_t ) = 0;
+    virtual uint32_t  Get(       void*, uint32_t ) = 0;
+    virtual uint32_t  Put( const void*, uint32_t ) = 0;
   };
 
   struct  IFlatStream: public IByteStream
   {
-    virtual int       GetBuf( IByteBuffer**, int64_t, word32_t ) = 0;
-    virtual word32_t  PosGet(       void*,   int64_t, word32_t ) = 0;
-    virtual word32_t  PosPut( const void*,   int64_t, word32_t ) = 0;
-    virtual int64_t   Seek  ( int64_t                          ) = 0;
-    virtual int64_t   Size  (                                  ) = 0;
-    virtual int64_t   Tell  (                                  ) = 0;
+    virtual auto  PGet(                int64_t, uint32_t ) -> mtc::api<IByteBuffer> = 0;
+    virtual int   PGet( IByteBuffer**, int64_t, uint32_t ) = 0;
+    virtual auto  PGet(       void*,   int64_t, uint32_t ) -> uint32_t = 0;
+    virtual auto  PPut( const void*,   int64_t, uint32_t ) -> uint32_t = 0;
+    virtual auto  Seek( int64_t                          ) -> int64_t  = 0;
+    virtual auto  Size(                                  ) -> int64_t  = 0;
+    virtual auto  Tell(                                  ) -> int64_t  = 0;
+
   };
 
 }
 
 template <> inline
 auto  Serialize( mtc::IByteStream* s, const void* p, size_t l ) -> mtc::IByteStream*
-  {  return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
+  {  return s != nullptr && s->Put( p, static_cast<uint32_t>( l ) ) == l ? s : nullptr;  }
 
 template <> inline
 auto  FetchFrom( mtc::IByteStream* s, void* p, size_t l ) -> mtc::IByteStream*
-  {  return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
+  {  return s != nullptr && s->Get( p, static_cast<uint32_t>( l ) ) == l ? s : nullptr;  }
 
 template <> inline
 auto  Serialize( mtc::IFlatStream* s, const void* p, size_t l ) -> mtc::IFlatStream*
-  {  return s != nullptr && s->Put( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
+  {  return s != nullptr && s->Put( p, static_cast<uint32_t>( l ) ) == l ? s : nullptr;  }
 
 template <> inline
 auto  FetchFrom( mtc::IFlatStream* s, void* p, size_t l ) -> mtc::IFlatStream*
-  {  return s != nullptr && s->Get( p, static_cast<mtc::word32_t>( l ) ) == l ? s : nullptr;  }
+  {  return s != nullptr && s->Get( p, static_cast<uint32_t>( l ) ) == l ? s : nullptr;  }
 
 # endif  // __mtc_istream_h__
