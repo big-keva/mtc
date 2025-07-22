@@ -52,8 +52,9 @@ SOFTWARE.
 # if !defined( __mtc_bitset_h__ )
 # define __mtc_bitset_h__
 # include <vector>
-# include <limits>
 # include <type_traits>
+# include <cstddef>
+# include <climits>
 
 namespace mtc
 {
@@ -64,37 +65,37 @@ namespace mtc
   }
 
   template <class Vector>
-  inline  void  bitset_and( Vector& a, const Vector& b )
+  void  bitset_and( Vector& a, const Vector& b )
     {
-      for ( auto i = 0; i < a.size() && i < b.size(); ++i )
+      for ( size_t i = 0; i < a.size() && i < b.size(); ++i )
         a.at( i ) &= b.at( i );
       if ( b.size() < a.size() )
         bitset_impl::setlen( a, b.size() );
     }
 
   template <class Vector>
-  inline  void  bitset_not( Vector& a, const Vector& b )
+  void  bitset_not( Vector& a, const Vector& b )
     {
       for ( auto i = 0; i < a.size() && i < b.size(); ++i )
         a.at( i ) &= ~b.at( i );
     }
 
   template <class Vector>
-  inline  int   bitset_setmax( Vector& a, size_t m )
+  int   bitset_setmax( Vector& a, size_t m )
     {
       return bitset_impl::setlen( a, (m + sizeof(a.at( 0 )) * CHAR_BIT - 1) / (sizeof(a.at( 0 )) * CHAR_BIT) );
     }
 
   template <class bitset, class U>
-  inline  bool  bitset_get( const bitset& s, const range<U>& r )
+  bool  bitset_get( const bitset& s, const std::pair<U, U>& r )
     {
-      for ( auto u = r.l; u <= r.h; )
+      for ( auto u = r.first; u <= r.second; )
         if ( bitset_get( s, u++ ) ) return true;
       return false;
     }
 
   template <class Vector, class U>
-  inline  bool  bitset_get( const Vector& s, U b )
+  bool  bitset_get( const Vector& s, U b )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
@@ -103,16 +104,16 @@ namespace mtc
     }
 
   template <class bitset>
-  inline  bool  bitset_get( const bitset& s, const bitset& m )
+  bool  bitset_get( const bitset& s, const bitset& m )
     {
       int   f = bitset_first( m );
       int   l = bitset_last( m );
 
-      return f != -1 ? bitset_get( s, make_range( f, l ) ) : false;
+      return f != -1 ? bitset_get( s, std::make_pair( f, l ) ) : false;
     }
 
   template <class bitset>
-  inline  int   bitset_first( const bitset& s )
+  int   bitset_first( const bitset& s )
     {
       for ( auto p = s.begin(); p < s.end(); ++p )
         if ( *p != 0 )
@@ -129,7 +130,7 @@ namespace mtc
     }
 
   template <class bitset>
-  inline  int   bitset_last( const bitset& s )
+  int   bitset_last( const bitset& s )
     {
       for ( auto p = s.end(); p > s.begin(); --p )
         if ( p[-1] != 0 )
@@ -146,7 +147,7 @@ namespace mtc
     }
 
   template <class bitset>
-  inline  int   bitset_next( const bitset& s, int p )
+  int   bitset_next( const bitset& s, int p )
     {
       int   last = bitset_last( s );
 
@@ -158,11 +159,8 @@ namespace mtc
     }
 
   template <class U>
-  inline  U     bitsetbits( unsigned l, unsigned h )
+  U     bitsetbits( unsigned l, unsigned h )
     {
-      assert( l < sizeof(U) * CHAR_BIT );
-      assert( h < sizeof(U) * CHAR_BIT );
-
       U     bits = ((U)-1) & ~((1 << l) - 1);
       U     mask = ++h < sizeof(U) * CHAR_BIT ? (1 << h) - 1 : (U)-1;
 
@@ -170,13 +168,13 @@ namespace mtc
     }
 
   template <class Vector, class U>
-  inline  void  bitset_set( Vector& s, const range<U>& r )
+  void  bitset_set( Vector& s, const std::pair<U, U>& r )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       using             size_type = decltype(s.size());
       constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
-      auto              l = r.l;
-      auto              h = r.h;
+      auto              l = r.first;
+      auto              h = r.second;
 
       if ( l > h )
         inplace_swap( l, h );
@@ -198,10 +196,10 @@ namespace mtc
     }
 
   template <class Vector>
-  inline  void  bitset_set( Vector& s, int u )  {  return bitset_set( s, make_range( u ) );  }
+  void  bitset_set( Vector& s, int u )  {  return bitset_set( s, std::make_pair( u, u ) );  }
 
   template <class Vector, class U>
-  inline  int   bitset_del( Vector& s, const range<U>& r )
+  int   bitset_del( Vector& s, const std::pair<U, U>& r )
     {
       using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
       using             size_type = decltype(s.size());
@@ -229,7 +227,65 @@ namespace mtc
     }
 
   template <class bitset>
-  inline  int   bitset_del( bitset& s, int u )  {  return bitset_del( s, make_range( u ) );  }
+  int   bitset_del( bitset& s, int u )  {  return bitset_del( s, make_range( u ) );  }
+
+# if defined(GNUC) || defined(clang)
+#   define popcount32( n )  __builtin_popcount( (n) )
+#   define popcount64( n )  __builtin_popcountll(n)
+# elif defined(_MSC_VER)
+#   define popcount32( n )  static_cast<int>( __popcnt(n) )
+#   define popcount64( n )  static_cast<int>(__popcnt64(n));
+# else
+  inline  int   popcount32( uint32_t n )
+  {
+    n -= (n >> 1) & 0x55555555;
+    n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
+    return static_cast<int>(((n + (n >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+  }
+
+  inline  int   popcount64( uint64_t n )
+  {
+    n -= (n >> 1) & 0x5555555555555555ULL;
+    n = (n & 0x3333333333333333ULL) + ((n >> 2) & 0x3333333333333333ULL);
+    return static_cast<int>(((n + (n >> 4)) & 0x0F0F0F0F0F0F0F0FULL) * 0x0101010101010101ULL >> 56);
+  }
+# endif
+
+  template <class T>
+  int   popcount( T t ) noexcept
+  {
+    static_assert( std::is_integral<T>::value, "Integer type required" );
+
+    using U = std::make_unsigned_t<T>;
+    const U uval = static_cast<U>( t );
+
+    if constexpr ( sizeof(T) <= sizeof(uint32_t) )
+      return popcount32( uval );
+    else
+      return popcount64( static_cast<uint64_t>( uval ) );
+  }
+
+  template <class T, class A>
+  int   popcount( const std::vector<T, A>& v ) noexcept
+  {
+    int   pcount = 0;
+
+    for ( auto next: v )
+      pcount += popcount( next );
+
+    return pcount;
+  }
+
+  template <class T, size_t N>
+  int   popcount( T (&arr)[N] ) noexcept
+  {
+    int   pcount = 0;
+
+    for ( auto next: arr )
+      pcount += popcount( next );
+
+    return pcount;
+  }
 
 }
 
