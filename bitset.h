@@ -54,7 +54,9 @@ SOFTWARE.
 # include <vector>
 # include <type_traits>
 # include <cstddef>
+# include <cstdint>
 # include <climits>
+# include <algorithm>
 
 namespace mtc
 {
@@ -86,22 +88,39 @@ namespace mtc
       return bitset_impl::setlen( a, (m + sizeof(a.at( 0 )) * CHAR_BIT - 1) / (sizeof(a.at( 0 )) * CHAR_BIT) );
     }
 
-  template <class bitset, class U>
-  bool  bitset_get( const bitset& s, const std::pair<U, U>& r )
-    {
-      for ( auto u = r.first; u <= r.second; )
-        if ( bitset_get( s, u++ ) ) return true;
+  template <class U>
+  bool  bitset_get( U u, const std::pair<unsigned, unsigned>& r )
+  {
+    static_assert( std::is_integral<U>::value, "integer type required" );
+
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
+
+    auto  l = std::min( std::min( r.first, r.second ), element_size );
+    auto  h = std::min( std::max( r.first, r.second ), element_size );
+
+    if ( l >= element_size )
       return false;
-    }
 
-  template <class Vector, class U>
-  bool  bitset_get( const Vector& s, U b )
-    {
-      using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
-      constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
+    return (u & (((U(1) << h) | ((U(1) << h) - 1)) & ~((U(1) << l) - 1))) != 0;
+  }
 
-      return (b / element_size) < (size_t)s.size() && (s[b / element_size] & (1 << (b % element_size))) != 0;
-    }
+  template <class U, class A>
+  bool  bitset_get( const std::vector<U, A>& v, const std::pair<unsigned, unsigned>& r )
+  {
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
+
+    auto  l = std::min( std::min( r.first, r.second ), element_size );
+    auto  h = std::min( std::max( r.first, r.second ), element_size );
+
+    if ( l / element_size >= v.size() )
+      return false;
+
+    if ( h < ((l + element_size - 1) & ~(element_size - 1)) )
+      if ( bitset_get( v[l / element_size], { l % element_size, h % element_size } ) )
+        return false;
+
+    return (b / element_size) < (size_t)s.size() && (s[b / element_size] & (1 << (b % element_size))) != 0;
+  }
 
   template <class bitset>
   bool  bitset_get( const bitset& s, const bitset& m )
@@ -110,52 +129,6 @@ namespace mtc
       int   l = bitset_last( m );
 
       return f != -1 ? bitset_get( s, std::make_pair( f, l ) ) : false;
-    }
-
-  template <class bitset>
-  int   bitset_first( const bitset& s )
-    {
-      for ( auto p = s.begin(); p < s.end(); ++p )
-        if ( *p != 0 )
-        {
-          auto      uvalue = *p;
-          unsigned  nshift = 0;
-
-          while ( (uvalue & 0x01) == 0 )
-            {  uvalue >>= 1;  ++nshift;  }
-
-          return (unsigned)(nshift + sizeof(s.last()) * CHAR_BIT * (p - s.begin()));
-        }
-      return -1;
-    }
-
-  template <class bitset>
-  int   bitset_last( const bitset& s )
-    {
-      for ( auto p = s.end(); p > s.begin(); --p )
-        if ( p[-1] != 0 )
-        {
-          auto      uvalue = p[-1];
-          unsigned  nshift = sizeof(uvalue) * CHAR_BIT - 1;
-
-          while ( (uvalue & (1 << nshift)) == 0 )
-            --nshift;
-
-          return (unsigned)(nshift + sizeof(s.last()) * CHAR_BIT * (p - s.begin() - 1));
-        }
-      return -1;
-    }
-
-  template <class bitset>
-  int   bitset_next( const bitset& s, int p )
-    {
-      int   last = bitset_last( s );
-
-      if ( last == -1 || p >= last )
-        return -1;
-      do ++p;
-        while ( !bitset_get( s, p ) );
-      return p;
     }
 
   template <class U>
@@ -167,83 +140,140 @@ namespace mtc
       return bits & mask;
     }
 
-  template <class Vector, class U>
-  void  bitset_set( Vector& s, const std::pair<U, U>& r )
-    {
-      using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
-      using             size_type = decltype(s.size());
-      constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
-      auto              l = r.first;
-      auto              h = r.second;
+  template <class U>
+  void  bitset_set( U& u, const std::pair<unsigned, unsigned>& r )
+  {
+    static_assert( std::is_integral<U>::value, "integer type required" );
 
-      if ( l > h )
-        inplace_swap( l, h );
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
 
-      if ( s.size() <= size_type(h / element_size) )
-        bitset_impl::setlen( s, h / element_size + 1 );
+    auto  l = std::min( std::min( r.first, r.second ), unsigned(element_size) );
+    auto  h = std::min( std::max( r.first, r.second ), unsigned(element_size) );
 
-    // set lower bits
-      s.at( l / element_size ) |= bitsetbits<element_type>( (unsigned)(l % element_size),
-        (unsigned)min( h - (l / element_size) * element_size, element_size - 1 ) );
+    if ( element_size <= h )
+      throw std::invalid_argument( "bitset_set output overflow" );
 
-    // set sequence bits
-      for ( auto p = s.begin() + (l / element_size) + 1; p < s.begin() + (h / element_size); )
-        *p++ = (element_type)-1;
+    u |= ((U(1) << h) | ((U(1) << h) - 1)) & ~((U(1) << l) - 1);
+  }
 
-    // set upper bits
-      if ( h / element_size > l / element_size)
-        s[h / element_size] |= bitsetbits<element_type>( 0, h % element_size );
-    }
+  template <class U, class A>
+  void  bitset_set( std::vector<U, A>& v, const std::pair<unsigned, unsigned>& r )
+  {
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
 
-  template <class Vector>
-  void  bitset_set( Vector& s, int u )  {  return bitset_set( s, std::make_pair( u, u ) );  }
+    auto  l = std::min( r.first, r.second );
+    auto  h = std::max( r.first, r.second );
 
-  template <class Vector, class U>
-  int   bitset_del( Vector& s, const std::pair<U, U>& r )
-    {
-      using             element_type = typename std::remove_reference<decltype(s.at( 0 ))>::type;
-      using             size_type = decltype(s.size());
-      constexpr size_t  element_size = sizeof(element_type) * CHAR_BIT;
-      auto              l = r.l;
-      auto              h = r.h;
+    if ( v.size() <= size_t(h / element_size) )
+      v.resize( 1 + (h / element_size) );
 
-      if ( h >= l && s.size() > size_type(l / element_size) )
-      {
-        decltype(s.begin()) p;
+  // if only one U word, set bits and return
+    if ( h < ((l + element_size - 1) & ~(element_size - 1)) )
+      return bitset_set( v[l / element_size], { l % element_size, h % element_size } );
 
-      // del lower bits
-        s[l / element_size] &= ~bitsetbits<element_type>( (unsigned)(l % element_size),
-          (unsigned)min( h - (l / element_size) * element_size, element_size - 1 ) );
+  // set all the lower bits
+    bitset_set( v[l / element_size], { l % element_size, element_size - 1 } );
 
-      // set sequence bits
-        for ( p = s.begin() + (l / element_size) + 1; p < s.end() && p < s.begin() + (h / element_size); )
-          *p++ = (element_type)0;
+  // set sequence bits
+    for ( auto p = v.begin() + (l / element_size) + 1; p < v.begin() + (h / element_size); )
+      *p++ = U(-1);
 
-      // set upper bits
-        if ( p < s.end() && h / element_size > l / element_size )
-          *p &= ~bitsetbits<element_type>( 0, h % element_size );
-      }
-      return 0;
-    }
+  // set upper bits
+    bitset_set( v.at( h / element_size ), { 0, h % element_size } );
+  }
+
+  template <class U, size_t N>
+  void  bitset_set( U (&v)[N], const std::pair<unsigned, unsigned>& r )
+  {
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
+
+    auto  l = std::min( r.first, r.second );
+    auto  h = std::max( r.first, r.second );
+
+    if ( std::size(v) <= size_t(h / element_size) )
+      throw std::invalid_argument( "bitset_set output overflow" );
+
+  // if only one U word, set bits and return
+    if ( h < ((l + element_size - 1) & ~(element_size - 1)) )
+      return bitset_set( v[l / element_size], { l % element_size, h % element_size } );
+
+  // set all the lower bits
+    bitset_set( v[l / element_size], { l % element_size, element_size } );
+
+  // set sequence bits
+    for ( auto p = std::begin( v ) + (l / element_size) + 1; p < std::begin( v ) + (h / element_size); )
+      *p++ = U(-1);
+
+  // set upper bits
+    bitset_set( v[h / element_size], { 0, h % element_size } );
+  }
+
+  template <class T>
+  void  bitset_set( T& v, unsigned u )
+  {
+    return bitset_set( v, { u, u } );
+  }
+
+  template <class U>
+  void  bitset_del( U& u, const std::pair<unsigned, unsigned>& r )
+  {
+    static_assert( std::is_integral<U>::value, "integer type required" );
+
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
+
+    auto  l = std::min( std::min( r.first, r.second ), unsigned(element_size) );
+    auto  h = std::min( std::max( r.first, r.second ), unsigned(element_size) );
+
+    if ( l >= element_size )
+      return;
+
+    u &= ~(((1 << (h + 1)) - 1) & ~(l != 0 ? (1 << l) - 1 : 0));
+  }
+
+  template <class U, class A>
+  void  bitset_del( std::vector<U, A>& v, const std::pair<unsigned, unsigned>& r )
+  {
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
+
+    auto  l = std::min( r.first, r.second );
+    auto  h = std::max( r.first, r.second );
+
+    if ( v.size() < size_t(h / element_size) )
+      v.resize( h / element_size );
+
+    // if only one U word, del bits and return
+    if ( h < (l + element_size - 1) & ~(element_size - 1) )
+      return bitset_del( v[l / element_size], { l % element_size, h % element_size } );
+
+    // del all the lower bits
+    bitset_del( v[l / element_size], { l % element_size, element_size } );
+
+    // del sequence bits
+    for ( auto p = v.begin() + (l / element_size) + 1; p < v.begin() + (h / element_size); )
+      *p++ = U(0);
+
+    // del upper bits
+    bitset_del( v.at( h / element_size ), { 0, h % element_size } );
+  }
 
   template <class bitset>
-  int   bitset_del( bitset& s, int u )  {  return bitset_del( s, make_range( u ) );  }
+  int   bitset_del( bitset& s, int u )  {  return bitset_del( s, std::make_pair( u, u ) );  }
 
 # if defined(GNUC) || defined(clang)
-#   define popcount32( n )  __builtin_popcount( (n) )
-#   define popcount64( n )  __builtin_popcountll(n)
+#   define bitset_count32( n )  __builtin_popcount( (n) )
+#   define bitset_count64( n )  __builtin_popcountll(n)
 # elif defined(_MSC_VER)
-#   define popcount32( n )  static_cast<int>( __popcnt(n) )
-#   define popcount64( n )  static_cast<int>(__popcnt64(n));
+#   define bitset_count32( n )  static_cast<int>( __popcnt(n) )
+#   define bitset_count64( n )  static_cast<int>(__popcnt64(n));
 # else
-  inline  int   popcount32( uint32_t n )
+  inline  int   bitset_count32( uint32_t n )
   {
     n -= (n >> 1) & 0x55555555;
     n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
     return static_cast<int>(((n + (n >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
   }
 
-  inline  int   popcount64( uint64_t n )
+  inline  int   bitset_count64( uint64_t n )
   {
     n -= (n >> 1) & 0x5555555555555555ULL;
     n = (n & 0x3333333333333333ULL) + ((n >> 2) & 0x3333333333333333ULL);
@@ -252,39 +282,140 @@ namespace mtc
 # endif
 
   template <class T>
-  int   popcount( T t ) noexcept
+  int   bitset_count( T t ) noexcept
   {
     static_assert( std::is_integral<T>::value, "Integer type required" );
 
-    using U = std::make_unsigned_t<T>;
-    const U uval = static_cast<U>( t );
-
     if constexpr ( sizeof(T) <= sizeof(uint32_t) )
-      return popcount32( uval );
+      return bitset_count32( static_cast<std::make_unsigned_t<T>>( t ) );
     else
-      return popcount64( static_cast<uint64_t>( uval ) );
+      return bitset_count64( static_cast<uint64_t>( static_cast<std::make_unsigned_t<T>>( t ) ) );
   }
 
   template <class T, class A>
-  int   popcount( const std::vector<T, A>& v ) noexcept
+  int   bitset_count( const std::vector<T, A>& v ) noexcept
   {
     int   pcount = 0;
 
     for ( auto next: v )
-      pcount += popcount( next );
+      pcount += bitset_count( next );
 
     return pcount;
   }
 
   template <class T, size_t N>
-  int   popcount( T (&arr)[N] ) noexcept
+  int   bitset_count( T (&arr)[N] ) noexcept
   {
     int   pcount = 0;
 
     for ( auto next: arr )
-      pcount += popcount( next );
+      pcount += bitset_count( next );
 
     return pcount;
+  }
+
+  // bitset_empty family
+
+  template <class T>
+  bool  bitset_empty( T n ) noexcept
+  {
+    return n == 0;
+  }
+
+  template <class T, class A>
+  bool  bitset_empty( const std::vector<T, A>& v ) noexcept
+  {
+    for ( auto& next: v )
+      if ( next != 0 )
+        return false;
+    return true;
+  }
+
+  template <class T, size_t N>
+  bool  bitset_empty( T (&arr)[N] ) noexcept
+  {
+    for ( auto& next: arr )
+      if ( next != 0 )
+        return false;
+    return true;
+  }
+
+  // bitset_first family
+
+  template <class U>
+  int   bitset_first( U n ) noexcept
+  {
+    static_assert( std::is_integral<U>::value, "Integer type required" );
+
+    int   nshift = 0;
+
+    while ( (n & 0x01) == 0 && nshift < sizeof(U) * CHAR_BIT )
+      {  n >>= 1;  ++nshift;  }
+
+    return nshift < sizeof(U) * CHAR_BIT ? nshift : -1;
+  }
+
+  template <class U, class A>
+  int   bitset_first( const std::vector<U, A>& s )
+  {
+    for ( auto p = s.begin(); p < s.end(); ++p )
+      if ( *p != 0 )
+        return CHAR_BIT * (p - s.begin()) + bitset_first( *p );
+    return -1;
+  }
+
+  template <class U, size_t N>
+  int   bitset_first( U (&arr)[N] )
+  {
+    for ( auto p = std::begin( arr ); p != std::end( arr ); ++p )
+      if ( *p != 0 )
+        return CHAR_BIT * (p - std::begin( arr )) + bitset_first( *p );
+    return -1;
+  }
+
+  // bitset_last
+
+  template <class U>
+  int   bitset_last( U u )
+  {
+    int  nshift = sizeof(u) * CHAR_BIT - 1;
+
+    while ( nshift >= 0 && (u & (1 << nshift)) == 0 )
+      --nshift;
+
+    return nshift >= 0 ? nshift : -1;
+  }
+
+  template <class U, class A>
+  int   bitset_last( const std::vector<U, A>& s )
+  {
+    for ( auto p = s.end(); p > s.begin(); --p )
+      if ( p[-1] != 0 )
+        return CHAR_BIT(p - s.begin()) + bitset_last( *p );
+    return -1;
+  }
+
+  template <class U, size_t N>
+  int   bitset_last( const U (&arr)[N] )
+  {
+    for ( auto p = std::end( arr ); p > std::begin( arr ); --p )
+      if ( p[-1] != 0 )
+        return CHAR_BIT(p - std::begin( arr )) + bitset_last( *p );
+    return -1;
+  }
+
+  template <class T>
+  int   bitset_next( const T& s, int p )
+  {
+    int   last = bitset_last( s );
+
+    if ( last == -1 || p >= last )
+      return -1;
+
+    do ++p;
+      while ( !bitset_get( s, p ) );
+
+    return p;
   }
 
 }
