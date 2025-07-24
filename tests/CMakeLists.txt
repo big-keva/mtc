@@ -2,8 +2,8 @@ project(mtc-tests)
 
 cmake_minimum_required(VERSION 3.5)
 
-set(CMAKE_C_STANDARD 14)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
 
 link_libraries(mtc dl pthread)
 
@@ -13,7 +13,9 @@ add_library(mtc-test-sharedLibrary-lib SHARED
 add_compile_definitions(
 	CMAKE_BINARY_DIR=${PROJECT_BINARY_DIR})
 
-if(FALSE)
+if(TRUE)
+	add_executable(mtc-test-bitset
+		test-bitset.cpp test-main.cpp)
 	add_executable(mtc-test-buffer
 		test-buffer.cpp test-main.cpp)
 	add_executable(mtc-test-fileStream
@@ -45,6 +47,7 @@ if(FALSE)
 
 else()
 	add_executable(mtc-test test-main.cpp
+		test-bitset.cpp
 		test-buffer.cpp
         	test-fileStream.cpp
 		test-serialize.cpp
