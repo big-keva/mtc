@@ -88,6 +88,9 @@ namespace mtc
       return bitset_impl::setlen( a, (m + sizeof(a.at( 0 )) * CHAR_BIT - 1) / (sizeof(a.at( 0 )) * CHAR_BIT) );
     }
 
+ /*
+  * bitset_get() family
+  */
   template <class U>
   bool  bitset_get( U u, const std::pair<unsigned, unsigned>& r )
   {
@@ -95,8 +98,8 @@ namespace mtc
 
     enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
 
-    auto  l = std::min( std::min( r.first, r.second ), element_size );
-    auto  h = std::min( std::max( r.first, r.second ), element_size );
+    auto  l = std::min( std::min( r.first, r.second ), unsigned(element_size) );
+    auto  h = std::min( std::max( r.first, r.second ), unsigned(element_size - 1) );
 
     if ( l >= element_size )
       return false;
@@ -109,37 +112,56 @@ namespace mtc
   {
     enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
 
-    auto  l = std::min( std::min( r.first, r.second ), element_size );
-    auto  h = std::min( std::max( r.first, r.second ), element_size );
+    auto  lo = std::min( r.first, r.second );
+    auto  hi = std::min( std::max( r.first, r.second ), unsigned(v.size() * element_size - 1) );
+    auto  lr = lo % element_size;
+    auto  hr = hi % element_size;
 
-    if ( l / element_size >= v.size() )
+    if ( lo / element_size >= v.size() )
       return false;
 
-    if ( h < ((l + element_size - 1) & ~(element_size - 1)) )
-      if ( bitset_get( v[l / element_size], { l % element_size, h % element_size } ) )
-        return false;
+    if ( hi < ((lo + element_size - 1) & ~(element_size - 1)) )
+      return bitset_get( v[lo / element_size], { lr, hr < lr ? element_size - 1 : hr } );
 
-    return (b / element_size) < (size_t)s.size() && (s[b / element_size] & (1 << (b % element_size))) != 0;
+    for ( auto i = (lo / element_size) + 1; i < hi / element_size; ++i, lo = 0 )
+      if ( v[i] != 0 )
+        return true;
+
+    return bitset_get( v[hi / element_size], { 0, hr } );
   }
 
-  template <class bitset>
-  bool  bitset_get( const bitset& s, const bitset& m )
-    {
-      int   f = bitset_first( m );
-      int   l = bitset_last( m );
+  template <class U, size_t N>
+  bool  bitset_get( const U (&v)[N], const std::pair<unsigned, unsigned>& r )
+  {
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
 
-      return f != -1 ? bitset_get( s, std::make_pair( f, l ) ) : false;
-    }
+    auto  lo = std::min( r.first, r.second );
+    auto  hi = std::min( std::max( r.first, r.second ), unsigned(std::size( v ) * element_size - 1) );
+    auto  lr = lo % element_size;
+    auto  hr = hi % element_size;
 
-  template <class U>
-  U     bitsetbits( unsigned l, unsigned h )
-    {
-      U     bits = ((U)-1) & ~((1 << l) - 1);
-      U     mask = ++h < sizeof(U) * CHAR_BIT ? (1 << h) - 1 : (U)-1;
+    if ( lo / element_size >= std::size( v ) )
+      return false;
 
-      return bits & mask;
-    }
+    if ( hi < ((lo + element_size - 1) & ~(element_size - 1)) )
+      return bitset_get( v[lo / element_size], { lr, hr < lr ? element_size - 1 : hr } );
 
+    for ( auto i = (lo / element_size) + 1; i < hi / element_size; ++i, lo = 0 )
+      if ( v[i] != 0 )
+        return true;
+
+    return bitset_get( v[hi / element_size], { 0, hr } );
+  }
+
+  template <class B>
+  bool  bitset_get( const B& b, unsigned u )
+  {
+    return bitset_get( b, { u, u } );
+  }
+
+ /*
+  * bitset_set() family
+  */
   template <class U>
   void  bitset_set( U& u, const std::pair<unsigned, unsigned>& r )
   {
@@ -150,7 +172,7 @@ namespace mtc
     auto  l = std::min( std::min( r.first, r.second ), unsigned(element_size) );
     auto  h = std::min( std::max( r.first, r.second ), unsigned(element_size) );
 
-    if ( element_size <= h )
+    if ( h >= element_size )
       throw std::invalid_argument( "bitset_set output overflow" );
 
     u |= ((U(1) << h) | ((U(1) << h) - 1)) & ~((U(1) << l) - 1);
@@ -198,7 +220,7 @@ namespace mtc
       return bitset_set( v[l / element_size], { l % element_size, h % element_size } );
 
   // set all the lower bits
-    bitset_set( v[l / element_size], { l % element_size, element_size } );
+    bitset_set( v[l / element_size], { l % element_size, element_size - 1 } );
 
   // set sequence bits
     for ( auto p = std::begin( v ) + (l / element_size) + 1; p < std::begin( v ) + (h / element_size); )
@@ -214,6 +236,9 @@ namespace mtc
     return bitset_set( v, { u, u } );
   }
 
+ /*
+  * bitset_del() family
+  */
   template <class U>
   void  bitset_del( U& u, const std::pair<unsigned, unsigned>& r )
   {
@@ -227,7 +252,7 @@ namespace mtc
     if ( l >= element_size )
       return;
 
-    u &= ~(((1 << (h + 1)) - 1) & ~(l != 0 ? (1 << l) - 1 : 0));
+    u &= ~(((U(1) << h) | ((U(1) << h) - 1)) & ~((U(1) << l) - 1));
   }
 
   template <class U, class A>
@@ -235,29 +260,58 @@ namespace mtc
   {
     enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
 
-    auto  l = std::min( r.first, r.second );
-    auto  h = std::max( r.first, r.second );
+    auto  lo = std::min( r.first, r.second );
+    auto  hi = std::min( std::max( r.first, r.second ), unsigned(std::size( v ) * element_size - 1) );
 
-    if ( v.size() < size_t(h / element_size) )
-      v.resize( h / element_size );
+    if ( lo / element_size >= v.size() )
+      return;
 
-    // if only one U word, del bits and return
-    if ( h < (l + element_size - 1) & ~(element_size - 1) )
-      return bitset_del( v[l / element_size], { l % element_size, h % element_size } );
+  // if only one U word, del bits and return
+    if ( hi < ((lo + element_size - 1) & ~(element_size - 1)) )
+      return bitset_del( v[lo / element_size], { lo % element_size, hi % element_size } );
 
-    // del all the lower bits
-    bitset_del( v[l / element_size], { l % element_size, element_size } );
+  // del all the lower bits
+    bitset_del( v[lo / element_size], { lo % element_size, element_size - 1 } );
 
-    // del sequence bits
-    for ( auto p = v.begin() + (l / element_size) + 1; p < v.begin() + (h / element_size); )
+  // del sequence bits
+    for ( auto p = v.begin() + (lo / element_size) + 1; p < v.begin() + (hi / element_size); )
       *p++ = U(0);
 
-    // del upper bits
-    bitset_del( v.at( h / element_size ), { 0, h % element_size } );
+  // del upper bits
+    bitset_del( v.at( hi / element_size ), { 0, hi % element_size } );
+  }
+
+  template <class U, size_t N>
+  void  bitset_del( U (&v)[N], const std::pair<unsigned, unsigned>& r )
+  {
+    enum: unsigned { element_size = sizeof(U) * CHAR_BIT };
+
+    auto  lo = std::min( r.first, r.second );
+    auto  hi = std::min( std::max( r.first, r.second ), unsigned(std::size( v ) * element_size - 1) );
+
+    if ( lo / element_size >= std::size( v ) )
+      return;
+
+  // if only one U word, del bits and return
+    if ( hi < ((lo + element_size - 1) & ~(element_size - 1)) )
+      return bitset_del( v[lo / element_size], { lo % element_size, hi % element_size } );
+
+  // del all the lower bits
+    bitset_del( v[lo / element_size], { lo % element_size, element_size - 1 } );
+
+  // del sequence bits
+    for ( auto p = std::begin( v ) + (lo / element_size) + 1; p < std::begin( v ) + (hi / element_size); )
+      *p++ = U(0);
+
+  // del upper bits
+    bitset_del( v[hi / element_size], { 0, hi % element_size } );
   }
 
   template <class bitset>
-  int   bitset_del( bitset& s, int u )  {  return bitset_del( s, std::make_pair( u, u ) );  }
+  void  bitset_del( bitset& s, unsigned u )
+  {
+    return bitset_del( s, { u, u } );
+  }
 
 # if defined(GNUC) || defined(clang)
 #   define bitset_count32( n )  __builtin_popcount( (n) )
