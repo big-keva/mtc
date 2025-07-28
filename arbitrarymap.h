@@ -159,6 +159,7 @@ namespace mtc
     static  unsigned    KeyLen( const void* );
     static  const V&    GetVal( const void* );
     static  V&          GetVal(       void* );
+          void*         GetPtr( const void*, size_t );
 
   protected:  // helpers
     int     NewMap()
@@ -415,6 +416,22 @@ namespace mtc
     assert( pvn != nullptr );
 
     return ((keyrec*)pvn)->val;
+  }
+
+  template <class V, class A>
+  auto  arbitrarymap<V, A>::GetPtr( const void* k, size_t l ) -> void*
+  {
+    if ( pitems != nullptr )
+    {
+      unsigned  pos = gethash( (const unsigned char*)k, l ) % maplen;
+      auto      ptr = pitems[pos];
+
+      while ( ptr != nullptr && !isequal( ptr->key, ptr->len, k, l ) )
+        ptr = ptr->lpn;
+
+      return ptr;
+    }
+    return nullptr;
   }
 
 }
