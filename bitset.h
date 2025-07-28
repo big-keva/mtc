@@ -401,20 +401,15 @@ namespace mtc
   {
     static_assert( std::is_integral<U>::value, "Integer type required" );
 
-    int   nshift = 0;
-
-    while ( (n & 0x01) == 0 && nshift < sizeof(U) * CHAR_BIT )
-      {  n >>= 1;  ++nshift;  }
-
-    return nshift < sizeof(U) * CHAR_BIT ? nshift : -1;
+    return n & (1 + ~n);
   }
 
   template <class U, class A>
-  int   bitset_first( const std::vector<U, A>& s )
+  int   bitset_first( const std::vector<U, A>& v )
   {
-    for ( auto p = s.begin(); p < s.end(); ++p )
+    for ( auto p = std::begin( v ); p != std::end( v ); ++p )
       if ( *p != 0 )
-        return CHAR_BIT * (p - s.begin()) + bitset_first( *p );
+        return CHAR_BIT * (p - std::begin( v )) + bitset_first( *p );
     return -1;
   }
 
@@ -445,7 +440,7 @@ namespace mtc
   {
     for ( auto p = s.end(); p > s.begin(); --p )
       if ( p[-1] != 0 )
-        return CHAR_BIT(p - s.begin()) + bitset_last( *p );
+        return CHAR_BIT * (p - s.begin()) + bitset_last( *p );
     return -1;
   }
 
@@ -454,7 +449,7 @@ namespace mtc
   {
     for ( auto p = std::end( arr ); p > std::begin( arr ); --p )
       if ( p[-1] != 0 )
-        return CHAR_BIT(p - std::begin( arr )) + bitset_last( *p );
+        return CHAR_BIT * (p - std::begin( arr )) + bitset_last( *p );
     return -1;
   }
 
