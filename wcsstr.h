@@ -950,20 +950,45 @@ namespace mtc
     }
 
 // ltrim
-  inline  bool        isspace( char c )
+  inline  bool  isspace( char c )
   {
     return c != '\0' && (unsigned char)c <= 0x20;
   }
 
-  inline  const char* ltrim( const char* s )
+  inline  bool  isspace( unsigned char c )
   {
-    while ( *s != '\0' && isspace( (unsigned char)*s ) ) ++s;
+    return c != '\0' && c <= 0x20;
+  }
+
+  template <class chartype>
+  chartype* ltrim( chartype* s )
+  {
+    while ( *s != '\0' && isspace( *s ) )
+      ++s;
     return s;
   }
 
-  inline  char*       ltrim( char* s )
+  template <class chartype, class spantype>
+  chartype* ltrim( chartype* s, spantype* spn )
   {
-    while ( *s != '\0' && isspace( (unsigned char)*s ) ) ++s;
+    while ( *s != '\0' && (isspace( *s ) || strchr( spn, *s ) != nullptr) )
+      ++s;
+    return s;
+  }
+
+  template <class chartype>
+  chartype* rtrim( chartype* origin, chartype* s )
+  {
+    while ( s > origin && isspace( s[-1] ) )
+      --s;
+    return s;
+  }
+
+  template <class chartype, class spantype>
+  chartype* rtrim( chartype* origin, chartype* s, spantype* spn )
+  {
+    while ( s > origin && (isspace( s[-1] ) || strchr( spn, s[-1] ) != nullptr) )
+      --s;
     return s;
   }
 
