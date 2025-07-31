@@ -1,5 +1,6 @@
 # include "../zipStream.h"
 # include "../fileStream.h"
+# include "../exceptions.h"
 # include "../recursive_shared_mutex.hpp"
 # include <vector>
 # include <mutex>
