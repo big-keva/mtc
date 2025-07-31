@@ -14,6 +14,7 @@ add_library(mtc STATIC
   src/sharedLibrary.cpp
   src/byteBuffer.cpp
   src/fileStream.cpp
+  src/bufStream.cpp
   src/zipStream.cpp
   src/config.cpp
   src/zval.cpp

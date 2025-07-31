@@ -51,7 +51,6 @@ SOFTWARE.
 */
 # if !defined( __mtc_istream_h__ )
 # define __mtc_istream_h__
-# include "platform.h"
 # include "serialize.h"
 # include "iBuffer.h"
 

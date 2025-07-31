@@ -52,13 +52,9 @@ SOFTWARE.
 # if !defined( __mtc_fileStream_h__ )
 # define  __mtc_fileStream_h__
 # include "iStream.h"
-# include <stdexcept>
 
 namespace mtc
 {
-
-  class file_error: public std::runtime_error
-  {  using std::runtime_error::runtime_error;  };
 
   struct  IFileStream: public IFlatStream
   {
