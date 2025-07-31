@@ -20,6 +20,8 @@ if(TRUE)
 		test-buffer.cpp test-main.cpp)
 	add_executable(mtc-test-fileStream
         	test-fileStream.cpp test-main.cpp)
+	add_executable(mtc-test-bufStream
+        	test-bufStream.cpp test-main.cpp)
 	add_executable(mtc-test-serialize
 		test-serialize.cpp test-main.cpp)
 	add_executable(mtc-test-patricia
@@ -50,6 +52,7 @@ else()
 		test-bitset.cpp
 		test-buffer.cpp
         	test-fileStream.cpp
+		test-bufStream.cpp
 		test-serialize.cpp
 		test-patricia.cpp
 		test-radix-tree.cpp
