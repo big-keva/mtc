@@ -50,8 +50,10 @@ SOFTWARE.
 
 */
 # include "../fileStream.h"
+# include "../exceptions.h"
 # include "../wcsstr.h"
 # include "../utf.hpp"
+# include "miniBuffer.h"
 # include <stdlib.h>
 # include <string.h>
 # include <fcntl.h>
@@ -129,8 +131,6 @@ namespace mtc
   {
     implement_lifetime_control
 
-    class filebuffer;
-
     friend class FileMemmap<error>;
 
   protected:    // construction
@@ -179,43 +179,6 @@ namespace mtc
 # else
     int     handle;
 # endif   // _WIN32
-
-  };
-
-  template <class error>
-  class FileStream<error>::filebuffer final: public IByteBuffer
-  {
-    implement_lifetime_control
-
-    filebuffer( size_t l ): length( l ) {}
-
-  protected:     // construction
-    void  operator delete( void* p ) {  delete [] (char*)p;  }
-
-  public:     // overridables
-    const char* GetPtr() const noexcept override
-      {  return buffer;  }
-    size_t      GetLen() const noexcept override
-      {  return length;  }
-    int         SetBuf( const void*, size_t ) noexcept override
-      {  return EINVAL;  }
-    int           SetLen( size_t newlen ) noexcept override
-      {  return newlen > length ? EINVAL : (length = newlen), 0;  }
-
-  public:
-    static  auto  create( size_t length ) -> api<filebuffer>
-    {
-      try
-        {  return new ( new char[sizeof(filebuffer) + length - 1] ) filebuffer( length );  }
-      catch ( const std::bad_alloc& xp )
-        {  return error()( nullptr, xp );  }
-      catch ( ... )
-        {  return error()( nullptr, std::current_exception() );  }
-    }
-
-  protected:  // variables
-    size_t  length;
-    char    buffer[1];
 
   };
 
@@ -351,13 +314,13 @@ namespace mtc
   template <class error>
   api<IByteBuffer>  FileStream<error>::Load()
   {
-    api<filebuffer> buf;
-    int64_t         len = Size();
+    api<MiniBuffer<error>>  buf;
+    int64_t                 len = Size();
 
     if ( len > std::numeric_limits<int64_t>::max() )
       return nullptr;
 
-    if ( (buf = filebuffer::create( len )) == nullptr )
+    if ( (buf = MiniBuffer<error>::Create( len )) == nullptr )
       return nullptr;
 
     return PGet( (char*)buf->GetPtr(), 0, (uint32_t)len ) == len ? buf.ptr() : nullptr;
@@ -366,11 +329,11 @@ namespace mtc
   template <class error>
   auto  FileStream<error>::PGet( int64_t off, uint32_t len ) -> mtc::api<IByteBuffer>
   {
-    api<filebuffer> buffer;
-    uint32_t        cbread;
+    api<MiniBuffer<error>>  buffer;
+    uint32_t                cbread;
 
-    if ( (buffer = filebuffer::create( len )) == nullptr )
-      return error()( nullptr, std::bad_alloc() );
+    if ( (buffer = MiniBuffer<error>::Create( len )) == nullptr )
+      return nullptr;
 
     if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
     {
@@ -384,10 +347,13 @@ namespace mtc
   template <class error>
   int       FileStream<error>::PGet( IByteBuffer** ppi, int64_t off, uint32_t len )
   {
-    api<filebuffer> buffer;
-    uint32_t        cbread;
+    api<MiniBuffer<error>>  buffer;
+    uint32_t                cbread;
 
-    if ( (buffer = filebuffer::create( len )) == nullptr )
+    if ( ppi == nullptr )
+      return error()( EINVAL, std::invalid_argument( "invalid (null) outptr" ) );
+
+    if ( (buffer = MiniBuffer<error>::Create( len )) == nullptr )
       return ENOMEM;
 
     if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
