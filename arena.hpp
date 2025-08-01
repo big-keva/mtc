@@ -156,7 +156,15 @@ namespace mtc {
 
   public:
     T*    allocate( std::size_t n )
-      {  return (T*)memory->allocate( n * (sizeof(T) + alignof(T)), alignof(T) );  }
+      {
+        struct zero_align
+          {  enum: size_t {  size = sizeof(T) };  };
+        struct mass_align
+          {  enum: size_t {  size = (sizeof(T) + alignof(T) - 1) & ~(alignof(T) - 1) };  };
+        auto  nalign = std::conditional<alignof(T) != 0, mass_align, zero_align>::type::size;
+
+        return (T*)memory->allocate( n * nalign, alignof(T) );
+      }
     void  deallocate( T* p, std::size_t n )
       {  (void)p, (void)n;  }
 
@@ -190,7 +198,8 @@ namespace mtc {
   inline
   auto  Arena::block::Create( size_t at_least, size_t section ) -> block*
   {
-    size_t  ualloc = (std::max( at_least, section ) + 0x0fff) & ~0x0fff;
+    auto    minlen = std::max( at_least + sizeof(block), section );
+    size_t  ualloc = (minlen + 0x0fff) & ~0x0fff;
     auto    palloc = new char[ualloc];
 
     return new( palloc ) block( ualloc );
@@ -264,7 +273,7 @@ namespace mtc {
       {
         // if allocated, finish work
         if ( (newptr = pblock->allocate( size, align )) != nullptr )
-          return musage += ((size + align - 1) & ~(align - 1)), ++mcount, newptr;
+          return musage += size, ++mcount, newptr;
 
         // else block can not provide subblock, perhaps is filled; switch chain to
         // it's next subblock
@@ -276,7 +285,8 @@ namespace mtc {
       {
         assert( pblock == nullptr && (*pplast).load() == ptr::dirty( pblock ) );
 
-        ++nblock, *pplast = block::Create( size + align, lblock );
+        *pplast = block::Create( size + align, lblock ),
+          ++nblock;
       }
     }
   }
