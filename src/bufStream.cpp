@@ -82,12 +82,11 @@ SOFTWARE.
 #   pragma warning( disable: 4291 )
 # endif  // _MSC_VER
 
-# include <limits>
-#include <bits/codecvt.h>
+# include "../platform.h"
 
-#include "../platform.h"
-
-# define LineId( arg )  "" #arg
+# define __LN_STRING( arg )  #arg
+# define _LN__STRING( arg )  __LN_STRING( arg )
+# define LINE_STRING _LN__STRING(__LINE__)
 
 namespace mtc
 {
@@ -183,15 +182,15 @@ namespace mtc
 
     if ( refcount == 0 )
     {
-      if ( posix_decl( handle != -1 ) win32_decl( handle != INVALID_HANDLE_VALUE ) )
+      if ( posix_decl( handle != -1 )
+           win32_decl( handle != INVALID_HANDLE_VALUE ) )
       {
         if ( modify && ::pwrite64( handle, buforg, bufend - buforg, curpos ) < 0 )
-        {
-          error()( EFAULT, file_error( mtc::strprintf(
-            "could not flush file buffers for '%s' @" __FILE__ ":" LineId( __LINE__ ), szname ) ) );
-        }
+          error()( EFAULT, FormatError<file_error>( "error %d pwrite64 file '%s' @" __FILE__ ":" LINE_STRING,
+            errno, szname ) );
       }
       posix_decl( ::close( handle ) );
+      win32_decl( CloseHandle( handle ) );
       delete this;
     }
     return refcount;
@@ -208,8 +207,8 @@ namespace mtc
 
     if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
     {
-      return error()( nullptr, file_error( strprintf( "error reading file '%s' @" __FILE__ ":%u, error code %d",
-        szname, LineId( __LINE__ ), errno ) ) );
+      return error()( nullptr, FormatError<file_error>( "error %d reading file '%s' @" __FILE__ ":" LINE_STRING,
+        errno, szname ) );
     }
 
     return buffer->SetLen( cbread ), buffer.ptr();
@@ -442,7 +441,8 @@ namespace mtc
 
       // check if file is modified; flush current buffer
       if ( modify && ::pwrite64( handle, buforg, bufend - buforg, curpos ) < 0 )
-        return error()( -1, file_error( "error flushing data" ) );
+        return error()( -1, FormatError<file_error>( "error %d flushing data for '%s' @" __FILE__ ":" LINE_STRING,
+          errno, szname ) );
 
       // correct the internal file pointer
       curpos += bufend - buforg,
@@ -453,14 +453,16 @@ namespace mtc
       if ( outend - outptr > buflim - buforg )
       {
         if ( (cbcopy = ::pread64( handle, outptr, outend - outptr, curpos )) < 0 )
-          return error()( -1, file_error( "error reading file" ) );
+          return error()( -1, FormatError<file_error>( "error %d flushing data for '%s' @" __FILE__ ":" LINE_STRING,
+            errno, szname ) );
         curpos += cbcopy;
           return cbcopy;
       }
 
       // read subbuffer
       if ( (cbcopy = ::pread64( handle, buforg, buflim - buforg, curpos )) < 0 )
-        return error()( -1, file_error( "error reading file" ) );
+        return error()( -1, FormatError<file_error>( "error %d reading file '%s' @" __FILE__ ":" LINE_STRING,
+          errno, szname ) );
       if ( cbcopy == 0 )
         break;
       bufend = buforg + cbcopy;
@@ -471,45 +473,51 @@ namespace mtc
   template <class error>
   uint32_t  BufStream<error>::Put( const void* lpdata, uint32_t cbdata ) noexcept
   {
-    auto  srcorg = static_cast<const char*>( lpdata );
-    auto  srcptr( srcorg );
-    auto  srcend( srcorg + cbdata );
+    auto  srcptr( static_cast<const char*>( lpdata ) );
+    auto  srcend( srcptr + cbdata );
 
     while ( srcptr < srcend )
     {
       ssize_t cbcopy = std::min( buflim - bufptr, srcend - srcptr );
 
-      // copy to existing buffer space
+    // copy to existing buffer space
       if ( cbcopy != 0 )
-        for ( modify = true; cbcopy-- > 0; )
-          *bufptr++ = *srcptr++;
+      {
+        memcpy( bufptr, srcptr, cbcopy );
+          bufptr += cbcopy;
+          srcptr += cbcopy;
+          modify = true;
+        bufend = std::max( bufend, bufptr );
+      }
 
-      // check buffer end
-      bufend = std::max( bufend, bufptr );
-
-      // check if finished
+    // check if finished filling the buffer, continue if not
       if ( bufptr != buflim )
         continue;
 
-      // flush current buffer
-      // check if file is modified; flush current buffer
-      if ( modify && ::pwrite64( handle, buforg, buflim - buforg, curpos ) < 0 )
-        return error()( -1, file_error( "error flushing data" ) );
-
-      curpos += buflim - buforg,
-        modify = false;
+    // flush current buffer
+    // check if file is modified; flush current buffer
+      if ( modify )
+      {
+        if ( ::pwrite64( handle, buforg, bufend - buforg, curpos ) < 0 )
+          return error()( -1, FormatError<file_error>( "error %d wrining file '%s' @" __FILE__ ":" LINE_STRING,
+            errno, szname ) );
+        curpos += bufend - buforg;
+          modify = false;
+      }
 
       // check if much to write
       if ( srcend - srcptr >= buflim - buforg )
       {
         if ( (cbcopy = ::pwrite64( handle, srcptr, srcend - srcptr, curpos )) < 0 )
-          return error()( -1, file_error( "error flushing data" ) );
+          return error()( -1, FormatError<file_error>( "error %d wrining file '%s' @" __FILE__ ":" LINE_STRING,
+            errno, szname ) );
         curpos += cbcopy;
+        srcptr += cbcopy;
       }
 
       bufptr = bufend = buforg;
     }
-    return srcptr - srcorg;
+    return srcptr - static_cast<const char*>( lpdata );
   }
 
   template <class error>
@@ -532,13 +540,13 @@ namespace mtc
 
     if ( modify && ::pwrite64( handle, buforg, bufend - buforg, curpos ) < 0 )
     {
-      return error()( -1, file_error( mtc::strprintf(
-        "could not flush file buffers for '%s' @" __FILE__ ":" LineId( __LINE__ ), szname ) ) );
+      return error()( -1, FormatError<file_error>( "error %d pwrite64 file '%s' buffers @" __FILE__ ":" LINE_STRING,
+        errno, szname ) );
     }
     if ( (curpos = ::lseek64( handle, offset, SEEK_SET )) < 0 )
     {
-      return error()( -1, file_error( mtc::strprintf(
-        "could not lseek64 for '%s' @" __FILE__ ":" LineId( __LINE__ ), szname ) ) );
+      return error()( -1, FormatError<file_error>( "error %d lseek64 file '%s' @" __FILE__ ":" LINE_STRING,
+        errno, szname ) );
     }
     bufptr = bufend = buforg;
     return curpos;
