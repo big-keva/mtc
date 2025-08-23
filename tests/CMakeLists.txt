@@ -38,6 +38,8 @@ if(TRUE)
 		test-sharedMutex.cpp test-main.cpp)
 	add_executable(mtc-test-sharedLibrary
 		test-sharedLibrary.cpp test-main.cpp)
+	add_executable(mtc-test-threadPool
+		test-threadPool.cpp test-main.cpp)
 
 	add_dependencies(mtc-test-sharedLibrary
 		mtc-test-sharedLibrary-lib)
@@ -60,7 +62,8 @@ else()
         	test-zmap.cpp
         	test-wcsstr.cpp
 		test-sharedMutex.cpp
-		test-sharedLibrary.cpp)
+		test-sharedLibrary.cpp
+		test-threadPool.cpp)
 
 	add_test(NAME mtc-test COMMAND mtc-test)
 endif()

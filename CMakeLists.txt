@@ -12,6 +12,7 @@ add_compile_options(-mfpmath=sse -fstack-protector-all -g -W -Wall -Wextra -Wcas
 
 add_library(mtc STATIC
   src/sharedLibrary.cpp
+  src/threadPool.cpp
   src/byteBuffer.cpp
   src/fileStream.cpp
   src/bufStream.cpp
