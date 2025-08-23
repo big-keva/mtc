@@ -114,8 +114,8 @@ void  TestUniqueLockOverSharedLockBlocksSharedLocks()
 
   sh.lock();
 
-  fprintf( stderr, "#1\tgot shared_lock in %d ms...\n", std::chrono::duration_cast<std::chrono::milliseconds>(
-    std::chrono::steady_clock::now() - tstart ).count() );
+  fprintf( stderr, "#1\tgot shared_lock in %d ms...\n", int(std::chrono::duration_cast<std::chrono::milliseconds>(
+    std::chrono::steady_clock::now() - tstart ).count()) );
 
   th.join();
 }
