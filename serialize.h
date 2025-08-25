@@ -314,25 +314,25 @@ template <>  inline  size_t GetBufLen( const uint16_t& i )  {  return mtc::integ
 template <>  inline  size_t GetBufLen( const uint32_t& i )  {  return mtc::integers::len( i );  }
 template <>  inline  size_t GetBufLen( const uint64_t& i )  {  return mtc::integers::len( i );  }
 
-template <class O>  inline  O*  Serialize( O* o, const char& c )          {  return Serialize( o, &c, sizeof(c) );  }
-template <class O>  inline  O*  Serialize( O* o, const unsigned char& c ) {  return Serialize( o, &c, sizeof(c) );  }
-template <class O>  inline  O*  Serialize( O* o, const float&  f )        {  return Serialize( o, &f, sizeof(f) );  }
-template <class O>  inline  O*  Serialize( O* o, const double& d )        {  return Serialize( o, &d, sizeof(d) );  }
-template <class O>  inline  O*  Serialize( O* o, const bool& b )          {  return Serialize( o, (char)(b ? 1 : 0) );  }
+template <class O>  O*  Serialize( O* o, const char& c )          {  return Serialize( o, &c, sizeof(c) );  }
+template <class O>  O*  Serialize( O* o, const unsigned char& c ) {  return Serialize( o, &c, sizeof(c) );  }
+template <class O>  O*  Serialize( O* o, const float&  f )        {  return Serialize( o, &f, sizeof(f) );  }
+template <class O>  O*  Serialize( O* o, const double& d )        {  return Serialize( o, &d, sizeof(d) );  }
+template <class O>  O*  Serialize( O* o, const bool& b )          {  return Serialize( o, (char)(b ? 1 : 0) );  }
 
-template <class O>  inline  O*  Serialize( O* o, const int16_t& i )   {  return mtc::integers::put( o, i );  }
-template <class O>  inline  O*  Serialize( O* o, const int32_t& i )   {  return mtc::integers::put( o, i );  }
-template <class O>  inline  O*  Serialize( O* o, const int64_t& i )   {  return mtc::integers::put( o, i );  }
+template <class O>  O*  Serialize( O* o, const int16_t& i )   {  return mtc::integers::put( o, i );  }
+template <class O>  O*  Serialize( O* o, const int32_t& i )   {  return mtc::integers::put( o, i );  }
+template <class O>  O*  Serialize( O* o, const int64_t& i )   {  return mtc::integers::put( o, i );  }
 
-template <class O>  inline  O*  Serialize( O* o, const uint16_t& i )  {  return mtc::integers::put( o, i );  }
-template <class O>  inline  O*  Serialize( O* o, const uint32_t& i )  {  return mtc::integers::put( o, i );  }
-template <class O>  inline  O*  Serialize( O* o, const uint64_t& i )  {  return mtc::integers::put( o, i );  }
+template <class O>  O*  Serialize( O* o, const uint16_t& i )  {  return mtc::integers::put( o, i );  }
+template <class O>  O*  Serialize( O* o, const uint32_t& i )  {  return mtc::integers::put( o, i );  }
+template <class O>  O*  Serialize( O* o, const uint64_t& i )  {  return mtc::integers::put( o, i );  }
 
-template <class S>  inline  S*  FetchFrom( S* s, char& c )          {  return FetchFrom( s, &c, sizeof(c) );  }
-template <class S>  inline  S*  FetchFrom( S* s, unsigned char& c ) {  return FetchFrom( s, &c, sizeof(c) );  }
-template <class S>  inline  S*  FetchFrom( S* s, float&  f )        {  return FetchFrom( s, &f, sizeof(f) );  }
-template <class S>  inline  S*  FetchFrom( S* s, double& d )        {  return FetchFrom( s, &d, sizeof(d) );  }
-template <class S>  inline  S*  FetchFrom( S* s, bool& b )
+template <class S>  S*  FetchFrom( S* s, char& c )          {  return FetchFrom( s, &c, sizeof(c) );  }
+template <class S>  S*  FetchFrom( S* s, unsigned char& c ) {  return FetchFrom( s, &c, sizeof(c) );  }
+template <class S>  S*  FetchFrom( S* s, float&  f )        {  return FetchFrom( s, &f, sizeof(f) );  }
+template <class S>  S*  FetchFrom( S* s, double& d )        {  return FetchFrom( s, &d, sizeof(d) );  }
+template <class S>  S*  FetchFrom( S* s, bool& b )
 {
   char  c;
 
