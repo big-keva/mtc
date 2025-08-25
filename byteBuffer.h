@@ -61,11 +61,11 @@ namespace mtc
   int   CreateByteBuffer( IByteBuffer**, const void*, uint32_t );
 
 // exception throw/non-throw
-  api<IByteBuffer>  CreateByteBuffer( const enable_exceptions_t& = enable_exceptions_t() );
+  api<IByteBuffer>  CreateByteBuffer( const enable_exceptions_t& = {} );
   api<IByteBuffer>  CreateByteBuffer( const disable_exceptions_t& );
-  api<IByteBuffer>  CreateByteBuffer( uint32_t cch, const enable_exceptions_t& = enable_exceptions_t() );
+  api<IByteBuffer>  CreateByteBuffer( uint32_t cch, const enable_exceptions_t& = {} );
   api<IByteBuffer>  CreateByteBuffer( uint32_t cch, const disable_exceptions_t& );
-  api<IByteBuffer>  CreateByteBuffer( const void*, uint32_t, const enable_exceptions_t& = enable_exceptions_t() );
+  api<IByteBuffer>  CreateByteBuffer( const void*, uint32_t, const enable_exceptions_t& = {} );
   api<IByteBuffer>  CreateByteBuffer( const void*, uint32_t, const disable_exceptions_t& );
 
 }
