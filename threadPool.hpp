@@ -20,6 +20,9 @@ namespace mtc {
     ThreadPool() = default;
     ThreadPool( const ThreadPool& ) = default;
 
+    auto  SetQueueSize( size_t size ) -> ThreadPool&;
+    auto  SetThreadLimit( size_t size ) -> ThreadPool&;
+
     template <class _Rep, class _Period>
     bool  Insert( std::function<void()>, const std::chrono::duration<_Rep, _Period>& timeout );
     bool  Insert( std::function<void()>, unsigned timeout = unsigned(-1) );

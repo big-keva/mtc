@@ -28,6 +28,22 @@ namespace mtc {
 
   };
 
+  auto  ThreadPool::SetQueueSize( size_t size ) -> ThreadPool&
+  {
+    if ( pool == nullptr )
+      pool = std::make_shared<impl>();
+    pool->maxQueueLen = size;
+      return *this;
+  }
+
+  auto  ThreadPool::SetThreadLimit( size_t limit ) -> ThreadPool&
+  {
+    if ( pool == nullptr )
+      pool = std::make_shared<impl>();
+    pool->threadLimit = limit;
+      return *this;
+  }
+
   bool  ThreadPool::Insert( std::function<void()> fn, unsigned tm  )
   {
     if ( pool == nullptr )
@@ -96,7 +112,7 @@ namespace mtc {
       syncronizer.wait_for( waitMutex, waitLimit, [this]()
         {  return !canContinue || actionQueue.size() != 0;  } );
 
-      if ( canContinue )
+      if ( canContinue && !actionQueue.empty() )
       {
         auto  action = actionQueue.front();
 
