@@ -110,7 +110,8 @@ namespace radix {
     template <class X, class Y>
     friend class tree;
 
-    using string_type = std::basic_string<uint8_t, std::char_traits<uint8_t>, A>;
+    template <class O>
+    using string_type = std::basic_string<uint8_t, std::char_traits<uint8_t>, O>;
     using vector_type = std::vector<tree<T, A>, A>;
 
     template <class From, class To>
@@ -137,7 +138,7 @@ namespace radix {
         {  return (T*)(place = rebind<M, T>( alloc ).allocate( 1 ));  }
     };
 
-    template <class V>
+    template <class V, class Other = A>
     class iterator_base;
 
   public:
@@ -146,8 +147,8 @@ namespace radix {
     using allocator_type = typename std::allocator_traits<A>::template rebind_alloc<char>;
     using value_type = std::pair<const key, T>;
 
-    using iterator = iterator_base<T>;
-    using const_iterator = iterator_base<const T>;
+    template <class O = A>  using iterator = iterator_base<T, O>;
+    template <class O = A>  using const_iterator = iterator_base<const T, O>;
 
   public:     // std::constructors
     tree() = default;
@@ -195,12 +196,25 @@ namespace radix {
     auto  operator []( const key& ) -> T&;
 
   public:     // std::iterators
-    auto  cbegin() const -> const_iterator;
-    auto  cend() const -> const_iterator;
-    auto  begin() const -> const_iterator;
-    auto  end() const -> const_iterator;
-    auto  begin() -> iterator;
-    auto  end() -> iterator;
+  template <class O>
+    auto  cbegin( O ) const -> const_iterator<O>;
+  template <class O>
+    auto  cend( O ) const -> const_iterator<O>;
+  template <class O>
+    auto  begin( O ) const -> const_iterator<O>;
+  template <class O>
+    auto  end( O ) const -> const_iterator<O>;
+  template <class O>
+    auto  begin( O ) -> iterator<O>;
+  template <class O>
+    auto  end( O ) -> iterator<O>;
+
+    auto  cbegin() const -> const_iterator<A>;
+    auto  cend() const -> const_iterator<A>;
+    auto  begin() const -> const_iterator<A>;
+    auto  end() const -> const_iterator<A>;
+    auto  begin() -> iterator<A>;
+    auto  end() -> iterator<A>;
 
   public:     // std::capacity
     bool  empty() const {  return vector_type::empty() && !has_value();  }
@@ -212,34 +226,44 @@ namespace radix {
     bool  remove( const uint8_t*, const uint8_t* );
     template <class S> static
     auto  search( S*, const uint8_t*, const uint8_t* ) -> S*;
-    template <class S> static
-    auto  search( S*, const uint8_t*, const uint8_t*, std::vector<S*, A>& ) -> S*;
-    template <class S> static
-    auto  lbound( S*, const uint8_t*, const uint8_t*, string_type&, std::vector<S*, A>& ) -> S*;
-    template <class S> static
-    auto  ubound( S*, const uint8_t*, const uint8_t*, string_type&, std::vector<S*, A>& ) -> S*;
+    template <class S, class O> static
+    auto  search( S*, const uint8_t*, const uint8_t*, std::vector<S*, O>& ) -> S*;
+    template <class S, class O> static
+    auto  lbound( S*, const uint8_t*, const uint8_t*, string_type<O>&, std::vector<S*, O>& ) -> S*;
+    template <class S, class O> static
+    auto  ubound( S*, const uint8_t*, const uint8_t*, string_type<O>&, std::vector<S*, O>& ) -> S*;
 
   public:     // insert operations
     void  clear();
-    auto  insert( const value_type& ) -> std::pair<iterator, bool>;
-    auto  insert( value_type&& ) -> std::pair<iterator, bool>;
+    auto  insert( const value_type& ) -> std::pair<iterator<>, bool>;
+    auto  insert( value_type&& ) -> std::pair<iterator<A>, bool>;
     template <class InputIterator>
     void  insert( InputIterator, InputIterator );
     void  insert( const std::initializer_list<value_type>& );
-    auto  erase( iterator pos ) -> iterator;
-    auto  erase( const_iterator ) -> iterator;
-    auto  erase( iterator first, iterator last ) -> iterator;
-    auto  erase( const_iterator first, const_iterator last ) -> iterator;
+    auto  erase( iterator<> pos ) -> iterator<>;
+    auto  erase( const_iterator<> ) -> iterator<>;
+    auto  erase( iterator<> first, iterator<> last ) -> iterator<>;
+    auto  erase( const_iterator<> first, const_iterator<> last ) -> iterator<>;
     auto  erase( const key& ) -> size_type;
 
   public:
-    auto  find( const key& ) const -> const_iterator;
-    auto  find( const key& ) -> iterator;
+    auto  find( const key& ) const -> const_iterator<>;
+    auto  find( const key& ) -> iterator<>;
     bool  contains( const key& ) const;
-    auto  lower_bound( const key& ) const -> const_iterator;
-    auto  lower_bound( const key& ) -> iterator;
-    auto  upper_bound( const key& ) const -> const_iterator;
-    auto  upper_bound( const key& ) -> iterator;
+
+  template <class O>
+    auto  lower_bound( const key&, O ) const -> const_iterator<O>;
+  template <class O>
+    auto  upper_bound( const key&, O ) const -> const_iterator<O>;
+  template <class O>
+    auto  lower_bound( const key&, O ) -> iterator<O>;
+  template <class O>
+    auto  upper_bound( const key&, O ) -> iterator<O>;
+
+    auto  lower_bound( const key& ) const -> const_iterator<A>;
+    auto  upper_bound( const key& ) const -> const_iterator<A>;
+    auto  lower_bound( const key& ) -> iterator<A>;
+    auto  upper_bound( const key& ) -> iterator<A>;
 
   protected:
     void  del_value();
@@ -248,14 +272,14 @@ namespace radix {
     bool  has_value() const {  return (nodeSets & 0x0100) != 0;  }
     auto  set_value( const T& ) -> T&;
     auto  set_value( T&& ) -> T&;
-    template <class N> static
-    auto  move_down( N*, string_type&, std::vector<N*, A>& ) -> N*;
+    template <class N, class O> static
+    auto  move_down( N*, string_type<O>&, std::vector<N*, O>& ) -> N*;
 
   protected:
-    string_type fragment;
-    void*       valueBuf = nullptr;
-    size_t      valCount = 0;
-    uint16_t    nodeSets = 0;   // lower 8 bits are the key character, upper mean value
+    string_type<A>  fragment;
+    void*           valueBuf = nullptr;
+    size_t          valCount = 0;
+    uint16_t        nodeSets = 0;   // lower 8 bits are the key character, upper mean value
 
   private:
     using create = typename std::conditional<sizeof(T) <= sizeof(valueBuf),
@@ -264,15 +288,15 @@ namespace radix {
   };
 
   template <class T, class A>
-  template <class V>
+  template <class V, class O>
   class tree<T, A>::iterator_base
   {
     friend class tree;
 
     using tree_t = same_const_as_t<V, tree>;
-    using trace_t = std::vector<tree_t*, A>;
+    using trace_t = std::vector<tree_t*, O>;
 
-    string_type           itkey;
+    string_type<O>        itkey;
     trace_t               trace;
 
   public:
@@ -289,7 +313,7 @@ namespace radix {
       alignof(iterator_value)>::type value;
 
   public:
-    iterator_base( const A& = A() );
+    iterator_base( const O& = O() );
     iterator_base( iterator_base&& );
     iterator_base( const iterator_base& );
 
@@ -298,11 +322,12 @@ namespace radix {
 
   protected:
     iterator_base( tree_t& );
+    iterator_base( tree_t&, const O& );
     iterator_base( const key&, trace_t&& );
 
   public:
     template <class M>
-    bool  operator == ( const iterator_base<M>& ) const;
+    bool  operator == ( const iterator_base<V, M>& ) const;
     bool  operator != ( const iterator_base& it ) const {  return !(*this == it);  }
     auto  operator-> () const -> const iterator_value*;
     auto  operator* () const -> const iterator_value&;
@@ -777,11 +802,11 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class S>
+  template <class S, class O>
   auto  tree<T, A>::search( S* ptr,
     const uint8_t*      key,
     const uint8_t*      end,
-    std::vector<S*, A>& vec ) -> S*
+    std::vector<S*, O>& vec ) -> S*
   {
     while ( ptr != nullptr )
     {
@@ -815,12 +840,12 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class S>
+  template <class S, class O>
   auto  tree<T, A>::lbound( S* ptr,
     const uint8_t*       key,
     const uint8_t*       end,
-    string_type&         str,
-    std::vector<S*, A>&  vec ) -> S*
+    string_type<O>&      str,
+    std::vector<S*, O>&  vec ) -> S*
   {
     auto  ptrtop = ptr->fragment.data();
     auto  ptrend = ptr->fragment.size() + ptrtop;
@@ -835,8 +860,8 @@ namespace radix {
   // than the key searched for
     if ( ptrtop == ptrend && key != end )
     {
-      auto  it_beg = ((vector_type*)ptr)->data();
-      auto  it_end = ((vector_type*)ptr)->size() + it_beg;
+      auto  it_beg = &ptr->front();
+      auto  it_end = &ptr->back() + 1;
 
       while ( it_beg != it_end && it_beg->fragment.front() < *key )
         ++it_beg;
@@ -920,15 +945,15 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class N>
-  auto  tree<T, A>::move_down( N* n, string_type& s, std::vector<N*, A>& v ) -> N*
+  template <class N, class O>
+  auto  tree<T, A>::move_down( N* n, string_type<O>& s, std::vector<N*, O>& v ) -> N*
   {
     for ( ; ; )
     {
       v.push_back( n );
       s += n->fragment;
 
-      if ( !n->has_value() ) n = &((vector_type*)n)->front();
+      if ( !n->has_value() ) n = &(n)->front();
         else break;
     }
 
@@ -938,13 +963,13 @@ namespace radix {
 // tree::iterator_base implementation
 
   template <class T, class A>
-  template <class V>
-  tree<T, A>::iterator_base<V>::iterator_base( const A& a ):
+  template <class V, class O>
+  tree<T, A>::iterator_base<V, O>::iterator_base( const O& a ):
     itkey( a ), trace( a )  {}
 
   template <class T, class A>
-  template <class V>
-  tree<T, A>::iterator_base<V>::iterator_base( iterator_base&& it ):
+  template <class V, class O>
+  tree<T, A>::iterator_base<V, O>::iterator_base( iterator_base&& it ):
     itkey( std::move( it.itkey ) ),
     trace( std::move( it.trace ) )
   {
@@ -953,8 +978,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  tree<T, A>::iterator_base<V>::iterator_base( const iterator_base& it ):
+  template <class V, class O>
+  tree<T, A>::iterator_base<V, O>::iterator_base( const iterator_base& it ):
     itkey( it.itkey ),
     trace( it.trace )
   {
@@ -963,8 +988,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  auto  tree<T, A>::iterator_base<V>::operator=( iterator_base&& it ) -> iterator_base&
+  template <class V, class O>
+  auto  tree<T, A>::iterator_base<V, O>::operator=( iterator_base&& it ) -> iterator_base&
   {
     itkey = std::move( it.itkey );
     trace = std::move( it.trace );
@@ -976,8 +1001,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  auto  tree<T, A>::iterator_base<V>::operator=( const iterator_base& it ) -> iterator_base&
+  template <class V, class O>
+  auto  tree<T, A>::iterator_base<V, O>::operator=( const iterator_base& it ) -> iterator_base&
   {
     itkey = it.itkey;
     trace = it.trace;
@@ -988,8 +1013,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  tree<T, A>::iterator_base<V>::iterator_base( tree_t& node ):
+  template <class V, class O>
+  tree<T, A>::iterator_base<V, O>::iterator_base( tree_t& node ):
     itkey( node.get_allocator() ),
     trace( node.get_allocator() )
   {
@@ -999,8 +1024,19 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  tree<T, A>::iterator_base<V>::iterator_base( const key& str, trace_t&& vec ):
+  template <class V, class O>
+  tree<T, A>::iterator_base<V, O>::iterator_base( tree_t& node, const O& o ):
+    itkey( o ),
+    trace( o )
+  {
+    if ( move_down( &node, itkey, trace ) )
+      new( &value ) iterator_value{ itkey, trace.back()->get_value() };
+    else throw std::logic_error( "uninitialized iterator" );
+  }
+
+  template <class T, class A>
+  template <class V, class O>
+  tree<T, A>::iterator_base<V, O>::iterator_base( const key& str, trace_t&& vec ):
     itkey( str.data(), str.size(), vec.get_allocator() ),
     trace( std::move( vec ) )
   {
@@ -1010,9 +1046,9 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
+  template <class V, class O>
   template <class M>
-  bool  tree<T, A>::iterator_base<V>::operator == ( const iterator_base<M>& it ) const
+  bool  tree<T, A>::iterator_base<V, O>::operator == ( const iterator_base<V, M>& it ) const
   {
     if ( trace.size() == it.trace.size() )
     {
@@ -1027,8 +1063,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  auto  tree<T, A>::iterator_base<V>::operator->() const -> const iterator_value*
+  template <class V, class O>
+  auto  tree<T, A>::iterator_base<V, O>::operator->() const -> const iterator_value*
   {
     if ( !trace.empty() && trace.back()->has_value() )
       return (const iterator_value*)&value;
@@ -1036,8 +1072,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  auto  tree<T, A>::iterator_base<V>::operator*() const -> const iterator_value&
+  template <class V, class O>
+  auto  tree<T, A>::iterator_base<V, O>::operator*() const -> const iterator_value&
   {
     if ( !trace.empty() && trace.back()->has_value() )
       return *(const iterator_value*)&value;
@@ -1045,8 +1081,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  auto  tree<T, A>::iterator_base<V>::operator++() -> iterator_base&
+  template <class V, class O>
+  auto  tree<T, A>::iterator_base<V, O>::operator++() -> iterator_base&
   {
     if ( trace.empty() )
       throw std::range_error( "iterator_base<V>::operator++() out of range" );
@@ -1100,8 +1136,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  template <class V>
-  auto  tree<T, A>::iterator_base<V>::operator++( int ) -> iterator_base
+  template <class V, class O>
+  auto  tree<T, A>::iterator_base<V, O>::operator++( int ) -> iterator_base
   {
     auto  self( *this );
       operator++();
@@ -1343,29 +1379,53 @@ namespace radix {
       insert( key.begin(), key.end() )->set_value( T() );
   }
 
-  template <class T, class A>
-  auto tree<T, A>::cbegin() const -> const_iterator
-    {  return this->empty() ? cend() : const_iterator( *this );  }
+  template <class T, class A>template <class O>
+  auto tree<T, A>::cbegin( O o ) const -> const_iterator<O>
+    {  return this->empty() ? cend( o ) : const_iterator<O>( *this, o );  }
+
+  template <class T, class A> template <class O>
+  auto tree<T, A>::cend( O o ) const -> const_iterator<O>
+    {  return const_iterator<O>( o );  }
+
+  template <class T, class A> template <class O>
+  auto tree<T, A>::begin( O o ) const -> const_iterator<O>
+    {  return this->empty() ? end() : const_iterator<O>( *this, o );  }
+
+  template <class T, class A> template <class O>
+  auto tree<T, A>::end( O o ) const -> const_iterator<O>
+    {  return const_iterator<O>( o );  }
+
+  template <class T, class A> template <class O>
+  auto tree<T, A>::begin( O o ) -> iterator<O>
+    {  return this->empty() ? end() : iterator<O>( *this );  }
+
+  template <class T, class A> template <class O>
+  auto tree<T, A>::end( O o ) -> iterator<O>
+    {  return iterator<O>( o );  }
 
   template <class T, class A>
-  auto tree<T, A>::cend() const -> const_iterator
-    {  return const_iterator( vector_type::get_allocator() );  }
+  auto tree<T, A>::cbegin() const -> const_iterator<A>
+    {  return this->empty() ? cend() : const_iterator<A>( *this );  }
 
   template <class T, class A>
-  auto tree<T, A>::begin() const -> const_iterator
-    {  return this->empty() ? end() : const_iterator( *this );  }
+  auto tree<T, A>::cend() const -> const_iterator<A>
+    {  return const_iterator<A>( vector_type::get_allocator() );  }
 
   template <class T, class A>
-  auto tree<T, A>::end() const -> const_iterator
-    {  return const_iterator( vector_type::get_allocator() );  }
+  auto tree<T, A>::begin() const -> const_iterator<A>
+    {  return this->empty() ? end() : const_iterator<A>( *this );  }
 
   template <class T, class A>
-  auto tree<T, A>::begin() -> iterator
-    {  return this->empty() ? end() : iterator( *this );  }
+  auto tree<T, A>::end() const -> const_iterator<A>
+    {  return const_iterator<A>( vector_type::get_allocator() );  }
 
   template <class T, class A>
-  auto tree<T, A>::end() -> iterator
-    {  return iterator( vector_type::get_allocator() );  }
+  auto tree<T, A>::begin() -> iterator<A>
+    {  return this->empty() ? end() : iterator<A>( *this );  }
+
+  template <class T, class A>
+  auto tree<T, A>::end() -> iterator<A>
+    {  return iterator<A>( vector_type::get_allocator() );  }
 
   template <class T, class A>
   void tree<T, A>::clear()
@@ -1376,19 +1436,19 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto  tree<T, A>::insert( const value_type& ins ) -> std::pair<iterator, bool>
+  auto  tree<T, A>::insert( const value_type& ins ) -> std::pair<iterator<>, bool>
   {
     auto  vec = std::vector<tree*, A>( vector_type::get_allocator() );
     auto  ptr = insert( ins.first.begin(), ins.first.end(), vec );
 
     if ( ptr->has_value() )
-      return { iterator( ins.first, std::move( vec ) ), false };
+      return { iterator<>( ins.first, std::move( vec ) ), false };
     ptr->set_value( ins.second );
-      return { iterator( ins.first, std::move( vec ) ), true };
+      return { iterator<>( ins.first, std::move( vec ) ), true };
   }
 
   template <class T, class A>
-  auto  tree<T, A>::insert( value_type&& mv ) -> std::pair<iterator, bool>
+  auto  tree<T, A>::insert( value_type&& mv ) -> std::pair<iterator<>, bool>
   {
     auto  vec = std::vector<tree*, A>( vector_type::get_allocator() );
     auto  ptr = insert( mv.first.begin(), mv.first.end(), vec );
@@ -1411,7 +1471,7 @@ namespace radix {
   void  tree<T, A>::insert( const std::initializer_list<value_type>& list )  {  insert( list.begin(), list.end() );  }
 
   template <class T, class A>
-  auto  tree<T, A>::erase( iterator pos ) -> iterator
+  auto  tree<T, A>::erase( iterator<> pos ) -> iterator<>
   {
     auto  key = pos->key.data();
     auto  end = pos->key.data() + pos->key.size();
@@ -1420,7 +1480,7 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto  tree<T, A>::erase( const_iterator pos ) -> iterator
+  auto  tree<T, A>::erase( const_iterator<> pos ) -> iterator<>
   {
     auto  key = pos->key.data();
     auto  end = pos->key.data() + pos->key.size();
@@ -1429,7 +1489,7 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto  tree<T, A>::erase( iterator first, iterator last ) -> iterator
+  auto  tree<T, A>::erase( iterator<> first, iterator<> last ) -> iterator<>
   {
     auto  key = last->key;
 
@@ -1439,7 +1499,7 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto  tree<T, A>::erase( const_iterator first, const_iterator last ) -> iterator
+  auto  tree<T, A>::erase( const_iterator<> first, const_iterator<> last ) -> iterator<>
   {
     auto  key = last->key;
 
@@ -1455,23 +1515,23 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto  tree<T, A>::find( const key& key ) const -> const_iterator
+  auto  tree<T, A>::find( const key& key ) const -> const_iterator<>
   {
     auto  atrace = std::vector<const tree*, A>( vector_type::get_allocator() );
     auto  pfound = search( this, key.begin(), key.end(), atrace );
 
     return pfound != nullptr && pfound->has_value() ?
-      const_iterator( key, std::move( atrace ) ) : const_iterator();
+      const_iterator<>( key, std::move( atrace ) ) : const_iterator<>();
   }
 
   template <class T, class A>
-  auto  tree<T, A>::find( const key& key ) -> iterator
+  auto  tree<T, A>::find( const key& key ) -> iterator<>
   {
     auto  atrace = std::vector<tree*, A>( vector_type::get_allocator() );
     auto  pfound = search( this, key.begin(), key.end(), atrace );
 
     return pfound != nullptr && pfound->has_value() ?
-      iterator( key, std::move( atrace ) ) : iterator();
+      iterator<>( key, std::move( atrace ) ) : iterator<>();
   }
 
   template <class T, class A>
@@ -1483,25 +1543,36 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto tree<T, A>::lower_bound( const key& key ) const -> const_iterator
+  auto  tree<T, A>::lower_bound( const key& key ) const -> const_iterator<A>
   {
-    auto  keystr = string_type();
-    auto  atrace = std::vector<const tree*>();
+    auto  keystr = string_type<A>( vector_type::get_allocator() );
+    auto  atrace = std::vector<const tree*, A>( vector_type::get_allocator() );
     auto  pfound = lbound( this, key.begin(), key.end(), keystr, atrace );
 
     return pfound != nullptr && pfound->has_value() ?
-      const_iterator( std::move( keystr ), std::move( atrace ) ) : const_iterator();
+      const_iterator<A>( std::move( keystr ), std::move( atrace ) ) : const_iterator<A>();
+  }
+
+  template <class T, class A> template <class O>
+  auto  tree<T, A>::lower_bound( const key& key, O o ) const -> const_iterator<O>
+  {
+    auto  keystr = string_type<O>( o );
+    auto  atrace = std::vector<const tree*, O>( o );
+    auto  pfound = lbound( this, key.begin(), key.end(), keystr, atrace );
+
+    return pfound != nullptr && pfound->has_value() ?
+      const_iterator<O>( std::move( keystr ), std::move( atrace ) ) : const_iterator<O>();
   }
 
   template <class T, class A>
-  auto tree<T, A>::lower_bound( const key& key ) -> iterator
+  auto tree<T, A>::lower_bound( const key& key ) -> iterator<>
   {
-    auto  keystr = string_type( vector_type::get_allocator() );
+    auto  keystr = string_type<A>( vector_type::get_allocator() );
     auto  atrace = std::vector<tree*, A>( vector_type::get_allocator() );
     auto  pfound = lbound( this, key.begin(), key.end(), keystr, atrace );
 
     return pfound != nullptr && pfound->has_value() ?
-      iterator( std::move( keystr ), std::move( atrace ) ) : iterator( vector_type::get_allocator() );
+      iterator<>( std::move( keystr ), std::move( atrace ) ) : iterator<>( vector_type::get_allocator() );
   }
 /*
   template <class T, class A>
