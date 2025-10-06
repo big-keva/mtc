@@ -326,9 +326,10 @@ namespace radix {
     iterator_base( const key&, trace_t&& );
 
   public:
-    template <class M>
+  template <class M>
     bool  operator == ( const iterator_base<V, M>& ) const;
-    bool  operator != ( const iterator_base& it ) const {  return !(*this == it);  }
+  template <class M>
+    bool  operator != ( const iterator_base<V, M>& it ) const {  return !(*this == it);  }
     auto  operator-> () const -> const iterator_value*;
     auto  operator* () const -> const iterator_value&;
     auto  operator++() -> iterator_base&;
@@ -1454,9 +1455,9 @@ namespace radix {
     auto  ptr = insert( mv.first.begin(), mv.first.end(), vec );
 
     if ( ptr->has_value() )
-      return { iterator( mv.first, std::move( vec ) ), false };
+      return { iterator<>( mv.first, std::move( vec ) ), false };
     ptr->set_value( std::move( mv.second ) );
-      return { iterator( mv.first, std::move( vec ) ), true };
+      return { iterator<>( mv.first, std::move( vec ) ), true };
   }
 
   template <class T, class A>
