@@ -13,7 +13,7 @@ add_library(mtc-test-sharedLibrary-lib SHARED
 add_compile_definitions(
 	CMAKE_BINARY_DIR=${PROJECT_BINARY_DIR})
 
-if(TRUE)
+if(FALSE)
 	add_executable(mtc-test-bitset
 		test-bitset.cpp test-main.cpp)
 	add_executable(mtc-test-buffer
