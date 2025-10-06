@@ -1,4 +1,5 @@
 # include "../fileStream.h"
+# include "../exceptions.h"
 # include "../utf.hpp"
 # include "../test-it-easy.hpp"
 # include <cstdio>
