@@ -1996,8 +1996,11 @@ namespace radix {
       if ( trace.back().has_value() )
         return true;
 
-      getint( tree += kcount, cbJump, 1 + (bflags & 0x03) );
-      tree += kcount * (1 + (bflags & 0x03)) + cbJump;
+      if ( kcount != 0 )
+      {
+        getint( tree += kcount, cbJump, 1 + (bflags & 0x03) );
+          tree += kcount * (1 + (bflags & 0x03)) + cbJump;
+      } else break;
     }
     return false;
   }
@@ -2057,7 +2060,7 @@ namespace radix {
     {
       if ( godown( dump, itkey, trace ) )
         new( &value ) iterator_value{ itkey, trace.back().get_value() };
-      else throw std::logic_error( "uninitialized iterator" );
+      else {  itkey.clear();  trace.clear();  }
     }
   }
 
@@ -2068,7 +2071,7 @@ namespace radix {
   {
     if ( !trace.empty() && trace.back().has_value() )
       new( &value ) iterator_value{ itkey, trace.back().get_value() };
-    else throw std::logic_error( "uninitialized iterator" );
+    else {  itkey.clear();  trace.clear();  }
   }
 
   inline

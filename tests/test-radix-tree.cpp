@@ -556,12 +556,31 @@ TestItEasy::RegisterFunc  testRadixTree( []()
     }
     SECTION( "dump is searchable" )
     {
-      REQUIRE( mtc::radix::dump<const char>( buff.data() ).Search( "andrey" ) != nullptr );
-      REQUIRE( mtc::radix::dump<const char>( buff.data() ).Search( "igor" ) != nullptr );
-      REQUIRE( mtc::radix::dump<const char>( buff.data() ).Search( "michael" ) == nullptr );
+      SECTION( "- empty dump searches return nullptr/end()" )
+      {
+        char  dummy[] = { 0, 0, 0 };
+
+        REQUIRE( mtc::radix::dump<const char>( dummy ).Search( "andrey" ) == nullptr );
+        REQUIRE( mtc::radix::dump<const char>( dummy ).Search( "" ) == nullptr );
+        REQUIRE( mtc::radix::dump<const char>( dummy ).find( "" ) == mtc::radix::dump<const char>( dummy ).end() );
+      }
+      SECTION( "- keys are found" )
+      {
+        REQUIRE( mtc::radix::dump<const char>( buff.data() ).Search( "andrey" ) != nullptr );
+        REQUIRE( mtc::radix::dump<const char>( buff.data() ).Search( "igor" ) != nullptr );
+        REQUIRE( mtc::radix::dump<const char>( buff.data() ).Search( "michael" ) == nullptr );
+      }
     }
     SECTION( "radix::dump has const_iterator" )
     {
+      SECTION( "- empty dump produces 'end()' iterator" )
+      {
+        char  dummy[] = { 0, 0, 0 };
+
+        REQUIRE(
+          mtc::radix::dump<const char>( dummy ).begin() ==
+          mtc::radix::dump<const char>( dummy ).end() );
+      }
       SECTION( "- const_iterator may be created" )
       {
         REQUIRE_NOTHROW( dump.begin() );
