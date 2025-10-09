@@ -1920,7 +1920,7 @@ namespace radix {
       auto  top = ptr;
 
       // check partial match
-      while ( top != ptr + cchstr && key != end && *key == *top )
+      while ( top != ptr + cchstr && key != end && *key == uint8_t(*top) )
         ++top, ++key;
 
       // if node key is not completely covered, it is lower bound, or it's
