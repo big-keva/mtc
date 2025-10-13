@@ -45,10 +45,14 @@ TestItEasy::RegisterFunc  testBitset( []()
       {
         REQUIRE_NOTHROW( bitset_set( bs_1, { 62, 64 } ) );
         REQUIRE_NOTHROW( bitset_set( bs_1, { 127, 192 } ) );
-          REQUIRE_NOTHROW( bs_1[0] == 0xc000000000000000ULL );
-          REQUIRE_NOTHROW( bs_1[1] == 0x8000000000000001ULL );
-          REQUIRE_NOTHROW( bs_1[2] == 0xffffffffffffffffULL );
-          REQUIRE_NOTHROW( bs_1[3] == 0x0000000000000001ULL );
+
+        if ( REQUIRE( bs_1.size() == 4 ) )
+        {
+          REQUIRE( bs_1[0] == 0xc000000000000000ULL );
+          REQUIRE( bs_1[1] == 0x8000000000000001ULL );
+          REQUIRE( bs_1[2] == 0xffffffffffffffffULL );
+          REQUIRE( bs_1[3] == 0x0000000000000001ULL );
+        }
       }
       SECTION( "*_get" )
       {
@@ -82,10 +86,12 @@ TestItEasy::RegisterFunc  testBitset( []()
       {
         REQUIRE_NOTHROW( bitset_set( bs_1, { 62, 64 } ) );
         REQUIRE_NOTHROW( bitset_set( bs_1, { 127, 192 } ) );
-          REQUIRE_NOTHROW( bs_1[0] == 0xc000000000000000ULL );
-          REQUIRE_NOTHROW( bs_1[1] == 0x8000000000000001ULL );
-          REQUIRE_NOTHROW( bs_1[2] == 0xffffffffffffffffULL );
-          REQUIRE_NOTHROW( bs_1[3] == 0x0000000000000001ULL );
+
+        REQUIRE( bs_1[0] == 0xc000000000000000ULL );
+        REQUIRE( bs_1[1] == 0x8000000000000001ULL );
+        REQUIRE( bs_1[2] == 0xffffffffffffffffULL );
+        REQUIRE( bs_1[3] == 0x0000000000000001ULL );
+
         REQUIRE_EXCEPTION( bitset_set( bs_1, 1024 ), std::invalid_argument );
       }
       SECTION( "*_get" )

@@ -43,7 +43,7 @@ TestItEasy::RegisterFunc  testRadixTree( []()
             { "bbb", "ccc" },
             { "ccc", "ddd" } };
 
-          REQUIRE( tree.size() == 3 );
+          REQUIRE( tree.size() == 3U );
         }
         SECTION( "* with custom allocator" )
         {
@@ -52,7 +52,7 @@ TestItEasy::RegisterFunc  testRadixTree( []()
             { "bbb", "ccc" },
             { "ccc", "ddd" } }, arena.get_allocator<int>() );
 
-          REQUIRE( tree.size() == 3 );
+          REQUIRE( tree.size() == 3U );
         }
       }
       SECTION( "- with iterator convertable to value_type" )
@@ -63,7 +63,7 @@ TestItEasy::RegisterFunc  testRadixTree( []()
           { "sequence", 3 } };
         auto  tree = radix::tree<int>{ data.begin(), data.end() };
 
-        REQUIRE( tree.size() == 3 );
+        REQUIRE( tree.size() == 3U );
         if ( REQUIRE( tree.Search( "the" ) != nullptr ) )
           REQUIRE( *tree.Search( "the" ) == 1 );
         if ( REQUIRE( tree.Search( "key" ) != nullptr ) )
@@ -551,7 +551,7 @@ TestItEasy::RegisterFunc  testRadixTree( []()
         { "veselina", 15 } };
 
       REQUIRE_NOTHROW( buff.resize( ::GetBufLen( tree ) ) );
-      REQUIRE_NOTHROW( tree.Serialize( buff.data() ) == buff.size() + buff.data() );
+      REQUIRE( tree.Serialize( buff.data() ) == buff.size() + buff.data() );
       REQUIRE_NOTHROW( dump = buff.data() );
     }
     SECTION( "dump is searchable" )
@@ -633,7 +633,7 @@ TestItEasy::RegisterFunc  testRadixTree( []()
       {
         auto  it = dump.begin();
 
-        if ( REQUIRE( it != dump.end() ) && REQUIRE_NOTHROW( FetchInt( it->second ) == 55 ) )
+        if ( REQUIRE( it != dump.end() ) && REQUIRE_NOTHROW( FetchInt( it->second ) ) )
           REQUIRE( FetchInt( it->value ) == 55 );
       }
     }

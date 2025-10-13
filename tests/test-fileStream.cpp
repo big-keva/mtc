@@ -3,7 +3,42 @@
 # include "../utf.hpp"
 # include "../test-it-easy.hpp"
 # include <cstdio>
-# include <unistd.h>
+# if defined( _WIN32 ) || defined( _WIN64 )
+#   include <fileapi.h>
+# else
+#   include <unistd.h>
+# endif   // _WIN32 || _WIN64
+
+namespace {
+
+  auto  GetTempFile() -> std::pair<int, std::string>
+  {
+    char  existing_name[1024];
+
+# if defined( _WIN32 ) || defined( _WIN64 )
+    char  template_path[1024];
+
+    GetTempPath( sizeof(template_path), template_path );
+
+    if ( GetTempFileName( template_path, "mtc-test-file", 0, existing_name ) )
+      return { ::open( existing_name, O_RDWR, 0666 ), existing_name };
+    else
+      return { -1, "" };
+# else
+    auto  template_path = "/tmp/mtc-test-fileXXXXX";
+
+    return { mkstemp( strcpy( existing_name, template_path ) ), existing_name };
+# endif
+  }
+
+  auto  GetTempName() -> std::string
+  {
+    auto  temp = GetTempFile();
+
+    return temp.first >= 0 ? ::close( temp.first ), temp.second : "";
+  }
+
+}
 
 TestItEasy::RegisterFunc  testFileStream( []()
 {
@@ -26,14 +61,12 @@ TestItEasy::RegisterFunc  testFileStream( []()
 
         SECTION( "existing file returns object interface" )
         {
-          const char  existing_file_name[] = "/tmp/new-existing-file";
-
-          fclose( fopen( existing_file_name, "wb" ) );
+          auto  existing_file_name = GetTempName();
 
           REQUIRE_NOTHROW( mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::disable_exceptions ) );
                   REQUIRE( mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::disable_exceptions ) != nullptr );
 
-          remove( existing_file_name );
+          remove( existing_file_name.c_str() );
         }
       }
 
@@ -45,62 +78,67 @@ TestItEasy::RegisterFunc  testFileStream( []()
         }
         SECTION( "opening existing file returns object interface" )
         {
-          fclose( fopen( "/tmp/mtc-existing-file", "wb" ) );
+          auto  existing_file_name = GetTempName();
 
-          REQUIRE_NOTHROW( mtc::OpenFileStream( "/tmp/mtc-existing-file", O_RDONLY, mtc::enable_exceptions ) );
-                  REQUIRE( mtc::OpenFileStream( "/tmp/mtc-existing-file", O_RDONLY, mtc::enable_exceptions ) != nullptr );
+          REQUIRE_NOTHROW( mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::enable_exceptions ) );
+                  REQUIRE( mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::enable_exceptions ) != nullptr );
 
-          remove( "/tmp/mtc-existing-file" );
+          remove( existing_file_name.c_str() );
         }
       }
     }
 
     SECTION( "fileStream created on existing file may be MemMap()'ed" )
     {
-      const char  existing_file[] = "/tmp/mtc-existing-file-for-memmap";
+      auto  existing_file_name = GetTempName();
 
       {
-        auto  lpfile = fopen( existing_file, "wb" );
+        auto  lpfile = fopen( existing_file_name.c_str(), "wb" );
           REQUIRE( lpfile != nullptr );
-        fwrite( existing_file, 1, strlen( existing_file ), lpfile );
+        fwrite( existing_file_name.c_str(), 1, existing_file_name.length(), lpfile );
           fclose( lpfile );
       }
       auto  stream = mtc::api<mtc::IFileStream>();
       auto  memmap = mtc::api<mtc::IByteBuffer>();
 
-      REQUIRE_NOTHROW( stream = mtc::OpenFileStream( existing_file, O_RDONLY, mtc::enable_exceptions ) );
-              REQUIRE( stream != nullptr );
+      REQUIRE_NOTHROW( stream = mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::enable_exceptions ) );
+      if ( REQUIRE( stream != nullptr ) )
+      {
+        if ( REQUIRE_NOTHROW( memmap = stream->MemMap( 0, existing_file_name.length() ) )
+          && REQUIRE( memmap != nullptr ) )
+             REQUIRE( memcmp( memmap->GetPtr(), existing_file_name.c_str(), existing_file_name.length() ) == 0 );
+      }
 
-      REQUIRE_NOTHROW( memmap = stream->MemMap( 0, strlen( existing_file ) ) );
-              REQUIRE( memmap != nullptr );
-
-      remove( existing_file );
+      remove( existing_file_name.c_str() );
     }
 
     SECTION( "Long files may be MemMap()'ed" )
     {
-      const char  existing_file[] = "/tmp/mtc-existing-file-for-memmap64";
+      auto  existing_file = GetTempName();
 
       {
-        auto  fd = ::open( existing_file, O_CREAT + O_RDWR, 0666 );
+        auto  fd = ::open( existing_file.c_str(), O_CREAT + O_RDWR, 0666 );
           REQUIRE( fd != -1 );
-        REQUIRE( ::lseek( fd, (uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 1, SEEK_SET ) == (int64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 1 );
+        REQUIRE( ::lseek64( fd, (uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 1, SEEK_SET ) == (int64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 1 );
         REQUIRE( ::write( fd, "a", 1 ) == 1 );
         ::close( fd );
       }
       auto  stream = mtc::api<mtc::IFileStream>();
       auto  memmap = mtc::api<mtc::IByteBuffer>();
 
-      REQUIRE_NOTHROW( stream = mtc::OpenFileStream( existing_file, O_RDONLY, mtc::enable_exceptions ) );
-              REQUIRE( stream != nullptr );
+      if ( REQUIRE_NOTHROW( stream = mtc::OpenFileStream( existing_file, O_RDONLY, mtc::enable_exceptions ) )
+        && REQUIRE( stream != nullptr ) )
+      {
+        if ( REQUIRE_NOTHROW( memmap = stream->MemMap( 10, (mtc::word32_t)-1 ) )
+          && REQUIRE( memmap != nullptr ) )
+        {
+          REQUIRE( memmap->GetLen() == (uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 10 );
+          REQUIRE( memmap->GetPtr() != nullptr );
+          REQUIRE( memmap->GetPtr()[(uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 11] == 'a' );
+        }
+      }
 
-      REQUIRE_NOTHROW( memmap = stream->MemMap( 10, (mtc::word32_t)-1 ) );
-              REQUIRE( memmap != nullptr );
-              REQUIRE( memmap->GetLen() >= (uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 1 );
-              REQUIRE( memmap->GetPtr() != nullptr );
-              REQUIRE( memmap->GetPtr()[(uint64_t)4 * 1024 * 1024 * 1024 - 55 * 1024 - 11] == 'a' );
-
-      remove( existing_file );
+      remove( existing_file.c_str() );
     }
   }
   TEST_CASE( "mtc/fileBuffer" )
@@ -123,10 +161,10 @@ TestItEasy::RegisterFunc  testFileStream( []()
       }
       SECTION( "loading of existing file returns byte buffer" )
       {
-        auto  tmps = "/tmp/mtc-test-buffer-temporary-filr";
+        auto  tmps = GetTempName();
 
         {
-          auto  file = fopen( tmps, "wb" );
+          auto  file = fopen( tmps.c_str(), "wb" );
             fwrite( "test string", 11, 1, file );
           fclose( file );
         }
@@ -142,7 +180,7 @@ TestItEasy::RegisterFunc  testFileStream( []()
             REQUIRE( LoadFileBuffer( mtc::utf::decode( tmps ), mtc::enable_exceptions ) != nullptr );
         }
 
-        remove( tmps );
+        remove( tmps.c_str() );
       }
     }
   }

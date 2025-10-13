@@ -1,7 +1,6 @@
 # include "../sharedLibrary.hpp"
 # include "../test-it-easy.hpp"
 # include <cstdio>
-# include <dlfcn.h>
 
 # define __Q__(x) #x
 # define QUOTE(x) __Q__(x)
@@ -29,11 +28,12 @@ TestItEasy::RegisterFunc  testSharedLibrary( []()
         }
       }
 
-      auto  libpath = QUOTE(CMAKE_BINARY_DIR) "/libmtc-test-sharedLibrary-lib.so";
+      auto  libpath = QUOTE(CMAKE_BINARY_DIR) "/libmtc-test-sharedLibrary-lib" QUOTE(CMAKE_DLL_SUFFIX);
 
-      SECTION( "loading library " QUOTE(CMAKE_BINARY_DIR) "/libmtc-test-sharedLibrary-lib.so" )
-
-      REQUIRE_NOTHROW( lib = mtc::SharedLibrary::Load( libpath ) );
+      SECTION( "loading library " QUOTE(CMAKE_BINARY_DIR) "/libmtc-test-sharedLibrary-lib" QUOTE(CMAKE_DLL_SUFFIX) )
+      {
+        REQUIRE_NOTHROW( lib = mtc::SharedLibrary::Load( libpath ) );
+      }
     }
     if ( lib != nullptr )
     {

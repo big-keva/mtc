@@ -24,13 +24,13 @@ TestItEasy::RegisterFunc  testThreadPool( []()
       REQUIRE_NOTHROW( pool.Insert( [&]()
         {  std::this_thread::sleep_for( std::chrono::milliseconds( 300 ) );  ++test;  } ) );
 
-      REQUIRE( test == 0 );
+      REQUIRE( test.load() == 0 );
         std::this_thread::sleep_for( std::chrono::milliseconds( 150 ) );
-      REQUIRE( test == 1 );
+      REQUIRE( test.load() == 1 );
         std::this_thread::sleep_for( std::chrono::milliseconds( 100 ) );
-      REQUIRE( test == 2 );
+      REQUIRE( test.load() == 2 );
         std::this_thread::sleep_for( std::chrono::milliseconds( 200 ) );
-      REQUIRE( test == 3 );
+      REQUIRE( test.load() == 3 );
     }
   }
 } );

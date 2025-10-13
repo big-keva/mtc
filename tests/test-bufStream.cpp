@@ -2,7 +2,42 @@
 # include "../exceptions.h"
 # include "../test-it-easy.hpp"
 # include <cstdio>
-# include <unistd.h>
+# if defined( _WIN32 ) || defined( _WIN64 )
+#   include <fileapi.h>
+# else
+#   include <unistd.h>
+# endif   // _WIN32 || _WIN64
+
+namespace {
+
+  auto  GetTempFile() -> std::pair<int, std::string>
+  {
+    char  existing_name[1024];
+
+  # if defined( _WIN32 ) || defined( _WIN64 )
+    char  template_path[1024];
+
+    GetTempPath( sizeof(template_path), template_path );
+
+    if ( GetTempFileName( template_path, "mtc-test-file", 0, existing_name ) )
+      return { ::open( existing_name, O_RDWR, 0666 ), existing_name };
+    else
+      return { -1, "" };
+  # else
+    auto  template_path = "/tmp/mtc-test-fileXXXXX";
+
+    return { mkstemp( strcpy( existing_name, template_path ) ), existing_name };
+  # endif
+  }
+
+  auto  AllocFileName() -> std::string
+  {
+    auto  temp = GetTempFile();
+
+    return temp.first >= 0 ? ::close( temp.first ), temp.second : "";
+  }
+
+}
 
 TestItEasy::RegisterFunc  testBufStream( []()
 {
@@ -25,14 +60,15 @@ TestItEasy::RegisterFunc  testBufStream( []()
 
         SECTION( "existing file returns object interface" )
         {
-          const char  existing_file_name[] = "/tmp/new-existing-file";
+          auto  tempname = AllocFileName();
 
-          fclose( fopen( existing_file_name, "wb" ) );
+          if ( REQUIRE( !tempname.empty() ) )
+          {
+            REQUIRE_NOTHROW( mtc::OpenBufStream( tempname, O_RDONLY, 0x16, mtc::disable_exceptions ) );
+                    REQUIRE( mtc::OpenBufStream( tempname, O_RDONLY, 0x16, mtc::disable_exceptions ) != nullptr );
 
-          REQUIRE_NOTHROW( mtc::OpenBufStream( existing_file_name, O_RDONLY, 0x16, mtc::disable_exceptions ) );
-                  REQUIRE( mtc::OpenBufStream( existing_file_name, O_RDONLY, 0x16, mtc::disable_exceptions ) != nullptr );
-
-          remove( existing_file_name );
+            remove( tempname.c_str() );
+          }
         }
       }
 
@@ -45,48 +81,59 @@ TestItEasy::RegisterFunc  testBufStream( []()
         }
         SECTION( "opening existing file returns object interface" )
         {
-          fclose( fopen( "/tmp/mtc-existing-file", "wb" ) );
+          auto  temp = GetTempFile();
 
-          REQUIRE_NOTHROW( mtc::OpenBufStream( "/tmp/mtc-existing-file", O_RDONLY, 0x16, mtc::enable_exceptions ) );
-                  REQUIRE( mtc::OpenBufStream( "/tmp/mtc-existing-file", O_RDONLY, 0x16, mtc::enable_exceptions ) != nullptr );
+          if ( temp.first >= 0 )
+          {
+            close( temp.first );
 
-          remove( "/tmp/mtc-existing-file" );
+            REQUIRE_NOTHROW( mtc::OpenBufStream( temp.second, O_RDONLY, 0x16, mtc::enable_exceptions ) );
+                    REQUIRE( mtc::OpenBufStream( temp.second, O_RDONLY, 0x16, mtc::enable_exceptions ) != nullptr );
+
+            remove( temp.second.c_str() );
+          }
         }
       }
     }
     SECTION( "data may be sequentally written and read to-from the file insite the buffer" )
     {
-      mtc::api<mtc::IFlatStream>  fs;
+      auto  fs = mtc::api<mtc::IFlatStream>();
+      auto  tf = GetTempFile();
 
-      if ( REQUIRE_NOTHROW( fs = mtc::OpenBufStream( "/tmp/mtc-existing-file", O_CREAT + O_RDWR, 0x20, mtc::enable_exceptions ) )
-        && REQUIRE( fs != nullptr ) )
+      if ( REQUIRE( tf.first >= 0 ) )
       {
-        uint32_t  nwrite;
+        ::close( tf.first );
 
-        SECTION( "small data pieces may be written to the buffer" )
+        if ( REQUIRE_NOTHROW( fs = mtc::OpenBufStream( tf.second, O_CREAT + O_RDWR, 0x20, mtc::enable_exceptions ) )
+          && REQUIRE( fs != nullptr ) )
         {
-          if ( REQUIRE_NOTHROW( nwrite = fs->Put( "some small data string", 22 ) ) )
-            REQUIRE( nwrite == 22 );
-          if ( REQUIRE_NOTHROW( nwrite = fs->Put( " list", 5 ) ) )
-            REQUIRE( nwrite == 5 );
-          SECTION( "overlapped buffer is flushed" )
+          uint32_t  nwrite;
+
+          SECTION( "small data pieces may be written to the buffer" )
           {
-            if ( REQUIRE_NOTHROW( nwrite = fs->Put( " may be flushed to the disk", 27 ) ) && REQUIRE( nwrite == 27 ) )
+            if ( REQUIRE_NOTHROW( nwrite = fs->Put( "some small data string", 22 ) ) )
+              REQUIRE( nwrite == 22 );
+            if ( REQUIRE_NOTHROW( nwrite = fs->Put( " list", 5 ) ) )
+              REQUIRE( nwrite == 5 );
+            SECTION( "overlapped buffer is flushed" )
             {
-              SECTION( "stream may be repositioned and flushed" )
+              if ( REQUIRE_NOTHROW( nwrite = fs->Put( " may be flushed to the disk", 27 ) ) && REQUIRE( nwrite == 27 ) )
               {
-                if ( REQUIRE_NOTHROW( nwrite = fs->Seek( 5 ) ) && nwrite == 5 )
+                SECTION( "stream may be repositioned and flushed" )
                 {
-                  if ( REQUIRE_NOTHROW( nwrite = fs->Put( "other", 5 ) ) )
-                    REQUIRE( nwrite == 5 );
+                  if ( REQUIRE_NOTHROW( nwrite = fs->Seek( 5 ) ) && nwrite == 5 )
+                  {
+                    if ( REQUIRE_NOTHROW( nwrite = fs->Put( "other", 5 ) ) )
+                      REQUIRE( nwrite == 5 );
+                  }
                 }
               }
             }
           }
         }
+        fs = nullptr;
+        remove( tf.second.c_str() );
       }
-      fs = nullptr;
-      remove( "/tmp/mtc-existing-file" );
     }
   }
 } );

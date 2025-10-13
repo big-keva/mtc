@@ -5,13 +5,18 @@ cmake_minimum_required(VERSION 3.5)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
 
-link_libraries(mtc dl pthread)
+if (WIN32)
+	link_libraries(mtc)
+else()
+	link_libraries(mtc dl pthread)
+endif()
 
 add_library(mtc-test-sharedLibrary-lib SHARED
 	test-sharedLibrary-lib.cpp)
 
 add_compile_definitions(
-	CMAKE_BINARY_DIR=${PROJECT_BINARY_DIR})
+	CMAKE_BINARY_DIR=${PROJECT_BINARY_DIR}
+	CMAKE_DLL_SUFFIX=${CMAKE_SHARED_LIBRARY_SUFFIX})
 
 if(FALSE)
 	add_executable(mtc-test-bitset
@@ -64,6 +69,9 @@ else()
 		test-sharedMutex.cpp
 		test-sharedLibrary.cpp
 		test-threadPool.cpp)
+
+	add_dependencies(mtc-test
+		mtc-test-sharedLibrary-lib)
 
 	add_test(NAME mtc-test COMMAND mtc-test)
 endif()

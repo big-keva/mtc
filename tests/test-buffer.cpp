@@ -1,9 +1,11 @@
 ﻿# include "../byteBuffer.h"
 # include "../test-it-easy.hpp"
 # include <cstdio>
-# include <dlfcn.h>
 
 using namespace mtc;
+
+# if !defined( _WIN32 ) && !defined( _WIN64 )
+# include <dlfcn.h>
 
 /*
  * disabling memory allocator for tests
@@ -49,6 +51,8 @@ extern "C" void* calloc( size_t num, size_t size )
   return nullptr;
 }
 
+# endif   // !_WIN32 && !_WIN64
+
 TestItEasy::RegisterFunc  testBuffer( []()
   {
     TEST_CASE( "mtc/byteBuffer" )
@@ -64,6 +68,7 @@ TestItEasy::RegisterFunc  testBuffer( []()
           REQUIRE( CreateByteBuffer( buffer = nullptr ) == 0 );  // as IByteBuffer**
             REQUIRE( buffer != nullptr );
         }
+# if !defined( _WIN32 ) && !defined( _WIN64 )
         SECTION( "if not enough memory, it returns errors" )
         {
           int   nerror;
@@ -78,6 +83,7 @@ TestItEasy::RegisterFunc  testBuffer( []()
 
           limit_size = (size_t)-1;
         }
+# endif   // !_WIN32 && !_WIN64
       }
       SECTION( "buffers may be created in new style with exceptions" )
       {
@@ -88,6 +94,7 @@ TestItEasy::RegisterFunc  testBuffer( []()
           REQUIRE_NOTHROW( buffer = CreateByteBuffer( 1024 * 1024, enable_exceptions ) );  // as IByteBuffer**
             REQUIRE( buffer != nullptr );
         }
+# if !defined( _WIN32 ) && !defined( _WIN64 )
         SECTION( "if not enough memory, it throws exceptions" )
         {
           limit_size = 0;
@@ -96,6 +103,7 @@ TestItEasy::RegisterFunc  testBuffer( []()
           REQUIRE_EXCEPTION( buffer = CreateByteBuffer( 1024 * 1024 * 1024, enable_exceptions ), std::bad_alloc );  // as IByteBuffer**
           limit_size = (size_t)-1;
         }
+# endif   // !_WIN32 && !_WIN64
       }
       SECTION( "buffers may be created in new style without exceptions" )
       {
@@ -106,6 +114,7 @@ TestItEasy::RegisterFunc  testBuffer( []()
           REQUIRE_NOTHROW( buffer = CreateByteBuffer( 1024 * 1024, disable_exceptions ) );  // as IByteBuffer**
             REQUIRE( buffer != nullptr );
         }
+# if !defined( _WIN32 ) && !defined( _WIN64 )
         SECTION( "if not enough memory, it returns nullptr" )
         {
           limit_size = 0;
@@ -118,6 +127,7 @@ TestItEasy::RegisterFunc  testBuffer( []()
 
           limit_size = (size_t)-1;
         }
+# endif   // !_WIN32 && !_WIN64
       }
     }
   } );
