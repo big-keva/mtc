@@ -58,7 +58,7 @@ namespace mtc
 
   struct  IFileStream: public IFlatStream
   {
-    virtual api<IByteBuffer>  MemMap( int64_t pos, uint32_t len ) = 0;
+    virtual api<IByteBuffer>  MemMap( int64_t pos, size_t len ) = 0;
     virtual bool              SetLen( int64_t len ) = 0;
     virtual bool              Sync() = 0;
   };

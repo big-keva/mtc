@@ -67,10 +67,10 @@ namespace mtc
 
   struct  IFlatStream: public IByteStream
   {
-    virtual auto  PGet(                int64_t, uint32_t ) -> mtc::api<IByteBuffer> = 0;
+    virtual auto  PGet(                int64_t, uint32_t ) -> api<IByteBuffer> = 0;
     virtual int   PGet( IByteBuffer**, int64_t, uint32_t ) = 0;
-    virtual auto  PGet(       void*,   int64_t, uint32_t ) -> uint32_t = 0;
-    virtual auto  PPut( const void*,   int64_t, uint32_t ) -> uint32_t = 0;
+    virtual auto  PGet(       void*,   int64_t, uint32_t ) -> int32_t = 0;
+    virtual auto  PPut( const void*,   int64_t, uint32_t ) -> int32_t = 0;
     virtual auto  Seek( int64_t                          ) -> int64_t  = 0;
     virtual auto  Size(                                  ) -> int64_t  = 0;
     virtual auto  Tell(                                  ) -> int64_t  = 0;
