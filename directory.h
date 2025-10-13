@@ -149,9 +149,11 @@ namespace mtc
       intptr_t            handle;
 
     public:     // construction
-      dir_val( unsigned attr ): refcnt( 1 ), dwattr( attr ), szname( nullptr ), handle( -1 )
-        {
-        }
+      dir_val( unsigned attr ):
+        refcnt( 1 ),
+        dwattr( attr ),
+        szname( nullptr ),
+        handle( -1 )  {}
       
     public:     // read
       unsigned    attrib() const  {  return (fidata.attrib & _A_SUBDIR) ? attr_dir : attr_file;  }
@@ -173,19 +175,6 @@ namespace mtc
           if ( dirptr != nullptr )
             closedir( dirptr );
         }
-
-    public:
-      static
-      dir_val*  Create( unsigned attr )
-      {
-        auto  palloc = (dir_val*)malloc( sizeof(dir_val) );
-
-        return palloc != nullptr ? new( palloc ) dir_val( attr ) : nullptr;
-      }
-      void      Delete()
-      {
-        this->~dir_val();  free( this );
-      }
 
     public:     // read
       unsigned    attrib() const
@@ -210,6 +199,18 @@ namespace mtc
           return szname = nullptr;
         }
 # endif   // WIN32
+    public:
+      static
+      dir_val*  Create( unsigned attr )
+      {
+        auto  palloc = (dir_val*)malloc( sizeof(dir_val) );
+
+        return palloc != nullptr ? new( palloc ) dir_val( attr ) : nullptr;
+      }
+      void      Delete()
+      {
+        this->~dir_val();  free( this );
+      }
 
     };
 
