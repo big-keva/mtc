@@ -57,9 +57,11 @@ SOFTWARE.
 # include <string.h>
 # include <fcntl.h>
 # include <errno.h>
-# if defined( _WIN32 )
-#   define  NOMINMAX
-#   include <Windows.h>
+# if defined( _WIN32 ) || defined( _WIN64 )
+#   if !defined( WIN32_LEAN_AND_MEAN )
+#     define  WIN32_LEAN_AND_MEAN
+#   endif // !WIN32_LEAN_AND_MEAN
+#   include <windows.h>
 # else
 #   if !defined( _LARGEFILE64_SOURCE )
 #     define _LARGEFILE64_SOURCE
@@ -112,11 +114,11 @@ namespace mtc
     uint32_t  Put ( const void*,   uint32_t ) noexcept override;
 
   // overridables from IFlatStream
-    auto  PGet(                int64_t, uint32_t ) -> mtc::api<IByteBuffer> override;
-    int   PGet( IByteBuffer**, int64_t, uint32_t ) override;
-    auto  PGet(       void*,   int64_t, uint32_t ) noexcept -> uint32_t override;
-    auto  PPut( const void*,   int64_t, uint32_t ) noexcept -> uint32_t override;
-    auto  Seek( int64_t                          ) noexcept -> int64_t  override;
+    auto  PGet(                int64_t, uint32_t ) -> api<IByteBuffer>  override;
+    int   PGet( IByteBuffer**, int64_t, uint32_t )                      override;
+    auto  PGet(       void*,   int64_t, uint32_t ) noexcept -> int32_t  override;
+    auto  PPut( const void*,   int64_t, uint32_t ) noexcept -> int32_t  override;
+    auto  Seek( int64_t                          )          -> int64_t  override;
     auto  Size(                                  ) noexcept -> int64_t  override;
     auto  Tell(                                  ) noexcept -> int64_t  override;
 
@@ -140,6 +142,54 @@ namespace mtc
     char*   bufend;
 
   };
+
+# if defined( _WIN32 ) || defined( _WIN64 )
+
+# define  LastError  GetLastError
+
+  int32_t ReadFile( HANDLE handle, void* buffer, size_t length, int64_t offset )
+  {
+    DWORD       ncchRead;
+    OVERLAPPED  overData;
+
+    overData.Internal = 0;
+    overData.InternalHigh = 0;
+    overData.Offset = DWORD(offset);
+    overData.OffsetHigh = DWORD(offset >> (CHAR_BIT * sizeof(DWORD)));
+    overData.hEvent = NULL;
+
+    return ::ReadFile( handle, buffer, length, &ncchRead, &overData ) ? (int32_t)ncchRead : -1;
+  }
+
+  int32_t WriteFile( HANDLE handle, const void* buffer, size_t length, int64_t offset )
+  {
+    DWORD       nWritten;
+    OVERLAPPED  overData;
+
+    overData.Internal = 0;
+    overData.InternalHigh = 0;
+    overData.Offset = DWORD(offset);
+    overData.OffsetHigh = DWORD(offset >> (CHAR_BIT * sizeof(DWORD)));
+    overData.hEvent = NULL;
+
+    return ::WriteFile( handle, buffer, length, &nWritten, &overData ) ? (int32_t)nWritten : -1;
+  }
+
+# else
+
+# define LastError()  errno
+
+  int64_t WriteFile( int handle, const void* buffer, size_t length, int64_t offset )
+  {
+    return ::pwrite64( handle, buforg, bufend - buforg, curpos );
+  }
+
+  int64_t ReadFile( int handle, void* buffer, size_t length, int64_t offset )
+  {
+    return ::pread64( handle, buforg, bufend - buforg, curpos );
+  }
+
+# endif
 
   // BufStream implementation
 
@@ -185,240 +235,18 @@ namespace mtc
       if ( posix_decl( handle != -1 )
            win32_decl( handle != INVALID_HANDLE_VALUE ) )
       {
-        if ( modify && ::pwrite64( handle, buforg, bufend - buforg, curpos ) < 0 )
-          error()( EFAULT, FormatError<file_error>( "error %d pwrite64 file '%s' @" __FILE__ ":" LINE_STRING,
-            errno, szname ) );
+        if ( modify && WriteFile( handle, buforg, bufend - buforg, curpos ) < 0 )
+        {
+          error()( EFAULT, FormatError<file_error>( "error %d writing file %s @" __FILE__ ":" LINE_STRING,
+            LastError(), szname ) );
+        }
+        posix_decl( ::close( handle ) );
+        win32_decl( CloseHandle( handle ) );
       }
-      posix_decl( ::close( handle ) );
-      win32_decl( CloseHandle( handle ) );
       delete this;
     }
     return refcount;
   }
-
-  template <class error>
-  auto  BufStream<error>::PGet( int64_t off, uint32_t len ) -> mtc::api<IByteBuffer>
-  {
-    api<MiniBuffer<error>>  buffer;
-    uint32_t                cbread;
-
-    if ( (buffer = MiniBuffer<error>::Create( len )) == nullptr )
-      return nullptr;
-
-    if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
-    {
-      return error()( nullptr, FormatError<file_error>( "error %d reading file '%s' @" __FILE__ ":" LINE_STRING,
-        errno, szname ) );
-    }
-
-    return buffer->SetLen( cbread ), buffer.ptr();
-  }
-
-  template <class error>
-  int   BufStream<error>::PGet( IByteBuffer** ppi, int64_t off, uint32_t len )
-  {
-    api<MiniBuffer<error>>  buffer;
-    uint32_t                cbread;
-
-    if ( ppi == nullptr )
-      return error()( EINVAL, std::invalid_argument( "invalid (null) outptr" ) );
-
-    if ( (buffer = MiniBuffer<error>::Create( len )) == nullptr )
-      return ENOMEM;
-
-    if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
-      return EACCES;
-
-    buffer->SetLen( cbread );
-      return (*ppi = buffer.ptr())->Attach(), 0;
-  }
-
-# if defined( _WIN32 )
-
-  template <class error>
-  uint32_t  FileStream<error>::Get( void* out, uint32_t len ) noexcept
-  {
-    DWORD     cbread;
-    uint32_t  dwread = ReadFile( handle, out, len, &cbread, nullptr ) ? cbread : 0;
-
-    debug_decl( DWORD uError = GetLastError() );
-
-    return dwread;
-  }
-
-  template <class error>
-  uint32_t  FileStream<error>::Put( const void* src, uint32_t len ) noexcept
-  {
-    DWORD nwrite;
-
-    return WriteFile( handle, src, len, &nwrite, nullptr ) ? nwrite : 0;
-  }
-
-  template <class error>
-  unsigned  FileStream<error>::PosGet( void* out, int64_t off, uint32_t len ) noexcept
-  {
-    DWORD       cbread;
-    OVERLAPPED  reinfo;
-
-    reinfo.hEvent = NULL;
-    reinfo.Internal = 0;
-    reinfo.InternalHigh = 0;
-
-    reinfo.OffsetHigh = (DWORD)(off >> 32);
-    reinfo.Offset = (DWORD)off;
-
-    return ReadFile( handle, out, len, &cbread, &reinfo ) ? cbread : 0;
-  }
-
-  template <class error>
-  unsigned  FileStream<error>::PosPut( const void* src, int64_t off, uint32_t len ) noexcept
-  {
-    DWORD       nwrite;
-    OVERLAPPED  reinfo;
-
-    reinfo.hEvent = NULL;
-    reinfo.Internal = 0;
-    reinfo.InternalHigh = 0;
-    reinfo.OffsetHigh = (DWORD)(off >> 32);
-    reinfo.Offset = (DWORD)off;
-
-    return WriteFile( handle, src, len, &nwrite, &reinfo ) ? nwrite : 0;
-  }
-
-  template <class error>
-  int64_t   FileStream<error>::Seek( int64_t off ) noexcept
-  {
-    LONG    hioffs = (LONG)(off >> 32);
-    LONG    looffs = (LONG)(off);
-    DWORD   dwmove;
-
-    return (dwmove = SetFilePointer( handle, looffs, &hioffs, FILE_BEGIN )) == INVALID_SET_FILE_POINTER ? (int64_t)-1 : off;
-  }
-
-  template <class error>
-  int64_t   FileStream<error>::Size() noexcept
-  {
-    DWORD   looffs;
-    DWORD   hioffs;
-
-    return (looffs = GetFileSize( handle, &hioffs )) == INVALID_FILE_SIZE ? (int64_t)-1 : looffs | (((int64_t)hioffs) << 32);
-  }
-
-  template <class error>
-  int64_t FileStream<error>::Tell() noexcept
-  {
-    LONG    hioffs = 0;
-    DWORD   dwmove;
-
-    return (dwmove = SetFilePointer( handle, 0, &hioffs, FILE_CURRENT )) == INVALID_SET_FILE_POINTER ? (int64_t)-1 : dwmove | (((int64_t)hioffs) << 32);
-  }
-
-  template <class error>
-  bool  FileStream<error>::SetLen( int64_t len ) noexcept
-  {
-    LONG    hioffs = (LONG)(len >> 32);
-    LONG    looffs = (LONG)(len);
-    DWORD   dwmove;
-
-    return (dwmove = SetFilePointer( handle, looffs, &hioffs, FILE_BEGIN )) != INVALID_SET_FILE_POINTER ?
-      SetEndOfFile( handle ) : false;
-  }
-
-  template <class error>
-  int     FileStream<error>::Open( unsigned dwmode )
-  {
-    auto      filename = FileName();
-    DWORD     dwAccess;
-    DWORD     dwDispos;
-    DWORD     dwFlAttr = FILE_ATTRIBUTE_NORMAL;
-
-    Close();
-
-  // detect access mode
-    switch( dwmode & 0x000f )
-    {
-      case O_RDONLY:
-        dwAccess = GENERIC_READ;
-        break;
-      case O_WRONLY:
-        dwAccess = GENERIC_WRITE;
-        break;
-      case O_RDWR:
-        dwAccess = GENERIC_WRITE | GENERIC_READ;
-        break;
-      default:
-        dwAccess = 0;
-    }
-
-  // detect the disposition
-    dwDispos = 0;
-    switch ( dwmode & 0x0300 )
-    {
-      case 0:
-        dwDispos = OPEN_EXISTING;
-        break;
-      case O_CREAT:
-        dwAccess = GENERIC_READ | GENERIC_WRITE;
-        if ( (dwmode & O_EXCL ) != 0 )
-          dwDispos = CREATE_NEW;
-        else
-          dwDispos = OPEN_ALWAYS;
-        break;
-      case O_TRUNC:
-        dwAccess = GENERIC_READ | GENERIC_WRITE;
-        dwDispos = TRUNCATE_EXISTING;
-        break;
-      default:  // O_CREAT | O_TRUNC
-        dwAccess = GENERIC_READ | GENERIC_WRITE;
-        dwDispos = CREATE_ALWAYS;
-        break;
-    }
-
-    if ( (dwmode & 0x00F0) & O_RANDOM )
-      dwFlAttr |= FILE_FLAG_RANDOM_ACCESS;
-    if ( (dwmode & 0x00F0) & O_SEQUENTIAL )
-      dwFlAttr |= FILE_FLAG_SEQUENTIAL_SCAN;
-    if ( (dwmode & 0x00F0) & O_TEMPORARY )
-      dwFlAttr |= FILE_FLAG_DELETE_ON_CLOSE;
-
-  // create file handle
-    handle = CreateFile( filename, dwAccess, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, dwDispos, dwFlAttr, NULL );
-    return handle == INVALID_HANDLE_VALUE ? ENOENT : 0;
-  }
-
-  template <class error>
-  void  FileStream<error>::Close()
-  {
-    if ( handle != INVALID_HANDLE_VALUE )
-      CloseHandle( handle );
-    handle = INVALID_HANDLE_VALUE;
-  }
-
-  template <class error>
-  bool  FileStream<error>::Sync()
-  {
-    return true;
-  }
-
-# else
-/*
-  template <class error>
-  void  FileStream<error>::Close()
-  {
-    if ( handle != -1 )
-      ::close( handle );
-    handle = -1;
-  }
-
-  template <class error>
-  int   FileStream<error>::Open( unsigned dwmode )
-  {
-  // check if stream is open; close it
-    Close();
-
-    return (handle = ::open( FileName(), dwmode, 0666 )) != -1 ? 0 : errno;
-  }
-*/
 
   template <class error>
   uint32_t  BufStream<error>::Get( void* lpdata, uint32_t cbdata ) noexcept
@@ -440,9 +268,11 @@ namespace mtc
         continue;
 
       // check if file is modified; flush current buffer
-      if ( modify && ::pwrite64( handle, buforg, bufend - buforg, curpos ) < 0 )
+      if ( modify && WriteFile( handle, buforg, bufend - buforg, curpos ) < 0 )
+      {
         return error()( -1, FormatError<file_error>( "error %d flushing data for '%s' @" __FILE__ ":" LINE_STRING,
-          errno, szname ) );
+          LastError(), szname ) );
+      }
 
       // correct the internal file pointer
       curpos += bufend - buforg,
@@ -452,17 +282,21 @@ namespace mtc
       // check if read big portion
       if ( outend - outptr > buflim - buforg )
       {
-        if ( (cbcopy = ::pread64( handle, outptr, outend - outptr, curpos )) < 0 )
+        if ( (cbcopy = ReadFile( handle, outptr, outend - outptr, curpos )) < 0 )
+        {
           return error()( -1, FormatError<file_error>( "error %d flushing data for '%s' @" __FILE__ ":" LINE_STRING,
-            errno, szname ) );
+            LastError(), szname ) );
+        }
         curpos += cbcopy;
           return cbcopy;
       }
 
       // read subbuffer
-      if ( (cbcopy = ::pread64( handle, buforg, buflim - buforg, curpos )) < 0 )
+      if ( (cbcopy = ReadFile( handle, buforg, buflim - buforg, curpos )) < 0 )
+      {
         return error()( -1, FormatError<file_error>( "error %d reading file '%s' @" __FILE__ ":" LINE_STRING,
-          errno, szname ) );
+          LastError(), szname ) );
+      }
       if ( cbcopy == 0 )
         break;
       bufend = buforg + cbcopy;
@@ -498,9 +332,11 @@ namespace mtc
     // check if file is modified; flush current buffer
       if ( modify )
       {
-        if ( ::pwrite64( handle, buforg, bufend - buforg, curpos ) < 0 )
+        if ( WriteFile( handle, buforg, bufend - buforg, curpos ) < 0 )
+        {
           return error()( -1, FormatError<file_error>( "error %d wrining file '%s' @" __FILE__ ":" LINE_STRING,
-            errno, szname ) );
+            LastError(), szname ) );
+        }
         curpos += bufend - buforg;
           modify = false;
       }
@@ -508,9 +344,11 @@ namespace mtc
       // check if much to write
       if ( srcend - srcptr >= buflim - buforg )
       {
-        if ( (cbcopy = ::pwrite64( handle, srcptr, srcend - srcptr, curpos )) < 0 )
+        if ( (cbcopy = WriteFile( handle, srcptr, srcend - srcptr, curpos )) < 0 )
+        {
           return error()( -1, FormatError<file_error>( "error %d wrining file '%s' @" __FILE__ ":" LINE_STRING,
-            errno, szname ) );
+            LastError(), szname ) );
+        }
         curpos += cbcopy;
         srcptr += cbcopy;
       }
@@ -521,32 +359,134 @@ namespace mtc
   }
 
   template <class error>
-  uint32_t  BufStream<error>::PGet( void* lpdata, int64_t offset, uint32_t length ) noexcept
+  auto  BufStream<error>::PGet( int64_t off, uint32_t len ) -> mtc::api<IByteBuffer>
   {
-    return ::pread64( handle, lpdata, length, offset );
+    api<MiniBuffer<error>>  buffer;
+    uint32_t                cbread;
+
+    if ( (buffer = MiniBuffer<error>::Create( len )) == nullptr )
+      return nullptr;
+
+    if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
+    {
+      return error()( nullptr, FormatError<file_error>( "error %d reading file '%s' @" __FILE__ ":" LINE_STRING,
+        LastError(), szname ) );
+    }
+
+    return buffer->SetLen( cbread ), buffer.ptr();
   }
 
   template <class error>
-  uint32_t  BufStream<error>::PPut( const void* pvdata, int64_t offset, uint32_t length ) noexcept
+  int   BufStream<error>::PGet( IByteBuffer** ppi, int64_t off, uint32_t len )
   {
-    return ::pwrite64( handle, pvdata, length, offset );
+    api<MiniBuffer<error>>  buffer;
+    uint32_t                cbread;
+
+    if ( ppi == nullptr )
+      return error()( EINVAL, std::invalid_argument( "invalid (null) outptr" ) );
+
+    if ( (buffer = MiniBuffer<error>::Create( len )) == nullptr )
+      return ENOMEM;
+
+    if ( (cbread = PGet( (char*)buffer->GetPtr(), off, len )) == (uint32_t)-1 )
+      return EACCES;
+
+    buffer->SetLen( cbread );
+      return (*ppi = buffer.ptr())->Attach(), 0;
   }
 
   template <class error>
-  int64_t   BufStream<error>::Seek( int64_t  offset ) noexcept
+  int32_t BufStream<error>::PGet( void* buffer, int64_t offset, uint32_t length ) noexcept
+  {
+    char*     pstore = (char*)buffer;
+    int32_t   cbprev = 0;
+    int32_t   cblast = 0;
+    uint32_t  cbcopy;
+
+    if ( !modify || offset + length <= curpos || offset >= curpos + (bufend - buforg) )
+      return ReadFile( handle, buffer, length, offset );
+
+    if ( offset < curpos )
+    {
+      if ( (cbprev = ReadFile( handle, pstore, size_t(curpos - offset), offset )) != curpos - offset )
+        return cbprev;
+      pstore += cbprev;
+      length -= cbprev;
+      offset =  curpos;
+    }
+
+    memcpy( pstore, buforg, cbcopy = std::min( length, uint32_t(bufend - buforg) ) );
+      pstore += cbcopy;
+      length -= cbcopy;
+      offset += cbcopy;
+
+    if ( offset + length > curpos + (bufend - buforg) )
+    {
+      if ( (cblast = ReadFile( handle, pstore, length, offset )) < 0 )
+        return cblast;
+    }
+    return cbprev + cbcopy + cblast;
+  }
+
+  template <class error>
+  int32_t BufStream<error>::PPut( const void* buffer, int64_t offset, uint32_t length ) noexcept
+  {
+    const char* pwrite = (const char*)buffer;
+    int32_t     cbprev = 0;
+    int32_t     cblast = 0;
+    uint32_t    cbcopy;
+
+    if ( !modify || offset + length <= curpos || offset >= curpos + (bufend - buforg) )
+      return WriteFile( handle, buffer, length, offset );
+
+    if ( offset < curpos )
+    {
+      if ( (cbprev = WriteFile( handle, pwrite, size_t(curpos - offset), offset )) != curpos - offset )
+        return cbprev;
+      pwrite += cbprev;
+      length -= cbprev;
+      offset =  curpos;
+    }
+
+    memcpy( buforg, pwrite, cbcopy = std::min( length, uint32_t(bufend - buforg) ) );
+      pwrite += cbcopy;
+      length -= cbcopy;
+      offset += cbcopy;
+      modify = true;
+
+    if ( offset + length > curpos + (bufend - buforg) )
+    {
+      if ( (cblast = WriteFile( handle, pwrite, length, offset )) < 0 )
+        return cblast;
+    }
+    return cbprev + cbcopy + cblast;
+  }
+
+  template <class error>
+  int64_t   BufStream<error>::Seek( int64_t  offset )
   {
     if ( offset >= curpos && offset < curpos + bufend - buforg )
       return bufptr = buforg + (offset - curpos), offset;
 
-    if ( modify && ::pwrite64( handle, buforg, bufend - buforg, curpos ) < 0 )
+    if ( modify && WriteFile( handle, buforg, bufend - buforg, curpos ) < 0 )
     {
-      return error()( -1, FormatError<file_error>( "error %d pwrite64 file '%s' buffers @" __FILE__ ":" LINE_STRING,
-        errno, szname ) );
+      return error()( -1, FormatError<file_error>( "error %d writing file '%s' buffers @" __FILE__ ":" LINE_STRING,
+        LastError(), szname ) );
     }
+# if defined( _WIN32 ) || defined( _WIN64 )
+    LARGE_INTEGER curFilePointer;
+    LARGE_INTEGER newFilePointer;
+
+    curFilePointer.QuadPart = offset;
+
+    if ( SetFilePointerEx( handle, curFilePointer, &newFilePointer, FILE_BEGIN ) ) curpos = newFilePointer.QuadPart;
+      else
+# else
     if ( (curpos = ::lseek64( handle, offset, SEEK_SET )) < 0 )
+# endif
     {
       return error()( -1, FormatError<file_error>( "error %d lseek64 file '%s' @" __FILE__ ":" LINE_STRING,
-        errno, szname ) );
+        LastError(), szname ) );
     }
     bufptr = bufend = buforg;
     return curpos;
@@ -555,11 +495,21 @@ namespace mtc
   template <class error>
   int64_t   BufStream<error>::Size() noexcept
   {
+# if defined( _WIN32 ) || defined( _WIN64 )
+    LARGE_INTEGER liSize;
+    int64_t       getlen;
+
+    if ( GetFileSizeEx( handle, &liSize ) ) getlen = liSize.QuadPart;
+      else return -1;
+# else
     int64_t getpos = ::lseek64( handle, 0, SEEK_CUR );
     int64_t getlen = ::lseek64( handle, 0, SEEK_END );
+                     ::lseek64( handle, getpos, SEEK_SET );
 
-    ::lseek64( handle, getpos, SEEK_SET );
-    return getlen;
+    if ( getlen == -1 )
+      return -1;
+# endif
+    return std::max( getlen, curpos + bufend - buforg );
   }
 
   template <class error>
@@ -567,6 +517,69 @@ namespace mtc
   {
     return curpos + bufptr - buforg;
   }
+
+# if defined( _WIN32 ) || defined( _WIN64 )
+
+  template <class error>
+  int     BufStream<error>::Open( unsigned dwmode )
+  {
+    DWORD     dwAccess;
+    DWORD     dwDispos;
+    DWORD     dwFlAttr = FILE_ATTRIBUTE_NORMAL;
+
+    // detect access mode
+    switch( dwmode & 0x000f )
+    {
+    case O_RDONLY:
+      dwAccess = GENERIC_READ;
+      break;
+    case O_WRONLY:
+      dwAccess = GENERIC_WRITE;
+      break;
+    case O_RDWR:
+      dwAccess = GENERIC_WRITE | GENERIC_READ;
+      break;
+    default:
+      dwAccess = 0;
+    }
+
+    // detect the disposition
+    dwDispos = 0;
+    switch ( dwmode & 0x0300 )
+    {
+    case 0:
+      dwDispos = OPEN_EXISTING;
+      break;
+    case O_CREAT:
+      dwAccess = GENERIC_READ | GENERIC_WRITE;
+      if ( (dwmode & O_EXCL ) != 0 )
+        dwDispos = CREATE_NEW;
+      else
+        dwDispos = OPEN_ALWAYS;
+      break;
+    case O_TRUNC:
+      dwAccess = GENERIC_READ | GENERIC_WRITE;
+      dwDispos = TRUNCATE_EXISTING;
+      break;
+    default:  // O_CREAT | O_TRUNC
+      dwAccess = GENERIC_READ | GENERIC_WRITE;
+      dwDispos = CREATE_ALWAYS;
+      break;
+    }
+
+    if ( (dwmode & 0x00F0) & O_RANDOM )
+      dwFlAttr |= FILE_FLAG_RANDOM_ACCESS;
+    if ( (dwmode & 0x00F0) & O_SEQUENTIAL )
+      dwFlAttr |= FILE_FLAG_SEQUENTIAL_SCAN;
+    if ( (dwmode & 0x00F0) & O_TEMPORARY )
+      dwFlAttr |= FILE_FLAG_DELETE_ON_CLOSE;
+
+    // create file handle
+    handle = CreateFile( szname, dwAccess, FILE_SHARE_READ | FILE_SHARE_DELETE, NULL, dwDispos, dwFlAttr, NULL );
+    return handle == INVALID_HANDLE_VALUE ? ENOENT : 0;
+  }
+
+# else
 
   template <class error>
   int   BufStream<error>::Open( unsigned dwmode )

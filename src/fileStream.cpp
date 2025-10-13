@@ -59,8 +59,10 @@ SOFTWARE.
 # include <fcntl.h>
 # include <errno.h>
 # if defined( _WIN32 )
-#   define  NOMINMAX
-#   include <Windows.h>
+#   if !defined( WIN32_LEAN_AND_MEAN )
+#     define  WIN32_LEAN_AND_MEAN
+#   endif // !WIN32_LEAN_AND_MEAN
+#   include <windows.h>
 # else
 #   if !defined( _LARGEFILE64_SOURCE )
 #     define _LARGEFILE64_SOURCE
@@ -112,14 +114,14 @@ namespace mtc
     int         SetLen( size_t              )       noexcept override {  return EINVAL;  }
 
   public:     // helpers
-    int         Create( FileStream<error>*, int64_t, uint32_t );
+    int         Create( FileStream<error>*, int64_t, size_t );
 
   protected:  // variables
-    uint32_t  cchmem;
-    unsigned  dwgran;
-    unsigned  nshift;
-    uint32_t  maplen;
-    void*     ptrmap;
+    size_t    cchmem;       // mapped memory length
+    unsigned  dwgran;       // memory granularity
+    unsigned  nshift = 0;
+    size_t    maplen = 0;
+    void*     ptrmap = nullptr;
 # if defined( _WIN32 )
     HANDLE    handle;
 # endif   // _WIN32
@@ -149,16 +151,16 @@ namespace mtc
     uint32_t  Put ( const void*,   uint32_t ) noexcept override;
 
   public:     // overridables from IFlatStream
-    auto  PGet(                int64_t, uint32_t ) -> mtc::api<IByteBuffer> override;
-    int   PGet( IByteBuffer**, int64_t, uint32_t ) override;
-    auto  PGet(       void*,   int64_t, uint32_t ) noexcept -> uint32_t override;
-    auto  PPut( const void*,   int64_t, uint32_t ) noexcept -> uint32_t override;
+    auto  PGet(                int64_t, uint32_t ) -> api<IByteBuffer>  override;
+    int   PGet( IByteBuffer**, int64_t, uint32_t )                      override;
+    auto  PGet(       void*,   int64_t, uint32_t ) noexcept -> int32_t  override;
+    auto  PPut( const void*,   int64_t, uint32_t ) noexcept -> int32_t  override;
     auto  Seek( int64_t                          ) noexcept -> int64_t  override;
     auto  Size(                                  ) noexcept -> int64_t  override;
     auto  Tell(                                  ) noexcept -> int64_t  override;
 
   public:     // overridables from IFileStream
-    api<IByteBuffer>  MemMap( int64_t, uint32_t ) override;
+    api<IByteBuffer>  MemMap( int64_t, size_t ) override;
     bool              SetLen( int64_t ) noexcept override;
     bool              Sync() override;
 
@@ -197,7 +199,7 @@ namespace mtc
   // FileMemmap implementation
 
   template <class error>
-  FileMemmap<error>::FileMemmap(): cchmem( 0 ), dwgran( GetMemPageSize() ), nshift( 0 ), maplen( 0 ), ptrmap( 0 )
+  FileMemmap<error>::FileMemmap(): cchmem( 0 ), dwgran( GetMemPageSize() )
   {
     win32_decl( handle = INVALID_HANDLE_VALUE );
   }
@@ -214,29 +216,41 @@ namespace mtc
   }
 
   template <class error>
-  int   FileMemmap<error>::Create( FileStream<error>* stm, int64_t offset, uint32_t length )
+  int   FileMemmap<error>::Create( FileStream<error>* stm, int64_t offset, size_t length )
   {
-# if defined( _WIN32 )
-    uint32_t  offshi = (uint32_t)(off >> 32);
-    uint32_t  offslo = (uint32_t)(off);
-    uint32_t  oalign = offslo / dwgran * dwgran;
+# if defined( _WIN32 ) || defined( _WIN64 )
+    auto  stsize = uint64_t(stm->Size());
+    auto  offshi = DWORD(offset >> 32);
+    auto  offslo = DWORD(offset);
+    auto  oalign = DWORD((offslo / dwgran) * dwgran);
+          nshift = offslo - oalign;
+
+  // check length limit; check if unlimited length passed and limit to real length
+    if ( length == size_t(-1) || length == uint32_t(-1) )
+      maplen = stsize - oalign;
+    else
+      maplen = std::min( stsize - oalign, length + nshift );
+
+    cchmem = maplen - nshift;
 
   // create mapping view
-    if ( (handle = CreateFileMapping( stm->handle, nullptr, PAGE_READONLY | SEC_COMMIT, 0, 0, nullptr )) == nullptr )
-      return error()( file_error( strprintf( "Could not CreateFileMapping( '%s' ), error code 0x%08x",
-        stm->FileName(), GetLastError() ) ) ), EFAULT;
+    handle = CreateFileMapping( stm->handle, NULL, PAGE_READONLY | SEC_COMMIT,
+      DWORD(maplen >> 32), DWORD(maplen), NULL );
 
-    cchmem = len;
-    nshift = offslo - oalign;
-    maplen = cchmem + nshift;
+  // check if created
+    if ( handle == NULL )
+    {
+      return error()( EFAULT, file_error( strprintf( "Could not CreateFileMapping( '%s' ), error code 0x%08x",
+        stm->FileName(), GetLastError() ) ) );
+    }
 
   // create mapping pointer
-    if ( (ptrmap = MapViewOfFile( handle, FILE_MAP_READ, offshi, oalign, (unsigned)maplen )) == nullptr )
+    if ( (ptrmap = MapViewOfFile( handle, FILE_MAP_READ, offshi, oalign, maplen )) == nullptr )
     {
       CloseHandle( handle );
         handle = INVALID_HANDLE_VALUE;
-      return error()( file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code 0x%08x!",
-        stm->FileName(), GetLastError() ) ) ), EFAULT;
+      return error()( EFAULT, file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code 0x%08x!",
+        stm->FileName(), GetLastError() ) ) );
     }
 
     return 0;
@@ -297,7 +311,7 @@ namespace mtc
   }
 
   template <class error>
-  api<IByteBuffer>  FileStream<error>::MemMap( int64_t offset, uint32_t length )
+  api<IByteBuffer>  FileStream<error>::MemMap( int64_t offset, size_t length )
   {
     auto  memmap = api<FileMemmap<error>>();
 
@@ -385,7 +399,7 @@ namespace mtc
   }
 
   template <class error>
-  unsigned  FileStream<error>::PosGet( void* out, int64_t off, uint32_t len ) noexcept
+  int32_t FileStream<error>::PGet( void* out, int64_t off, uint32_t len ) noexcept
   {
     DWORD       cbread;
     OVERLAPPED  reinfo;
@@ -397,11 +411,11 @@ namespace mtc
     reinfo.OffsetHigh = (DWORD)(off >> 32);
     reinfo.Offset = (DWORD)off;
 
-    return ReadFile( handle, out, len, &cbread, &reinfo ) ? cbread : 0;
+    return ReadFile( handle, out, len, &cbread, &reinfo ) ? cbread : -1;
   }
 
   template <class error>
-  unsigned  FileStream<error>::PosPut( const void* src, int64_t off, uint32_t len ) noexcept
+  int32_t FileStream<error>::PPut( const void* src, int64_t off, uint32_t len ) noexcept
   {
     DWORD       nwrite;
     OVERLAPPED  reinfo;
@@ -412,11 +426,11 @@ namespace mtc
     reinfo.OffsetHigh = (DWORD)(off >> 32);
     reinfo.Offset = (DWORD)off;
 
-    return WriteFile( handle, src, len, &nwrite, &reinfo ) ? nwrite : 0;
+    return WriteFile( handle, src, len, &nwrite, &reinfo ) ? nwrite : -1;
   }
 
   template <class error>
-  int64_t   FileStream<error>::Seek( int64_t off ) noexcept
+  int64_t FileStream<error>::Seek( int64_t off ) noexcept
   {
     LONG    hioffs = (LONG)(off >> 32);
     LONG    looffs = (LONG)(off);
