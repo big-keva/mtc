@@ -43,8 +43,8 @@ namespace zip {
   public:     // from IFlatStream
     auto  PGet(                int64_t, uint32_t ) -> mtc::api<IByteBuffer> override;
     int   PGet( IByteBuffer**, int64_t, uint32_t ) override;
-    auto  PGet(       void*,   int64_t, uint32_t ) -> uint32_t override;
-    auto  PPut( const void*,   int64_t, uint32_t ) -> uint32_t override;
+    auto  PGet(       void*,   int64_t, uint32_t ) -> int32_t override;
+    auto  PPut( const void*,   int64_t, uint32_t ) -> int32_t override;
     auto  Seek( int64_t                          ) -> int64_t override;
     auto  Size(                                  ) -> int64_t override {  return -1;  }
     auto  Tell(                                  ) -> int64_t override;
@@ -90,7 +90,7 @@ namespace zip {
     {
       palloc = new ZipBuffer( len );
 
-      if ( PGet( (char*)palloc->data(), pos, palloc->size() ) != (uint32_t)palloc->size() )
+      if ( PGet( (char*)palloc->data(), pos, palloc->size() ) != int32_t(palloc->size()) )
         return EACCES;
 
       return ((*buf = palloc.ptr())->Attach(), 0);
@@ -100,19 +100,39 @@ namespace zip {
   }
 
   template <class error>
-  uint32_t  ZipStream<error>::PGet( void* ptr, int64_t pos, uint32_t len )
+  int32_t ZipStream<error>::PGet( void* ptr, int64_t pos, uint32_t len )
   {
-    return interlocked( make_unique_lock( gzlock ), [&]()
-      {  return gzseek( gzfile, (z_off_t)pos, SEEK_SET ) == pos ?
-        (uint32_t)gzread( gzfile, ptr, len ) : (uint32_t)-1;  } );
+    auto    locked = make_unique_lock( gzlock );
+    auto    curpos = gztell( gzfile );
+    int32_t cbread;
+
+    if ( gzseek( gzfile, (z_off_t)pos, SEEK_SET ) != pos )
+    {
+      gzseek( gzfile, curpos, SEEK_SET );
+      return error()( -1, "invalid gzfile offset" );
+    }
+
+    cbread = gzread( gzfile, ptr, len );
+
+    return gzseek( gzfile, curpos, SEEK_SET ), cbread;
   }
 
   template <class error>
-  uint32_t  ZipStream<error>::PPut( const void* ptr, int64_t pos, uint32_t len )
+  int32_t ZipStream<error>::PPut( const void* ptr, int64_t pos, uint32_t len )
   {
-    return interlocked( make_unique_lock( gzlock ), [&]()
-      {  return gzseek( gzfile, (z_off_t)pos, SEEK_SET ) == pos ?
-        (uint32_t)gzwrite( gzfile, ptr, len ) : (uint32_t)-1;  } );
+    auto    locked = make_unique_lock( gzlock );
+    auto    curpos = gztell( gzfile );
+    int32_t nwrite;
+
+    if ( gzseek( gzfile, (z_off_t)pos, SEEK_SET ) != pos )
+    {
+      gzseek( gzfile, curpos, SEEK_SET );
+      return error()( -1, "invalid gzfile offset" );
+    }
+
+    nwrite = gzwrite( gzfile, ptr, len );
+
+    return gzseek( gzfile, curpos, SEEK_SET ), nwrite;
   }
 
   template <class error>
