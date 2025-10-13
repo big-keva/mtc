@@ -1,11 +1,24 @@
 # include "../sharedLibrary.hpp"
-# include <dlfcn.h>
+# if defined( _WIN32 ) || defined( _WIN64 )
+#   include <libloaderapi.h>
+# else
+#   include <dlfcn.h>
+# endif
 
 namespace mtc {
 
-# if defined( _WIN32 )
+# if defined( _WIN32 ) || defined( _WIN64 )
+#   define PlatformLoadModule( module )        (void*)LoadLibrary( (LPCSTR)(module) )
+#   define PlatformFreeModule( module )               FreeLibrary( (HMODULE)(module) )
+#   define PlatformFindMethod( module, fnname ) (void*)GetProcAddress( (HMODULE)(module), (LPCSTR)(fnname) )
+#   define PlatformFnNotFound "method not found"
+#   define PlatformFnLoadFail "could not load library"
 # else
-  void  FreeHandle( SharedLibrary::ModuleHandle p ) {  dlclose( p );  }
+#   define PlatformLoadModule( module ) dlopen( (module), RTLD_NOW )
+#   define PlatformFreeModule( module ) dlclose( (module) )
+#   define PlatformFindMethod( module, fnname ) (void*)dlsym( (module), (fnname) )
+#   define PlatformFnNotFound dlerror()
+#   define PlatformFnLoadFail dlerror()
 # endif
 
   struct SharedLibrary::impl
@@ -19,7 +32,7 @@ namespace mtc {
    ~impl()
     {
       if ( module != nullptr )
-        FreeHandle( module );
+        PlatformFreeModule( module );
     }
   };
 
@@ -76,24 +89,24 @@ namespace mtc {
     if ( module == nullptr )
       throw error( "library was not loaded" );
 
-    if ( (func_p = dlsym( module->module, name )) == nullptr )
-      throw error( dlerror() );
+    if ( (func_p = PlatformFindMethod( module->module, name )) == nullptr )
+      throw error( PlatformFnNotFound );
 
     return func_p;
   }
 
   auto  SharedLibrary::Find( const char* name, const disable_exceptions_t& ) const -> void*
   {
-    return module != nullptr && module->module != nullptr ? dlsym( module, name ) : nullptr;
+    return module != nullptr && module->module != nullptr ? PlatformFindMethod( module, name ) : nullptr;
   }
 
   auto  SharedLibrary::Load( const char* path, const enable_exceptions_t& ) -> SharedLibrary
   {
     SharedLibrary output;
-    auto          handle = dlopen( path, RTLD_NOW );
+    auto          handle = PlatformLoadModule( path );
 
     if ( handle == nullptr )
-      throw SharedLibrary::error( dlerror() );
+      throw SharedLibrary::error( PlatformFnLoadFail );
 
     return output.module = new impl( handle ), output;
   }
@@ -101,7 +114,7 @@ namespace mtc {
   auto  SharedLibrary::Load( const char* path, const disable_exceptions_t& ) -> SharedLibrary
   {
     SharedLibrary output;
-    auto          handle = dlopen( path, RTLD_NOW );
+    auto          handle = PlatformLoadModule( path );
 
     if ( handle != nullptr )
       output.module = new impl( handle );

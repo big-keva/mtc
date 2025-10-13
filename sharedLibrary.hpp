@@ -10,11 +10,8 @@ namespace mtc {
   public:
     class error: public std::runtime_error {  using runtime_error::runtime_error;  };
 
-# if defined( _WIN32 )
-# else
     using ModuleHandle = void*;
 
-# endif
   public:
     SharedLibrary() = default;
     SharedLibrary( SharedLibrary&& );
