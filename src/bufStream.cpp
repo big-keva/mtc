@@ -147,6 +147,7 @@ namespace mtc
 
 # define  LastError  GetLastError
 
+  inline
   int32_t ReadFile( HANDLE handle, void* buffer, size_t length, int64_t offset )
   {
     DWORD       ncchRead;
@@ -161,6 +162,7 @@ namespace mtc
     return ::ReadFile( handle, buffer, length, &ncchRead, &overData ) ? (int32_t)ncchRead : -1;
   }
 
+  inline
   int32_t WriteFile( HANDLE handle, const void* buffer, size_t length, int64_t offset )
   {
     DWORD       nWritten;
@@ -176,19 +178,9 @@ namespace mtc
   }
 
 # else
-
-# define LastError()  errno
-
-  int64_t WriteFile( int handle, const void* buffer, size_t length, int64_t offset )
-  {
-    return ::pwrite64( handle, buforg, bufend - buforg, curpos );
-  }
-
-  int64_t ReadFile( int handle, void* buffer, size_t length, int64_t offset )
-  {
-    return ::pread64( handle, buforg, bufend - buforg, curpos );
-  }
-
+#   define LastError()  errno
+#   define ReadFile( handle, buffer, length, offset )   ::pread64( (handle), (buffer), (length), (offset) )
+#   define WriteFile( handle, buffer, length, offset )  ::pwrite64( (handle), (buffer), (length), (offset) )
 # endif
 
   // BufStream implementation

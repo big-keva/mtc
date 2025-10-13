@@ -576,13 +576,13 @@ namespace mtc
   }
 
   template <class error>
-  uint32_t  FileStream<error>::PGet( void* lpdata, int64_t offset, uint32_t length ) noexcept
+  int32_t  FileStream<error>::PGet( void* lpdata, int64_t offset, uint32_t length ) noexcept
   {
     return ::pread64( handle, lpdata, length, offset );
   }
 
   template <class error>
-  uint32_t  FileStream<error>::PPut( const void* pvdata, int64_t offset, uint32_t length ) noexcept
+  int32_t  FileStream<error>::PPut( const void* pvdata, int64_t offset, uint32_t length ) noexcept
   {
     return ::pwrite64( handle, pvdata, length, offset );
   }
