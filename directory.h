@@ -144,7 +144,7 @@ namespace mtc
       char*           szname;     // pointer to string in system-specific struct
       dir_str         folder;     // current scanned folder
 
-# if defined( _WIN32 )
+# if defined( _WIN32 ) || defined( _WIN64 )
       struct  _finddata_t fidata;
       intptr_t            handle;
 
@@ -154,6 +154,11 @@ namespace mtc
         dwattr( attr ),
         szname( nullptr ),
         handle( -1 )  {}
+     ~dir_val()
+        {
+          if ( handle != -1 )
+            _findclose( handle );
+        }
       
     public:     // read
       unsigned    attrib() const  {  return (fidata.attrib & _A_SUBDIR) ? attr_dir : attr_file;  }
