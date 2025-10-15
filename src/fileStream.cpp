@@ -119,7 +119,7 @@ namespace mtc
   protected:  // variables
     size_t    cchmem;       // mapped memory length
     unsigned  dwgran;       // memory granularity
-    unsigned  nshift = 0;
+    int64_t   nshift = 0;
     size_t    maplen = 0;
     void*     ptrmap = nullptr;
 # if defined( _WIN32 )
@@ -226,13 +226,12 @@ namespace mtc
     if ( length == size_t(-1) || length == uint32_t(-1) )
       maplen = stsize - oalign;
     else
-      maplen = std::min( stsize - oalign, length + nshift );
+      maplen = (std::min)( stsize - oalign, length + nshift );
 
     cchmem = maplen - nshift;
 
 # if defined( _WIN32 ) || defined( _WIN64 )
-    auto  offshi = DWORD(offset >> 32);
-    auto  offslo = DWORD(offset);
+    auto  offshi = DWORD(oalign >> 32);
 
   // create mapping view
     handle = CreateFileMapping( stm->handle, NULL, PAGE_READONLY | SEC_COMMIT,
@@ -246,15 +245,13 @@ namespace mtc
     }
 
   // create mapping pointer
-    if ( (ptrmap = MapViewOfFile( handle, FILE_MAP_READ, offshi, oalign, maplen )) == nullptr )
+    if ( (ptrmap = MapViewOfFile( handle, FILE_MAP_READ, offshi, DWORD(oalign), maplen )) == nullptr )
     {
       CloseHandle( handle );
         handle = INVALID_HANDLE_VALUE;
       return error()( EFAULT, file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code 0x%08x!",
         stm->FileName(), GetLastError() ) ) );
     }
-
-    return 0;
 # else
     if ( (ptrmap = mmap( NULL, maplen, PROT_READ, MAP_SHARED | MAP_NORESERVE, stm->handle, oalign )) == MAP_FAILED )
     {
@@ -263,8 +260,9 @@ namespace mtc
       return error()( nerror, file_error( strprintf( "Could not MapViewOfFile( '%s' ) for the requested block, error code %u!",
         stm->FileName(), nerror ) ) );
     }
-    return 0;
 # endif
+
+    return 0;
   }
 
   // CFileStream implementation
