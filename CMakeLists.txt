@@ -3,12 +3,14 @@ project(mtc)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
+
 if(MSVC)
-  add_compile_options(-MP)
+	add_compile_options(-MP -D_CRT_SECURE_NO_WARNINGS)
 else()
-  add_compile_options(-W -Wall -Wextra)
+	add_compile_options(
+		-mfpmath=sse -fstack-protector-all -g -W -Wall -Wextra -Wcast-align
+		-pedantic -Wfloat-equal -Wpointer-arith -Wformat-security -Wmissing-format-attribute -Wformat=1 -Wwrite-strings -Wcast-align -Wno-long-long -Woverloaded-virtual -Wno-suggest-attribute=format)
 endif()
-add_compile_options(-mfpmath=sse -fstack-protector-all -g -W -Wall -Wextra -Wcast-align -pedantic -Wfloat-equal -Wpointer-arith -Wformat-security -Wmissing-format-attribute -Wformat=1 -Wwrite-strings -Wcast-align -Wno-long-long -Woverloaded-virtual -Wno-suggest-attribute=format)
 
 add_library(mtc STATIC
   src/sharedLibrary.cpp
