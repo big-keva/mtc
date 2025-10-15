@@ -896,17 +896,17 @@ namespace parse {
 
       if ( bpoint
         || bexpon
-        || dvalue > std::numeric_limits<uint64_t>::max()
-        || dvalue < std::numeric_limits< int64_t>::min() )
+        || dvalue > (std::numeric_limits<uint64_t>::max)()
+        || dvalue < (std::numeric_limits< int64_t>::min)() )
       {
         z.set_double( dvalue );
       }
         else
-      if ( dvalue >  std::numeric_limits<uint32_t>::max() ) z.set_word64( uint64_t(dvalue) );
+      if ( dvalue >  (std::numeric_limits<uint32_t>::max)() ) z.set_word64( uint64_t(dvalue) );
         else
-      if ( dvalue >  std::numeric_limits< int32_t>::max() ) z.set_word32( uint64_t(dvalue) );
+      if ( dvalue >  (std::numeric_limits< int32_t>::max)() ) z.set_word32( uint32_t(dvalue) );
         else
-      if ( dvalue >= std::numeric_limits< int32_t>::min() ) z.set_int32( int32_t(dvalue) );
+      if ( dvalue >= (std::numeric_limits< int32_t>::min)() ) z.set_int32( int32_t(dvalue) );
         else  z.set_int64( int64_t(dvalue) );
       return z;
     }
