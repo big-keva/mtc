@@ -229,7 +229,7 @@ namespace mtc
     if ( length == size_t(-1) || length == uint32_t(-1) )
       maplen = stsize - oalign;
     else
-      maplen = std::min( stsize - oalign, length + nshift );
+      maplen = (std::min)( stsize - oalign, length + nshift );
 
     cchmem = maplen - nshift;
 
@@ -331,7 +331,7 @@ namespace mtc
     api<MiniBuffer<error>>  buf;
     int64_t                 len = Size();
 
-    if ( len > std::numeric_limits<int64_t>::max() )
+    if ( len > (std::numeric_limits<int64_t>::max)() )
       return nullptr;
 
     if ( (buf = MiniBuffer<error>::Create( len )) == nullptr )

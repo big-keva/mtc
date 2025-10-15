@@ -159,7 +159,7 @@ namespace mtc
     overData.OffsetHigh = DWORD(offset >> (CHAR_BIT * sizeof(DWORD)));
     overData.hEvent = NULL;
 
-    return ::ReadFile( handle, buffer, length, &ncchRead, &overData ) ? (int32_t)ncchRead : -1;
+    return ::ReadFile( handle, buffer, DWORD(length), &ncchRead, &overData ) ? (int32_t)ncchRead : -1;
   }
 
   inline
@@ -174,7 +174,7 @@ namespace mtc
     overData.OffsetHigh = DWORD(offset >> (CHAR_BIT * sizeof(DWORD)));
     overData.hEvent = NULL;
 
-    return ::WriteFile( handle, buffer, length, &nWritten, &overData ) ? (int32_t)nWritten : -1;
+    return ::WriteFile( handle, buffer, DWORD(length), &nWritten, &overData ) ? (int32_t)nWritten : -1;
   }
 
 # else
@@ -249,7 +249,7 @@ namespace mtc
 
     while ( outptr < outend )
     {
-      ssize_t cbcopy = std::min( bufend - bufptr, outend - outptr );
+      auto  cbcopy = (std::min)( bufend - bufptr, outend - outptr );
 
       // copy existing data
       while ( cbcopy-- > 0 )
@@ -279,8 +279,9 @@ namespace mtc
           return error()( -1, FormatError<file_error>( "error %d flushing data for '%s' @" __FILE__ ":" LINE_STRING,
             LastError(), szname ) );
         }
+
         curpos += cbcopy;
-          return cbcopy;
+        return uint32_t(cbcopy);
       }
 
       // read subbuffer
@@ -293,7 +294,7 @@ namespace mtc
         break;
       bufend = buforg + cbcopy;
     }
-    return outptr - outorg;
+    return uint32_t(outptr - outorg);
   }
 
   template <class error>
@@ -304,7 +305,7 @@ namespace mtc
 
     while ( srcptr < srcend )
     {
-      ssize_t cbcopy = std::min( buflim - bufptr, srcend - srcptr );
+      auto  cbcopy = (std::min)( buflim - bufptr, srcend - srcptr );
 
     // copy to existing buffer space
       if ( cbcopy != 0 )
@@ -313,7 +314,7 @@ namespace mtc
           bufptr += cbcopy;
           srcptr += cbcopy;
           modify = true;
-        bufend = std::max( bufend, bufptr );
+        bufend = (std::max)( bufend, bufptr );
       }
 
     // check if finished filling the buffer, continue if not
@@ -347,7 +348,7 @@ namespace mtc
 
       bufptr = bufend = buforg;
     }
-    return srcptr - static_cast<const char*>( lpdata );
+    return uint32_t(srcptr - static_cast<const char*>( lpdata ));
   }
 
   template <class error>
@@ -407,7 +408,7 @@ namespace mtc
       offset =  curpos;
     }
 
-    memcpy( pstore, buforg, cbcopy = std::min( length, uint32_t(bufend - buforg) ) );
+    memcpy( pstore, buforg, cbcopy = (std::min)( length, uint32_t(bufend - buforg) ) );
       pstore += cbcopy;
       length -= cbcopy;
       offset += cbcopy;
@@ -440,7 +441,7 @@ namespace mtc
       offset =  curpos;
     }
 
-    memcpy( buforg, pwrite, cbcopy = std::min( length, uint32_t(bufend - buforg) ) );
+    memcpy( buforg, pwrite, cbcopy = (std::min)( length, uint32_t(bufend - buforg) ) );
       pwrite += cbcopy;
       length -= cbcopy;
       offset += cbcopy;
@@ -501,7 +502,7 @@ namespace mtc
     if ( getlen == -1 )
       return -1;
 # endif
-    return std::max( getlen, curpos + bufend - buforg );
+    return (std::max)( getlen, curpos + bufend - buforg );
   }
 
   template <class error>
