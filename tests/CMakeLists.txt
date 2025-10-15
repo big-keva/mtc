@@ -16,35 +16,38 @@ add_library(mtc-test-sharedLibrary-lib SHARED
 
 add_compile_definitions(
 	CMAKE_BINARY_DIR=${PROJECT_BINARY_DIR}
+	CMAKE_DLL_PREFIX=/${CMAKE_SHARED_LIBRARY_PREFIX}
 	CMAKE_DLL_SUFFIX=${CMAKE_SHARED_LIBRARY_SUFFIX})
+
+set(COMMON_SRC tmppath.cpp ${COMMON_SRC} test-main.cpp)
 
 if(FALSE)
 	add_executable(mtc-test-bitset
-		test-bitset.cpp test-main.cpp)
+		test-bitset.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-buffer
-		test-buffer.cpp test-main.cpp)
+		test-buffer.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-fileStream
-        	test-fileStream.cpp test-main.cpp)
+        	test-fileStream.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-bufStream
-        	test-bufStream.cpp test-main.cpp)
+        	test-bufStream.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-serialize
-		test-serialize.cpp test-main.cpp)
+		test-serialize.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-patricia
-		test-patricia.cpp test-main.cpp)
+		test-patricia.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-radix-tree
-		test-radix-tree.cpp test-main.cpp)
+		test-radix-tree.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-config
-        	test-config.cpp test-main.cpp)
+        	test-config.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-zmap
-        	test-zmap.cpp test-main.cpp)
+        	test-zmap.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-wcsstr
-        	test-wcsstr.cpp test-main.cpp)
+        	test-wcsstr.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-sharedMutex
-		test-sharedMutex.cpp test-main.cpp)
+		test-sharedMutex.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-sharedLibrary
-		test-sharedLibrary.cpp test-main.cpp)
+		test-sharedLibrary.cpp ${COMMON_SRC} test-main.cpp)
 	add_executable(mtc-test-threadPool
-		test-threadPool.cpp test-main.cpp)
+		test-threadPool.cpp ${COMMON_SRC} test-main.cpp)
 
 	add_dependencies(mtc-test-sharedLibrary
 		mtc-test-sharedLibrary-lib)
@@ -55,7 +58,7 @@ if(FALSE)
 	add_test(NAME mtc-test-zmap COMMAND test-zmap)
 
 else()
-	add_executable(mtc-test test-main.cpp
+	add_executable(mtc-test
 		test-bitset.cpp
 		test-buffer.cpp
         	test-fileStream.cpp
@@ -68,7 +71,8 @@ else()
         	test-wcsstr.cpp
 		test-sharedMutex.cpp
 		test-sharedLibrary.cpp
-		test-threadPool.cpp)
+		test-threadPool.cpp
+		${COMMON_SRC})
 
 	add_dependencies(mtc-test
 		mtc-test-sharedLibrary-lib)
