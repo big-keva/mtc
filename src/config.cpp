@@ -3,12 +3,10 @@
 # include "../json.h"
 # include "../file.h"
 
-# if defined( _WIN32 )
+# if defined( _MSC_VER )
 #   include <direct.h>
-#   if __STDC__
-#     define  getcwd  _getcwd
-#     define  chdir   _chdir
-#   endif
+#   define  getcwd  _getcwd
+#   define  chdir   _chdir
 # else
 #   include <unistd.h>
 # endif  // _WIN32
@@ -155,8 +153,8 @@ namespace mtc
   template <class target, class value, class alter>
   auto  value_in_limits( value v, alter a ) -> target
   {
-    return (double)v <= (double)std::numeric_limits<target>::max()
-        && (double)v >= (double)std::numeric_limits<target>::min() ? v : a;
+    return (double)v <= (double)(std::numeric_limits<target>::max)()
+        && (double)v >= (double)(std::numeric_limits<target>::min)() ? target(v) : target(a);
   }
 
   // config implementation
@@ -201,13 +199,13 @@ namespace mtc
 
     switch ( getval->get_type() )
     {
-      case zval::z_double:  return value_in_limits<int32_t>( *getval->get_double(), def );
-      case zval::z_word64:  return value_in_limits<int32_t>( *getval->get_word64(), def );
-      case zval::z_int64:   return value_in_limits<int32_t>( *getval->get_int64(),  def );
-      case zval::z_word32:  return value_in_limits<int32_t>( *getval->get_word32(), def );
-      case zval::z_int32:   return *getval->get_int32();
-      case zval::z_word16:  return *getval->get_word16();
-      case zval::z_int16:   return *getval->get_int16();
+      case zval::z_double:  return int32_t(value_in_limits<int32_t>( *getval->get_double(), def ));
+      case zval::z_word64:  return int32_t(value_in_limits<int32_t>( *getval->get_word64(), def ));
+      case zval::z_int64:   return int32_t(value_in_limits<int32_t>( *getval->get_int64(),  def ));
+      case zval::z_word32:  return int32_t(value_in_limits<int32_t>( *getval->get_word32(), def ));
+      case zval::z_int32:   return int32_t(*getval->get_int32());
+      case zval::z_word16:  return int32_t(*getval->get_word16());
+      case zval::z_int16:   return int32_t(*getval->get_int16());
       case zval::z_charstr:
         return parse_double( dblval, *getval->get_charstr(), suf ) ?
           value_in_limits<int32_t>( dblval, def ) : def;
@@ -468,13 +466,13 @@ namespace mtc
 
     switch ( val->get_type() )
     {
-      case zval::z_double:  return *val->get_double();
-      case zval::z_word64:  return *val->get_word64();
-      case zval::z_int64:   return *val->get_int64();
-      case zval::z_word32:  return *val->get_word32();
-      case zval::z_int32:   return *val->get_int32();
-      case zval::z_word16:  return *val->get_word16();
-      case zval::z_int16:   return *val->get_int16();
+      case zval::z_double:  return double(*val->get_double());
+      case zval::z_word64:  return double(*val->get_word64());
+      case zval::z_int64:   return double(*val->get_int64());
+      case zval::z_word32:  return double(*val->get_word32());
+      case zval::z_int32:   return double(*val->get_int32());
+      case zval::z_word16:  return double(*val->get_word16());
+      case zval::z_int16:   return double(*val->get_int16());
       case zval::z_charstr: return parse_double( dbl, *val->get_charstr(), suf ) ? dbl : def;
       case zval::z_widestr: return parse_double( dbl, *val->get_widestr(), suf ) ? dbl : def;
       default:              return def;
