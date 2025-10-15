@@ -6,6 +6,11 @@
 # include <mutex>
 # include <list>
 
+# if defined( _MSC_VER )
+#   define pthread_self( ... )
+#   define pthread_setname_np( ... )
+# endif   // _MSC_VER
+
 namespace mtc {
 
   struct ThreadPool::impl
