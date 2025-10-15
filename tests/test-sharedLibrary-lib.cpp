@@ -1,7 +1,11 @@
-# include <string>
+# if defined( _MSC_VER )
+#   define EXPORT __declspec(dllexport)
+# else
+#   define EXPORT
+# endif
 
-extern "C"
-auto  ExportedStringFunc( const std::string& src ) -> std::string
+extern "C"  EXPORT
+auto  ExportedStringFunc( const char* src ) -> const char*
 {
-  return "string '" + src + "' from library";
+  return src;
 }

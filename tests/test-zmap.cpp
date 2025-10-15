@@ -77,18 +77,18 @@ namespace mtc
     node_t( const node_t& ) = delete;
    ~node_t() {  clear();  }
 
-    node_t( const uint8_t*  keytop, size_t length );
+    node_t( const uint8_t*  keytop, uint32_t length );
   protected:
 
-    static  auto  get_tree_limit( uint32_t ) -> size_t;
-    inline  auto  get_string_len() const -> size_t  {  return (ustate & O_FRAGLEN);  }
+    static  auto  get_tree_limit( uint32_t ) -> uint32_t;
+    inline  auto  get_string_len() const -> uint32_t  {  return (ustate & O_FRAGLEN);  }
     inline  auto  get_string_ptr() const -> const uint8_t*;
-    inline  auto  get_tree_count() const -> size_t  {  return (ustate & O_TREELEN) >> 16;  }
-    inline  auto  get_tree_limit() const -> size_t  {  return (ustate & O_TREELIM) >> 25;  }
-    inline  auto  get_type_value() const -> size_t  {  return (ustate & O_KEYTYPE) >> 30;  }
-    inline  auto  set_string_len( size_t len ) -> node_t& {  ustate = (ustate & ~O_FRAGLEN) | len;  return *this;  }
-    inline  auto  set_tree_count( size_t cnt ) -> node_t& {  ustate = (ustate & ~O_TREELEN) | (cnt << 16);  return *this;  }
-    inline  auto  set_tree_limit( size_t lim ) -> node_t& {  ustate = (ustate & ~O_TREELIM) | (lim << 25);  return *this;  }
+    inline  auto  get_tree_count() const -> uint32_t  {  return (ustate & O_TREELEN) >> 16;  }
+    inline  auto  get_tree_limit() const -> uint32_t  {  return (ustate & O_TREELIM) >> 25;  }
+    inline  auto  get_type_value() const -> uint32_t  {  return (ustate & O_KEYTYPE) >> 30;  }
+    inline  auto  set_string_len( uint32_t len ) -> node_t& {  ustate = (ustate & ~O_FRAGLEN) | len;  return *this;  }
+    inline  auto  set_tree_count( uint32_t cnt ) -> node_t& {  ustate = (ustate & ~O_TREELEN) | (cnt << 16);  return *this;  }
+    inline  auto  set_tree_limit( uint32_t lim ) -> node_t& {  ustate = (ustate & ~O_TREELIM) | (lim << 25);  return *this;  }
     inline  auto  set_type_value( unsigned typ ) -> node_t&  {  ustate = (ustate & ~O_KEYTYPE) | (typ << 30);  return *this;  }
 
     static  auto  allocate_nodes( size_t ) -> node_t*;
@@ -105,7 +105,7 @@ namespace mtc
     void  print( FILE*, const std::string& topstr = "", const std::string& othstr = "" );
     int   lines() const;
 
-    auto  insert( const uint8_t* key, size_t len ) -> node_t*;
+    auto  insert( const uint8_t* key, uint32_t len ) -> node_t*;
     auto  insert( node_t* pos, node_t&& ) -> node_t*;
 
   };
@@ -132,9 +132,7 @@ namespace mtc
     node.ustate = 0;
   }
 
-  node_t::node_t(
-    const uint8_t*  keytop,
-    size_t          length ): pnodes( nullptr ), ustate( length )
+  node_t::node_t( const uint8_t* keytop, uint32_t length ): ustate( length )
   {
     assert( length <= 0xffff );
 
@@ -162,7 +160,7 @@ namespace mtc
     return get_string_len() <= sizeof(node_t) - offsetof(node_t, keyptr) ? keyptr.buf : keyptr.psz;
   }
 
-  auto  node_t::get_tree_limit( uint32_t count ) -> size_t
+  auto  node_t::get_tree_limit( uint32_t count ) -> uint32_t
   {
     return count == 0   ? 0 :
            count <= 2   ? 1 :
@@ -174,7 +172,7 @@ namespace mtc
            count <= 128 ? 7 : 8;
   }
 
-  auto  node_t::insert( const uint8_t* keystr, size_t keylen ) -> node_t*
+  auto  node_t::insert( const uint8_t* keystr, uint32_t keylen ) -> node_t*
   {
     auto  expand = this;
 
@@ -220,7 +218,7 @@ namespace mtc
         // иначе совпадение частичное, хотя бы один символ; поделить узел на два, до совпадения,
         // c возможным привешенным значением, и после совпадения - со списком вложенных элементов
       {
-        auto  ccrest = keytop - expand->get_string_ptr();
+        auto  ccrest = uint32_t(keytop - expand->get_string_ptr());
 
         if ( keylen == 0 )
         {
@@ -229,7 +227,7 @@ namespace mtc
           auto  subset = allocate_nodes( uitems );    // остаток существующего ключа
 
           new ( subset + 0 )
-            node_t( keytop, keyend - keytop );
+            node_t( keytop, uint32_t(keyend - keytop) );
           subset->pnodes = expand->pnodes;
             expand->pnodes = nullptr;
           subset->pvalue = std::move(
@@ -265,7 +263,7 @@ namespace mtc
             else  {  p_rest = subset + 1;  p_push = subset + 0;  }
 
           new( p_rest )
-            node_t( keytop, keyend - keytop );
+            node_t( keytop, uint32_t(keyend - keytop) );
           p_rest->pnodes = expand->pnodes;
             expand->pnodes = nullptr;
           p_rest->pvalue = std::move(

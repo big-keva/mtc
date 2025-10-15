@@ -5,6 +5,8 @@
 # define __Q__(x) #x
 # define QUOTE(x) __Q__(x)
 
+typedef const char* (*ImportedFunc)( const char* );
+
 TestItEasy::RegisterFunc  testSharedLibrary( []()
 {
   TEST_CASE( "mtc/SharedLibrary" )
@@ -28,16 +30,16 @@ TestItEasy::RegisterFunc  testSharedLibrary( []()
         }
       }
 
-      auto  libpath = QUOTE(CMAKE_BINARY_DIR) "/libmtc-test-sharedLibrary-lib" QUOTE(CMAKE_DLL_SUFFIX);
+      auto  libpath = QUOTE(CMAKE_BINARY_DIR) QUOTE(CMAKE_DLL_PREFIX) "mtc-test-sharedLibrary-lib" QUOTE(CMAKE_DLL_SUFFIX);
 
-      SECTION( "loading library " QUOTE(CMAKE_BINARY_DIR) "/libmtc-test-sharedLibrary-lib" QUOTE(CMAKE_DLL_SUFFIX) )
+      SECTION( "loading library " QUOTE(CMAKE_BINARY_DIR) QUOTE(CMAKE_DLL_PREFIX) "mtc-test-sharedLibrary-lib" QUOTE(CMAKE_DLL_SUFFIX) )
       {
         REQUIRE_NOTHROW( lib = mtc::SharedLibrary::Load( libpath ) );
       }
     }
     if ( lib != nullptr )
     {
-      std::function<std::string(const std::string&)> func;
+      std::function<const char*(const char*)> func;
 
       SECTION( "absent functions are not found" )
       {
@@ -47,15 +49,16 @@ TestItEasy::RegisterFunc  testSharedLibrary( []()
       }
       SECTION( "library function may be found by name" )
       {
-        REQUIRE_NOTHROW( func = (std::string(*)(const std::string&))lib.Find( "ExportedStringFunc" ) );
+        REQUIRE_NOTHROW( func = (ImportedFunc)lib.Find( "ExportedStringFunc" ) );
         REQUIRE_NOTHROW( func != nullptr );
       }
       if ( func != nullptr )
       {
         SECTION( "library found function may be called" )
         {
-          if ( REQUIRE_NOTHROW( func( "tester string" ) ) )
-            REQUIRE( func( "tester string" ) == "string 'tester string' from library" );
+          if ( REQUIRE_NOTHROW( func( "tester string" ) )
+            && REQUIRE( func( "tester string" ) != nullptr ) )
+               REQUIRE( strcmp( func( "tester string" ), "tester string" ) == 0 );
         }
       }
     }

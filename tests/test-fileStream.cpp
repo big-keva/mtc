@@ -1,44 +1,18 @@
 # include "../fileStream.h"
 # include "../exceptions.h"
 # include "../utf.hpp"
+# include "tmppath.h"
 # include "../test-it-easy.hpp"
 # include <cstdio>
 # if defined( _WIN32 ) || defined( _WIN64 )
-#   include <fileapi.h>
+#   include "io.h"
+#   define open _open
+#   define write _write
+#   define close _close
+#   define lseek64 _lseeki64
 # else
 #   include <unistd.h>
-# endif   // _WIN32 || _WIN64
-
-namespace {
-
-  auto  GetTempFile() -> std::pair<int, std::string>
-  {
-    char  existing_name[1024];
-
-# if defined( _WIN32 ) || defined( _WIN64 )
-    char  template_path[1024];
-
-    GetTempPath( sizeof(template_path), template_path );
-
-    if ( GetTempFileName( template_path, "mtc-test-file", 0, existing_name ) )
-      return { ::open( existing_name, O_RDWR, 0666 ), existing_name };
-    else
-      return { -1, "" };
-# else
-    auto  template_path = "/tmp/mtc-test-fileXXXXX";
-
-    return { mkstemp( strcpy( existing_name, template_path ) ), existing_name };
 # endif
-  }
-
-  auto  GetTempName() -> std::string
-  {
-    auto  temp = GetTempFile();
-
-    return temp.first >= 0 ? ::close( temp.first ), temp.second : "";
-  }
-
-}
 
 TestItEasy::RegisterFunc  testFileStream( []()
 {
@@ -61,7 +35,8 @@ TestItEasy::RegisterFunc  testFileStream( []()
 
         SECTION( "existing file returns object interface" )
         {
-          auto  existing_file_name = GetTempName();
+          auto  existing_file_name = GetTmpName();
+            fclose( fopen( existing_file_name.c_str(), "wb" ) );
 
           REQUIRE_NOTHROW( mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::disable_exceptions ) );
                   REQUIRE( mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::disable_exceptions ) != nullptr );
@@ -78,7 +53,8 @@ TestItEasy::RegisterFunc  testFileStream( []()
         }
         SECTION( "opening existing file returns object interface" )
         {
-          auto  existing_file_name = GetTempName();
+          auto  existing_file_name = GetTmpName();
+            fclose( fopen( existing_file_name.c_str(), "wb" ) );
 
           REQUIRE_NOTHROW( mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::enable_exceptions ) );
                   REQUIRE( mtc::OpenFileStream( existing_file_name, O_RDONLY, mtc::enable_exceptions ) != nullptr );
@@ -90,7 +66,7 @@ TestItEasy::RegisterFunc  testFileStream( []()
 
     SECTION( "fileStream created on existing file may be MemMap()'ed" )
     {
-      auto  existing_file_name = GetTempName();
+      auto  existing_file_name = GetTmpName();
 
       {
         auto  lpfile = fopen( existing_file_name.c_str(), "wb" );
@@ -114,7 +90,7 @@ TestItEasy::RegisterFunc  testFileStream( []()
 
     SECTION( "Long files may be MemMap()'ed" )
     {
-      auto  existing_file = GetTempName();
+      auto  existing_file = GetTmpName();
 
       {
         auto  fd = ::open( existing_file.c_str(), O_CREAT + O_RDWR, 0666 );
@@ -161,7 +137,7 @@ TestItEasy::RegisterFunc  testFileStream( []()
       }
       SECTION( "loading of existing file returns byte buffer" )
       {
-        auto  tmps = GetTempName();
+        auto  tmps = GetTmpName();
 
         {
           auto  file = fopen( tmps.c_str(), "wb" );

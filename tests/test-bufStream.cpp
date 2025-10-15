@@ -1,43 +1,8 @@
 # include "../bufStream.h"
 # include "../exceptions.h"
+# include "tmppath.h"
 # include "../test-it-easy.hpp"
 # include <cstdio>
-# if defined( _WIN32 ) || defined( _WIN64 )
-#   include <fileapi.h>
-# else
-#   include <unistd.h>
-# endif   // _WIN32 || _WIN64
-
-namespace {
-
-  auto  GetTempFile() -> std::pair<int, std::string>
-  {
-    char  existing_name[1024];
-
-  # if defined( _WIN32 ) || defined( _WIN64 )
-    char  template_path[1024];
-
-    GetTempPath( sizeof(template_path), template_path );
-
-    if ( GetTempFileName( template_path, "mtc-test-file", 0, existing_name ) )
-      return { ::open( existing_name, O_RDWR, 0666 ), existing_name };
-    else
-      return { -1, "" };
-  # else
-    auto  template_path = "/tmp/mtc-test-fileXXXXX";
-
-    return { mkstemp( strcpy( existing_name, template_path ) ), existing_name };
-  # endif
-  }
-
-  auto  AllocFileName() -> std::string
-  {
-    auto  temp = GetTempFile();
-
-    return temp.first >= 0 ? ::close( temp.first ), temp.second : "";
-  }
-
-}
 
 TestItEasy::RegisterFunc  testBufStream( []()
 {
@@ -60,7 +25,8 @@ TestItEasy::RegisterFunc  testBufStream( []()
 
         SECTION( "existing file returns object interface" )
         {
-          auto  tempname = AllocFileName();
+          auto  tempname = GetTmpName();
+            fclose( fopen( tempname.c_str(), "wb" ) );
 
           if ( REQUIRE( !tempname.empty() ) )
           {
@@ -81,16 +47,15 @@ TestItEasy::RegisterFunc  testBufStream( []()
         }
         SECTION( "opening existing file returns object interface" )
         {
-          auto  temp = GetTempFile();
+          auto  tempname = GetTmpName();
+            fclose( fopen( tempname.c_str(), "wb" ) );
 
-          if ( temp.first >= 0 )
+          if ( REQUIRE( !tempname.empty() ) )
           {
-            close( temp.first );
+            if ( REQUIRE_NOTHROW( mtc::OpenBufStream( tempname, O_RDONLY, 0x16, mtc::enable_exceptions ) ) )
+              REQUIRE( mtc::OpenBufStream( tempname, O_RDONLY, 0x16, mtc::enable_exceptions ) != nullptr );
 
-            REQUIRE_NOTHROW( mtc::OpenBufStream( temp.second, O_RDONLY, 0x16, mtc::enable_exceptions ) );
-                    REQUIRE( mtc::OpenBufStream( temp.second, O_RDONLY, 0x16, mtc::enable_exceptions ) != nullptr );
-
-            remove( temp.second.c_str() );
+            remove( tempname.c_str() );
           }
         }
       }
@@ -98,16 +63,14 @@ TestItEasy::RegisterFunc  testBufStream( []()
     SECTION( "data may be sequentally written and read to-from the file insite the buffer" )
     {
       auto  fs = mtc::api<mtc::IFlatStream>();
-      auto  tf = GetTempFile();
+      auto  tf = GetTmpName();
 
-      if ( REQUIRE( tf.first >= 0 ) )
+      if ( REQUIRE( !tf.empty() ) )
       {
-        ::close( tf.first );
-
-        if ( REQUIRE_NOTHROW( fs = mtc::OpenBufStream( tf.second, O_CREAT + O_RDWR, 0x20, mtc::enable_exceptions ) )
+        if ( REQUIRE_NOTHROW( fs = mtc::OpenBufStream( tf, O_CREAT + O_RDWR, 0x20, mtc::enable_exceptions ) )
           && REQUIRE( fs != nullptr ) )
         {
-          uint32_t  nwrite;
+          int64_t nwrite;
 
           SECTION( "small data pieces may be written to the buffer" )
           {
@@ -132,7 +95,7 @@ TestItEasy::RegisterFunc  testBufStream( []()
           }
         }
         fs = nullptr;
-        remove( tf.second.c_str() );
+        remove( tf.c_str() );
       }
     }
   }
