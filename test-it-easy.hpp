@@ -7,7 +7,9 @@
 # include <string>
 # include <cstdio>
 
-#pragma GCC diagnostic ignored "-Wparentheses"
+# if defined( __GNUC__ )
+#   pragma GCC diagnostic ignored "-Wparentheses"
+# endif
 
 const int   TestItEasyShiftSpace = 0;
 
