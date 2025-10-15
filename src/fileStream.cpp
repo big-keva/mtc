@@ -218,20 +218,21 @@ namespace mtc
   template <class error>
   int   FileMemmap<error>::Create( FileStream<error>* stm, int64_t offset, size_t length )
   {
-# if defined( _WIN32 ) || defined( _WIN64 )
     auto  stsize = uint64_t(stm->Size());
-    auto  offshi = DWORD(offset >> 32);
-    auto  offslo = DWORD(offset);
-    auto  oalign = DWORD((offslo / dwgran) * dwgran);
-          nshift = offslo - oalign;
+    auto  oalign = (offset / dwgran) * dwgran;  // смещение в файле как адрес отображения
+          nshift = offset - oalign;             // смещение в памяти до нужных байтов
 
   // check length limit; check if unlimited length passed and limit to real length
     if ( length == size_t(-1) || length == uint32_t(-1) )
       maplen = stsize - oalign;
     else
-      maplen = (std::min)( stsize - oalign, length + nshift );
+      maplen = std::min( stsize - oalign, length + nshift );
 
     cchmem = maplen - nshift;
+
+# if defined( _WIN32 ) || defined( _WIN64 )
+    auto  offshi = DWORD(offset >> 32);
+    auto  offslo = DWORD(offset);
 
   // create mapping view
     handle = CreateFileMapping( stm->handle, NULL, PAGE_READONLY | SEC_COMMIT,
@@ -255,20 +256,6 @@ namespace mtc
 
     return 0;
 # else
-    int64_t   stsize = stm->Size();
-    int64_t   oalign = (offset / dwgran) * dwgran;  // смещение в файле как адрес отображения
-      nshift = offset - oalign;                     // смещение в памяти до нужных байтов
-    word64_t  blklen = std::min( word64_t(stsize - oalign), word64_t(length) + nshift );
-                                                    // длина от базы до конца файла или нужная с выравниванием
-
-    for ( blklen = ((blklen + dwgran - 1) / dwgran) * dwgran; blklen > (word64_t)(uint32_t)-1; )
-      blklen -= dwgran;
-
-    maplen = (uint32_t)blklen;
-
-    if ( (cchmem = std::min( maplen - nshift, length )) != length && length != (uint32_t)-1 )
-      return error()( EOVERFLOW, file_error( strprintf( "buffer too long to be mmap()'ed" ) ) );
-
     if ( (ptrmap = mmap( NULL, maplen, PROT_READ, MAP_SHARED | MAP_NORESERVE, stm->handle, oalign )) == MAP_FAILED )
     {
       int   nerror = errno;
