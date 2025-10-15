@@ -295,7 +295,7 @@ template <> inline  auto  SkipBytes( const char* s, size_t l ) -> const char*
 template <> inline  auto  SkipBytes( const unsigned char* s, size_t l ) -> const unsigned char*
   {  return s != nullptr ? s + l : s;  }
 template <> inline  auto  SkipBytes( FILE* s, size_t l ) -> FILE*
-  {  return s != nullptr && fseek( s, l, SEEK_CUR ) == 0 ? s : nullptr;  }
+  {  return s != nullptr && fseek( s, long(l), SEEK_CUR ) == 0 ? s : nullptr;  }
 
 /*
  * values serialization/deserialization for standard types
