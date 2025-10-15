@@ -112,7 +112,7 @@ namespace mtc {
    *  decode( pwsout, cchout, pszsrc, cchsrc )
    *  Декодирует строку из utf8 в utf16
    */
-    inline  auto  decode( widechar* out, size_t len, const char* src, size_t cch = (size_t)-1 ) -> size_t;
+    static  auto  decode( widechar* out, size_t len, const char* src, size_t cch = (size_t)-1 ) -> size_t;
     static  auto  decode( const char*, size_t = (size_t)-1 ) -> widestr;
     static  auto  decode( const charstr& ) -> widestr;
 
