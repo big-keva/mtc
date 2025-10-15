@@ -2152,7 +2152,7 @@ namespace mtc
   template <class S>
   S*  zmap::SkipToEnd( S* s )
   {
-    size_t  lfetch;
+    uint32_t  lfetch;
 
     if ( (s = ::FetchFrom( s, lfetch )) == nullptr )
       return nullptr;
