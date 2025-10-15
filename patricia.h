@@ -71,20 +71,20 @@ namespace patricia  {
     friend class dump;
 
     const unsigned char*  ptr;
-    size_t                len;
+    uint32_t              len;
 
   public:     // construction
     key();
     template <class chartype>
-    key( const chartype*, size_t = (size_t)-1 );
+    key( const chartype*, uint32_t = (uint32_t)-1 );
     template <class chartype, class traits, class allocate>
     key( const std::basic_string<chartype, traits, allocate>& );
 
   public:     // key access
     auto    getptr() const -> const unsigned char*  {  return ptr;  }
-    auto    getlen() const -> size_t                {  return len;  }
+    auto    getlen() const -> uint32_t              {  return len;  }
     auto    data() const -> const unsigned char*    {  return ptr;  }
-    auto    size() const -> size_t                  {  return len;  }
+    auto    size() const -> uint32_t                {  return len;  }
 
     auto    begin() const -> const unsigned char*   {  return getptr();  }
     auto    end()   const -> const unsigned char*   {  return getptr() + getlen();  }
@@ -138,11 +138,11 @@ namespace patricia  {
     friend class tape;
 
     page*     next;
-    unsigned  size;
+    size_t    size;
     char*     pend;
 
   protected:
-    page( unsigned cch ):
+    page( size_t cch ):
       next( nullptr ),
       size( cch ),
       pend( head() )  {}
@@ -331,16 +331,16 @@ namespace patricia  {
   inline  key::key(): ptr( nullptr ), len( 0 )  {}
 
   template <class chartype>
-  key::key( const chartype* s, size_t l ): ptr( (const unsigned char*)s ), len( 0 )
+  key::key( const chartype* s, uint32_t l ): ptr( (const unsigned char*)s ), len( 0 )
   {
-    if ( (len = l) == (size_t)-1 && ptr != nullptr )
+    if ( (len = l) == (uint32_t)-1 && ptr != nullptr )
       for ( len = 0; ptr[len] != 0; ++len ) (void)NULL;
     len *= sizeof(chartype);
   }
 
   template <class chartype, class traits, class allocate>
   key::key( const std::basic_string<chartype, traits, allocate>& s ):
-    key( s.c_str(), s.length() ) {}
+    key( s.c_str(), uint32_t(s.length()) ) {}
 
   inline int key::compare( const key& k ) const
   {
@@ -349,7 +349,7 @@ namespace patricia  {
     auto  lc = std::min( l1, l2 );
     auto  rc = lc != 0 ? memcmp( getptr(), k.getptr(), lc ) : 0;
 
-    return rc != 0 ? rc : l1 - l2;
+    return rc != 0 ? rc : (l1 > l2) - (l1 < l2);
   }
 
   template <class V = nothing, class A/*llocator*/ = std::allocator<char>>
@@ -408,7 +408,7 @@ namespace patricia  {
     class node
     {
       template <class R, class S> static
-      auto  search( const unsigned char*, size_t, S& ) -> R*;
+      auto  search( const unsigned char*, uint32_t, S& ) -> R*;
 
     public:
       A&            alloc;
@@ -427,35 +427,35 @@ namespace patricia  {
      ~node();
 
     public:
-      node( A&, const unsigned char*, size_t, node* );
+      node( A&, const unsigned char*, uint32_t, node* );
 
     public:
-      static  auto  Create( A&, const unsigned char*, size_t, node* = nullptr ) -> node*;
-              void  Delete();
-      static  auto  fmatch( const unsigned char*, size_t, const unsigned char*, size_t ) -> size_t;
+      static  auto    Create( A&, const unsigned char*, uint32_t, node* = nullptr ) -> node*;
+              void    Delete();
+      static  auto    fmatch( const unsigned char*, uint32_t, const unsigned char*, uint32_t ) -> uint32_t;
 
     public:
       auto  key_beg() const -> const unsigned char* {  return chars;  }
       auto  key_end() const -> const unsigned char* {  return chars + keylen();  }
 
     public:
-            node*   search( const unsigned char* key, size_t len )        {  return search<node>( key, len, *this );  }
-      const node*   search( const unsigned char* key, size_t len ) const  {  return search<node>( key, len, *this );  }
+            node*     search( const unsigned char* key, uint32_t len )        {  return search<node>( key, len, *this );  }
+      const node*     search( const unsigned char* key, uint32_t len ) const  {  return search<node>( key, len, *this );  }
 
-            node*   insert( const unsigned char*, size_t );
-            auto    remove( const unsigned char*, size_t ) -> bool;
+            node*     insert( const unsigned char*, uint32_t );
+            auto      remove( const unsigned char*, uint32_t ) -> bool;
 
-            bool    hasval() const    {  return (usets & 0x80000000) != 0;  }
-            size_t  keylen() const    {  return (usets & ~0x80000000);  }
-            void    setlen( size_t );
+            bool      hasval() const    {  return (usets & 0x80000000) != 0;  }
+            uint32_t  keylen() const    {  return (usets & ~0x80000000);  }
+            void      setlen( size_t );
 
-            void    delval();
+            void      delval();
 
-            V*      getval()        {  return (usets & 0x80000000) != 0 ? &value : nullptr;  }
-      const V*      getval() const  {  return (usets & 0x80000000) != 0 ? &value : nullptr;  }
+            V*        getval()        {  return (usets & 0x80000000) != 0 ? &value : nullptr;  }
+      const V*        getval() const  {  return (usets & 0x80000000) != 0 ? &value : nullptr;  }
 
-            V*      setval( const V& );
-            V*      setval( V&& );
+            V*        setval( const V& );
+            V*        setval( V&& );
 
     public:     // master iterator
       template <class act>  int   for_each( act action )        {  return for_impl( action, *this );  }
@@ -569,8 +569,8 @@ namespace patricia  {
         const char* dicptr;
         const char* keyptr;
         const char* endptr;
-        size_t      keylen;
         size_t      nnodes;
+        uint32_t    keylen;
         bool        bvalue;
       };
 
@@ -641,7 +641,7 @@ namespace patricia  {
                         char*       bufptr ) const;
 
   protected:  // internals
-    static  auto  JumpOver( int, const char* ) -> const char*;
+    static  auto  JumpOver( size_t, const char* ) -> const char*;
 
   protected:  // variables
     const char* serial;
@@ -651,7 +651,7 @@ namespace patricia  {
   // patricia implementation
 
   template <class V, class A>
-  tree<V, A>::node::node( A& mem, const unsigned char* key, size_t len, node* nex ):
+  tree<V, A>::node::node( A& mem, const unsigned char* key, uint32_t len, node* nex ):
     alloc( mem ),
     pnext( nex ),
     plist( nullptr ),
@@ -673,7 +673,7 @@ namespace patricia  {
   }
 
   template <class V, class A>
-  auto  tree<V, A>::node::Create( A&  mem, const unsigned char* key, size_t len, node* nex ) -> tree<V, A>::node*
+  auto  tree<V, A>::node::Create( A&  mem, const unsigned char* key, uint32_t len, node* nex ) -> tree<V, A>::node*
   {
     size_t  minlen = len != 0 ? len : 1;
     size_t  cchstr = (minlen + 0x0f) & ~0x0f;
@@ -692,7 +692,7 @@ namespace patricia  {
   }
 
   template <class V, class A>
-  size_t  tree<V, A>::node::fmatch( const unsigned char* k_1, size_t l_1, const unsigned char* k_2, size_t l_2 )
+  uint32_t  tree<V, A>::node::fmatch( const unsigned char* k_1, uint32_t l_1, const unsigned char* k_2, uint32_t l_2 )
   {
     auto  k1e = k_1 + l_1;
     auto  k2e = k_2 + l_2;
@@ -701,11 +701,11 @@ namespace patricia  {
     while ( k1p < k1e && k_2 < k2e && *k1p == *k_2++ )
       ++k1p;
 
-    return k1p - k_1;
+    return uint32_t(k1p - k_1);
   }
 
   template <class V, class A>
-  bool  tree<V, A>::node::remove( const unsigned char* key, size_t len )
+  bool  tree<V, A>::node::remove( const unsigned char* key, uint32_t len )
   {
     auto  keychr = len != 0 ? *key : 0;   // safe 'get' - no SIGFAULT
     auto  pplist = &plist;
@@ -754,7 +754,7 @@ namespace patricia  {
           if ( (*pplist)->plist->pnext != nullptr )
             throw std::logic_error( "invalid patricia::node::remove() returns true" );
 
-          auto  palloc = node::Create( alloc, nullptr, (*pplist)->keylen() + (*pplist)->plist->keylen(), (*pplist)->pnext );
+          auto  palloc = node::Create( alloc, nullptr, uint32_t((*pplist)->keylen() + (*pplist)->plist->keylen()), (*pplist)->pnext );
             (*pplist)->pnext = nullptr;
 
           if ( (*pplist)->plist->hasval() )
@@ -774,7 +774,7 @@ namespace patricia  {
   }
 
   template <class V, class A>
-  typename tree<V, A>::node* tree<V, A>::node::insert( const unsigned char* thekey, size_t cchkey )
+  typename tree<V, A>::node* tree<V, A>::node::insert( const unsigned char* thekey, uint32_t cchkey )
   {
   // если поисковый ключ отсканирован полностью, навершить поиск
     if ( cchkey == 0 )
@@ -785,25 +785,25 @@ namespace patricia  {
   // если таковой не найден, вставить новый узел с требуемым значением полного ключа
   // и вернуть его;
     auto  keychr = *thekey;
-    auto  pprepl = &plist;
+    auto  pplist = &plist;
 
-    while ( *pprepl != nullptr && keychr > (*pprepl)->chars[0] )
-      pprepl = &(*pprepl)->pnext;
+    while ( *pplist != nullptr && keychr > (*pplist)->chars[0] )
+      pplist = &(*pplist)->pnext;
 
-    if ( *pprepl == nullptr || keychr != (*pprepl)->chars[0] )
-      return *pprepl = Create( alloc, thekey, cchkey, *pprepl );
+    if ( *pplist == nullptr || keychr != (*pplist)->chars[0] )
+      return *pplist = Create( alloc, thekey, cchkey, *pplist );
 
-    assert( keychr == (*pprepl)->chars[0] );
+    assert( keychr == (*pplist)->chars[0] );
 
   // есть некоторое совпадение, полное или частичное, искомого ключа с частичным ключом
   // найденного узла в списке вложенных узлов;
   // определить длину совпадения ключа с ключевой последовательностью узла;
   // если совпадение полное, вызвать метод рекурсивно, поправив указатель на ключ
-    auto  curlen = (*pprepl)->keylen();
-    auto  lmatch = fmatch( thekey, cchkey, (*pprepl)->chars, curlen );  assert( lmatch > 0 && lmatch <= curlen );
+    auto  curlen = (*pplist)->keylen();
+    auto  lmatch = fmatch( thekey, cchkey, (*pplist)->chars, curlen );  assert( lmatch > 0 && lmatch <= curlen );
 
     if ( lmatch == curlen )
-      return (*pprepl)->insert( thekey + curlen, cchkey - curlen );
+      return (*pplist)->insert( thekey + curlen, cchkey - curlen );
 
     assert( lmatch < curlen );
 
@@ -815,44 +815,44 @@ namespace patricia  {
   // остаток добавляемого ключа и найденный p_scan с усечённым ключом
     if ( lmatch == cchkey )
     {
-      auto  palloc = Create( alloc, thekey, lmatch, (*pprepl)->pnext );
-        (*pprepl)->pnext = nullptr;
+      auto  palloc = Create( alloc, thekey, lmatch, (*pplist)->pnext );
+        (*pplist)->pnext = nullptr;
 
-      memmove( (*pprepl)->chars, (*pprepl)->chars + lmatch, curlen - lmatch );
-        (*pprepl)->setlen( curlen - lmatch );
-        (*pprepl)->pnext = nullptr;
+      memmove( (*pplist)->chars, (*pplist)->chars + lmatch, curlen - lmatch );
+        (*pplist)->setlen( curlen - lmatch );
+        (*pplist)->pnext = nullptr;
 
-      palloc->plist = *pprepl;
-        *pprepl = palloc;
+      palloc->plist = *pplist;
+        *pplist = palloc;
 
-      return *pprepl;
+      return *pplist;
     }
 
   // есть хвост и от добавляемого ключа, и от текущего элемента
     assert( cchkey > lmatch && curlen > lmatch );
 
-    auto  palloc = Create( alloc, thekey, lmatch, (*pprepl)->pnext );
-      (*pprepl)->pnext = nullptr;
+    auto  palloc = Create( alloc, thekey, lmatch, (*pplist)->pnext );
+      (*pplist)->pnext = nullptr;
     auto  p_tail = Create( alloc, thekey + lmatch, cchkey - lmatch );
-    auto  rescmp( thekey[lmatch] - (*pprepl)->chars[lmatch] );
+    auto  rescmp( thekey[lmatch] - (*pplist)->chars[lmatch] );
 
-    memmove( (*pprepl)->chars, (*pprepl)->chars + lmatch, curlen - lmatch );
-      (*pprepl)->setlen( curlen - lmatch );
-      (*pprepl)->pnext = nullptr;
+    memmove( (*pplist)->chars, (*pplist)->chars + lmatch, curlen - lmatch );
+      (*pplist)->setlen( curlen - lmatch );
+      (*pplist)->pnext = nullptr;
 
     if ( rescmp < 0 )
     {
-      (palloc->plist = p_tail)->pnext = *pprepl;
-        *pprepl = nullptr;
+      (palloc->plist = p_tail)->pnext = *pplist;
+        *pplist = nullptr;
     }
       else
     {
-      (palloc->plist = *pprepl)->pnext = p_tail;
-        *pprepl = nullptr;
+      (palloc->plist = *pplist)->pnext = p_tail;
+        *pplist = nullptr;
         p_tail = nullptr;
     }
 
-    return (*pprepl = std::move( palloc ))->insert( thekey + lmatch, cchkey - lmatch );
+    return (*pplist = std::move( palloc ))->insert( thekey + lmatch, cchkey - lmatch );
   }
 
   template <class V, class A>
@@ -1022,7 +1022,7 @@ namespace patricia  {
 
   template <class V, class A>
   template <class R, class S>
-  auto  tree<V, A>::node::search( const unsigned char* thekey, size_t cchkey, S& self ) -> R*
+  auto  tree<V, A>::node::search( const unsigned char* thekey, uint32_t cchkey, S& self ) -> R*
     {
       for ( auto  p_this = &self; ; )
       {
@@ -1173,7 +1173,7 @@ namespace patricia  {
         for ( auto nd: atrace )
           achars.insert( achars.end(), nd->key_beg(), nd->key_end() );
 
-        patkey = patricia::key( achars.data(), achars.size() );
+        patkey = patricia::key( achars.data(), uint32_t(achars.size()) );
         patval = &atrace.back()->value;
       }
         else
@@ -1393,9 +1393,9 @@ namespace patricia  {
 
     for ( it.atrace.push_back( pn ); pn != nullptr; )
     {
-      auto    keychr = cc != 0 ? *pk : '\0';
-      auto    p_scan = pn->plist;
-      size_t  l_frag;
+      auto      keychr = cc != 0 ? *pk : '\0';
+      auto      p_scan = pn->plist;
+      uint32_t  l_frag;
 
       if ( cc == 0 )
         return pn->hasval() ? std::move( it.setkey() ) : self.end();
@@ -1710,7 +1710,7 @@ namespace patricia  {
 
       for ( const auto& t: atrace )
         {
-          auto  ofbase = chrtop - achars.begin();
+          auto  ofbase = uint32_t(chrtop - achars.begin());
 
           if ( ofbase + t.keylen > achars.size() )
           {
@@ -1722,7 +1722,8 @@ namespace patricia  {
           chrtop = std::copy( t.keyptr, t.keyptr + t.keylen, chrtop );
         }
 
-      patkey = patricia::key( achars.data(), chrtop - achars.begin() );
+      patkey = patricia::key( achars.data(), uint32_t(chrtop - achars.begin()) );
+
       if ( chrtop - achars.begin() != 0 )
         patval = JumpOver( atrace.back().nnodes, atrace.back().dicptr );
       else
@@ -1929,7 +1930,7 @@ namespace patricia  {
   }
 
   inline
-  auto  dump::JumpOver( int nnodes, const char* thedic ) -> const char*
+  auto  dump::JumpOver( size_t nnodes, const char* thedic ) -> const char*
   {
     while ( nnodes-- > 0 )
     {
