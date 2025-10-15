@@ -90,7 +90,7 @@ namespace zip {
     {
       palloc = new ZipBuffer( len );
 
-      if ( PGet( (char*)palloc->data(), pos, palloc->size() ) != int32_t(palloc->size()) )
+      if ( PGet( (char*)palloc->data(), pos, len ) != int32_t(palloc->size()) )
         return EACCES;
 
       return ((*buf = palloc.ptr())->Attach(), 0);
