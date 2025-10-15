@@ -105,14 +105,17 @@ namespace radix {
   };
 
   template <class T, class A = std::allocator<T>>
-  class tree: protected std::vector<tree<T, A>, A>
+  class tree: protected std::vector<tree<T, A>,
+    typename std::allocator_traits<A>::template rebind_alloc<tree<T, A>>>
   {
     template <class X, class Y>
     friend class tree;
 
     template <class O>
-    using string_type = std::basic_string<uint8_t, std::char_traits<uint8_t>, O>;
-    using vector_type = std::vector<tree<T, A>, A>;
+    using string_type = std::basic_string<uint8_t, std::char_traits<uint8_t>,
+      typename std::allocator_traits<O>::template rebind_alloc<uint8_t>>;
+    using vector_type = std::vector<tree<T, A>,
+      typename std::allocator_traits<A>::template rebind_alloc<tree<T, A>>>;
 
     template <class From, class To>
     using same_const_as = std::conditional<std::is_const<From>::value,
@@ -222,7 +225,8 @@ namespace radix {
 
   protected:
     auto  insert( const uint8_t*, const uint8_t* ) -> tree*;
-    auto  insert( const uint8_t*, const uint8_t*, std::vector<tree*, A>& ) -> tree*;
+    auto  insert( const uint8_t*, const uint8_t*, std::vector<tree*,
+      typename std::allocator_traits<A>::template rebind_alloc<tree*>>& ) -> tree*;
     bool  remove( const uint8_t*, const uint8_t* );
     template <class S> static
     auto  search( S*, const uint8_t*, const uint8_t* ) -> S*;
@@ -294,10 +298,11 @@ namespace radix {
     friend class tree;
 
     using tree_t = same_const_as_t<V, tree>;
-    using trace_t = std::vector<tree_t*, O>;
+    using trace_t = std::vector<tree_t*,
+      typename std::allocator_traits<O>::template rebind_alloc<tree_t*>>;
 
-    string_type<O>        itkey;
-    trace_t               trace;
+    string_type<O>      itkey;
+    trace_t             trace;
 
   public:
     struct iterator_value
@@ -509,7 +514,7 @@ namespace radix {
     auto  lc = std::min( l1, l2 );
     auto  rc = lc != 0 ? memcmp( data(), k.data(), lc ) : 0;
 
-    return rc != 0 ? rc : l1 - l2;
+    return rc != 0 ? rc : int(l1 - l2);
   }
 
   template <class T, class A>
@@ -609,7 +614,8 @@ namespace radix {
   }
 
   template <class T, class A>
-  auto  tree<T, A>::insert( const uint8_t* addkey, const uint8_t* addend, std::vector<tree*, A>& vec ) -> tree*
+  auto  tree<T, A>::insert( const uint8_t* addkey, const uint8_t* addend, std::vector<tree*,
+    typename std::allocator_traits<A>::template rebind_alloc<tree*>>& vec ) -> tree*
   {
     for ( auto  objptr = this; ; )
     {
@@ -861,8 +867,8 @@ namespace radix {
   // than the key searched for
     if ( ptrtop == ptrend && key != end )
     {
-      auto  it_beg = &ptr->front();
-      auto  it_end = &ptr->back() + 1;
+      auto  it_beg = ((vector_type*)ptr)->size() != 0 ? &ptr->front() : nullptr;
+      auto  it_end = ((vector_type*)ptr)->size() != 0 ? &ptr->back() + 1 : nullptr;
 
       while ( it_beg != it_end && it_beg->fragment.front() < *key )
         ++it_beg;
@@ -1288,17 +1294,18 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::GetBufLen() const -> size_t
   {
-    size_t    length = has_value() ? ::GetBufLen( get_value() ) : 0;
-    unsigned  ofprev = length;
-    uint8_t   offlen = 0;
+    auto    length = has_value() ? ::GetBufLen( get_value() ) : 0;
+    auto    ofprev = length;
+    uint8_t offlen = 0;
 
     // get nested nodes lengths and offsets; calc node shifts
     for ( auto& next: *(vector_type*)this )
     {
       auto  it_len = next.GetBufLen();
-      offlen = std::max( offlen, uint8_t(bytecount( ofprev ) - 1) );
-      ofprev += it_len;
-      length += it_len;
+
+      offlen = (std::max)( offlen, uint8_t(bytecount( unsigned(ofprev) ) - 1) );
+        ofprev += it_len;
+        length += it_len;
     }
 
     length += ::GetBufLen( fragment ) + 2 + (offlen + 2) * vector_type::size();
@@ -1316,14 +1323,14 @@ namespace radix {
     unsigned  ofprev;
 
     // get value flags
-    if ( has_value() )  ofprev = ::GetBufLen( get_value() );
+    if ( has_value() )  ofprev = unsigned(::GetBufLen( get_value() ));
       else ofprev = 0;
 
     // get nested nodes lengths and offsets; calc node shifts
     for ( auto& next: *(vector_type*)this )
     {
       offlen = std::max( offlen, uint8_t(bytecount( *offptr++ = ofprev ) - 1) );
-      ofprev += next.GetBufLen();
+      ofprev += uint32_t(next.GetBufLen());
     }
 
     if ( has_value() )
@@ -1339,7 +1346,7 @@ namespace radix {
 
   // store relocation table
     for ( size_t i = 0; i < vector_type::size(); ++i )
-      for ( auto uvalue = offset[i], u = unsigned(0); u <= (offlen & 0x03); ++u, uvalue >>= 8 )
+      for ( auto uvalue = offset[i], u = unsigned(0); u <= unsigned(offlen & 0x03); ++u, uvalue >>= 8 )
         o = ::Serialize( o, uint8_t(uvalue) );
 
   // store value
@@ -1439,7 +1446,8 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::insert( const value_type& ins ) -> std::pair<iterator<>, bool>
   {
-    auto  vec = std::vector<tree*, A>( vector_type::get_allocator() );
+    auto  vec = std::vector<tree*, typename std::allocator_traits<A>::template
+      rebind_alloc<tree*>>( vector_type::get_allocator() );
     auto  ptr = insert( ins.first.begin(), ins.first.end(), vec );
 
     if ( ptr->has_value() )
@@ -1451,7 +1459,8 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::insert( value_type&& mv ) -> std::pair<iterator<>, bool>
   {
-    auto  vec = std::vector<tree*, A>( vector_type::get_allocator() );
+    auto  vec = std::vector<tree*, typename std::allocator_traits<A>::template
+      rebind_alloc<tree*>>( vector_type::get_allocator() );
     auto  ptr = insert( mv.first.begin(), mv.first.end(), vec );
 
     if ( ptr->has_value() )
@@ -1518,7 +1527,8 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::find( const key& key ) const -> const_iterator<>
   {
-    auto  atrace = std::vector<const tree*, A>( vector_type::get_allocator() );
+    auto  atrace = std::vector<const tree*, typename std::allocator_traits<A>::template
+      rebind_alloc<const tree*>>( vector_type::get_allocator() );
     auto  pfound = search( this, key.begin(), key.end(), atrace );
 
     return pfound != nullptr && pfound->has_value() ?
@@ -1528,7 +1538,8 @@ namespace radix {
   template <class T, class A>
   auto  tree<T, A>::find( const key& key ) -> iterator<>
   {
-    auto  atrace = std::vector<tree*, A>( vector_type::get_allocator() );
+    auto  atrace = std::vector<tree*, typename std::allocator_traits<A>::template
+      rebind_alloc<tree*>>( vector_type::get_allocator() );
     auto  pfound = search( this, key.begin(), key.end(), atrace );
 
     return pfound != nullptr && pfound->has_value() ?
@@ -1569,7 +1580,8 @@ namespace radix {
   auto tree<T, A>::lower_bound( const key& key ) -> iterator<>
   {
     auto  keystr = string_type<A>( vector_type::get_allocator() );
-    auto  atrace = std::vector<tree*, A>( vector_type::get_allocator() );
+    auto  atrace = std::vector<tree*, typename std::allocator_traits<A>::template
+      rebind_alloc<tree*>>( vector_type::get_allocator() );
     auto  pfound = lbound( this, key.begin(), key.end(), keystr, atrace );
 
     return pfound != nullptr && pfound->has_value() ?
@@ -1900,7 +1912,7 @@ namespace radix {
         return false;
 
       // add next level
-      vec.back().offset = pmatch - s;
+      vec.back().offset = uint8_t(pmatch - s);
 
       // skip the rest of relocations
       s += offset + (1 + b2offs) * kcount;
