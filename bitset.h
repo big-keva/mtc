@@ -401,7 +401,7 @@ namespace mtc
   {
     static_assert( std::is_integral<U>::value, "Integer type required" );
 
-    return n & (1 + ~n);
+    return int(n & (1 + ~n));
   }
 
   template <class U, class A>
@@ -418,7 +418,7 @@ namespace mtc
   {
     for ( auto p = std::begin( arr ); p != std::end( arr ); ++p )
       if ( *p != 0 )
-        return CHAR_BIT * (p - std::begin( arr )) + bitset_first( *p );
+        return int(CHAR_BIT * (p - std::begin( arr )) + bitset_first( *p ));
     return -1;
   }
 
@@ -429,7 +429,7 @@ namespace mtc
   {
     int  nshift = sizeof(u) * CHAR_BIT - 1;
 
-    while ( nshift >= 0 && (u & (1 << nshift)) == 0 )
+    while ( nshift >= 0 && (u & (U(1) << nshift)) == 0 )
       --nshift;
 
     return nshift >= 0 ? nshift : -1;
@@ -449,7 +449,7 @@ namespace mtc
   {
     for ( auto p = std::end( arr ); p > std::begin( arr ); --p )
       if ( p[-1] != 0 )
-        return CHAR_BIT * (p - std::begin( arr )) + bitset_last( *p );
+        return int(CHAR_BIT * (p - std::begin( arr )) + bitset_last( *p ));
     return -1;
   }
 
