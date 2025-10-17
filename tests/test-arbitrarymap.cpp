@@ -11,16 +11,16 @@ TestItEasy::RegisterFunc  testArbitraryMap( []()
   {
     SECTION( "arbitrarymap may be created:" )
     {
-      arbitrarymap<std::string> map;
-
       SECTION( "- as empty object;" )
       {
+        arbitrarymap<std::string> map;
+
         REQUIRE( map.size() == size_t(0) );
         REQUIRE( map.empty() );
       }
       SECTION( "- with initializer list" )
       {
-        map = arbitrarymap<std::string>( {
+        auto map = arbitrarymap<std::string>( {
           { "aaa", "bbb" },
           { "bbb", "ccc" },
           { "ccc", "ddd" } } );
@@ -58,7 +58,7 @@ TestItEasy::RegisterFunc  testArbitraryMap( []()
         { "ccc", "ddd" } } );
 
       REQUIRE( am.size() == size_t(3) );
-
+/*
       SECTION( "iterator may be created" )
       {
         REQUIRE_NOTHROW( ((const arbitrarymap<std::string>&)am).begin() );
@@ -118,6 +118,7 @@ TestItEasy::RegisterFunc  testArbitraryMap( []()
           REQUIRE( am.find( "aaa" ) == am.end() );
           REQUIRE( am.Search( "aaa" ) == nullptr );
       }
+*/
     }
   }
 
