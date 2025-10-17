@@ -68,12 +68,31 @@ namespace mtc
 
     A   alloc;
 
+    struct  mapkey
+    {
+      const void* key;
+      size_t      len;
+
+    public:
+      mapkey( const char* str, size_t cch = (size_t)-1 ): key( str ), len( cch )
+      {
+        if ( len == (size_t)-1 )
+          for ( len = 0; str[len] != 0; ++len ) (void)NULL;
+      }
+      mapkey( const widechar* str, size_t cch = (size_t)-1 ): key( str ), len( cch )
+      {
+        if ( len == (size_t)-1 )
+          for ( len = 0; str[len] != 0; ++len ) (void)NULL;
+        len *= 2;
+      }
+    };
+
     struct  keyrec
     {
       V         val;
       unsigned  pos;
       keyrec*   lpn;
-      unsigned  len;
+      size_t    len;
       char      key[1];
 
     public:   // construction
@@ -85,7 +104,7 @@ namespace mtc
 
   protected:  // allocation
     template <class... constructor_args>
-    keyrec* Create( const void* k, unsigned l, constructor_args... a )
+    keyrec* Create( const void* k, size_t l, constructor_args... a )
     {
       auto    nalloc = (sizeof(keyrec) + l + sizeof(keyrec) - 1) / sizeof(keyrec);
       keyrec* palloc;
@@ -113,6 +132,13 @@ namespace mtc
     }
     arbitrarymap( unsigned tablen, const A& a = {} ):
       alloc( a ), maplen( tablen )  {}
+    arbitrarymap( unsigned tablen, const A&, const std::initializer_list<std::pair<mapkey, V>>& );
+    arbitrarymap( const A& a, const std::initializer_list<std::pair<mapkey, V>>& v ):
+      arbitrarymap( 69959, a, v ) {}
+    arbitrarymap( unsigned tablen, const std::initializer_list<std::pair<mapkey, V>>& v ):
+      arbitrarymap( 69959, {}, v ) {}
+    arbitrarymap( const std::initializer_list<std::pair<mapkey, V>>& v ):
+      arbitrarymap( 69959, {}, v ) {}
    ~arbitrarymap();
 
   protected:
@@ -146,7 +172,8 @@ namespace mtc
     auto  FetchFrom( S* ) -> S*;
 
   public:     // stl compat
-    int     size() const  {  return GetLen();  }
+    bool    empty() const  {  return GetLen() == 0;  }
+    size_t  size() const  {  return GetLen();  }
 
   public:     // template wrappers
     template <class K>  int   Delete( const K& k )  {  return Delete( k.begin(), k.size() );  }
@@ -156,7 +183,7 @@ namespace mtc
     const void*         Enum( const void* ) const;
           void*         Enum( void* );
     static  const void* GetKey( const void* );
-    static  unsigned    KeyLen( const void* );
+    static  size_t      KeyLen( const void* );
     static  const V&    GetVal( const void* );
     static  V&          GetVal(       void* );
           void*         GetPtr( const void*, size_t );
@@ -193,12 +220,21 @@ namespace mtc
   // Map inline implementation
 
   template <class V, class A>
+  arbitrarymap<V, A>::arbitrarymap( unsigned tablen, const A& a, const std::initializer_list<std::pair<mapkey, V>>& v ):
+    arbitrarymap( tablen, a )
+  {
+    for ( auto& value: v )
+      Insert( value.first.key, value.first.len, value.second );
+  }
+
+  template <class V, class A>
   arbitrarymap<V, A>::~arbitrarymap()
   {
     if ( pitems != nullptr )
     {
       DelAll();
-      rebind<A, keyrec*>( alloc ).deallocate( pitems, 0 );
+
+      rebind<A, keyrec*>( alloc ).deallocate( pitems, maplen );
     }
   }
 
@@ -397,13 +433,13 @@ namespace mtc
   }
 
   template <class V, class A>
-  unsigned    arbitrarymap<V, A>::KeyLen( const void*  pvn )
+  size_t  arbitrarymap<V, A>::KeyLen( const void*  pvn )
   {
     return pvn != nullptr ? ((keyrec*)pvn)->len : 0;
   }
 
   template <class V, class A>
-  inline  const V&  arbitrarymap<V, A>::GetVal( const void*  pvn )
+  const V&  arbitrarymap<V, A>::GetVal( const void*  pvn )
   {
     assert( pvn != nullptr );
 
@@ -411,7 +447,7 @@ namespace mtc
   }
 
   template <class V, class A>
-  inline  V&  arbitrarymap<V, A>::GetVal( void*  pvn )
+  V&  arbitrarymap<V, A>::GetVal( void*  pvn )
   {
     assert( pvn != nullptr );
 
