@@ -169,7 +169,7 @@ namespace mtc {
       {  (void)p, (void)n;  }
 
     size_type max_size() const noexcept
-      {  return std::size_t(__PTRDIFF_MAX__ - 0x100) / sizeof(T);  }
+      {  return std::size_t((std::numeric_limits<ptrdiff_t>::max)() - 0x100) / sizeof(T);  }
 
     template <class U, class... Args>
     void  construct( U* p, Args&&... args )
@@ -183,15 +183,13 @@ namespace mtc {
 
   };
 
-  template <class T, class Another>
-  bool  operator != ( const Arena::allocator<T>& me, const Another& to ) noexcept {  return !(me == to);  }
-  template <class T, class Another>
-  bool  operator != ( const Another& me, const Arena::allocator<T>& to ) noexcept {  return !(me == to);  }
-  template <class T1, class T2>
-  bool  operator != ( const Arena::allocator<T1>& me, const Arena::allocator<T2>& to ) noexcept {  return !(me == to);  }
+//  template <class T1, class T2>
+//  bool  operator != ( const Arena::allocator<T1>& me, const Arena::allocator<T2>& to ) noexcept {  return !(me == to);  }
 
   template <class T, class Another>
   bool  operator == ( const Arena::allocator<T>&, const Another& ) noexcept {  return false;  }
+  template <class T, class Another>
+  bool  operator != ( const Arena::allocator<T>&, const Another& ) noexcept {  return true;  }
 
   // Arena::block implementation
 
