@@ -824,42 +824,56 @@ namespace mtc
   {
     struct  cast_any
     {
-      template <class To, class From>
+      template <class From, class To>
       static  To  cast( const From& v, const To& d )
-        {  return v >= std::numeric_limits<To>::min() && v <= std::numeric_limits<To>::max() ? v : d;  }
+        {  return v >= std::numeric_limits<To>::min() && v <= std::numeric_limits<To>::max() ? To(v) : d;  }
     };
 
     struct cast_u2s
     {
-      template <class U, class S>
-      static  S   cast( const U& u, const S& s )
+      template <class From, class To>
+      static  To  cast( const From& u, const To& s )
       {
-        static_assert( std::is_signed<S>::value, "signed value must be passed as target and default value" );
-        static_assert( std::is_unsigned<U>::value, "unsigned value must be passed as source value" );
-        return u <= std::numeric_limits<S>::max() ? u : s;
+        static_assert( std::is_signed<To>::value, "signed value must be passed as target and default value" );
+        static_assert( std::is_unsigned<From>::value, "unsigned value must be passed as source value" );
+        return u <= std::make_unsigned_t<To>(std::numeric_limits<To>::max()) ? To(u) : s;
       }
     };
 
     struct cast_s2u
     {
-      template <class U, class S>
-      static  U   cast( const S& s, const U& u )
+      template <class From, class To>
+      static  To  cast( const From& s, const To& u )
       {
-        static_assert( std::is_signed<S>::value, "signed value must be passed as source value" );
-        static_assert( std::is_unsigned<U>::value, "unsigned value must be passed as target and default value" );
-        return s >= 0 && s <= std::numeric_limits<U>::max() ? s : u;
+        static_assert( std::is_signed<From>::value, "signed value must be passed as source value" );
+        static_assert( std::is_unsigned<To>::value, "unsigned value must be passed as target and default value" );
+        return s >= 0 && std::make_unsigned_t<From>(s) <= std::numeric_limits<To>::max() ? To(s) : u;
       }
     };
 
-  public:
-    template <class T1, class T2>
-    static  T2  cast( const T1& t1, const T2& t2 )
+    struct cast_f2s
     {
-      using typecast = typename
-        std::conditional<std::is_signed<T1>::value && std::is_unsigned<T2>::value, cast_s2u, typename
-        std::conditional<std::is_unsigned<T1>::value && std::is_signed<T2>::value, cast_u2s, cast_any>::type>::type;
+    };
 
-      return typecast::cast( t1, t2 );
+    struct cast_f2u
+    {
+    };
+
+  public:
+    template <class From, class To>
+    static  To  cast( const From& t1, const To& t2 )
+    {
+      using cast_int =
+        std::conditional_t<std::is_signed_v<From> && std::is_unsigned_v<To>, cast_s2u,
+        std::conditional_t<std::is_unsigned_v<From> && std::is_signed_v<To>, cast_u2s, cast_any>>;
+      using cast_f2i =
+        std::conditional_t<std::is_signed_v<To>, cast_f2s, cast_f2u>;
+      using cast_all =
+        std::conditional_t<std::is_floating_point_v<From>,
+          std::conditional_t<std::is_floating_point_v<To>, cast_any, cast_f2i>,
+          std::conditional_t<std::is_floating_point_v<To>, cast_any, cast_int>>;
+
+      return cast_all::cast( t1, t2 );
     }
   };
 
@@ -870,11 +884,11 @@ namespace mtc
       case z_char:    return *get_char();
       case z_byte:    return *get_byte();
       case z_int16:   return *get_int16();
-      case z_int32:   return casting::cast<int16_t>( *get_int32(), def );
-      case z_int64:   return casting::cast<int16_t>( *get_int64(), def );
-      case z_word16:  return casting::cast<int16_t>( *get_word16(), def );
-      case z_word32:  return casting::cast<int16_t>( *get_word32(), def );
-      case z_word64:  return casting::cast<int16_t>( *get_word64(), def );
+      case z_int32:   return casting::cast( *get_int32(), def );
+      case z_int64:   return casting::cast( *get_int64(), def );
+      case z_word16:  return casting::cast( *get_word16(), def );
+      case z_word32:  return casting::cast( *get_word32(), def );
+      case z_word64:  return casting::cast( *get_word64(), def );
       default:        return def;
     }
   }
@@ -887,10 +901,10 @@ namespace mtc
       case z_byte:    return *get_byte();
       case z_int16:   return *get_int16();
       case z_int32:   return *get_int32();
-      case z_int64:   return casting::cast<int32_t>( *get_int64(), def );
+      case z_int64:   return casting::cast( *get_int64(), def );
       case z_word16:  return *get_word16();
-      case z_word32:  return casting::cast<int32_t>( *get_word32(), def );
-      case z_word64:  return casting::cast<int32_t>( *get_word64(), def );
+      case z_word32:  return casting::cast( *get_word32(), def );
+      case z_word64:  return casting::cast( *get_word64(), def );
       default:        return def;
     }
   }
@@ -915,14 +929,14 @@ namespace mtc
   {
     switch ( get_type() )
     {
-      case z_char:    return casting::cast<word16_t>( *get_char(), def );
+      case z_char:    return casting::cast( *get_char(), def );
       case z_byte:    return *get_byte();
-      case z_int16:   return casting::cast<word16_t>( *get_int16(), def );
-      case z_int32:   return casting::cast<word16_t>( *get_int32(), def );
-      case z_int64:   return casting::cast<word16_t>( *get_int64(), def );
+      case z_int16:   return casting::cast( *get_int16(), def );
+      case z_int32:   return casting::cast( *get_int32(), def );
+      case z_int64:   return casting::cast( *get_int64(), def );
       case z_word16:  return *get_word16();
-      case z_word32:  return casting::cast<word16_t>( *get_word32(), def );
-      case z_word64:  return casting::cast<word16_t>( *get_word64(), def );
+      case z_word32:  return casting::cast( *get_word32(), def );
+      case z_word64:  return casting::cast( *get_word64(), def );
       default:        return def;
     }
   }
@@ -931,14 +945,14 @@ namespace mtc
   {
     switch ( get_type() )
     {
-      case z_char:    return casting::cast<word32_t>( *get_char(), def );
+      case z_char:    return casting::cast( *get_char(), def );
       case z_byte:    return *get_byte();
-      case z_int16:   return casting::cast<word32_t>( *get_int16(), def );
-      case z_int32:   return casting::cast<word32_t>( *get_int32(), def );
-      case z_int64:   return casting::cast<word32_t>( *get_int64(), def );
+      case z_int16:   return casting::cast( *get_int16(), def );
+      case z_int32:   return casting::cast( *get_int32(), def );
+      case z_int64:   return casting::cast( *get_int64(), def );
       case z_word16:  return *get_word16();
       case z_word32:  return *get_word32();
-      case z_word64:  return casting::cast<word32_t>( *get_word64(), def );
+      case z_word64:  return casting::cast( *get_word64(), def );
       default:        return def;
     }
   }
@@ -947,11 +961,11 @@ namespace mtc
   {
     switch ( get_type() )
     {
-      case z_char:    return casting::cast<word64_t>( *get_char(), def );
+      case z_char:    return casting::cast( *get_char(), def );
       case z_byte:    return *get_byte();
-      case z_int16:   return casting::cast<word64_t>( *get_int16(), def );
-      case z_int32:   return casting::cast<word64_t>( *get_int32(), def );
-      case z_int64:   return casting::cast<word64_t>( *get_int64(), def );
+      case z_int16:   return casting::cast( *get_int16(), def );
+      case z_int32:   return casting::cast( *get_int32(), def );
+      case z_int64:   return casting::cast( *get_int64(), def );
       case z_word16:  return *get_word16();
       case z_word32:  return *get_word32();
       case z_word64:  return *get_word64();
@@ -966,13 +980,13 @@ namespace mtc
       case z_char:    return *get_char();
       case z_byte:    return *get_byte();
       case z_int16:   return *get_int16();
-      case z_int32:   return *get_int32();
-      case z_int64:   return *get_int64();
+      case z_int32:   return casting::cast( *get_int32(), def );
+      case z_int64:   return casting::cast( *get_int64(), def );
       case z_word16:  return *get_word16();
-      case z_word32:  return *get_word32();
-      case z_word64:  return *get_word64();
+      case z_word32:  return casting::cast( *get_word32(), def );
+      case z_word64:  return casting::cast( *get_word64(), def );
       case z_float:   return *get_float();
-      case z_double:  return casting::cast<float_t>( *get_double(), def );
+      case z_double:  return casting::cast( *get_double(), def );
       default:        return def;
     }
   }
@@ -985,10 +999,10 @@ namespace mtc
       case z_byte:    return *get_byte();
       case z_int16:   return *get_int16();
       case z_int32:   return *get_int32();
-      case z_int64:   return *get_int64();
+      case z_int64:   return casting::cast( *get_int64(), def );
       case z_word16:  return *get_word16();
       case z_word32:  return *get_word32();
-      case z_word64:  return *get_word64();
+      case z_word64:  return casting::cast( *get_word64(), def );
       case z_float:   return *get_float();
       case z_double:  return *get_double();
       default:        return def;
