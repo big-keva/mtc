@@ -1569,7 +1569,7 @@ namespace radix {
   auto  tree<T, A>::lower_bound( const key& key, O o ) const -> const_iterator<O>
   {
     auto  keystr = string_type<O>( o );
-    auto  atrace = std::vector<const tree*, O>( o );
+    auto  atrace = std::vector<const tree*, rebind<O, const tree*>>( o );
     auto  pfound = lbound( this, key.begin(), key.end(), keystr, atrace );
 
     return pfound != nullptr && pfound->has_value() ?
