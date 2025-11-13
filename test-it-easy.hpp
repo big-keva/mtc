@@ -294,21 +294,30 @@ namespace TestItEasy {
 
 # define REQUIRE_NOTHROW( expression )              \
   TestItEasy::immediate( [&]() -> bool {            \
+    std::string xp_str;                             \
     try {                                           \
       (expression);                                 \
       ++TestItEasy::testsSucceeded;                 \
       return true;                                  \
     }                                               \
-    catch ( ... ) {                                 \
-      ++TestItEasy::testsFault;                     \
-      succeeded = false;                            \
-      fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[31m" "FAULT" "\x1b[0m\n",  \
-        TestItEasy::spaces( TestItEasyShiftSpace ).c_str(),                     \
-        __FILE__,                                                               \
-        __LINE__ );                                                             \
-      fprintf( stdout, "%s\texpression: %s\n", TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), #expression );  \
-      return false;                                 \
+    catch ( const std::exception& xp ) {            \
+      xp_str = xp.what();                           \
     }                                               \
+    catch ( ... ) {                                 \
+      xp_str = "unknown";                           \
+    }                                               \
+    ++TestItEasy::testsFault;                       \
+    succeeded = false;                              \
+    fprintf( stdout, "%s\x1b[34m%s:%d\x1b[0m: \x1b[31m" "FAULT" "\x1b[0m\n",  \
+      TestItEasy::spaces( TestItEasyShiftSpace ).c_str(),                     \
+      __FILE__,                                                               \
+      __LINE__ );                                                             \
+    fprintf( stdout,                                                          \
+      "%s\tunexpected exception '%s',\n"                                      \
+      "%s\texpression: %s\n",                                                 \
+        TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), xp_str.c_str(),   \
+        TestItEasy::spaces( TestItEasyShiftSpace ).c_str(), #expression );    \
+    return false;                                   \
   } )
 
 # define SECTION( description ) \
