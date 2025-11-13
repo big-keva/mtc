@@ -63,7 +63,7 @@ SOFTWARE.
 #   if defined(WCHAR_MAX) && (WCHAR_MAX >> 16) == 0
     typedef wchar_t         widechar;
 #   else
-    typedef unsigned short  widechar;
+    typedef char16_t  widechar;
 #   endif  // size
 # endif  // __widechar_defined__
 
