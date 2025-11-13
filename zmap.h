@@ -288,6 +288,13 @@ namespace mtc
     declare_init_ref( array_zval )
     declare_init_ref( array_zmap )
 
+# if __cplusplus >= 201703L
+    zval( const std::string_view& );
+    zval& operator = ( const std::string_view& );
+    zval( const std::basic_string_view<widechar>& );
+    zval& operator = ( const std::basic_string_view<widechar>& );
+# endif
+
   public:     // accessors
   # define  declare_access_val( _type_ )                                  \
           _type_##_t*  get_##_type_();                                    \
@@ -858,6 +865,10 @@ namespace mtc
     key( const widechar*, size_t );
     key( const charstr& );
     key( const widestr& );
+# if __cplusplus >= 201703L
+    key( const std::string_view& str ): key( str.data(), str.size() ) {}
+    key( const std::basic_string_view<widechar>& str ): key( str.data(), str.size() ) {}
+# endif
     key( const key& );
     key& operator = ( const key& );
 

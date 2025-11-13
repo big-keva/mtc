@@ -625,6 +625,22 @@ namespace mtc
     derive_init( array_zmap )
   # undef derive_init
 
+# if __cplusplus >= 201703L
+
+  zval::zval( const std::string_view& s )
+    {  set_charstr( s.data(), s.size() );  }
+
+  zval& zval::operator = ( const std::string_view& s )
+    {  return set_charstr( s.data(), s.size() ), *this;  }
+
+  zval::zval( const std::basic_string_view<widechar>& s )
+    {  set_widestr( s.data(), s.size() );  }
+
+  zval& zval::operator = ( const std::basic_string_view<widechar>& s )
+    {  return set_widestr( s.data(), s.size() ), *this;  }
+
+# endif
+
   # define  derive_access_val( _type_ )                               \
     const _type_##_t*  zval::get_##_type_() const                     \
       {                                                               \
