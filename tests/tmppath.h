@@ -1,8 +1,8 @@
-# if !defined( __DelphiX_tests_tmppath_h__ )
-# define __DelphiX_tests_tmppath_h__
+# if !defined( __mtc_tests_tmppath_h__ )
+# define __mtc_tests_tmppath_h__
 # include <string>
 
 auto  GetTmpPath() -> std::string;
 auto  GetTmpName( const char* tmpl = "mtcXXXXXX" ) -> std::string;
 
-# endif   // !__DelphiX_tests_tmppath_h__
+# endif   // !__mtc_tests_tmppath_h__
