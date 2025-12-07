@@ -15,6 +15,9 @@ namespace mtc
   template <class A, class B> static  zval  GetShl( A a, B b )  {  return a << b;  }
   template <class A, class B> static  zval  GetShr( A a, B b )  {  return a >> b;  }
 
+  template <class T, class V>
+  bool  are_equal( const T& a, const V& b )  {  return (a > b) == (a < b);  }
+
   /*
     операции над zval и целым или дробным значением - макрогенерация:
     template <class V> zval  (#)( zval, V )
@@ -1640,8 +1643,8 @@ namespace mtc
       case z_word16:    return *get_word16() == *v.get_word16();
       case z_word32:    return *get_word32() == *v.get_word32();
       case z_word64:    return *get_word64() == *v.get_word64();
-      case z_float:     return *get_float() == *v.get_float();
-      case z_double:    return *get_double() == *v.get_double();
+      case z_float:     return are_equal( *get_float(), *v.get_float() );
+      case z_double:    return are_equal( *get_double(), *v.get_double() );
       case z_charstr:   return *get_charstr() == *v.get_charstr();
       case z_widestr:   return *get_widestr() == *v.get_widestr();
       case z_uuid:      return *get_uuid() == *v.get_uuid();
