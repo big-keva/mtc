@@ -1464,9 +1464,8 @@ namespace mtc
       auto  mp = begin(), me = end();
       auto  ap = a.begin(), ae = a.end();
 
-      while ( mp != me && ap != ae )
+      for ( ; mp != me && ap != ae; ++mp, ++ap )
         if ( *mp != *ap ) return false;
-          else { ++mp; ++ap; }
 
       return mp == me && ap == ae;
     }
