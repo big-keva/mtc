@@ -107,7 +107,7 @@ namespace mtc {
     auto          handle = PlatformLoadModule( path );
 
     if ( handle == nullptr )
-      throw SharedLibrary::error( PlatformFnLoadFail );
+      throw error( PlatformFnLoadFail );
 
     return output.module = new impl( handle ), output;
   }
