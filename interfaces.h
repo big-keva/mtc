@@ -150,8 +150,7 @@ namespace mtc
     iface*  ptr() const          {  return piface;  }
 
     operator iface*() const {  return piface;  }
-
-    operator void**() {  return &piface;  }
+    operator void**() {  return reinterpret_cast<void**>( &piface );  }
     operator iface**()  {  return &piface;  }
 
   };
