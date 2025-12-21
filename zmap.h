@@ -53,7 +53,6 @@ SOFTWARE.
 # if !defined( __zmap_hpp__ )
 # define __zmap_hpp__
 # include "serialize.h"
-# include "ptrpatch.h"
 # include "wcsstr.h"
 # include "uuid.h"
 # include <cassert>
@@ -63,7 +62,6 @@ SOFTWARE.
 # include <string>
 # include <type_traits>
 # include <memory>
-# include <limits>
 # include <atomic>
 # include <cstddef>
 
