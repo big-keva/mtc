@@ -400,8 +400,15 @@ namespace mtc
   int   bitset_first( U n ) noexcept
   {
     static_assert( std::is_integral<U>::value, "Integer type required" );
+# if __cplusplus >= 202002L
+    return n != 0 ? std::countr_zero( n ) : -1;
+# elif defined( __GNUC__ ) || defined( __clang__ )
+    return n != 0 ? __builtin_ctz( n ) : -1;
+# elif defined( _MSC_VER )
+    unsigned long index;
 
-    return int(n & (1 + ~n));
+    return_BitScanForward( &index, n ) ? (int)index : -1;
+# endif
   }
 
   template <class U, class A>
