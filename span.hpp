@@ -71,7 +71,7 @@ namespace mtc
     constexpr span last( size_type count ) const noexcept
       {  return m_size >= count ? span{ m_data + m_size - count, m_size - count } : span();  }
     constexpr span subspan( size_type off, size_t count ) const noexcept
-      {  return off < m_size ? span{ m_data + off, std::min( off + count, m_size - off ) } : span();  }
+      {  return off < m_size ? span{ m_data + off, std::min( count, m_size - off ) } : span();  }
 
   protected:
     pointer   m_data = nullptr;
