@@ -1359,6 +1359,14 @@ namespace mtc
     size_t          ncount = 0;
     const vector_t* parray = nullptr;
 
+    template <class C>
+    static  bool  equal_value( const C& c1, const C& c2 )
+      {  return c1 == c2;  }
+    static  bool  equal_value( float f1, float f2 )
+      {  return (f1 > f2) == (f1 < f2);  }
+    static  bool  equal_value( double d1, double d2 )
+      {  return (d1 > d2) == (d1 < d2);  }
+
   public:
     typedef   T1  value_type;
 
@@ -1463,7 +1471,7 @@ namespace mtc
       auto  ap = a.begin(), ae = a.end();
 
       for ( ; mp != me && ap != ae; ++mp, ++ap )
-        if ( *mp != *ap ) return false;
+        if ( !equal_value( *mp, *ap ) ) return false;
 
       return mp == me && ap == ae;
     }
@@ -1475,7 +1483,7 @@ namespace mtc
       auto  ap = a.begin(), ae = a.end();
 
       while ( mp != me && ap != ae )
-        if ( *mp != *ap ) return true;
+        if ( !equal_value( *mp, *ap ) ) return true;
           else { ++mp; ++ap; }
 
       return mp != me || ap != ae;
