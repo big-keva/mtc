@@ -436,12 +436,12 @@ namespace mtc
           case zval::z_array_char:    return compare::test( *a.get_array_char(), b );
           case zval::z_array_byte:    return compare::test( *a.get_array_byte(), b );
           case zval::z_array_int16:   return compare::test( *a.get_array_int16(), b );
-          case zval::z_array_word16:  return compare::test( *a.get_array_int32(), b );
-          case zval::z_array_int32:   return compare::test( *a.get_array_int64(), b );
-          case zval::z_array_word32:  return compare::test( *a.get_array_float(), b );
-          case zval::z_array_int64:   return compare::test( *a.get_array_word16(), b );
-          case zval::z_array_word64:  return compare::test( *a.get_array_word32(), b );
-          case zval::z_array_float:   return compare::test( *a.get_array_word64(), b );
+          case zval::z_array_int32:   return compare::test( *a.get_array_int32(), b );
+          case zval::z_array_int64:   return compare::test( *a.get_array_int64(), b );
+          case zval::z_array_word16:  return compare::test( *a.get_array_word16(), b );
+          case zval::z_array_word32:  return compare::test( *a.get_array_word32(), b );
+          case zval::z_array_word64:  return compare::test( *a.get_array_word64(), b );
+          case zval::z_array_float:   return compare::test( *a.get_array_float(), b );
           case zval::z_array_double:  return compare::test( *a.get_array_double(), b );
 
           case zval::z_array_charstr: return compare::test( *a.get_array_charstr(), b );
