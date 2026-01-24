@@ -216,7 +216,7 @@ namespace mtc
       throw std::invalid_argument( "bitset_set output overflow" );
 
   // if only one U word, set bits and return
-    if ( h < ((l + element_size - 1) & ~(element_size - 1)) )
+    if ( h < ((l + element_size) & ~(element_size - 1)) )
       return bitset_set( v[l / element_size], { l % element_size, h % element_size } );
 
   // set all the lower bits
@@ -425,7 +425,7 @@ namespace mtc
   {
     for ( auto p = std::begin( arr ); p != std::end( arr ); ++p )
       if ( *p != 0 )
-        return int(CHAR_BIT * (p - std::begin( arr )) + bitset_first( *p ));
+        return int(CHAR_BIT * sizeof(U) * (p - std::begin( arr )) + bitset_first( *p ));
     return -1;
   }
 
