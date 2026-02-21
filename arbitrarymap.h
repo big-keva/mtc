@@ -2,11 +2,9 @@
 
 The MIT License (MIT)
 
-Copyright (c) 2000-2016 Андрей Коваленко aka Keva
-  keva@meta.ua
+Copyright (c) 2000-2026 Андрей Коваленко aka Keva
   keva@rambler.ru
-  skype: big_keva
-  phone: +7(495)648-4058, +7(916)015-5592
+  phone: +7(495)648-4058, +7(926)513-2991
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
