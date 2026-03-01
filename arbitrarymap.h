@@ -53,7 +53,7 @@ SOFTWARE.
 # include "serialize.h"
 # include <assert.h>
 # include <stdlib.h>
-# include <errno.h>
+# include <type_traits>
 
 namespace mtc
 {
@@ -114,8 +114,10 @@ namespace mtc
       }
       return palloc;
     }
-    template <class R, class S> static
-    auto  Search( const void*, size_t, S& ) -> R*;
+    template <class S, class R = typename std::conditional<std::is_const<S>::value, const V, V>::type>
+    static  auto  Search( const void*, size_t, S& ) -> R*;
+    template <class S, class R = typename std::conditional<std::is_const<S>::value, const void, void>::type>
+    static  auto  Lookup( const void*, size_t, S& ) -> R*;
 
   public:     // construction
     arbitrarymap( const A& a = {} ):
@@ -142,12 +144,89 @@ namespace mtc
   protected:
     arbitrarymap( const arbitrarymap& ) = delete;
     arbitrarymap& operator = ( const arbitrarymap& ) = delete;
-    
+
+  public:
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+
+    class Key
+    {
+      const void* ptr;
+      size_type   len;
+
+    public:
+      Key( const void* p, size_type l ): ptr( p ), len( l ) {}
+      template <class K>
+      Key( const K& k ): Key( k.data(), k.size() ) {}
+
+      const void* data() const {  return ptr;  }
+      size_type   size() const {  return len;  }
+    };
+
+    using key_type = Key;
+    using mapped_type = V;
+    using allocator_type = A;
+
+    struct value_type
+    {
+      const Key key;
+      V&        value;
+    };
+
+    struct const_value_type
+    {
+      const Key key;
+      const V&  value;
+    };
+
+    class iterator;
+    class const_iterator;
+
+  protected:
+    template <class value_t>
+    class iterator_base
+    {
+      friend class arbitrarymap;
+
+      using mapptr_t = typename std::conditional<std::is_const<value_t>::value,
+        const arbitrarymap*, arbitrarymap*>::type;
+      using objptr_t = typename std::conditional<std::is_const<value_t>::value,
+        const void*, void*>::type;
+
+      using vstore_t = typename std::aligned_storage<sizeof(value_t)>::type;
+
+      mapptr_t  parent = nullptr;
+      objptr_t  objptr = nullptr;
+      vstore_t  avalue;
+
+      iterator_base( mapptr_t p, objptr_t o );
+      iterator_base( mapptr_t p ):
+        iterator_base( p, p != nullptr ? p->Enum( nullptr ) : nullptr ) {}
+
+    public:
+      iterator_base()
+        {}
+      iterator_base( const iterator_base& );
+      iterator_base& operator = ( const iterator_base& );
+
+      bool  operator ==( const iterator_base& it ) const {  return objptr == it.objptr;  }
+      bool  operator !=( const iterator_base& it ) const {  return objptr != it.objptr;  }
+
+      iterator_base& operator++();
+      iterator_base  operator++( int );
+
+      value_t& operator*();
+      const value_t& operator*() const;
+      value_t* operator -> ();
+      const value_t* operator -> () const;
+    };
+
+    const void*   Delete( const void* );
   public:     // methods
     int           Append( const arbitrarymap& );
-    int           Delete( const void* k, size_t );
-    int           Delete( const widechar* s ) {  return Delete( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
-    int           Delete( const char* s )     {  return Delete( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
+    size_type     Delete( const void* k, size_type );
+    size_type     Delete( const widechar* s ) {  return Delete( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
+    size_type     Delete( const char* s )     {  return Delete( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
     void          DelAll();
     unsigned      GetLen() const  {  return ncount;  }
     unsigned      MapLen() const  {  return maplen;  }
@@ -155,10 +234,10 @@ namespace mtc
           V*      Insert( const void* k, size_t l, V&& );
           V*      Insert( const widechar* s, const V& v = V() ) {  return Insert( s, sizeof(*s) * (w_strlen( s ) + 1), v );  }
           V*      Insert( const char*     s, const V& v = V() ) {  return Insert( s, sizeof(*s) * (w_strlen( s ) + 1), v );  }
-    const V*      Search( const void* k, size_t l ) const {  return Search<const V>( k, l, *this);  }
+    const V*      Search( const void* k, size_t l ) const {  return Search( k, l, *this);  }
     const V*      Search( const widechar* s ) const {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
     const V*      Search( const char*     s ) const {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
-          V*      Search( const void* k, size_t l )       {  return Search<V>( k, l, *this ); }
+          V*      Search( const void* k, size_t l )       {  return Search( k, l, *this ); }
           V*      Search( const widechar* s ) {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
           V*      Search( const char*     s ) {  return Search( s, sizeof(*s) * (w_strlen( s ) + 1) );  }
 
@@ -170,12 +249,53 @@ namespace mtc
     auto  FetchFrom( S* ) -> S*;
 
   public:     // stl compat
+    auto    begin() -> iterator {  return iterator( this );  }
+    auto    begin() const -> const_iterator {  return const_iterator( this );  }
+    auto    cbegin() const -> const_iterator {  return const_iterator( this );  }
+
+    auto    end() -> iterator {  return iterator();  }
+    auto    end() const -> const_iterator {  return const_iterator();  }
+    auto    cend() const -> const_iterator {  return const_iterator();  }
+
     bool    empty() const  {  return GetLen() == 0;  }
-    size_t  size() const  {  return GetLen();  }
+    size_type  size() const  {  return GetLen();  }
+
+    void    clear() {  DelAll();  }
+
+  // modifiers
+    iterator  insert( const const_value_type& v )
+      {  return iterator( this, Insert( v.key, v.value ) );  }
+    iterator  erase( iterator it )
+      {  return { this, Delete( it.objptr ) };  }
+    iterator  erase( const_iterator it )
+      {  return { this, Delete( it.objptr ) };  }
+    size_type erase( const Key& key )
+      {  return Delete( key.ptr, key.len );  }
+
+  // lookup
+    V&  at( const Key& );
+    const V&  at( const Key& ) const;
+
+    V&  operator []( const Key& );
+    size_type count( const Key& ) const;
+
+    iterator  find( const Key& key )
+      {  return { this, Lookup( key.data(), key.size(), *this ) };  }
+    const_iterator  find( const Key& key ) const
+      {  return { this, Lookup( key.data(), key.size(), *this ) };  }
+
+    bool  contains( const Key& key ) const
+      {  return Lookup( key.data(), key.size(), *this ) != nullptr;  }
 
   public:     // template wrappers
-    template <class K>  int   Delete( const K& k )  {  return Delete( k.begin(), k.size() );  }
-    template <class K>  V*    Insert( const K& k, const V& v = V() )  {  return Insert( k.begin(), k.size(), v );  }
+    template <class K>  size_type Delete( const K& k )
+      {  return Delete( k.data(), k.size() );  }
+    template <class K>  V*        Insert( const K& k, const V& v = V() )
+      {  return Insert( k.data(), k.size(), v );  }
+    template <class K>  V*        Search( const K& k )
+      {  return Search( k.data(), k.size() );  }
+    template <class K>  const V*  Search( const K& k ) const
+      {  return Search( k.data(), k.size() );  }
 
   // enumerator support methods
     const void*         Enum( const void* ) const;
@@ -215,7 +335,101 @@ namespace mtc
 
   };
 
-  // Map inline implementation
+  template <class V, class A>
+  class arbitrarymap<V, A>::iterator: public iterator_base<value_type>
+    {  using iterator_base<value_type>::iterator_base;  };
+
+  template <class V, class A>
+  class arbitrarymap<V, A>::const_iterator: public iterator_base<const_value_type>
+    {  using iterator_base<const_value_type>::iterator_base;  };
+
+  // arbitratymap::iterator_base implementation
+
+  template <class V, class A>
+  template <class value_t>
+  arbitrarymap<V, A>::iterator_base<value_t>::iterator_base( mapptr_t p, objptr_t o ):
+    parent( p ),
+    objptr( o )
+  {
+    if ( objptr != nullptr )
+      new( &avalue ) value_t{ Key( GetKey( objptr ), KeyLen( objptr ) ), GetVal( objptr ) };
+  }
+
+  template <class V, class A>
+  template <class value_t>
+  arbitrarymap<V, A>::iterator_base<value_t>::iterator_base( const iterator_base& it ):
+    parent( it.parent ),
+    objptr( it.objptr ),
+    avalue( it.avalue )
+  {
+  }
+
+  template <class V, class A>
+  template <class value_t>
+  auto  arbitrarymap<V, A>::iterator_base<value_t>::operator = ( const iterator_base& it ) -> iterator_base&
+  {
+    parent = it.parent;
+    objptr = it.objptr;
+    avalue = it.avalue;
+    return *this;
+  }
+
+  template <class V, class A>
+  template <class value_t>
+  auto  arbitrarymap<V, A>::iterator_base<value_t>::operator++() -> iterator_base&
+  {
+    if ( objptr != nullptr && parent != nullptr )
+      if ( (objptr = parent->Enum( objptr )) != nullptr )
+        new( &avalue ) value_t{ Key( GetKey( objptr ), KeyLen( objptr ) ), GetVal( objptr ) };
+    return *this;
+  }
+
+  template <class V, class A>
+  template <class value_t>
+  auto  arbitrarymap<V, A>::iterator_base<value_t>::operator++( int ) -> iterator_base
+  {
+    auto  r( *this );
+      this->operator++();
+    return r;
+  }
+
+  template <class V, class A>
+  template <class value_t>
+  auto  arbitrarymap<V, A>::iterator_base<value_t>::operator*() const -> const value_t&
+  {
+    if ( objptr != nullptr )
+      return *(const value_t*)&avalue;
+    throw std::out_of_range( "arbitrarymap::iterator_base::operator*" );
+  }
+
+  template <class V, class A>
+  template <class value_t>
+  auto  arbitrarymap<V, A>::iterator_base<value_t>::operator*() -> value_t&
+  {
+    if ( objptr != nullptr )
+      return *(value_t*)&avalue;
+    throw std::out_of_range( "arbitrarymap::iterator_base::operator*" );
+  }
+
+  template <class V, class A>
+  template <class value_t>
+  auto  arbitrarymap<V, A>::iterator_base<value_t>::operator -> () const -> const value_t*
+  {
+    if ( objptr != nullptr )
+      return (const value_t*)&avalue;
+    throw std::out_of_range( "arbitrarymap::iterator_base::operator->" );
+  }
+
+  template <class V, class A>
+  template <class value_t>
+  auto  arbitrarymap<V, A>::iterator_base<value_t>::operator -> () -> value_t*
+  {
+    if ( objptr != nullptr )
+      return (value_t*)&avalue;
+    throw std::out_of_range( "arbitrarymap::iterator_base::operator->" );
+  }
+
+  // arbitrarymap implementation
 
   template <class V, class A>
   arbitrarymap<V, A>::arbitrarymap( unsigned tablen, const A& a, const std::initializer_list<std::pair<mapkey, V>>& v ):
@@ -247,7 +461,7 @@ namespace mtc
   }
 
   template <class V, class A>
-  template <class R, class S>
+  template <class S, class R>
   auto  arbitrarymap<V, A>::Search( const void* k, size_t l, S& s ) -> R*
   {
     if ( s.pitems != nullptr )
@@ -264,7 +478,50 @@ namespace mtc
   }
 
   template <class V, class A>
-  int   arbitrarymap<V, A>::Delete( const void* k, size_t l )
+  template <class S, class R>
+  auto  arbitrarymap<V, A>::Lookup( const void* k, size_t l, S& s ) -> R*
+  {
+    if ( s.pitems != nullptr )
+    {
+      unsigned  pos = gethash( (const unsigned char*)k, l ) % s.maplen;
+      auto      ptr = s.pitems[pos];
+
+      while ( ptr != nullptr && !isequal( ptr->key, ptr->len, k, l ) )
+        ptr = ptr->lpn;
+
+      return ptr;
+    }
+    return nullptr;
+  }
+
+  template <class V, class A>
+  auto  arbitrarymap<V, A>::Delete( const void* node ) -> const void*
+  {
+    keyrec**  res = nullptr;
+
+    if ( pitems != nullptr && ncount != 0 && node != nullptr )
+    {
+      unsigned  pos = gethash( (const unsigned char*)GetKey( node ), KeyLen( node ) ) % maplen;
+      keyrec**  ptr = &pitems[pos];
+
+      while ( *ptr != nullptr && *ptr != node )
+        ptr = &(*ptr)->lpn;
+
+      if ( *ptr != nullptr )
+      {
+        auto  del = *ptr;
+
+        res = *ptr = del->lpn;
+        del->~keyrec();
+        rebind<A, keyrec>( alloc ).deallocate( del, 0 );
+        --ncount;
+      }
+    }
+    return res;
+  }
+
+  template <class V, class A>
+  auto  arbitrarymap<V, A>::Delete( const void* k, size_t l ) -> size_type
   {
     if ( pitems != nullptr && ncount != 0 )
     {
@@ -283,9 +540,9 @@ namespace mtc
           rebind<A, keyrec>( alloc ).deallocate( del, 0 );
         --ncount;
       }
-      return 0;
+      return 1;
     }
-    return EINVAL;
+    return 0;
   }
 
   template <class V, class A>
@@ -364,6 +621,36 @@ namespace mtc
       o = ::Serialize( ::Serialize( ::Serialize( o, len ), key, len ), val );
     }
     return o;
+  }
+
+// std lookup
+
+  template <class V, class A>
+  V&  arbitrarymap<V, A>::at( const Key& key )
+  {
+    auto  pfound = Search( key );
+
+    if ( pfound != nullptr )
+      return *pfound;
+    throw std::out_of_range( "arbitrarymap<V, A>::at" );
+  }
+
+  template <class V, class A>
+  const V&  arbitrarymap<V, A>::at( const Key& key ) const
+  {
+    auto  pfound = Search( key );
+
+    if ( pfound != nullptr )
+      return *pfound;
+    throw std::out_of_range( "arbitrarymap<V, A>::at" );
+  }
+
+  template <class V, class A>
+  V&  arbitrarymap<V, A>::operator []( const Key& key )
+  {
+    auto  pfound = Search( key );
+
+    return pfound != nullptr ? pfound : Insert( key );
   }
 
   template <class V, class A>
