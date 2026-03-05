@@ -98,7 +98,8 @@ namespace mtc {
 
   auto  SharedLibrary::Find( const char* name, const disable_exceptions_t& ) const -> void*
   {
-    return module != nullptr && module->module != nullptr ? PlatformFindMethod( module, name ) : nullptr;
+    return module != nullptr && module->module != nullptr ?
+      PlatformFindMethod( module->module, name ) : nullptr;
   }
 
   auto  SharedLibrary::Load( const char* path, const enable_exceptions_t& ) -> SharedLibrary
