@@ -636,6 +636,4 @@ namespace mtc
   api<IFlatStream>  OpenFileStream( const widechar* szname, unsigned dwmode, size_t buflen, const enable_exceptions_t& )
     {  return OpenStream( utf::encode( szname ).c_str(), dwmode, buflen, enable_exceptions ).ptr();  }
 
-  // wrappers
-
 }  // mtc namespace
