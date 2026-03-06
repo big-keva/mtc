@@ -11,6 +11,7 @@ namespace mtc
 }
 
 # else
+# include <initializer_list>
 # include <type_traits>
 # include <stdexcept>
 # include <algorithm>
@@ -41,8 +42,10 @@ namespace mtc
   template <std::size_t N>
     constexpr span( value_type (&a)[N] ) noexcept: m_data( a ), m_size( N ) {}
   template <class Allocator>
-    constexpr span( const std::vector<value_type, Allocator>& v ) noexcept: m_data( v.data() ), m_size( v.size() ) {}
-    constexpr span( const std::initializer_list<value_type>& i ) noexcept: m_data( i.data() ), m_size( i.size() ) {}
+    constexpr span( const std::vector<value_type, Allocator>& v ) noexcept:
+      m_data( v.data() ), m_size( v.size() ) {}
+    constexpr span( const std::initializer_list<value_type>& i ) noexcept:
+      m_data( static_cast<const value_type*>( i.begin() ) ), m_size( i.size() ) {}
     constexpr span( const span& s ) noexcept: m_data( s.m_data ), m_size( s.m_size ) {}
     constexpr span( span&& s ) noexcept: m_data( s.m_data ), m_size( s.m_size ) {  s.m_data = nullptr;  s.m_size = 0;  }
 
