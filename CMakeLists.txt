@@ -1,15 +1,24 @@
 cmake_minimum_required(VERSION 3.10)
 project(mtc)
 
-set(CMAKE_C_STANDARD 17)
+option(INSTALL_MTC "Enable mtc installation" OFF)
+option(BUILD_TESTS "Build library tests" OFF)
+
+set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
 if(MSVC)
-	add_compile_options(-MP -D_CRT_SECURE_NO_WARNINGS)
+  add_compile_options(-MP -D_CRT_SECURE_NO_WARNINGS)
 else()
-	add_compile_options(
-		-mfpmath=sse -fstack-protector-all -g -W -Wall -Wextra -Wcast-align
-		-pedantic -Wfloat-equal -Wpointer-arith -Wformat-security -Wmissing-format-attribute -Wformat=1 -Wwrite-strings -Wcast-align -Wno-long-long -Woverloaded-virtual -Wno-suggest-attribute=format)
+  add_compile_options(-pedantic -mfpmath=sse
+    -W -Wall -Wextra -Wcast-align -Wfloat-equal -Wpointer-arith -Wformat-security
+    -Wmissing-format-attribute -Wformat=1 -Wwrite-strings -Wcast-align -Wno-long-long
+    -Woverloaded-virtual -Wno-suggest-attribute=format)
+  if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_compile_options(-fno-stack-protector -D_FORTIFY_SOURCE=0 -fno-builtin)
+  else()
+    add_compile_options(-fstack-protector-all -g)
+  endif()
 endif()
 
 add_library(mtc STATIC
@@ -27,10 +36,11 @@ add_library(mtc STATIC
   src/test-it-easy.cpp
 )
 
-install(TARGETS mtc DESTINATION lib)
+if(INSTALL_MTC)
 
-install(
-  FILES
+  install(TARGETS mtc DESTINATION lib)
+
+  install(FILES
     sharedLibrary.hpp
 
     utf.hpp
@@ -67,11 +77,10 @@ install(
     config.h
     zmap.h
     zmap-alias.h
-  DESTINATION include/mtc
-)
+  DESTINATION include/mtc)
+endif()
 
-# add_subdirectory(tutorial)
-
-enable_testing()
-add_subdirectory(tests)
-
+if(BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
