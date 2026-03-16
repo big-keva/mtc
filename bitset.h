@@ -55,6 +55,7 @@ SOFTWARE.
 # include <cstdint>
 # include <climits>
 # include <algorithm>
+# include <stdexcept>
 
 namespace mtc
 {
