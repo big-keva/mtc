@@ -448,15 +448,16 @@ namespace mtc
     // strtox family
     //
     template <class val_type, class chartype>
-    static  auto  strtou( const chartype* str, chartype**  end, int dwbase ) -> val_type
+    static  auto  strntou( const chartype* str, size_t len, chartype**  end, int dwbase ) -> val_type
     {
       using u_type = typename std::make_unsigned<chartype>::type;
 
       val_type result = 0;
+      auto     endptr = str + std::max(uint32_t(len), std::numeric_limits<uint32_t>::max() - 1);
 
       if ( dwbase == 0 )
       {
-        if ( w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
+        if ( str + 2 <= endptr && w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
           {  dwbase = 16; str += 2;  }
         if ( dwbase == 0 )
           {  dwbase = 10;  }
@@ -464,13 +465,13 @@ namespace mtc
 
       if ( dwbase == 10 )
       {
-        while ( w_is_num( *str ) )
+        while ( str < endptr && w_is_num( *str ) )
           result = result * 10 + ((u_type)*str++) - '0';
       }
         else
       if ( dwbase == 16 )
       {
-        for ( ; ; )
+        while ( str < endptr )
         {
           if ( w_in_lim( *str, '0', '9' ) ) result = result * 16 + ((u_type)*str++) - '0';
             else
@@ -487,39 +488,40 @@ namespace mtc
     }
 
     template <class val_type, class chartype>
-    static  auto  strtoi( const chartype* str, chartype**  end, int dwbase ) -> val_type
+    static  auto  strntoi( const chartype* str, size_t len, chartype**  end, int dwbase ) -> val_type
     {
       using u_type = typename std::make_unsigned<chartype>::type;
-        static_assert( sizeof(u_type) == sizeof(chartype), "invlid type conversion" );
+        static_assert( sizeof(u_type) == sizeof(chartype), "invalid type conversion" );
 
       val_type result = 0;
       val_type imulti = 1;
+      auto     endptr = str + std::max(uint32_t(len), std::numeric_limits<uint32_t>::max() - 1);
 
-      if ( w_is_chr( *str, '-' ) )
+      if ( str < endptr && w_is_chr( *str, '-' ) )
         {  imulti = -1;  ++str;  }
 
       if ( dwbase == 16 )
       {
-        if ( w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
+        if ( str + 2 <= endptr && w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
           str += 2;
       }
         else
       if ( dwbase == 0 )
       {
-        if ( w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
+        if ( str + 2 <= endptr && w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
           {  dwbase = 16; str += 2;  }
         else dwbase = 10;
       }
 
       if ( dwbase == 10 )
       {
-        while ( w_is_num( *str ) )
+        while ( str < endptr && w_is_num( *str ) )
           result = result * 10 + ((u_type)*str++) - '0';
       }
         else
       if ( dwbase == 16 )
       {
-        for ( ; ; )
+        while ( str < endptr )
         {
           if ( w_in_lim( *str, '0', '9' ) ) result = result * 16 + ((u_type)*str++) - '0';
             else
@@ -533,6 +535,18 @@ namespace mtc
       if ( end != NULL )
         *end = const_cast<chartype*>( str );
       return imulti * result;
+    }
+
+    template <class val_type, class chartype>
+    static  auto  strtou( const chartype* str, chartype**  end, int dwbase ) -> val_type
+    {
+      return strntou<val_type, chartype>( str, size_t(-1), end, dwbase );
+    }
+
+    template <class val_type, class chartype>
+    static  auto  strtoi( const chartype* str, chartype**  end, int dwbase ) -> val_type
+    {
+      return strntoi<val_type, chartype>( str, size_t(-1), end, dwbase );
     }
 
     friend  size_t w_strlen( const widechar* );
@@ -618,14 +632,26 @@ namespace mtc
     friend  auto  w_strtol( const char*, char**, int ) -> long int;
     friend  auto  w_strtol( const widechar*, widechar**, int ) -> long int;
 
+    friend  auto  w_strntol( const char*, size_t, char**, int ) -> long int;
+    friend  auto  w_strntol( const widechar*, size_t, widechar**, int ) -> long int;
+
     friend  auto  w_strtoul( const char*, char**, int ) -> unsigned long int;
     friend  auto  w_strtoul( const widechar*, widechar**, int ) -> unsigned long int;
+
+    friend  auto  w_strntoul( const char*, size_t, char**, int ) -> unsigned long int;
+    friend  auto  w_strntoul( const widechar*, size_t, widechar**, int ) -> unsigned long int;
 
     friend  auto  w_strtoll( const char*, char**, int ) -> long long int;
     friend  auto  w_strtoll( const widechar*, widechar**, int ) -> long long int;
 
+    friend  auto  w_strntoll( const char*, size_t, char**, int ) -> long long int;
+    friend  auto  w_strntoll( const widechar*, size_t, widechar**, int ) -> long long int;
+
     friend  auto  w_strtoull( const char*, char**, int ) -> unsigned long long int;
     friend  auto  w_strtoull( const widechar*, widechar**, int ) -> unsigned long long int;
+
+    friend  auto  w_strntoull( const char*, size_t, char**, int ) -> unsigned long long int;
+    friend  auto  w_strntoull( const widechar*, size_t, widechar**, int ) -> unsigned long long int;
   };
 
   //
@@ -873,11 +899,15 @@ namespace mtc
     return putend( str ), fdsign * dvalue;
   }
 
-  inline  double  w_strtod( const char*     str, const char*     lim, char**     end ) {  return w_strtod<char>( str, lim, end );  }
-  inline  double  w_strtod( const widechar* str, const widechar* lim, widechar** end ) {  return w_strtod<widechar>( str, lim, end );  }
+  inline  double  w_strtod( const char*     str, const char*     lim, char**     end )
+    {  return w_strtod<char>( str, lim, end );  }
+  inline  double  w_strtod( const widechar* str, const widechar* lim, widechar** end )
+    {  return w_strtod<widechar>( str, lim, end );  }
 
-  inline  double  w_strtod( const char*     str, char**     end ) {  return w_strtod<char>( str, nullptr, end );  }
-  inline  double  w_strtod( const widechar* str, widechar** end ) {  return w_strtod<widechar>( str, nullptr, end );  }
+  inline  double  w_strtod( const char*     str, char**     end )
+    {  return w_strtod<char>( str, nullptr, end );  }
+  inline  double  w_strtod( const widechar* str, widechar** end )
+    {  return w_strtod<widechar>( str, nullptr, end );  }
 
   //
   // strtox family
@@ -887,20 +917,40 @@ namespace mtc
   inline  auto  w_strtol( const widechar* s, widechar** e, int base ) -> long int
     {  return __impl_strings::strtoi<long int>( s, e, base );  }
 
+  inline  auto  w_strntol( const char* s, size_t l, char** e, int base ) -> long int
+    {  return __impl_strings::strntoi<long int>( s, l, e, base );  }
+  inline  auto  w_strntol( const widechar* s, size_t l, widechar** e, int base ) -> long int
+    {  return __impl_strings::strntoi<long int>( s, l, e, base );  }
+
   inline  auto  w_strtoul( const char* s, char** e, int base ) -> unsigned long int
-    {  return __impl_strings::strtoi<unsigned long int>( s, e, base );  }
+    {  return __impl_strings::strtou<unsigned long int>( s, e, base );  }
   inline  auto  w_strtoul( const widechar* s, widechar** e, int base ) -> unsigned long int
-    {  return __impl_strings::strtoi<unsigned long int>( s, e, base );  }
+    {  return __impl_strings::strtou<unsigned long int>( s, e, base );  }
+
+  inline  auto  w_strntoul( const char* s, size_t l, char** e, int base ) -> unsigned long int
+    {  return __impl_strings::strntou<unsigned long int>( s, l, e, base );  }
+  inline  auto  w_strntoul( const widechar* s, size_t l, widechar** e, int base ) -> unsigned long int
+    {  return __impl_strings::strntou<unsigned long int>( s, l, e, base );  }
 
   inline  auto  w_strtoll( const char* s, char** e, int base ) -> long long int
     {  return __impl_strings::strtoi<long long int>( s, e, base );  }
   inline  auto  w_strtoll( const widechar* s, widechar** e, int base ) -> long long int
     {  return __impl_strings::strtoi<long long int>( s, e, base );  }
 
+  inline  auto  w_strntoll( const char* s, size_t l, char** e, int base ) -> long long int
+    {  return __impl_strings::strntoi<long long int>( s, l, e, base );  }
+  inline  auto  w_strntoll( const widechar* s, size_t l, widechar** e, int base ) -> long long int
+    {  return __impl_strings::strntoi<long long int>( s, l, e, base );  }
+
   inline  auto  w_strtoull( const char* s, char** e, int base ) -> unsigned long long int
     {  return __impl_strings::strtoi<unsigned long long int>( s, e, base );  }
   inline  auto  w_strtoull( const widechar* s, widechar** e, int base ) -> unsigned long long int
     {  return __impl_strings::strtoi<unsigned long long int>( s, e, base );  }
+
+  inline  auto  w_strntoull( const char* s, size_t l, char** e, int base ) -> unsigned long long int
+    {  return __impl_strings::strntou<unsigned long long int>( s, l, e, base );  }
+  inline  auto  w_strntoull( const widechar* s, size_t l, widechar** e, int base ) -> unsigned long long int
+    {  return __impl_strings::strntou<unsigned long long int>( s, l, e, base );  }
 
   //
   // char* strduprintf( format, ... ) family
