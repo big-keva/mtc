@@ -596,6 +596,33 @@ S*  SkipToEnd( S* s, const std::basic_string<C, std::char_traits<C>, A>* )
   return (s = FetchFrom( s, l )) != nullptr ? SkipBytes( s, l * sizeof(C) ) : s;
 }
 
+# if __cplusplus >= 201703L
+
+/*
+ * std::basic_string<>
+ */
+template <class C>
+size_t  GetBufLen( const std::basic_string_view<C>& s )
+{
+  return ::GetBufLen( s.length() ) + sizeof(C) * s.length();
+}
+
+template <class O, class C>
+O*      Serialize( O* o, const std::basic_string_view<C>& s )
+{
+  return ::Serialize( ::Serialize( o, s.length() ), s.data(), sizeof(C) * s.length() );
+}
+
+template <class S, class C>
+S*  SkipToEnd( S* s, const std::basic_string_view<C>* )
+{
+  int   l;
+
+  return (s = FetchFrom( s, l )) != nullptr ? SkipBytes( s, l * sizeof(C) ) : s;
+}
+
+# endif   // __cplusplus >= 201703L
+
 /*
  * iterable objects serialization
  * begin(), end() && size() expected to be present
