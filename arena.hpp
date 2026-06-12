@@ -19,7 +19,6 @@ namespace mtc {
       std::atomic<block*>   blocks;   // list of elements
       std::atomic<
       std::atomic<block*>*> pchain;   // last in list
-      std::atomic_uint32_t  nblock;   // count of blocks
       std::atomic_uint32_t  mcount;   // count of blocks
       std::atomic_uint64_t  musage;   // memory allocated
 
@@ -85,7 +84,7 @@ namespace mtc {
     }
 
   protected:
-    enum: std::size_t{  allocation_unit_size = 4 * 0x400 * 0x144  };
+    enum: std::size_t{  allocation_unit_size = 8 * 0x400 * 0x400  };
 
   };
 
@@ -213,8 +212,6 @@ namespace mtc {
   inline
   void* Arena::block::allocate( size_t size, size_t align )
   {
-    assert( align != 0 );
-
     for ( ; ; )
     {
       auto  pstart = ptop.load();
@@ -235,7 +232,6 @@ namespace mtc {
     lblock( section ),
     blocks( nullptr ),
     pchain( &blocks ),
-    nblock( 0 ),
     mcount( 0 ),
     musage( 0 ),
     rcount( 1 ) {}
@@ -280,12 +276,7 @@ namespace mtc {
       }
         else
       // else pblock is broken nullptr; try initialize it
-      {
-        assert( pblock == nullptr && (*pplast).load() == ptr::dirty( pblock ) );
-
-        *pplast = block::Create( size + align, lblock ),
-          ++nblock;
-      }
+      *pplast = block::Create( size + align, lblock );
     }
   }
 
