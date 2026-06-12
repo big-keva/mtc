@@ -1,26 +1,27 @@
 # include "../zmap.h"
+# include "../utf.hpp"
 # include <type_traits>
 
 namespace mtc
 {
-  template <class A, class B> static  zval  GetMul( A a, B b )  {  return a * b;  }
-  template <class A, class B> static  zval  GetDiv( A a, B b )  {  return a / b;  }
-  template <class A, class B> static  zval  GetAdd( A a, B b )  {  return a + b;  }
-  template <class A, class B> static  zval  GetSub( A a, B b )  {  return a - b;  }
+  template <class A, class B> static  auto  GetMul( A a, B b )  {  return a * b;  }
+  template <class A, class B> static  auto  GetDiv( A a, B b )  {  return a / b;  }
+  template <class A, class B> static  auto  GetAdd( A a, B b )  {  return a + b;  }
+  template <class A, class B> static  auto  GetSub( A a, B b )  {  return a - b;  }
 
-  template <class A, class B> static  zval  GetAnd( A a, B b )  {  return a & b;  }
-  template <class A, class B> static  zval  GetXor( A a, B b )  {  return a ^ b;  }
-  template <class A, class B> static  zval  Get_Or( A a, B b )  {  return a | b;  }
-  template <class A, class B> static  zval  GetPct( A a, B b )  {  return a % b;  }
-  template <class A, class B> static  zval  GetShl( A a, B b )  {  return a << b;  }
-  template <class A, class B> static  zval  GetShr( A a, B b )  {  return a >> b;  }
+  template <class A, class B> static  auto  GetAnd( A a, B b )  {  return a & b;  }
+  template <class A, class B> static  auto  GetXor( A a, B b )  {  return a ^ b;  }
+  template <class A, class B> static  auto  Get_Or( A a, B b )  {  return a | b;  }
+  template <class A, class B> static  auto  GetPct( A a, B b )  {  return a % b;  }
+  template <class A, class B> static  auto  GetShl( A a, B b )  {  return a << b;  }
+  template <class A, class B> static  auto  GetShr( A a, B b )  {  return a >> b;  }
 
   template <class T, class V>
   bool  are_equal( const T& a, const V& b )  {  return (a > b) == (a < b);  }
 
-  /*
-    операции над zval и целым или дробным значением - макрогенерация:
-    template <class V> zval  (#)( zval, V )
+ /*
+  * операции над zval и целым или дробным значением - макрогенерация:
+  * template <class V> zval  (#)( zval, V )
   */
   # define  derive_operation_xvalue_value( funcname )                     \
   template <class V>  zval  funcname( const zval& z, V v )                \
@@ -37,7 +38,24 @@ namespace mtc
         case zval::z_word64:  return funcname( *z.get_word64(), v );      \
         case zval::z_float:   return funcname( *z.get_float(), v );       \
         case zval::z_double:  return funcname( *z.get_double(), v );      \
-        default:        return zval();                                    \
+        default:              return {};                                  \
+      }                                                                   \
+    }                                                                     \
+  template <class V>  zval& funcname( zval& z, V v )                      \
+    {                                                                     \
+      switch ( z.get_type() )                                             \
+      {                                                                   \
+        case zval::z_char:    return z = funcname( *z.get_char(), v );    \
+        case zval::z_byte:    return z = funcname( *z.get_byte(), v );    \
+        case zval::z_int16:   return z = funcname( *z.get_int16(), v );   \
+        case zval::z_int32:   return z = funcname( *z.get_int32(), v );   \
+        case zval::z_int64:   return z = funcname( *z.get_int64(), v );   \
+        case zval::z_word16:  return z = funcname( *z.get_word16(), v );  \
+        case zval::z_word32:  return z = funcname( *z.get_word32(), v );  \
+        case zval::z_word64:  return z = funcname( *z.get_word64(), v );  \
+        case zval::z_float:   return z = funcname( *z.get_float(), v );   \
+        case zval::z_double:  return z = funcname( *z.get_double(), v );  \
+        default:              return z.clear();                           \
       }                                                                   \
     }
     derive_operation_xvalue_value( GetMul )
@@ -46,9 +64,9 @@ namespace mtc
     derive_operation_xvalue_value( GetSub )
   # undef  derive_operation_xvalue_value
 
-  /*
-    операции над zval и zval - макрогенерация:
-    zval  (#)( const zval&, const zval& )
+ /*
+  * операции над zval и zval - макрогенерация:
+  * zval  (#)( const zval&, const zval& )
   */
   # define  derive_operation_xvalue_xvalue( funcname )                    \
   zval  funcname( const zval& z, const zval& x )                          \
@@ -65,7 +83,24 @@ namespace mtc
         case zval::z_word64:  return funcname( z, *x.get_word64() );      \
         case zval::z_float:   return funcname( z, *x.get_float() );       \
         case zval::z_double:  return funcname( z, *x.get_double() );      \
-        default:        return zval();                                    \
+        default:              return {};                                  \
+      }                                                                   \
+    }                                                                     \
+  zval& funcname( zval& z, const zval& x )                                \
+    {                                                                     \
+      switch ( x.get_type() )                                             \
+      {                                                                   \
+        case zval::z_char:    return funcname( z, *x.get_char() );        \
+        case zval::z_byte:    return funcname( z, *x.get_byte() );        \
+        case zval::z_int16:   return funcname( z, *x.get_int16() );       \
+        case zval::z_int32:   return funcname( z, *x.get_int32() );       \
+        case zval::z_int64:   return funcname( z, *x.get_int64() );       \
+        case zval::z_word16:  return funcname( z, *x.get_word16() );      \
+        case zval::z_word32:  return funcname( z, *x.get_word32() );      \
+        case zval::z_word64:  return funcname( z, *x.get_word64() );      \
+        case zval::z_float:   return funcname( z, *x.get_float() );       \
+        case zval::z_double:  return funcname( z, *x.get_double() );      \
+        default:              return z.clear();                           \
       }                                                                   \
     }
     derive_operation_xvalue_xvalue( GetMul )
@@ -73,21 +108,23 @@ namespace mtc
     derive_operation_xvalue_xvalue( GetSub )
   # undef derive_operation_xvalue_xvalue
 
-  /*
-    специализации StrCat с поддержкой суммирования однотипных строк
+ /*
+  * специализации StrCat с поддержкой суммирования однотипных строк
   */
+  template <class V>
+  auto  to_string( V v ) -> charstr  {  return std::to_string( v );  }
+  auto  to_string( const charstr& s ) -> const charstr& {  return s;  }
+  auto  to_string( const widestr& s ) -> charstr {  return utf8::encode( s );  }
+
   template <class A, class B>
-  zval  StrCat( A, B )  {  return zval();  }
-  zval  StrCat( const charstr& a, const charstr& b )  {  return zval( a + b );  }
-  zval  StrCat( const widestr& a, const widestr& b )  {  return zval( a + b );  }
-  zval  StrCat( char a, const charstr& b )  {  return zval( a + b );  }
-  zval  StrCat( const charstr& a, char b )  {  return zval( a + b );  }
+  zval  StrCat( const A& a, const B& b )  {  return to_string( a ) + to_string( b );  }
 
   template <class V>
   zval  StrCat( const zval& z, V v )
     {
       switch ( z.get_type() )
       {
+        case zval::z_untyped: return v;
         case zval::z_char:    return StrCat( *z.get_char(),   v );
         case zval::z_byte:    return StrCat( *z.get_byte(),   v );
         case zval::z_int16:   return StrCat( *z.get_int16(),  v );
@@ -100,7 +137,29 @@ namespace mtc
         case zval::z_double:  return StrCat( *z.get_double(), v );
         case zval::z_charstr: return StrCat( *z.get_charstr(), v );
         case zval::z_widestr: return StrCat( *z.get_widestr(), v );
-        default:              return zval();
+        default:              return {};
+      }
+    }
+
+  template <class V>
+  zval&  StrCat( zval& z, V v )
+    {
+      switch ( z.get_type() )
+      {
+        case zval::z_untyped: return z = v;
+        case zval::z_char:    return z = StrCat( *z.get_char(), v );
+        case zval::z_byte:    return z = StrCat( *z.get_byte(),   v );
+        case zval::z_int16:   return z = StrCat( *z.get_int16(),  v );
+        case zval::z_int32:   return z = StrCat( *z.get_int32(),  v );
+        case zval::z_int64:   return z = StrCat( *z.get_int64(),  v );
+        case zval::z_word16:  return z = StrCat( *z.get_word16(), v );
+        case zval::z_word32:  return z = StrCat( *z.get_word32(), v );
+        case zval::z_word64:  return z = StrCat( *z.get_word64(), v );
+        case zval::z_float:   return z = StrCat( *z.get_float(),  v );
+        case zval::z_double:  return z = StrCat( *z.get_double(), v );
+        case zval::z_charstr: return z = StrCat( *z.get_charstr(), v );
+        case zval::z_widestr: return z = StrCat( *z.get_widestr(), v );
+        default:              return z.clear();
       }
     }
 
@@ -108,19 +167,44 @@ namespace mtc
     {
       switch ( x.get_type() )
       {
-        case zval::z_char:    return mtc::GetAdd( z, *x.get_char() );
-        case zval::z_byte:    return mtc::GetAdd( z, *x.get_byte() );
-        case zval::z_int16:   return mtc::GetAdd( z, *x.get_int16() );
-        case zval::z_int32:   return mtc::GetAdd( z, *x.get_int32() );
-        case zval::z_int64:   return mtc::GetAdd( z, *x.get_int64() );
-        case zval::z_word16:  return mtc::GetAdd( z, *x.get_word16() );
-        case zval::z_word32:  return mtc::GetAdd( z, *x.get_word32() );
-        case zval::z_word64:  return mtc::GetAdd( z, *x.get_word64() );
-        case zval::z_float:   return mtc::GetAdd( z, *x.get_float() );
-        case zval::z_double:  return mtc::GetAdd( z, *x.get_double() );
-        case zval::z_charstr: return mtc::StrCat( z, *x.get_charstr() );
-        case zval::z_widestr: return mtc::StrCat( z, *x.get_widestr() );
-        default:        return zval();
+        case zval::z_untyped: return z;
+        case zval::z_char:    return GetAdd( z, *x.get_char() );
+        case zval::z_byte:    return GetAdd( z, *x.get_byte() );
+        case zval::z_int16:   return GetAdd( z, *x.get_int16() );
+        case zval::z_int32:   return GetAdd( z, *x.get_int32() );
+        case zval::z_int64:   return GetAdd( z, *x.get_int64() );
+        case zval::z_word16:  return GetAdd( z, *x.get_word16() );
+        case zval::z_word32:  return GetAdd( z, *x.get_word32() );
+        case zval::z_word64:  return GetAdd( z, *x.get_word64() );
+        case zval::z_float:   return GetAdd( z, *x.get_float() );
+        case zval::z_double:  return GetAdd( z, *x.get_double() );
+        case zval::z_charstr: return StrCat( z, *x.get_charstr() );
+        case zval::z_widestr: return StrCat( z, *x.get_widestr() );
+        default:              return {};
+      }
+    }
+
+  zval& GetAdd( zval& z, const zval& x )
+    {
+      if ( z.get_type() == zval::z_untyped )
+        return z = x;
+
+      switch ( x.get_type() )
+      {
+        case zval::z_untyped: return z = x;
+        case zval::z_char:    return GetAdd( z, *x.get_char() );
+        case zval::z_byte:    return GetAdd( z, *x.get_byte() );
+        case zval::z_int16:   return GetAdd( z, *x.get_int16() );
+        case zval::z_int32:   return GetAdd( z, *x.get_int32() );
+        case zval::z_int64:   return GetAdd( z, *x.get_int64() );
+        case zval::z_word16:  return GetAdd( z, *x.get_word16() );
+        case zval::z_word32:  return GetAdd( z, *x.get_word32() );
+        case zval::z_word64:  return GetAdd( z, *x.get_word64() );
+        case zval::z_float:   return GetAdd( z, *x.get_float() );
+        case zval::z_double:  return GetAdd( z, *x.get_double() );
+        case zval::z_charstr: return StrCat( z, *x.get_charstr() );
+        case zval::z_widestr: return StrCat( z, *x.get_widestr() );
+        default:              return z.clear();
       }
     }
 
@@ -140,7 +224,7 @@ namespace mtc
         case zval::z_word16:  return funcname( *z.get_word16(), v );      \
         case zval::z_word32:  return funcname( *z.get_word32(), v );      \
         case zval::z_word64:  return funcname( *z.get_word64(), v );      \
-        default:        return zval();                                    \
+        default:              return {};                                  \
       }                                                                   \
     }                                                                     \
   zval  funcname( const zval& z, const zval& x )                          \
@@ -155,7 +239,37 @@ namespace mtc
         case zval::z_word16:  return funcname( z, *x.get_word16() );      \
         case zval::z_word32:  return funcname( z, *x.get_word32() );      \
         case zval::z_word64:  return funcname( z, *x.get_word64() );      \
-        default:        return zval();                                    \
+        default:              return {};                                  \
+      }                                                                   \
+    }                                                                     \
+template <class V> zval& funcname( zval& z, V v )                         \
+    {                                                                     \
+      switch ( z.get_type() )                                             \
+      {                                                                   \
+        case zval::z_char:    return z = funcname( *z.get_char(), v );    \
+        case zval::z_byte:    return z = funcname( *z.get_byte(), v );    \
+        case zval::z_int16:   return z = funcname( *z.get_int16(), v );   \
+        case zval::z_int32:   return z = funcname( *z.get_int32(), v );   \
+        case zval::z_int64:   return z = funcname( *z.get_int64(), v );   \
+        case zval::z_word16:  return z = funcname( *z.get_word16(), v );  \
+        case zval::z_word32:  return z = funcname( *z.get_word32(), v );  \
+        case zval::z_word64:  return z = funcname( *z.get_word64(), v );  \
+        default:              return z.clear();                           \
+      }                                                                   \
+    }                                                                     \
+  zval& funcname( zval& z, const zval& x )                                \
+    {                                                                     \
+      switch ( x.get_type() )                                             \
+      {                                                                   \
+        case zval::z_char:    return funcname( z, *x.get_char() );        \
+        case zval::z_byte:    return funcname( z, *x.get_byte() );        \
+        case zval::z_int16:   return funcname( z, *x.get_int16() );       \
+        case zval::z_int32:   return funcname( z, *x.get_int32() );       \
+        case zval::z_int64:   return funcname( z, *x.get_int64() );       \
+        case zval::z_word16:  return funcname( z, *x.get_word16() );      \
+        case zval::z_word32:  return funcname( z, *x.get_word32() );      \
+        case zval::z_word64:  return funcname( z, *x.get_word64() );      \
+        default:              return z.clear();                           \
       }                                                                   \
     }
     derive_math( GetPct )
@@ -563,9 +677,9 @@ namespace mtc
 
   zval::zval( const zval& zv, const force_copy& force ): vx_type( z_untyped ) {  fetch( zv, force );  }
 
-  zval& zval::operator = ( zval&& zv )  {  return fetch( std::move( zv ) );  }
+  zval& zval::operator = ( zval&& zv )  {  return &zv != this ? fetch( std::move( zv ) ) : *this;  }
 
-  zval& zval::operator = ( const zval& zv ) {  return fetch( zv );  }
+  zval& zval::operator = ( const zval& zv ) {  return &zv != this ? fetch( std::move( zv ) ) : *this;  }
 
   zval::~zval() {  clear();  }
 
@@ -760,23 +874,11 @@ namespace mtc
   bool  zval::empty() const
     {  return vx_type == z_untyped;  }
 
-  auto  zval::clear() -> zval&
+  void  zval::dispose()
     {
       switch ( vx_type )
       {
       # define  destruct( _type_ )  case z_##_type_:  inner().v_##_type_.~_type_##_t();  break;
-        destruct( char )
-        destruct( byte )
-        destruct( int16 )
-        destruct( int32 )
-        destruct( int64 )
-        destruct( word16 )
-        destruct( word32 )
-        destruct( word64 )
-        destruct( float )
-        destruct( double )
-        destruct( bool )
-
         destruct( charstr )
         destruct( widestr )
         destruct( zmap )
@@ -799,8 +901,6 @@ namespace mtc
         destruct( array_uuid )
       # undef destruct
       }
-      vx_type = z_untyped;
-      return *this;
     }
 
   auto  zval::get_type() const -> unsigned
@@ -822,6 +922,17 @@ namespace mtc
   zval  zval::operator &  ( const zval& r ) const {  return GetAnd( *this, r );  }
   zval  zval::operator ^  ( const zval& r ) const {  return GetXor( *this, r );  }
   zval  zval::operator |  ( const zval& r ) const {  return Get_Or( *this, r );  }
+
+  zval& zval::operator *=  ( const zval& r ) {  return GetMul( *this, r );  }
+  zval& zval::operator /=  ( const zval& r ) {  return GetDiv( *this, r );  }
+  zval& zval::operator %=  ( const zval& r ) {  return GetPct( *this, r );  }
+  zval& zval::operator +=  ( const zval& r ) {  return GetAdd( *this, r );  }
+  zval& zval::operator -=  ( const zval& r ) {  return GetSub( *this, r );  }
+  zval& zval::operator <<= ( const zval& r ) {  return GetShl( *this, r );  }
+  zval& zval::operator >>= ( const zval& r ) {  return GetShr( *this, r );  }
+  zval& zval::operator &=  ( const zval& r ) {  return GetAnd( *this, r );  }
+  zval& zval::operator ^=  ( const zval& r ) {  return GetXor( *this, r );  }
+  zval& zval::operator |=  ( const zval& r ) {  return Get_Or( *this, r );  }
 
   zval  zval::operator ~ ()  const
     {
@@ -1265,7 +1376,7 @@ namespace mtc
       }
     }
 
-  auto  zval::fetch( zval&& zv ) -> zval&
+  auto  zval::fetch( zval&& zv ) noexcept -> zval&
     {
       if ( this != &zv )
         switch ( clear().vx_type = zv.vx_type )

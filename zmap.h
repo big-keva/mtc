@@ -168,8 +168,6 @@ namespace mtc
       align = alignof(array_charstr)
     };
 
-    using storage_t = typename std::aligned_storage<values::bytes, values::align>::type;
-
   public:     // z_%%% types
     class dump;
     class view;
@@ -356,6 +354,12 @@ namespace mtc
     auto  is_array() const -> bool;
     auto  is_numeric() const -> bool;
 
+    template <class ... types>
+    bool  is_type_in( types... ) const;
+    template <class ... types>
+    bool  is_type_in( unsigned t, types... other ) const  {  return get_type() == t || is_type_in( other... ); }
+    bool  is_type_in( unsigned t ) const  {  return get_type() == t; }
+
   public:     // conversions
     auto  cast_to_int16 ( int16_t = 0 ) const -> int16_t;
     auto  cast_to_int32 ( int32_t = 0 ) const -> int32_t;
@@ -377,16 +381,27 @@ namespace mtc
     S*      SkipToEnd( S* );
 
   public:     // arithmetic
-    zval  operator *  ( const zval& r ) const;
-    zval  operator /  ( const zval& r ) const;
-    zval  operator %  ( const zval& r ) const;
-    zval  operator +  ( const zval& r ) const;
-    zval  operator -  ( const zval& r ) const;
-    zval  operator << ( const zval& r ) const;
-    zval  operator >> ( const zval& r ) const;
-    zval  operator &  ( const zval& r ) const;
-    zval  operator ^  ( const zval& r ) const;
-    zval  operator |  ( const zval& r ) const;
+    zval  operator *  ( const zval& ) const;
+    zval  operator /  ( const zval& ) const;
+    zval  operator %  ( const zval& ) const;
+    zval  operator +  ( const zval& ) const;
+    zval  operator -  ( const zval& ) const;
+    zval  operator << ( const zval& ) const;
+    zval  operator >> ( const zval& ) const;
+    zval  operator &  ( const zval& ) const;
+    zval  operator ^  ( const zval& ) const;
+    zval  operator |  ( const zval& ) const;
+
+    zval& operator *=  ( const zval& );
+    zval& operator /=  ( const zval& );
+    zval& operator %=  ( const zval& );
+    zval& operator +=  ( const zval& );
+    zval& operator -=  ( const zval& );
+    zval& operator <<= ( const zval& );
+    zval& operator >>= ( const zval& );
+    zval& operator &=  ( const zval& );
+    zval& operator ^=  ( const zval& );
+    zval& operator |=  ( const zval& );
 
     zval  operator ~  ()  const;
 
@@ -418,7 +433,7 @@ namespace mtc
     bool  ne( const zval& z ) const {  return !eq( z );  }
 
   protected:  // stringize helpers
-    static  auto  to_string( char c )     -> std::string  {  return std::string( { '\'', c, '\'', 0 } );  }
+    static  auto  to_string( char c )     -> std::string  {  return std::string( { '\'', c, '\'' } );  }
     static  auto  to_string( byte_t v )   -> std::string  {  return std::to_string( v );  }
     static  auto  to_string( int16_t v )  -> std::string  {  return std::to_string( v );  }
     static  auto  to_string( int32_t v )  -> std::string  {  return std::to_string( v );  }
@@ -464,16 +479,19 @@ namespace mtc
     std::string to_string() const;
 
   protected:  // helpers
-    auto  fetch( zval&& ) -> zval&;
+    auto  fetch( zval&& ) noexcept -> zval&;
     auto  fetch( const zval& ) -> zval&;
     auto  fetch( const zval&, const force_copy& ) -> zval&;
 
     auto  inner() const -> const inner_t&;
     auto  inner()       ->       inner_t&;
 
+    void  dispose();
+
   protected:  // inplace storage
-    storage_t storage;
-    byte_t    vx_type;
+    alignas(align)
+    unsigned char storage[bytes];
+    byte_t        vx_type;
 
   };
 
@@ -820,7 +838,14 @@ namespace mtc
  /*
   * zmap::key
   *
-  * mutable associative key
+  * non-owning view of key data, similar to std::string_view.
+  * 
+  * IMPORTANT: key does NOT copy or own the underlying data. The caller must
+  * ensure that the pointed-to data remains valid for the lifetime of the key
+  * object. This is the same semantics as std::string_view.
+  * 
+  * Special feature: integer keys (unsigned) are stored inline in a 4-byte buffer,
+  * making them self-contained and safe to use without external storage.
   */
   class zmap::key
   {
@@ -1544,6 +1569,13 @@ namespace mtc
     derive_var( array_uuid )
   # undef derive_var
   };
+
+  inline  auto  zval::clear() -> zval&
+  {
+    if ( vx_type >= z_charstr && vx_type < z_untyped )
+      dispose();
+    return vx_type = z_untyped, *this;
+  }
 
   template <class O>
   inline  O*  zval::Serialize( O* o ) const
