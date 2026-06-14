@@ -716,14 +716,13 @@ namespace mtc
   auto  zmap::zdata_t::docopy() -> zdata_t*
   {
     zdata_t*  pcopy;
+    long      count = 1;
 
-    assert( nrefer.load() > 0 );
-
-    if ( nrefer == 1 )
-      return this;
+    if ( nrefer.compare_exchange_strong( count, 2 ) )
+      return this;      // we are the only owners
 
     (pcopy = new zdata_t( ztree_t::copy(), n_vals ))->nrefer = 1;
-      --nrefer;
+      nrefer.fetch_sub( 1 );
 
     return pcopy;
   }
