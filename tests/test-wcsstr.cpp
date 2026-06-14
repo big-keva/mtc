@@ -215,6 +215,32 @@ TestItEasy::RegisterFunc  testStrings( []()
         REQUIRE( w_strtol( "-0x12345", &e, 10 ) == 0 );
         REQUIRE( w_strtol( "-0x12345", &e, 16 ) == -0x12345 );
       }
+      SECTION( "w_strtoul" )
+      {
+        char* e;
+
+        REQUIRE( w_strtoul( "12345", &e, 0 ) == 12345 );
+        REQUIRE( w_strtoul( "12345", nullptr, 0 ) == 12345 );
+        REQUIRE( w_strtoul( "12345", nullptr, 10 ) == 12345 );
+        REQUIRE( w_strtoul( "12345", nullptr, 16 ) == 0x12345 );
+
+        REQUIRE( w_strtoul( "12345", &e, 11 ) == 0 );
+        REQUIRE( w_strtoul( "12345", nullptr, 11 ) == 0 );
+
+        REQUIRE( w_strtoul( "12345", &e, 16 ) == 0x12345 );
+        REQUIRE( w_strtoul( "12345", nullptr, 16 ) == 0x12345 );
+        REQUIRE( w_strtoul( "0x12345", &e, 16 ) == 0x12345 );
+
+        REQUIRE( w_strtoul( "0x12345", &e, 10 ) == 0 );
+
+        REQUIRE( w_strtoul( "-12345", &e, 0 ) == 0 );
+        REQUIRE( w_strtoul( "-12345", &e, 10 ) == 0 );
+        REQUIRE( w_strtoul( "-12345", &e, 16 ) == 0 );
+
+        REQUIRE( w_strtoul( "-0x12345", &e, 0 ) == 0 );
+        REQUIRE( w_strtoul( "-0x12345", &e, 10 ) == 0 );
+        REQUIRE( w_strtoul( "-0x12345", &e, 16 ) == 0 );
+      }
     }
   } );
   

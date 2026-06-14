@@ -449,8 +449,14 @@ namespace mtc
       using u_type = typename std::make_unsigned<chartype>::type;
 
       val_type result = 0;
-      auto     endptr = str + std::min<size_t>( len, SIZE_MAX - 1);
+      auto     endptr = len != size_t(-1) ? str + len : (const chartype*)(-1);
 
+      if ( dwbase == 16 )
+      {
+        if ( str + 2 <= endptr && w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
+          str += 2;
+      }
+        else
       if ( dwbase == 0 )
       {
         if ( str + 2 <= endptr && w_is_chr( *str, '0' ) && w_is_chr( str[1], 'x', 'X' ) )
@@ -491,7 +497,7 @@ namespace mtc
 
       val_type result = 0;
       val_type imulti = 1;
-      auto     endptr = str + std::min<size_t>( len, SIZE_MAX - 1);
+      auto     endptr = len != size_t(-1) ? str + len : (const chartype*)(-1);
 
       if ( str < endptr && w_is_chr( *str, '-' ) )
         {  imulti = -1;  ++str;  }
