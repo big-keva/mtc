@@ -163,8 +163,8 @@ namespace mtc
     enum values: size_t
     {
       bytes = impl::get_max_size<uint64_t, double,
-        charstr,
-        widestr, array_charstr>::value,
+        charstr, widestr,
+        array_charstr, array_widestr, array_zval, array_uuid>::value,
       align = alignof(array_charstr)
     };
 
