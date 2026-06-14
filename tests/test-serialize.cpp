@@ -151,6 +151,8 @@ bool  TestSerializeDeserialize( FILE* ) { return true; }
 
 template <class T>
 bool  are_objects_equal( const T& t1, const T& t2 ) {  return t1 == t2;  }
+bool  are_objects_equal( double f1, double f2 ) {  return (f1 > f2) - (f1 < f2) == 0;  }
+bool  are_objects_equal( float f1, float f2 ) {  return (f1 > f2) - (f1 < f2) == 0;  }
 bool  are_objects_equal( const char* t1, const char* t2 ) {  return t1 == t2 || strcmp( t1, t2 ) == 0;  }
 
 template <class T, class ... Types>
