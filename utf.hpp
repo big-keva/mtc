@@ -47,9 +47,14 @@ SOFTWARE.
 С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
 
 */
+/*
+  Notes:
+  - UTF-8 supports up to 6 bytes (U+7FFFFFFF) for legacy compatibility
+  - Surrogate pairs (U+D800-U+DFFF) are allowed in UTF-8 (WTF-8 compatible)
+*/
 # pragma once
-# if !defined( __mtc_utf_hpp__ )
-# define __mtc_utf_hpp__
+# if !defined( MTC_UTF_HPP_ )
+# define MTC_UTF_HPP_
 # include <cstdint>
 # include <cstddef>
 # include "wcsstr.h"
@@ -128,12 +133,12 @@ namespace mtc {
    * detect( utfstr )
    * Возвращает признак того, что строка является utf8-строкой.
    */
-    static  bool  detect( const char* str, size_t len = (size_t)-1 );
+    static  bool  detect( const char* str, size_t len = (size_t)-1 ) noexcept;
   /*
    * verify( utfstr )
    * Возвращает признак того, что строка может быть корректной utf8-строкой.
    */
-    static  bool  verify( const char* str, size_t len = (size_t)-1 );
+    static  bool  verify( const char* str, size_t len = (size_t)-1 ) noexcept;
   /*
    * strlen( utfstr )
    * Возвращает количество символов, закодированных utf8-строкой.
@@ -148,7 +153,7 @@ namespace mtc {
 
   public:
     typedef char  chartype;
-    typedef strbase<chartype> string_t;
+    typedef std::basic_string<chartype> string_t;
     
   protected:
     template <class _char>
@@ -158,9 +163,9 @@ namespace mtc {
     class string;
 
     template <class _char>
-    static  bool  isutf8( const _char*, size_t );
+    static  bool  isutf8( const _char*, size_t ) noexcept;
     template <class _char>
-    static  auto  chsize( const _char*, size_t ) -> size_t;
+    static  auto  chsize( const _char*, size_t ) noexcept -> size_t;
 
   public:
     static  auto  in( const char* str, size_t len = (size_t)-1 ) -> input<char>;
@@ -168,20 +173,20 @@ namespace mtc {
     static  auto  in( const widechar* str, size_t len = (size_t)-1 ) -> input<widechar>;
     static  auto  in( const widestr& str ) -> input<widechar>;
     static  auto  in( const uint32_t* str, size_t len = (size_t)-1 ) -> input<uint32_t>;
-    static  auto  in( const strbase<uint32_t>& str ) -> input<uint32_t>;
+    static  auto  in( const std::basic_string<uint32_t>& str ) -> input<uint32_t>;
 
     static  auto  out( chartype* str, size_t len ) -> outptr;
     static  auto  out( string_t& str ) -> outstr;
     static  auto  out() -> string;
 
   public:     // detectors
-    static  bool  detect( const char*     pch, size_t cch )  {  return isutf8( pch, cch );  }
-    static  bool  detect( const widechar* pch, size_t cch )  {  return isutf8( pch, cch );  }
-    static  bool  detect( const uint32_t* pch, size_t cch )  {  return isutf8( pch, cch );  }
+    static  bool  detect( const char*     pch, size_t cch ) noexcept {  return isutf8( pch, cch );  }
+    static  bool  detect( const widechar* pch, size_t cch ) noexcept {  return isutf8( pch, cch );  }
+    static  bool  detect( const uint32_t* pch, size_t cch ) noexcept {  return isutf8( pch, cch );  }
 
-    static  bool  detect( const charstr&  src ) {  return detect( src.c_str(), src.length() );  }
-    static  bool  detect( const widestr&  src ) {  return detect( src.c_str(), src.length() );  }
-    static  bool  detect( const strbase<uint32_t>&  src ) {  return detect( src.c_str(), src.length() );  }
+    static  bool  detect( const charstr&  src ) noexcept {  return detect( src.c_str(), src.length() );  }
+    static  bool  detect( const widestr&  src ) noexcept {  return detect( src.c_str(), src.length() );  }
+    static  bool  detect( const std::basic_string<uint32_t>&  src ) noexcept {  return detect( src.c_str(), src.length() );  }
 
   public:     // encoders
     static  auto  encode( char* out, size_t len, uint32_t chr ) -> size_t;
@@ -195,19 +200,19 @@ namespace mtc {
     static  auto  encode( charstr&, const uint32_t* str, size_t cch = (size_t)-1 ) -> charstr&;
 
     static  auto  encode( charstr&, const widestr& ) -> charstr&;
-    static  auto  encode( charstr&, const strbase<uint32_t>& ) -> charstr&;
+    static  auto  encode( charstr&, const std::basic_string<uint32_t>& ) -> charstr&;
 
     static  auto  encode( const widechar* str, size_t cch = (size_t)-1 ) -> charstr;
     static  auto  encode( const uint32_t* str, size_t cch = (size_t)-1 ) -> charstr;
 
     static  auto  encode( const widestr& ) -> charstr;
-    static  auto  encode( const strbase<uint32_t>& ) -> charstr;
+    static  auto  encode( const std::basic_string<uint32_t>& ) -> charstr;
 
   public:
-    static  auto  charsize( uint32_t uch ) -> size_t;
-    static  auto  charsize( const char* str, size_t len = (size_t)-1 ) -> size_t  {  return chsize( str, len );  }
-    static  auto  charsize( const widechar* str, size_t len = (size_t)-1 ) -> size_t  {  return chsize( str, len );  }
-    static  auto  charsize( const uint32_t* str, size_t len = (size_t)-1 ) -> size_t  {  return chsize( str, len );  }
+    static  auto  charsize( uint32_t uch ) noexcept -> size_t;
+    static  auto  charsize( const char* str, size_t len = (size_t)-1 ) noexcept -> size_t  {  return chsize( str, len );  }
+    static  auto  charsize( const widechar* str, size_t len = (size_t)-1 ) noexcept -> size_t  {  return chsize( str, len );  }
+    static  auto  charsize( const uint32_t* str, size_t len = (size_t)-1 ) noexcept -> size_t  {  return chsize( str, len );  }
 
   };
 
@@ -220,7 +225,7 @@ namespace mtc {
 
   public:
     typedef widechar  chartype;
-    typedef strbase<chartype> string_t;
+    typedef std::basic_string<chartype> string_t;
     
   protected:
     class input;
@@ -248,13 +253,13 @@ namespace mtc {
     static  auto  encode( string_t&, const uint32_t* str, size_t cch = (size_t)-1 ) -> string_t&;
 
     static  auto  encode( string_t&, const utf8::string_t& ) -> string_t&;
-    static  auto  encode( string_t&, const strbase<uint32_t>& ) -> string_t&;
+    static  auto  encode( string_t&, const std::basic_string<uint32_t>& ) -> string_t&;
 
     static  auto  encode( const char* str, size_t cch = (size_t)-1 ) -> string_t;
     static  auto  encode( const uint32_t* str, size_t cch = (size_t)-1 ) -> string_t;
 
     static  auto  encode( const utf8::string_t& ) -> string_t;
-    static  auto  encode( const strbase<uint32_t>& ) -> string_t;
+    static  auto  encode( const std::basic_string<uint32_t>& ) -> string_t;
 
   public:     // expand from utf8/utf32
     static  auto  expand( const char*, size_t = (size_t)-1 ) -> string_t;
@@ -269,7 +274,7 @@ namespace mtc {
   {
   public:
     typedef uint32_t  chartype;
-    typedef strbase<chartype> string_t;
+    typedef std::basic_string<chartype> string_t;
     
   protected:
     class input;
@@ -320,7 +325,7 @@ namespace mtc {
 
   public:
     input( const _char*, size_t );
-    input( const strbase<_char>& str ): src( str.c_str() ), end( str.c_str() + str.length() ) {}
+    input( const std::basic_string<_char>& str ): src( str.c_str() ), end( str.c_str() + str.length() ) {}
     input( const input& in ): src( in.src ), end( in.end ) {}
 
   public:
@@ -572,7 +577,7 @@ namespace mtc {
           else
         if ( (uch & 0xfe) == 0xfc )
         {
-          if ( this->src + 3 >= this->end )
+          if ( this->src + 4 >= this->end )
             throw std::logic_error( "invalid source for utf conversion" );
           uch = ((uch & 0x01) << 6) | (((uchar)*this->src++) & 0x3f);
           uch = (uch << 6) | (((uchar)*this->src++) & 0x3f);
@@ -664,7 +669,7 @@ namespace mtc {
   * возвращает true, если строка однозначно является utf8-кодом без ошибочного кодирования.
   */
   template <class _char>
-  bool  utf8::isutf8( const _char* pch, size_t cch )
+  bool  utf8::isutf8( const _char* pch, size_t cch ) noexcept
     {
       using uchar = typename std::make_unsigned<_char>::type;
 
@@ -701,7 +706,7 @@ namespace mtc {
     }
 
   template <class _char>
-  auto  utf8::chsize( const _char* pch, size_t cch ) -> size_t
+  auto  utf8::chsize( const _char* pch, size_t cch ) noexcept -> size_t
     {
       using uchar = typename std::make_unsigned<_char>::type;
 
@@ -751,7 +756,7 @@ namespace mtc {
   inline  auto  utf8::in( const widechar* str, size_t len ) -> input<widechar> {  return input<widechar>( str, len );  }
   inline  auto  utf8::in( const widestr& str ) -> input<widechar> {  return input<widechar>( str );  }
   inline  auto  utf8::in( const uint32_t* str, size_t len ) -> input<uint32_t> {  return input<uint32_t>( str, len );  }
-  inline  auto  utf8::in( const strbase<uint32_t>& str ) -> input<uint32_t> {  return input<uint32_t>( str );  }
+  inline  auto  utf8::in( const std::basic_string<uint32_t>& str ) -> input<uint32_t> {  return input<uint32_t>( str );  }
 
   inline  auto  utf8::out( char* str, size_t len ) -> outptr  {  return outptr( str, len );  }
   inline  auto  utf8::out( charstr& str ) -> outstr {  return outstr( str );  }
@@ -779,7 +784,7 @@ namespace mtc {
 
   inline  auto  utf8::encode( charstr& out, const widestr& str ) -> charstr&
     {  return utf::encode( utf8::out( out ), utf16::in( str ) );  }
-  inline  auto  utf8::encode( charstr& out, const strbase<uint32_t>& str ) -> charstr&
+  inline  auto  utf8::encode( charstr& out, const std::basic_string<uint32_t>& str ) -> charstr&
     {  return utf::encode( utf8::out( out ), utf32::in( str ) );  }
 
   inline  auto  utf8::encode( const widechar* str, size_t cch ) -> charstr
@@ -795,10 +800,10 @@ namespace mtc {
 
   inline  auto  utf8::encode( const widestr& str ) -> charstr
     {  return encode( str.c_str(), str.length() );  }
-  inline  auto  utf8::encode( const strbase<uint32_t>& str ) -> charstr
+  inline  auto  utf8::encode( const std::basic_string<uint32_t>& str ) -> charstr
     {  return encode( str.c_str(), str.length() );  }
 
-  inline  auto  utf8::charsize( uint32_t uch ) -> size_t
+  inline  auto  utf8::charsize( uint32_t uch ) noexcept -> size_t
     {
       return  uch <= 0x0000007f ? 1 :
               uch <= 0x000007ff ? 2 :
@@ -822,7 +827,10 @@ namespace mtc {
       if ( src != end ) uch = *src++;
         else return false;
       if ( uch >= 0xd800 && uch <= 0xdfff && src != end )
-        uch = 0x10000 + ((uch & 0x07ff) << 10) + (*src++ & 0x3ff);
+      {
+        if ( *src >= 0xdc00 && *src <= 0xdfff )
+          uch = 0x10000 + ((uch & 0x07ff) << 10) + (*src++ & 0x3ff);
+      }
       return true;
     }
 
@@ -880,7 +888,7 @@ namespace mtc {
 
   inline  auto  utf16::encode( string_t& out, const utf8::string_t& str ) -> string_t&
     {  return utf::encode( utf16::out( out ), utf8::in( str ) );  }
-  inline  auto  utf16::encode( string_t& out, const strbase<uint32_t>& src ) -> string_t&
+  inline  auto  utf16::encode( string_t& out, const std::basic_string<uint32_t>& src ) -> string_t&
     {  return utf::encode( utf16::out( out ), utf32::in( src ) );  }
 
   inline  auto  utf16::encode( const char* str, size_t cch ) -> string_t
@@ -890,7 +898,7 @@ namespace mtc {
 
   inline  auto  utf16::encode( const utf8::string_t& str ) -> string_t
     {  return utf::encode( utf16::out(), utf8::in( str ) );  }
-  inline  auto  utf16::encode( const strbase<uint32_t>& str ) -> string_t
+  inline  auto  utf16::encode( const std::basic_string<uint32_t>& str ) -> string_t
     {  return utf::encode( utf16::out(), utf32::in( str ) );  }
 
   inline  auto  utf16::expand( const char* str, size_t len ) -> string_t
@@ -995,14 +1003,14 @@ namespace mtc {
     }
 
   inline  auto  utf::strlen( const utf8&  out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf8&  out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf8&  out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf8&  out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf16::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf8&  out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf32::in( str, len ) );  }
   inline  auto  utf::strlen( const utf16& out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf16& out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf16& out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf16& out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf16::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf16& out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf32::in( str, len ) );  }
   inline  auto  utf::strlen( const utf32& out, const char* str, size_t len )     -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf32& out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
-  inline  auto  utf::strlen( const utf32& out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf8::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf32& out, const widechar* str, size_t len ) -> size_t {  return strlen( out, utf16::in( str, len ) );  }
+  inline  auto  utf::strlen( const utf32& out, const uint32_t* str, size_t len ) -> size_t {  return strlen( out, utf32::in( str, len ) );  }
 
   // compatibility family
 
@@ -1025,11 +1033,11 @@ namespace mtc {
   inline  auto  utf::cbchar( uint32_t uch ) -> size_t                     {  return utf8::charsize( uch );  }
   inline  auto  utf::cbchar( const char* str, size_t  len ) -> size_t     {  return utf8::charsize( str, len );  }
 
-  inline  bool  utf::detect( const char* str, size_t len )                {  return utf8::detect( str, len );  }
-  inline  bool  utf::verify( const char* str, size_t len )                {  return utf8::detect( str, len );  }
+  inline  bool  utf::detect( const char* str, size_t len ) noexcept       {  return utf8::detect( str, len );  }
+  inline  bool  utf::verify( const char* str, size_t len ) noexcept       {  return utf8::detect( str, len );  }
 
   inline  auto  utf::strlen( const char* str, size_t len ) -> size_t      {  return utf::strlen( utf16(), str, len );  }
 
 }
 
-# endif   // !__mtc_utf_hpp__
+# endif   // !MTC_UTF_HPP_
