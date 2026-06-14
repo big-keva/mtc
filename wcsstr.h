@@ -47,12 +47,17 @@ SOFTWARE.
 С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
 
 */
-# if !defined( __mtc_wcsstr_h__ )
-# define  __mtc_wcsstr_h__
+/*
+  Notes:
+
+  - widechar is 16-bit Unicode (UTF-16), NOT system wchar_t on Linux/Unix;
+*/
+# if !defined( MTC_WCSSTR_H_ )
+# define  MTC_WCSSTR_H_
 
 # if defined( _MSC_VER )
 #   pragma warning( push )
-#   pragma warning( disable: 4996 )
+#   pragma warning( disable: 4996 )   // MSVC *_s-warnings
 # endif  // _MSC_VER
 
 # include <climits>
@@ -79,15 +84,13 @@ namespace mtc
 {
 
 # if !defined( mtc_charstr_defined )
-  template <class C>
-  using strbase = std::basic_string<C, std::char_traits<C>, std::allocator<C>>;
-
 # define mtc_charstr_defined
-  using charstr = strbase<char>;
+  using charstr = std::basic_string<char>;
 # endif
+
 # if !defined( mtc_widestr_defined )
 # define mtc_widestr_defined
-  using widestr = strbase<widechar>;
+  using widestr = std::basic_string<widechar>;
 # endif
 
   struct getwidechar
@@ -285,16 +288,6 @@ namespace mtc
     };
 
     //
-    // strlen() family
-    //
-    template <class C>  static  size_t  strlen( const C* s )
-    {
-      auto o = s;
-        while ( *s++ != (C)0 )  (void)0;
-      return s - o - 1;
-    }
-
-    //
     // strdup() family
     //
     template <class C, class Allocator>  static C*  strdup( Allocator& a, const C* s, size_t l )
@@ -349,7 +342,7 @@ namespace mtc
       while ( n > 0 && (*p++ = l( s )) != (widechar)0 )
         --n;
       for ( ; n > 0; --n )
-        *p = (widechar)0;
+        *p++ = (widechar)0;
       return o;
     }
 
@@ -427,6 +420,9 @@ namespace mtc
       const M*  m1;
       const M*  m2;
 
+      if ( *m == 0 )
+        return s;
+      
       for ( auto  m_ = l( m1 = m ); *s != (S)0; l( s ) )
       {
         while ( *s != (S)0 && l( s1 = s ) != m_ )
@@ -453,7 +449,7 @@ namespace mtc
       using u_type = typename std::make_unsigned<chartype>::type;
 
       val_type result = 0;
-      auto     endptr = str + std::max(uint32_t(len), std::numeric_limits<uint32_t>::max() - 1);
+      auto     endptr = str + std::min<size_t>( len, SIZE_MAX - 1);
 
       if ( dwbase == 0 )
       {
@@ -495,7 +491,7 @@ namespace mtc
 
       val_type result = 0;
       val_type imulti = 1;
-      auto     endptr = str + std::max(uint32_t(len), std::numeric_limits<uint32_t>::max() - 1);
+      auto     endptr = str + std::min<size_t>( len, SIZE_MAX - 1);
 
       if ( str < endptr && w_is_chr( *str, '-' ) )
         {  imulti = -1;  ++str;  }
@@ -607,11 +603,6 @@ namespace mtc
     template <class getchr>
     friend  int   w_strncasecmp( const widechar*, const char*, size_t, getchr );
 
-    template <class getchr>
-    friend  int   w_strncasecmp( const char*, const widechar*, size_t, getchr );
-    template <class getchr>
-    friend  int   w_strncasecmp( const widechar*, const char*, size_t, getchr );
-
     friend  char*     w_strchr( const char*, int );
     friend  widechar* w_strchr( const widechar*, int );
   
@@ -657,8 +648,8 @@ namespace mtc
   //
   // strlen() family
   //
-  inline  size_t w_strlen( const widechar* s )  {  return __impl_strings::strlen( s );  }
-  inline  size_t w_strlen( const char* s )      {  return __impl_strings::strlen( s );  }
+  inline  size_t w_strlen( const widechar* s )  {  return std::char_traits<widechar>::length( s );  }
+  inline  size_t w_strlen( const char* s )      {  return std::char_traits<char>::length( s );  }
 
   //
   // strdup() family
@@ -779,7 +770,7 @@ namespace mtc
   // strtod family
   //
   template <class chartype>
-  inline  double  w_strtod( const chartype* str, const chartype* lim, chartype** end )
+  double  w_strtod( const chartype* str, const chartype* lim, chartype** end )
   {
     auto      checkp = [&]( const chartype*& p, chartype c )
       {
@@ -797,7 +788,10 @@ namespace mtc
     bool      bfloat = checkp( str, '.' );
     double    dvalue;
 
-    if ( (lim != nullptr && str >= lim) || !__impl_strings::w_is_num( *str ) )
+    if ( lim != nullptr && str >= lim )
+      return putend( strorg ), 0.0;
+
+    if ( !__impl_strings::w_is_num( *str ) )
       return putend( strorg ), 0.0;
 
     if ( !bfloat )
@@ -864,14 +858,14 @@ namespace mtc
 
     // сломанная exp - откатываем назад на единицу
     if ( lim != nullptr && str >= lim )
-      return putend( str - 1 ), fdsign * dvalue;
+      return putend( std::max( str - 1, strorg ) ), fdsign * dvalue;
 
     // проверить отрицательные степени
-    if ( *str == '-' )
+    if ( *str++ == '-' )
     {
-      if ( ++str >= lim && lim != nullptr )
-        return putend( str - 2 ), fdsign * dvalue;
-    }
+      if ( lim != nullptr && str >= lim )
+        return putend( std::max( str - 2, strorg ) ), fdsign * dvalue;
+    } else --str;
 
     if ( __impl_strings::w_is_num( *str ) )
     {
@@ -943,9 +937,9 @@ namespace mtc
     {  return __impl_strings::strntoi<long long int>( s, l, e, base );  }
 
   inline  auto  w_strtoull( const char* s, char** e, int base ) -> unsigned long long int
-    {  return __impl_strings::strtoi<unsigned long long int>( s, e, base );  }
+    {  return __impl_strings::strtou<unsigned long long int>( s, e, base );  }
   inline  auto  w_strtoull( const widechar* s, widechar** e, int base ) -> unsigned long long int
-    {  return __impl_strings::strtoi<unsigned long long int>( s, e, base );  }
+    {  return __impl_strings::strtou<unsigned long long int>( s, e, base );  }
 
   inline  auto  w_strntoull( const char* s, size_t l, char** e, int base ) -> unsigned long long int
     {  return __impl_strings::strntou<unsigned long long int>( s, l, e, base );  }
@@ -998,15 +992,8 @@ namespace mtc
     }
 
 // ltrim
-  inline  bool  isspace( char c )
-  {
-    return c != '\0' && (unsigned char)c <= 0x20;
-  }
-
-  inline  bool  isspace( unsigned char c )
-  {
-    return c != '\0' && c <= 0x20;
-  }
+  inline  bool  isspace( char c )           {  return std::isspace( static_cast<int>( static_cast<unsigned char>( c ) ) );  }
+  inline  bool  isspace( unsigned char c )  {  return std::isspace( static_cast<int>( c ) );  }
 
   template <class chartype>
   chartype* ltrim( chartype* s )
@@ -1046,4 +1033,4 @@ namespace mtc
 #   pragma warning( pop )
 # endif  // _MSC_VER
 
-# endif // __mtc_wcsstr_h__
+# endif // MTC_WCSSTR_H_
