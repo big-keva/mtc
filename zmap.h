@@ -47,6 +47,14 @@ SOFTWARE.
 С ПРОГРАММНЫМ ОБЕСПЕЧЕНИЕМ.
 
 */
+/*
+  Thread safety:
+  - This implementation is NOT thread-safe
+  - Concurrent reads are safe if no writes occur
+  - Any modification of a zmap by concurrent threads requires external synchronization
+  - Different zmap instances are independent
+  - Copy-on-write provides independent instance
+*/
 # pragma once
 # if !defined( __zmap_hpp__ )
 # define __zmap_hpp__
@@ -410,7 +418,17 @@ namespace mtc
 
     bool  operator == ( const zval& v ) const {  return compare( v ) == 0;  }
     bool  operator <  ( const zval& v ) const {  return compare( v ) <  0;  }
-    bool  operator != ( const zval& v ) const {  return compare( v ) != 0; }
+    bool  operator <= ( const zval& v ) const {  return compare( v ) <= 0;  }
+    bool  operator >  ( const zval& v ) const {  return compare( v ) >  0;  }
+    bool  operator >= ( const zval& v ) const {  return compare( v ) >= 0;  }
+    bool  operator != ( const zval& v ) const {  return compare( v ) != 0;  }
+
+    bool  operator == ( const char* s ) const {  return compare( s ) == 0;  }
+    bool  operator <  ( const char* s ) const {  return compare( s ) < 0;   }
+    bool  operator <= ( const char* s ) const {  return compare( s ) <= 0;  }
+    bool  operator >  ( const char* s ) const {  return compare( s ) > 0;   }
+    bool  operator >= ( const char* s ) const {  return compare( s ) >= 0;  }
+    bool  operator != ( const char* s ) const {  return compare( s ) != 0;  }
 
   public:
     enum: unsigned
@@ -495,6 +513,33 @@ namespace mtc
 
   };
 
+  template <typename T>
+  typename std::enable_if<std::is_arithmetic<T>::value, zval>::type operator * ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_arithmetic<T>::value, zval>::type operator / ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_integral<T>::value, zval>::type operator % ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_arithmetic<T>::value, zval>::type operator + ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_arithmetic<T>::value, zval>::type operator - ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_integral<T>::value, zval>::type operator << ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_integral<T>::value, zval>::type operator >> ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_integral<T>::value, zval>::type operator & ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_integral<T>::value, zval>::type operator ^ ( T t, const zval& z );
+  template <typename T>
+  typename std::enable_if<std::is_integral<T>::value, zval>::type operator | ( T t, const zval& z );
+
+  zval  operator + ( const char*, const zval& z );
+  zval  operator + ( const widechar*, const zval& z );
+
+  zval  operator + ( const charstr&, const zval& z );
+  zval  operator + ( const widestr&, const zval& z );
+
   class zmap
   {
     class ztree_t;
@@ -533,18 +578,18 @@ namespace mtc
 
     static
     auto  fragment_len( word32_t u ) -> size_t {  assert( (u & 0x0400) != 0 );  return (u & 0x1ff) | ((u >> 2) & ~0x1ff);  }
-    auto  private_data() -> zdata_t*;
+    auto  private_data() -> std::shared_ptr<zdata_t>;
 
   public:
     zmap() = default;
-    zmap( zmap&& );
-    zmap( const zmap& );
+    zmap( zmap&& ) = default;
+    zmap( const zmap& ) = default;
     zmap( const std::initializer_list<std::pair<key, zval>>& );
     zmap( const zmap&, const std::initializer_list<std::pair<key, zval>>& );
-    zmap& operator = ( zmap&& );
-    zmap& operator = ( const zmap& );
+    zmap& operator = ( zmap&& ) = default;
+    zmap& operator = ( const zmap& ) = default;
     zmap& operator = ( const std::initializer_list<std::pair<key, zval>>& );
-   ~zmap();
+   ~zmap() = default;
 
   public:     // serialization
     size_t  GetBufLen(    ) const;
@@ -831,7 +876,7 @@ namespace mtc
     bool operator>= ( const zmap& z ) const {  return compare( z ) >= 0;  }
 
   protected:
-    zdata_t*  p_data = nullptr;
+    std::shared_ptr<zdata_t>  p_data;
 
   };
 
@@ -1775,20 +1820,12 @@ namespace mtc
     zdata_t&  operator= ( zdata_t&& ) = delete;
     zdata_t&  operator= ( const zdata_t& ) = delete;
 
-   ~zdata_t() = default;
-
   public:
     zdata_t( ztree_t&&, size_t );
-    zdata_t();
+    zdata_t() = default;
 
   public:
-    long  attach();
-    long  detach();
-    auto  docopy() -> zdata_t*;
-
-  public:
-    size_t            n_vals;
-    std::atomic_long  nrefer;
+    size_t  n_vals = 0;
 
   };
 
@@ -2180,17 +2217,12 @@ namespace mtc
   template <class S>
   S*  zmap::FetchFrom( S*  s )
   {
-    if ( p_data != nullptr )
-      p_data->detach();
+    p_data = std::make_shared<zdata_t>();
 
-    (p_data = new zdata_t())->attach();
-      s = p_data->FetchFrom( s, p_data->n_vals );
+    s = p_data->FetchFrom( s, p_data->n_vals );
 
     if ( p_data->n_vals == 0 )
-    {
-      p_data->detach();
-      p_data = nullptr;
-    }
+      p_data->clear();
 
     return s;
   }
