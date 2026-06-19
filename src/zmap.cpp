@@ -688,44 +688,8 @@ namespace mtc
     zmap::zdata_t implementation
   */
 
-  zmap::zdata_t::zdata_t():
-    n_vals( 0 ), nrefer( 0 )  {}
-
   zmap::zdata_t::zdata_t( ztree_t&& t, size_t n ):
-    ztree_t( std::move( t ) ), n_vals( n ), nrefer( 0 ) {}
-
-  long  zmap::zdata_t::attach()
-  {
-    return ++nrefer;
-  }
-
-  long  zmap::zdata_t::detach()
-  {
-    auto  rcount = --nrefer;
-
-    if ( rcount == 0 )
-      delete this;
-    return rcount;
-  }
-
- /*
-  * for copy-on-write, returns 1-counted object pointer which is:
-  *   either itself, if the object is 1-counted,
-  *   or a copy of existing object, if it is >1-counted
-  */
-  auto  zmap::zdata_t::docopy() -> zdata_t*
-  {
-    zdata_t*  pcopy;
-    long      count = 1;
-
-    if ( nrefer.compare_exchange_strong( count, 2 ) )
-      return this;      // we are the only owners
-
-    (pcopy = new zdata_t( ztree_t::copy(), n_vals ))->nrefer = 1;
-      nrefer.fetch_sub( 1 );
-
-    return pcopy;
-  }
+    ztree_t( std::move( t ) ), n_vals( n ) {}
 
   /*
     zmap::zbuff_t implementation
@@ -913,17 +877,6 @@ namespace mtc
     zmap implementation
   */
 
-  zmap::zmap( zmap&& z ): p_data( z.p_data )
-  {
-    z.p_data = nullptr;
-  }
-
-  zmap::zmap( const zmap& z ): p_data( z.p_data )
-  {
-    if ( p_data != nullptr )
-      p_data->attach();
-  }
-
   zmap::zmap( const std::initializer_list<std::pair<key, zval>>& il ): zmap()
   {
     for ( auto& keyval: il )
@@ -936,34 +889,6 @@ namespace mtc
       put( keyval.first, keyval.second );
   }
 
-  zmap& zmap::operator=( zmap&& z )
-  {
-    if ( p_data != z.p_data )
-    {
-      auto  mycopy( *this );
-
-      if ( p_data != nullptr )
-        p_data->detach();
-      if ( (p_data = z.p_data) != nullptr )
-        z.p_data = nullptr;
-    }
-    return *this;
-  }
-
-  zmap& zmap::operator=( const zmap& z )
-  {
-    if ( p_data != z.p_data )
-    {
-      auto  mycopy( *this );
-
-      if ( p_data != nullptr )
-        p_data->detach();
-      if ( (p_data = z.p_data) != nullptr )
-        p_data->attach();
-    }
-    return *this;
-  }
-
   zmap& zmap::operator= ( const std::initializer_list<std::pair<key, zval>>& il )
   {
     clear();
@@ -974,16 +899,16 @@ namespace mtc
     return *this;
   }
 
-  zmap::~zmap()
+  auto  zmap::private_data() -> std::shared_ptr<zdata_t>
   {
-    clear();
-  }
+    if ( p_data == nullptr )
+      return p_data = std::make_shared<zdata_t>();
 
-  auto  zmap::private_data() -> zdata_t*
-  {
-    if ( p_data == nullptr )  (p_data = new zdata_t())->attach();
-      else p_data = p_data->docopy();
-    return p_data;
+    if ( p_data.use_count() == 1 )    // а что с многопоточностью?
+      return p_data;
+
+    // Иначе создаём копию
+    return p_data = std::make_shared<zdata_t>( p_data->copy(), p_data->n_vals );
   }
 
   auto  zmap::put( const key& k, zval&& v ) -> zval*
@@ -1314,34 +1239,34 @@ namespace mtc
     auto  newmap = zmap();
 
     if ( p_data != nullptr )
-      (newmap.p_data = new zdata_t( p_data->copy(), p_data->n_vals ))->nrefer = 1;
+      newmap.p_data = std::make_shared<zdata_t>( p_data->copy(), p_data->n_vals );
 
     return newmap;
   }
 
   auto  zmap::clear() -> void
   {
-    if ( p_data != nullptr )
-      p_data->detach();
     p_data = nullptr;
   }
 
   auto  zmap::erase( const key& k ) -> size_t
   {
-    auto  n_dels = size_t(0);
-
     if ( p_data != nullptr )
     {
-      p_data = p_data->docopy();
+      auto  modify = p_data.use_count() > 1 ? std::make_shared<zdata_t>(
+        p_data->copy(), p_data->n_vals ) : p_data;
+      auto  n_dels = modify->remove( k.data(), k.size() );
 
-      if ( (p_data->n_vals -= (n_dels = p_data->remove( k.data(), k.size() ))) == 0 )
+      if ( n_dels > 0 )
       {
-        p_data->detach();
-        p_data = nullptr;
+        if ( (modify->n_vals -= n_dels) == 0 )  p_data.reset();
+          else
+        if ( modify != p_data ) p_data = std::move( modify );
       }
-    }
 
-    return n_dels;
+      return n_dels;
+    }
+    return 0;
   }
 
   int   zmap::compare( const mtc::zmap& z ) const
