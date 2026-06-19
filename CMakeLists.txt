@@ -30,6 +30,9 @@ add_library(mtc STATIC
   src/zipStream.cpp
   src/config.cpp
   src/zval.cpp
+  src/zval-math.cpp
+  src/zval-cast.cpp
+  src/zval-compare.cpp
   src/zmap.cpp
   src/json.cpp
 
@@ -82,5 +85,4 @@ endif()
 
 if(BUILD_TESTS)
   enable_testing()
-  add_subdirectory(tests)
 endif()

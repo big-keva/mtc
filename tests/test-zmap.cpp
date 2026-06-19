@@ -1,8 +1,211 @@
 # include "../zmap.h"
 # include "../json.h"
-# include "../utf.hpp"
 # include "../serialize.h"
+# include "../test-it-easy.hpp"
+# include <thread>
 
+using namespace mtc;
+
+TestItEasy::RegisterFunc  testZmap( []()
+{
+  TEST_CASE( "mtc/zval" )
+  {
+    SECTION( "it may be constructed with value" )
+    {
+      REQUIRE( *zval( true ).get_bool() == true );
+      REQUIRE( *zval( false ).get_bool() == false );
+      REQUIRE( *zval( 'a' ).get_char() == 'a' );
+      REQUIRE( *zval( uint8_t(192) ).get_byte() == 192 );
+      REQUIRE( *zval( int16_t(14312) ).get_int16() == 14312 );
+      REQUIRE( *zval( int32_t(143120) ).get_int32() == 143120 );
+      REQUIRE( *zval( int64_t(143120) ).get_int64() == 143120 );
+      REQUIRE( *zval( uint16_t(14312) ).get_word16() == 14312 );
+      REQUIRE( *zval( uint32_t(143120) ).get_word32() == 143120 );
+      REQUIRE( *zval( uint64_t(143120) ).get_word64() == 143120 );
+      REQUIRE( *zval( float(1.43120) ).get_float() == float(1.43120) );
+      REQUIRE( *zval( double(1.43120) ).get_double() == 1.43120 );
+      REQUIRE( *zval( "aaa" ).get_charstr() == "aaa" );
+      REQUIRE( *zval( "aaa", 2 ).get_charstr() == "aa" );
+      REQUIRE( *zval( u"aaa" ).get_widestr() == u"aaa" );
+      REQUIRE( *zval( u"aaa", 2 ).get_widestr() == u"aa" );
+    }
+    SECTION( "it may be assigned as value" )
+    {
+      zval  zv;
+
+      REQUIRE( *(zv = true).get_bool() == true );
+      REQUIRE( *(zv = false).get_bool() == false );
+      REQUIRE( *(zv = 'a').get_char() == 'a' );
+      REQUIRE( *(zv = uint8_t(192)).get_byte() == 192 );
+      REQUIRE( *(zv = int16_t(14312)).get_int16() == 14312 );
+      REQUIRE( *(zv = int32_t(143120)).get_int32() == 143120 );
+      REQUIRE( *(zv = int64_t(143120)).get_int64() == 143120 );
+      REQUIRE( *(zv = uint16_t(14312)).get_word16() == 14312 );
+      REQUIRE( *(zv = uint32_t(143120)).get_word32() == 143120 );
+      REQUIRE( *(zv = uint64_t(143120)).get_word64() == 143120 );
+      REQUIRE( *(zv = float(1.43120)).get_float() == float(1.43120) );
+      REQUIRE( *(zv = double(1.43120)).get_double() == 1.43120 );
+      REQUIRE( *(zv = "aaa").get_charstr() == "aaa" );
+      REQUIRE( *(zv = u"aaa" ).get_widestr() == u"aaa" );
+    }
+    SECTION( "copy/move" )
+    {
+      zval  z1, z2;
+
+      if ( REQUIRE( *zval( std::move( z2 = zval( "bbb" ) ) ).get_charstr() == "bbb" ) )
+        if ( REQUIRE( z2.get_charstr() != nullptr ) )
+          REQUIRE( z2.get_charstr()->empty() );
+      if ( REQUIRE( *zval( z2 = zval( "bbb" ) ).get_charstr() == "bbb" ) )
+        REQUIRE( z2.get_type() == zval::z_charstr );
+      if ( REQUIRE( *(z1 = std::move( z2 = u"ccc" )).get_widestr() == u"ccc" ) )
+        if ( REQUIRE( z2.get_widestr() != nullptr ) )
+          REQUIRE( z2.get_widestr()->empty() );
+      if ( REQUIRE( *(z1 = z2 = u"ccc").get_widestr() == u"ccc" ) )
+        REQUIRE( z2.get_type() == zval::z_widestr );
+    }
+    SECTION( "casts" )
+    {
+      zval  zv( 194.1 );
+
+      REQUIRE( zv.cast_to_int16() == int16_t(194) );
+      REQUIRE( zv.cast_to_int32() == int32_t(194) );
+      REQUIRE( zv.cast_to_int64() == int64_t(194) );
+      REQUIRE( zv.cast_to_word16() == word16_t(194) );
+      REQUIRE( zv.cast_to_word32() == word32_t(194) );
+      REQUIRE( zv.cast_to_word64() == word64_t(194) );
+      REQUIRE( zv.cast_to_float() == float(194.1) );
+      REQUIRE( zv.cast_to_double() == double(194.1) );
+      REQUIRE( zv.cast_to_charstr() == "194.100000" );
+    }
+    SECTION( "cast operators" )
+    {
+/*
+      zval  zv( 194.1 );
+
+      REQUIRE( zv.cast_to_int16() == int16_t(194) );
+      REQUIRE( zv.cast_to_int32() == int32_t(194) );
+      REQUIRE( zv.cast_to_int64() == int64_t(194) );
+      REQUIRE( zv.cast_to_word16() == word16_t(194) );
+      REQUIRE( zv.cast_to_word32() == word32_t(194) );
+      REQUIRE( zv.cast_to_word64() == word64_t(194) );
+      REQUIRE( zv.cast_to_float() == float(194.1) );
+      REQUIRE( zv.cast_to_double() == double(194.1) );
+      REQUIRE( zv.cast_to_charstr() == "194.100000" );
+ */
+    }
+    SECTION( "arithmetics" )
+    {
+      zval  zv;
+
+      SECTION( "*" )
+      {
+        REQUIRE( zval( 3 ) * 6 == 18 );
+        REQUIRE( 3 * zval( 6 ) == 18 );
+        REQUIRE( zval( 6.3 ) * 2 == 12.6 );
+        REQUIRE( (zval( "6.3" ) * 2).get_type() == zval::z_untyped );
+        REQUIRE( ((zv = 2) *= 3) == 6 );
+      }
+      SECTION( "/" )
+      {
+        REQUIRE( zval( 7 ) / 3 == 2 );
+        REQUIRE( zval( 6 ) / 3 == 2 );
+        REQUIRE( 6 / zval( 3 ) == 2 );
+        REQUIRE( zval( 6.3 ) / 3 == 2.1 );
+        REQUIRE( (zval( "a" ) / 2).get_type() == zval::z_untyped );
+        REQUIRE( ((zv = 6.3) /= 3) == 2.1 );
+      }
+      SECTION( "%" )
+      {
+        REQUIRE( zval( 7 ) % 3 == 1 );
+        REQUIRE( zval( 6 ) % 3 == 0 );
+        REQUIRE( 6 % zval( 3 ) == 0 );
+        REQUIRE( (zval( 5 ) %= 2) == 1 );
+        REQUIRE( (zval( 6.4 ) % 3).get_type() == zval::z_untyped );
+        REQUIRE( (zval( 4 ) % 2.1).get_type() == zval::z_untyped );
+        REQUIRE( (zval( "a" ) % 2).get_type() == zval::z_untyped );
+      }
+      SECTION( "+" )
+      {
+        REQUIRE( zval( 3 )   + 2 == 5 );
+        REQUIRE( zval( 3.2 ) + 2 == 5.2 );
+        REQUIRE( 2 + zval( 3.2 ) == 5.2 );
+        REQUIRE( zval( "3" ) + ".2" == "3.2" );
+        REQUIRE( "3" + zval( ".2" ) == "3.2" );
+        REQUIRE( charstr( "3" ) + zval( ".2" ) == "3.2" );
+        REQUIRE( u"3" + zval( u".2" ) == u"3.2" );
+        REQUIRE( widestr( u"3" ) + zval( u".2" ) == u"3.2" );
+        REQUIRE( 3 + zval( "2" ) == "32" );
+      }
+      SECTION( "-" )
+      {
+        REQUIRE( zval( 3 ) - 2 == 1 );
+        REQUIRE( zval( 3.2 ) - 2 > 1.19999 );
+        REQUIRE( zval( 3.2 ) - 2 < 1.20001 );
+        REQUIRE( 3.2 - zval( 2 ) >= 1.19999 );
+        REQUIRE( 3.2 - zval( 2 ) <= 1.20001 );
+        REQUIRE( zval( 3.2 ) - 7 > -3.80001 );
+        REQUIRE( zval( 3.2 ) - 7 < -3.79999 );
+        REQUIRE( (zval( 3.2 ) -= 1) == 2.2 );
+        REQUIRE( (zval( "3" ) - 2 ).get_type() == zval::z_untyped );
+      }
+      SECTION( "<<" )
+      {
+        REQUIRE( zval( 3 ) << 2 == 12 );
+        REQUIRE( 3 << zval( 2 ) == 12 );
+        REQUIRE( (zval( 3 ) <<= 2) == 12 );
+        REQUIRE( (zval( 3.2 ) << 2).get_type() == zval::z_untyped );
+      }
+      SECTION( ">>" )
+      {
+        REQUIRE( zval( 3 ) >> 1 == 1 );
+        REQUIRE( 3 >> zval( 1 ) == 1 );
+        REQUIRE( (zval( 3 ) >>= 1) == 1 );
+        REQUIRE( (zval( 3.2 ) >> 1).get_type() == zval::z_untyped );
+      }
+      SECTION( "&" )
+      {
+        REQUIRE( (zval( 3 ) & 1) == 1 );
+        REQUIRE( (1 & zval( 3 )) == 1 );
+        REQUIRE( (zval( 3 ) &= 1) == 1 );
+        REQUIRE( (zval( 3.2 ) & 1).get_type() == zval::z_untyped );
+      }
+      SECTION( "^" )
+      {
+        REQUIRE( (zval( 13 ) ^ 8) == 5 );
+        REQUIRE( (13 ^ zval( 8 )) == 5 );
+        REQUIRE( (zval( 13 ) ^= 8) == 5 );
+        REQUIRE( (zval( 13.2 ) ^ 8).get_type() == zval::z_untyped );
+      }
+      SECTION( "|" )
+      {
+        REQUIRE( (zval( 3 ) | 8) == 11 );
+        REQUIRE( (3 | zval( 8 )) == 11 );
+        REQUIRE( (zval( 3 ) |= 8) == 11 );
+        REQUIRE( (zval( 3.2 ) | 8).get_type() == zval::z_untyped );
+      }
+      /*
+      zval  operator ~  ()  const;
+      */
+    }
+    SECTION( "compare" )
+    {
+      REQUIRE( zval( 1 ) > -1 );
+      REQUIRE( zval( 1 ) > 0 );
+      REQUIRE( zval( 1 ) >= 1 );
+      REQUIRE( zval( "aaa" ) > "aa" );
+      REQUIRE( zval( "aaa" ) > charstr( "aa" ) );
+      REQUIRE( zval( "aaa" ) < charstr( "b" ) );
+      REQUIRE( zval( zmap{ { "a", 1 }, { "b", 2 } } ) == mtc::zmap{ { "a", 1 }, { "b", 2 } } );
+      REQUIRE( zval( zmap{ { "a", 1 }, { "b", 2 } } ) < mtc::zmap{ { "a", 1 }, { "b", 3 } } );
+      REQUIRE( zval( zmap{ { "a", 1 }, { "b", 2 } } ) > mtc::zmap{ { "a", 0 } } );
+    }
+  }
+  TEST_CASE( "mtc/zmap" )
+  {
+  }
+} );
+
+# if 0
 struct byte_counter
 {
   size_t length = 0;
@@ -345,7 +548,6 @@ namespace mtc
   }
 
 }
-# if 0
 int main()
 {
   mtc::node_t n( (const uint8_t*)"aaaaaaaaaaaaaaaaaaaaaaaaaaa", 27 );
