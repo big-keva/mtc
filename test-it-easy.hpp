@@ -56,6 +56,9 @@ namespace TestItEasy {
     static  bool  equals( int _i, long unsigned _j )  {  return _i >= 0 ? unsigned(_i) == _j : false;  }
     static  bool  equals( long unsigned _i, int _j )  {  return equals( _j, _i );  }
 
+    static  bool  equals( const float& _1, const float& _2 )  {  return (_1 > _2) == (_1 < _2);  }
+    static  bool  equals( const double& _1, const double& _2 )  {  return (_1 > _2) == (_1 < _2);  }
+
   public:
     LValue( const Verify& vx, const T& va ): v( vx ), t( va )  {}
 
