@@ -1,3 +1,5 @@
+# if !defined( MTC_SHAREDLIBRARY_HPP_ )
+# define MTC_SHAREDLIBRARY_HPP_
 # include "platform.h"
 # include <stdexcept>
 
@@ -41,3 +43,5 @@ namespace mtc {
   };
 
 }
+
+# endif   // !MTC_SHAREDLIBRARY_HPP_
