@@ -1729,38 +1729,39 @@ namespace mtc
       return nullptr;
     switch ( vxtype )
     {
-      case zval::z_char:    return ::SkipBytes( s, sizeof(char) );
-      case zval::z_byte:    return ::SkipBytes( s, sizeof(byte) );
-      case zval::z_int16:   return ::SkipToEnd( s, (const int16_t*)nullptr );
-      case zval::z_int32:   return ::SkipToEnd( s, (const int32_t*)nullptr );
-      case zval::z_int64:   return ::SkipToEnd( s, (const int64_t*)nullptr );
-      case zval::z_word16:  return ::SkipToEnd( s, (const word16_t*)nullptr );
-      case zval::z_word32:  return ::SkipToEnd( s, (const word32_t*)nullptr );
-      case zval::z_word64:  return ::SkipToEnd( s, (const word64_t*)nullptr );
-      case zval::z_float:   return ::SkipToEnd( s, (const float*)nullptr );
-      case zval::z_double:  return ::SkipToEnd( s, (const double*)nullptr );
-      case zval::z_charstr: return ::SkipToEnd( s, (const charstr*)nullptr );
-      case zval::z_widestr: return ::SkipToEnd( s, (const widestr*)nullptr );
-      case zval::z_uuid:    return ::SkipToEnd( s, (const uuid*)nullptr );
-      case zval::z_zmap:    return ::SkipToEnd( s, (const mtc::zmap*)nullptr );
+      case z_char:    return ::SkipBytes( s, sizeof(char) );
+      case z_byte:    return ::SkipBytes( s, sizeof(byte) );
+      case z_int16:   return ::SkipToEnd( s, (const int16_t*)nullptr );
+      case z_int32:   return ::SkipToEnd( s, (const int32_t*)nullptr );
+      case z_int64:   return ::SkipToEnd( s, (const int64_t*)nullptr );
+      case z_word16:  return ::SkipToEnd( s, (const word16_t*)nullptr );
+      case z_word32:  return ::SkipToEnd( s, (const word32_t*)nullptr );
+      case z_word64:  return ::SkipToEnd( s, (const word64_t*)nullptr );
+      case z_float:   return ::SkipToEnd( s, (const float*)nullptr );
+      case z_double:  return ::SkipToEnd( s, (const double*)nullptr );
+      case z_bool:    return ::SkipBytes( s, sizeof(byte) );
+      case z_charstr: return ::SkipToEnd( s, (const charstr*)nullptr );
+      case z_widestr: return ::SkipToEnd( s, (const widestr*)nullptr );
+      case z_uuid:    return ::SkipToEnd( s, (const uuid*)nullptr );
+      case z_zmap:    return ::SkipToEnd( s, (const mtc::zmap*)nullptr );
 
-      case zval::z_array_char:    return ::SkipToEnd( s, (const array_char*)nullptr );
-      case zval::z_array_byte:    return ::SkipToEnd( s, (const array_byte*)nullptr );
-      case zval::z_array_int16:   return ::SkipToEnd( s, (const array_int16*)nullptr );
-      case zval::z_array_int32:   return ::SkipToEnd( s, (const array_int32*)nullptr );
-      case zval::z_array_int64:   return ::SkipToEnd( s, (const array_int64*)nullptr );
-      case zval::z_array_word16:  return ::SkipToEnd( s, (const array_word16*)nullptr );
-      case zval::z_array_word32:  return ::SkipToEnd( s, (const array_word32*)nullptr );
-      case zval::z_array_word64:  return ::SkipToEnd( s, (const array_word64*)nullptr );
-      case zval::z_array_float:   return ::SkipToEnd( s, (const array_float*)nullptr );
-      case zval::z_array_double:  return ::SkipToEnd( s, (const array_double*)nullptr );
-      case zval::z_array_charstr: return ::SkipToEnd( s, (const array_charstr*)nullptr );
-      case zval::z_array_widestr: return ::SkipToEnd( s, (const array_widestr*)nullptr );
-      case zval::z_array_zmap:    return ::SkipToEnd( s, (const mtc::array_zmap*)nullptr );
-      case zval::z_array_zval:    return ::SkipToEnd( s, (const mtc::array_zval*)nullptr );
-      case zval::z_array_uuid:    return ::SkipToEnd( s, (const array_uuid*)nullptr );
-      case zval::z_untyped:       return s;
-      default:                    return nullptr;
+      case z_array_char:    return ::SkipToEnd( s, (const array_char*)nullptr );
+      case z_array_byte:    return ::SkipToEnd( s, (const array_byte*)nullptr );
+      case z_array_int16:   return ::SkipToEnd( s, (const array_int16*)nullptr );
+      case z_array_int32:   return ::SkipToEnd( s, (const array_int32*)nullptr );
+      case z_array_int64:   return ::SkipToEnd( s, (const array_int64*)nullptr );
+      case z_array_word16:  return ::SkipToEnd( s, (const array_word16*)nullptr );
+      case z_array_word32:  return ::SkipToEnd( s, (const array_word32*)nullptr );
+      case z_array_word64:  return ::SkipToEnd( s, (const array_word64*)nullptr );
+      case z_array_float:   return ::SkipToEnd( s, (const array_float*)nullptr );
+      case z_array_double:  return ::SkipToEnd( s, (const array_double*)nullptr );
+      case z_array_charstr: return ::SkipToEnd( s, (const array_charstr*)nullptr );
+      case z_array_widestr: return ::SkipToEnd( s, (const array_widestr*)nullptr );
+      case z_array_zmap:    return ::SkipToEnd( s, (const mtc::array_zmap*)nullptr );
+      case z_array_zval:    return ::SkipToEnd( s, (const mtc::array_zval*)nullptr );
+      case z_array_uuid:    return ::SkipToEnd( s, (const array_uuid*)nullptr );
+      case z_untyped:       return s;
+      default:              return nullptr;
     }
   }
 
