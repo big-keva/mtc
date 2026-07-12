@@ -30,12 +30,12 @@ namespace mtc {
 
   protected:
     config( zmap&&, charstr&& );
-    config( const zmap&, const charstr& );
 
   public:     // construction
     config();
     config( const zmap& );
     config( const config& );
+    config( const zmap&, const charstr& );
     config( const std::initializer_list<std::pair<zmap::key, zval>>& );
     config& operator = ( const zmap& );
     config& operator = ( const config& );
