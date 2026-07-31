@@ -606,6 +606,7 @@ namespace mtc
     auto  put( const key&, const zval& = zval() ) -> zval*;
 
   public:     // get_zval family
+    auto  get( const key&, const zval& ) const -> zval;
     auto  get( const key& ) const       -> const zval*;
     auto  get( const key& )             ->       zval*;
     auto  get_type( const key& ) const  -> decltype(zval::vx_type);

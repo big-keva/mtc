@@ -949,6 +949,15 @@ namespace mtc
     return pfound->pvalue.get();
   }
 
+  auto  zmap::get( const key& k, const zval& v ) const -> zval
+  {
+    const ztree_t*  p_tree;
+
+    if ( p_data != nullptr && (p_tree = p_data->search( k.data(), k.size() )) != nullptr )
+      return p_tree->pvalue.get();
+    return v;
+  }
+
   auto  zmap::get( const key& k ) const -> const zval*
   {
     const ztree_t*  p_tree;
