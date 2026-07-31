@@ -196,24 +196,14 @@ namespace json {
   # endif  // _MSC_VER
   # undef derive_printjson_dec
 
-  # define  derive_printjson_flo( _type_ )              \
-    template <class O, class D = print::compact>  O*  Print( O* o, _type_ t, const D& = D() )         \
-    {                                                   \
-      auto  s = std::to_string( t );                    \
-      auto  e = s.c_str() + s.length();                 \
-      auto  p = strrchr( s.c_str(), '.' );              \
-                                                        \
-      if ( p++ != nullptr && strspn( p, "0123456789" ) == size_t(e - p) ) \
-      {                                                 \
-        for ( ++p; e > p && e[-1] == '0'; --e )         \
-          (void)NULL;                                   \
-        s.resize( e - s.c_str() );                      \
-      }                                                 \
-      return ::Serialize( o, s.c_str(), s.length() );   \
-    }
-    derive_printjson_flo( float )
-    derive_printjson_flo( double )
-  # undef derive_printjson_flo
+  template <class O, class F, class D = print::compact,
+    typename = typename std::enable_if<std::is_floating_point<F>::value>::type>
+  O*  Print( O* o, F f, const D& = D() )
+  {
+    char  s[0x40];
+
+    return ::Serialize( o, s, snprintf( s, sizeof(s) - 1, "%g", f ) );
+  }
 
   template <class O, class D = print::compact>  O*  Print( O* o, bool bvalue, const D& = D() )
   {
