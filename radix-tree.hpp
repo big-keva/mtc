@@ -269,6 +269,10 @@ namespace radix {
     auto  lower_bound( const key& ) -> iterator<A>;
     auto  upper_bound( const key& ) -> iterator<A>;
 
+  public:
+    template <typename F, typename = std::enable_if_t<std::is_invocable_r_v<void, F, const key&, T&>>>
+    void  for_each( F fn );
+
   protected:
     void  del_value();
     auto  get_value() const -> const T&;
@@ -278,6 +282,8 @@ namespace radix {
     auto  set_value( T&& ) -> T&;
     template <class N, class O> static
     auto  move_down( N*, string_type<O>&, std::vector<N*, O>& ) -> N*;
+    template <class F>
+    void  for_each( std::vector<char>&, size_t, F );
 
   protected:
     string_type<A>  fragment;
@@ -1610,6 +1616,32 @@ namespace radix {
       iterator( std::move( keystr ), std::move( atrace ) ) : iterator();
   }
 */
+
+  template <class T, class A>
+  template <typename F, typename>
+  void  tree<T, A>::for_each( F fn )
+  {
+    std::vector<char> keybuf( 0x100 );
+    for_each( keybuf, 0, std::forward<F>( fn ) );
+  }
+
+  template <class T, class A>
+  template <typename F>
+  void  tree<T, A>::for_each( std::vector<char>& keybuf, size_t keylen, F action )
+  {
+    if ( keybuf.size() < keylen + fragment.size() )
+      keybuf.resize( (keylen + fragment.size() + 0xff) & ~0xff );
+
+    memcpy( keybuf.data() + keylen, fragment.data(), fragment.size() );
+      keylen += fragment.size();
+
+    if ( has_value() )
+      action( { keybuf.data(), keylen }, get_value() );
+
+    for ( auto& branch: static_cast<vector_type&>( *this ) )
+      branch.for_each( keybuf, keylen, action );
+  }
+
   // dump template implementation
 
   template <class S>
