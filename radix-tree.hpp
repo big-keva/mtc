@@ -50,14 +50,14 @@ SOFTWARE.
 # if !defined( __mtc_radix_tree_hpp__ )
 # define __mtc_radix_tree_hpp__
 # include "serialize.h"
+# include "tape.hpp"
 # include <type_traits>
 # include <stdexcept>
 # include <functional>
 # include <climits>
 # include <string>
 # include <vector>
-
-#include "patricia.h"
+#include <bits/ranges_base.h>
 
 namespace mtc {
 namespace radix {
@@ -127,19 +127,26 @@ namespace radix {
     template <class From, class To>
     using rebind = typename std::allocator_traits<From>::template rebind_alloc<To>;
 
-    struct stored_object
+    struct stored_value
     {
-      template <class M>
-      static  auto  create( const M&, void*& place ) -> T*
-        {  return (T*)&place;  }
+      static  auto  Access( const tree* t ) -> const T&  {  return  t->valueBuf;  }
+      static  auto  Access(       tree* t ) ->       T&  {  return  t->valueBuf;  }
+      static  auto  Create(       tree* t ) ->       T*  {  return &t->valueBuf;  }
+      static  void  Delete(       tree* t )              {  (void)t;  }
+    };
+    struct onheap_value
+    {
+      static  auto  Access( const tree* t ) -> const T&  {  return *t->valueBuf;  }
+      static  auto  Access(       tree* t ) ->       T&  {  return *t->valueBuf;  }
+      static  auto  Create(       tree* t ) ->       T*  {  return  t->valueBuf = rebind<A, T>( t->get_allocator() ).allocate( 1 );  }
+      static  void  Delete(       tree* t )              {  rebind<A, T>( t->get_allocator ).deallocate( t->valueBuf, 0 );  }
     };
 
-    struct onheap_object
-    {
-      template <class M>
-      static  auto  create( const M& alloc, void*& place ) -> T*
-        {  return (T*)(place = rebind<M, T>( alloc ).allocate( 1 ));  }
-    };
+    using access_value = typename std::conditional<sizeof(T) <= sizeof(T*),
+      stored_value,
+      onheap_value>::type;
+
+    using value_t = std::conditional_t<sizeof(T) <= sizeof(T*), T, T*>;
 
     template <class V, class Other = A>
     class iterator_base;
@@ -177,14 +184,6 @@ namespace radix {
     auto  Insert( const key&, T&& ) -> T&;
     auto  Search( const key& ) const -> const T*;
     auto  Search( const key& ) -> T*;
-
-  protected:
-    static  uint8_t  bytecount( unsigned u )
-    {
-      return (u & 0xffffff00) == 0 ? 1 :
-             (u & 0xffff0000) == 0 ? 2 :
-             (u & 0xff000000) == 0 ? 3 : 4;
-    }
 
   public:     // serialization
     auto  GetBufLen() const -> size_t;
@@ -287,14 +286,10 @@ namespace radix {
 
   protected:
     string_type<A>  fragment;
-    void*           valueBuf = nullptr;
+    value_t         valueBuf;
     size_t          valCount = 0;
     uint16_t        nodeSets = 0;   // lower 8 bits are the key character, upper mean value
 
-  private:
-    using create = typename std::conditional<sizeof(T) <= sizeof(valueBuf),
-      stored_object,
-      onheap_object>::type;
   };
 
   template <class T, class A>
@@ -423,6 +418,13 @@ namespace radix {
 
   };
 
+  static  inline  uint8_t bytecount( unsigned u )
+  {
+    return (u & 0xffffff00) == 0 ? 1 :
+           (u & 0xffff0000) == 0 ? 2 :
+           (u & 0xff000000) == 0 ? 3 : 4;
+  }
+
   struct dump<const char>::level
   {
     const char* pchars;
@@ -496,6 +498,129 @@ namespace radix {
     auto  operator* () const -> const iterator_value&;
     auto  operator++() -> const_iterator&;
     auto  operator++( int ) -> const_iterator;
+
+  };
+
+  template <class T, class A = std::allocator<T>>
+  class sink
+  {
+    template <class From, class To>
+    using rebind = typename std::allocator_traits<From>::template rebind_alloc<To>;
+
+    class node;
+
+    using MMan = rebind<A, node>;
+
+    node*   tree = nullptr;
+    size_t  ncnt = 0;
+    MMan    mman;
+
+  public:
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using allocator_type = typename std::allocator_traits<A>::template rebind_alloc<char>;
+    using value_type = std::pair<const key, T>;
+
+    sink( const sink& ) = delete;
+    sink& operator = ( const sink& ) = delete;
+  public:     // std::constructors
+    sink() = default;
+    explicit sink( const A& );
+    sink( sink&& ) noexcept;
+    template <class InputIterator>
+    sink( InputIterator, InputIterator, const A& = A() );
+    sink( const key&, const T&, const A& = A() );
+    sink( const key&, T&&, const A& = A() );
+    sink( const key&, const A& = A() );
+    sink( const std::initializer_list<value_type>&, const A& = A() );
+    sink& operator = ( sink&& ) noexcept;
+    sink& operator = ( const std::initializer_list<value_type>& );
+   ~sink();
+
+  public:     // native API
+    auto  Insert( const key&, const T& = T() ) -> T&;
+    auto  Insert( const key&, T&& ) -> T&;
+
+  public:     // serialization
+    size_t  GetBufLen() const;
+    template <class O>
+    O*      Serialize( O* ) const;
+
+  public:     // std::capacity
+    bool  empty() const {  return tree == nullptr;  }
+    auto  size() const -> size_t  {  return ncnt;  }
+
+  protected:
+    node*   insert( const unsigned char* k, size_t l );
+
+  };
+
+  template <class T, class A>
+  class sink<T, A>::node
+  {
+    friend class sink;
+
+    struct SubSec
+    {
+      size_t        len;
+      unsigned char key;
+    };
+
+    using value_t = std::conditional_t<sizeof(T) <= sizeof(T*), T, T*>;
+
+    SubSec    secBuf[0x100];
+    tape      serial;             // serialization result
+    node*     nested = nullptr;
+    value_t   xValue;
+    size_t    keylen;             // key-after-body length
+    int       secLen = 0;
+    uint16_t  dwSets = 0;         // lower 8 bits are the key character, upper mean value
+    MMan      memman;
+
+    struct stored_value
+    {
+      static  auto  Access( const node* n ) -> const T&  {  return  n->xValue;  }
+      static  auto  Access(       node* n ) ->       T&  {  return  n->xValue;  }
+      static  auto  Create(       node* n ) ->       T*  {  return &n->xValue;  }
+      static  void  Delete(       node* n )              {  (void)n;  }
+    };
+    struct onheap_value
+    {
+      static  auto  Access( const node* n ) -> const T&  {  return *n->xValue;  }
+      static  auto  Access(       node* n ) ->       T&  {  return *n->xValue;  }
+      static  auto  Create(       node* n ) ->       T*  {  return n->xValue = rebind<A, T>( n->memman ).allocate( 1 );  }
+      static  void  Delete(       node* n )              {  rebind<A, T>( n->memman ).deallocate( n->xValue, 0 );  }
+    };
+    using  access_value = typename std::conditional<sizeof(T) <= sizeof(T*),
+      stored_value,
+      onheap_value>::type;
+
+  protected:
+    node( const unsigned char*, size_t, MMan& );
+   ~node();
+
+    static
+    node* create( const unsigned char*, size_t, MMan );
+    node* insert( const unsigned char*, size_t );
+    void  remove();
+
+    auto  keyptr() -> unsigned char*  {  return (unsigned char*)(this + 1);  }
+    auto  keyptr() const -> const unsigned char*  {  return (unsigned char*)(this + 1);  }
+
+    void  del_value();
+    auto  get_value() -> T&;
+    auto  get_value() const -> const T&;
+    T&    set_value( size_t&, T&& );
+    T&    set_value( size_t&, const T& );
+    bool  has_value() const;
+
+    tape  make_tape();
+    tape  make_tape( const char* key, size_t len );
+
+  public:
+    size_t  GetBufLen() const;
+    template <class O>
+    O*      Serialize( O* ) const;
 
   };
 
@@ -923,7 +1048,7 @@ namespace radix {
   auto tree<T, A>::get_value() const -> const T&
   {
     if ( has_value() )     // check if valie is initialized
-      return sizeof(T) <= sizeof(valueBuf) ? *(const T*)&valueBuf : *(const T*)valueBuf;
+      return access_value::Access( this );
     throw std::logic_error( "uninitialized value access" );
   }
 
@@ -931,8 +1056,8 @@ namespace radix {
   auto  tree<T, A>::get_value() -> T&
   {
     if ( has_value() )     // check if value is initialized
-      return sizeof(T) <= sizeof(valueBuf) ? *(T*)&valueBuf : *(T*)valueBuf;
-    return *(new( create::create( vector_type::get_allocator(), valueBuf ) ) T());
+      return access_value::Access( this );
+    return *(new( access_value::Create( this ) ) T());
   }
 
   template <class T, class A>
@@ -940,10 +1065,8 @@ namespace radix {
   {
     if ( has_value() )
       return get_value() = t;
-
     nodeSets |= 0x0100;
-
-    return *(new( create::create( vector_type::get_allocator(), valueBuf ) ) T( t ));
+      return *(new( access_value::Create( this ) ) T( t ));
   }
 
   template <class T, class A>
@@ -953,8 +1076,7 @@ namespace radix {
       return get_value() = std::move( t );
 
     nodeSets |= 0x0100;
-
-    return *(new( create::create( vector_type::get_allocator(), valueBuf ) ) T( std::move( t ) ));
+      return *(new( access_value::Create( this ) ) T( std::move( t ) ));
   }
 
   template <class T, class A>
@@ -1163,14 +1285,14 @@ namespace radix {
   tree<T, A>::tree( const key& k, const T& val, const A& mem ):
     vector_type( mem ), fragment( k.begin(), k.end(), mem ), nodeSets( 0x0100 )
   {
-    new( create::create( mem, valueBuf ) ) T( val );
+    new(access_value::create(mem, valueBuf ) ) T(val );
   }
 
   template <class T, class A>
   tree<T, A>::tree( const key& k, T&& val, const A& mem ):
     vector_type( mem ), fragment( k.begin(), k.end(), mem ), nodeSets( 0x0100 )
   {
-    new( create::create( mem, valueBuf ) ) T( std::move( val ) );
+    new(access_value::create(mem, valueBuf ) ) T(std::move(val ) );
   }
 
   template <class T, class A>
@@ -1328,11 +1450,11 @@ namespace radix {
     uint8_t   offlen = 0;
     unsigned  ofprev;
 
-    // get value flags
+  // get value flags
     if ( has_value() )  ofprev = unsigned(::GetBufLen( get_value() ));
       else ofprev = 0;
 
-    // get nested nodes lengths and offsets; calc node shifts
+  // get nested nodes lengths and offsets; calc node shifts
     for ( auto& next: *(vector_type*)this )
     {
       offlen = std::max( offlen, uint8_t(bytecount( *offptr++ = ofprev ) - 1) );
@@ -1346,7 +1468,7 @@ namespace radix {
     if ( (o = ::Serialize( ::Serialize( ::Serialize( o, fragment ), uint8_t(vector_type::size()) ), offlen )) == nullptr )
       return o;
 
-    // store key nodes
+  // store key nodes
     for ( auto& next: *(vector_type*)this )
       o = ::Serialize( o, next.fragment.front() );
 
@@ -2205,6 +2327,418 @@ namespace radix {
     auto  self( *this );
       operator++();
     return self;
+  }
+
+}}
+
+namespace mtc {
+namespace radix {
+
+  // sink implementation
+
+  template <class T, class A>
+  sink<T, A>::sink( const A& mem ): mman( mem )
+  {
+  }
+
+  template <class T, class A>
+  template <class InputIterator>
+  sink<T, A>::sink( InputIterator beg, InputIterator end, const A& mem ): mman( mem )
+  {
+    for ( ; beg != end; ++beg )
+      Insert( beg->first, beg->second );
+  }
+
+  template <class T, class A>
+  sink<T, A>::sink( const std::initializer_list<value_type>& list, const A& mem ):
+    sink( list.begin(), list.end(), mem )
+  {
+  }
+
+  template <class T, class A>
+  sink<T, A>::sink( sink&& s ) noexcept:
+    tree( std::move( s.tree ) ),
+    ncnt( std::move( s.ncnt ) ),
+    mman( std::move( s.mman ) )
+  {
+    s.tree = nullptr;
+    s.ncnt = 0;
+  }
+
+  template <class T, class A>
+  auto  sink<T, A>::operator=( sink&& s ) noexcept -> sink&
+  {
+    if ( this != &s )
+    {
+      if ( tree != nullptr )
+        tree->remove();
+      mman = std::move( s.mman );
+      tree = std::move( s.tree );  s.tree = 0;
+      ncnt = std::move( s.ncnt );  s.ncnt = 0;
+    }
+    return *this;
+  }
+
+  template <class T, class A>
+  auto  sink<T, A>::operator=( const std::initializer_list<value_type>& list ) -> sink&
+  {
+    if ( tree != nullptr )
+      tree->remove();
+
+    tree = nullptr;
+    ncnt = 0;
+
+    for ( auto& next: list )
+      Insert( next.first, next.second );
+
+    return *this;
+  }
+
+  template <class T, class A>
+  sink<T, A>::~sink()
+  {
+    if ( tree != nullptr )
+      tree->remove();
+  }
+
+  template <class T, class A>
+  auto  sink<T, A>::Insert( const key& k, T&& t ) -> T&
+  {
+    return insert( k.data(), k.size() )->set_value( ncnt, std::move( t ) );
+  }
+
+  template <class T, class A>
+  auto  sink<T, A>::Insert( const key& k, const T& t ) -> T&
+  {
+    return insert( k.data(), k.size() )->set_value( ncnt, t );
+  }
+
+  template <class T, class A>
+  size_t  sink<T, A>::GetBufLen() const
+  {
+    return tree != nullptr ? tree->GetBufLen() : 3; // empty stub
+  }
+
+  template <class T, class A>
+  template <class O>
+  O*  sink<T, A>::Serialize( O* o ) const
+  {
+    return tree != nullptr ? tree->Serialize( o ) : ::Serialize( ::Serialize( ::Serialize( o,
+      char(0) ), char(0) ), char(0) ); // empty stub
+  }
+
+  template <class T, class A>
+  auto  sink<T, A>::insert( const unsigned char* k, size_t l ) -> node*
+  {
+    return tree != nullptr ? tree->insert( k, l ) : tree = node::create( k, l, mman );
+  }
+
+  // sink::node implementation
+
+  template <class T, class A>
+  sink<T, A>::node::node( const unsigned char* k, size_t l, MMan& m ):
+    keylen( l ),
+    memman( m )
+  {
+    memcpy( keyptr(), k, l );
+  }
+
+  template <class T, class A>
+  sink<T, A>::node::~node()
+  {
+    del_value();
+    if ( nested != nullptr )
+    {
+      nested->~node();
+      memman.deallocate( nested, 0 );
+    }
+  }
+
+  template <class T, class A>
+  auto  sink<T, A>::node::create( const unsigned char* k, size_t l, MMan m ) -> node*
+  {
+    auto  nalloc = (l + sizeof( node ) * 2 - 1) / sizeof(node);
+    auto  palloc = m.allocate( nalloc );
+
+    return new( palloc ) node( k, l, m );
+  }
+
+  template <class T, class A>
+  auto  sink<T, A>::node::insert( const unsigned char* addkey, size_t addlen ) -> node*
+  {
+    auto    keybeg = keyptr();
+    auto    keyend = keyptr() + keylen;
+    auto    addend = addkey + addlen;
+    size_t  oldLen;
+    size_t  newLen;
+    int     rescmp = 0;
+
+  // compare matching keys
+    while ( keybeg != keyend && addkey != addend && (rescmp = *addkey - *keybeg) == 0 )
+      ++keybeg, ++addkey;
+
+    if ( rescmp == 0 )
+      rescmp = addlen - keylen;
+
+  // check if less or equal (unsupported case)
+    if ( rescmp < 0 )
+      throw std::logic_error( "sink must receive keys in increasing order" );
+
+  // либо ключ совпадает с этим уровнем, он может
+  // * либо совпадать полностью, тогда возвращаем этот узел
+  // * если отличается далее, то
+  //   - если последняя ветка существует и годится для добавления ключа - добавить в неё,
+  //     иначе сериализовать ветку и создать новуюs
+    if ( keybeg == keyend )
+    {
+      if ( addkey == addend )
+        return this;
+
+      if ( nested != nullptr )
+      {
+        if ( *nested->keyptr() > *addkey )
+          throw std::logic_error( "sink must receive keys in increasing order" );
+
+        if ( *nested->keyptr() == *addkey )
+          return nested->insert( addkey, addend - addkey );
+
+        oldLen = serial.GetBufLen();
+          serial.append( std::move( nested->make_tape() ) );
+        newLen = serial.GetBufLen();
+
+        secBuf[secLen++] = { newLen - oldLen, *nested->keyptr() };
+          nested->~node();
+        memman.deallocate( nested, 0 );
+      }
+      return nested = node::create( addkey, addend - addkey, memman );
+    }
+
+  // иначе расщепление узела
+    serial = make_tape( (const char*)keybeg, keyend - keybeg );
+
+    secBuf[0] = { serial.GetBufLen(), *keybeg },
+      secLen = 1;
+    del_value(),
+      keylen = keybeg - keyptr();
+
+    return nested = node::create( addkey, addend - addkey, memman );
+  }
+
+  template <class T, class A>
+  void  sink<T, A>::node::remove()
+  {
+    auto  mm = memman;
+      this->~node();
+    mm.deallocate( this, 0 );
+  }
+
+  template <class T, class A>
+  void sink<T, A>::node::del_value()
+  {
+    if ( has_value() )
+    {
+      get_value().~T();
+        access_value::Delete( this );
+      dwSets &= ~0x0100;
+    }
+  }
+
+  template <class T, class A>
+  T&    sink<T, A>::node::get_value()
+  {
+    if ( has_value() )     // check if valie is initialized
+      return access_value::Access( this );
+    throw std::logic_error( "uninitialized value access" );
+  }
+
+  template <class T, class A>
+  const T&    sink<T, A>::node::get_value() const
+  {
+    if ( has_value() )     // check if valie is initialized
+      return access_value::Access( this );
+    throw std::logic_error( "uninitialized value access" );
+  }
+
+  template <class T, class A>
+  T&    sink<T, A>::node::set_value( size_t& s, T&& t )
+  {
+    if ( has_value() )
+      return get_value() = std::move( t );
+    ++s, dwSets |= 0x0100;
+      return *(new( access_value::Create( this ) ) T( std::move( t ) ));
+  }
+
+  template <class T, class A>
+  T&    sink<T, A>::node::set_value( size_t& s, const T& t )
+  {
+    if ( has_value() )
+      return get_value() = t;
+    ++s, dwSets |= 0x0100;
+      return *(new( access_value::Create( this ) ) T( t ));
+  }
+
+  template <class T, class A>
+  bool  sink<T, A>::node::has_value() const
+  {
+    return (dwSets & 0x0100) != 0;
+  }
+
+  template <class T, class A>
+  tape  sink<T, A>::node::make_tape()
+  {
+    return make_tape( (const char*)keyptr(), keylen );
+  }
+
+  template <class T, class A>
+  tape  sink<T, A>::node::make_tape( const char* key, size_t len )
+  {
+    unsigned  offset[256];
+    unsigned* offptr = offset;
+    uint8_t   offlen = 0;
+    unsigned  ofprev;
+    tape      header;
+
+  // check for branches
+    if ( nested != nullptr )
+    {
+      auto  oldLen = serial.GetBufLen();
+        serial.append( nested->make_tape() );
+      auto  newLen = serial.GetBufLen();
+
+      secBuf[secLen++] = { uint32_t(newLen - oldLen), *nested->keyptr() };
+        nested->~node();
+      memman.deallocate( nested, 0 );
+        nested = nullptr;
+    }
+
+  // get value flags
+    if ( has_value() )  ofprev = unsigned(::GetBufLen( get_value() ));
+      else ofprev = 0;
+
+  // get nested nodes lengths and offsets; calc node shifts
+    for ( int i = 0; i != secLen; ++i )
+    {
+      offlen = std::max( offlen, uint8_t(bytecount( *offptr++ = ofprev ) - 1) );
+      ofprev += secBuf[i].len;
+    }
+
+    if ( has_value() )
+      offlen |= 0x40;
+
+  // store root element
+    ::Serialize( ::Serialize( header.append().ptr(),
+      len ),
+      key, len );
+    ::Serialize( ::Serialize( header.append().ptr(),
+      uint8_t(secLen) ),
+      uint8_t(offlen) );
+
+  // store key nodes
+    for ( int i = 0; i != secLen; ++i )
+      ::Serialize( header.append().ptr(), secBuf[i].key );
+
+  // store relocation table
+    for ( int i = 0; i != secLen; ++i )
+      for ( auto uvalue = offset[i], u = unsigned(0); u <= unsigned(offlen & 0x03); ++u, uvalue >>= 8 )
+        ::Serialize( header.append().ptr(), uint8_t(uvalue) );
+
+  // store value
+    if ( (offlen & 0x40) != 0 )
+      (void)::Serialize( header.append().ptr(), get_value() );
+
+  // store the nodes
+    return std::move( header.append( std::move( serial ) ) );
+  }
+
+  template <class T, class A>
+  size_t  sink<T, A>::node::GetBufLen() const
+  {
+    auto    length = has_value() ? ::GetBufLen( get_value() ) : 0;
+    auto    ofprev = length;
+    uint8_t offlen = 0;
+
+    // get nested nodes lengths and offsets; calc node shifts
+    for ( int i = 0; i != secLen; ++i )
+    {
+      auto  it_len = secBuf[i].len;
+
+      offlen = (std::max)( offlen, uint8_t(bytecount( unsigned(ofprev) ) - 1) );
+        ofprev += it_len;
+        length += it_len;
+    }
+    if ( nested != nullptr )
+    {
+      auto  it_len = nested->GetBufLen();
+
+      offlen = (std::max)( offlen, uint8_t(bytecount( unsigned(ofprev) ) - 1) );
+        ofprev += it_len;
+        length += it_len;
+    }
+
+    length += ::GetBufLen( keylen ) + keylen + 2 + (offlen + 2) * (secLen + (nested != nullptr ? 1 : 0));
+
+    return length;
+  }
+
+  template <class T, class A>
+  template <class O>
+  O*  sink<T, A>::node::Serialize( O* o ) const
+  {
+    unsigned  offset[256];
+    unsigned* offptr = offset;
+    uint8_t   offlen = 0;
+    unsigned  ofprev;
+
+  // get value flags
+    if ( has_value() )  ofprev = unsigned(::GetBufLen( get_value() ));
+      else ofprev = 0;
+
+  // get nested nodes lengths and offsets; calc node shifts
+    for ( int i = 0; i != secLen; ++i )
+    {
+      offlen = std::max( offlen, uint8_t(bytecount( *offptr++ = ofprev ) - 1) );
+      ofprev += secBuf[i].len;
+    }
+    if ( nested != nullptr )
+    {
+      offlen = std::max( offlen, uint8_t(bytecount( *offptr++ = ofprev ) - 1) );
+      ofprev += uint32_t(nested->GetBufLen());
+    }
+
+    if ( has_value() )
+      offlen |= 0x40;
+
+  // store root element
+    o = ::Serialize( ::Serialize( o,
+      keylen ),
+      keyptr(), keylen );
+    o = ::Serialize( ::Serialize( o,
+      uint8_t(offptr - offset) ),
+      uint8_t(offlen) );
+
+  // store key nodes
+    for ( int i = 0; i != secLen; ++i )
+      o = ::Serialize( o, secBuf[i].key );
+    if ( nested != nullptr )
+      o = ::Serialize( o, *nested->keyptr() );
+
+  // store relocation table
+    for ( int i = 0; i != secLen; ++i )
+      for ( auto uvalue = offset[i], u = unsigned(0); u <= unsigned(offlen & 0x03); ++u, uvalue >>= 8 )
+        o = ::Serialize( o, uint8_t(uvalue) );
+    if ( nested != nullptr )
+      for ( auto uvalue = offset[secLen], u = unsigned(0); u <= unsigned(offlen & 0x03); ++u, uvalue >>= 8 )
+        o = ::Serialize( o, uint8_t(uvalue) );
+
+  // store value
+    if ( (offlen & 0x40) != 0 )
+      o = ::Serialize( o, get_value() );
+
+  // store the nodes
+    o = nested != nullptr ? nested->Serialize( serial.Serialize( o ) )
+      : serial.Serialize( o );
+
+    return o;
   }
 
 }}
