@@ -16,13 +16,11 @@ namespace mtc {
       friend class Arena;
 
       const size_t          lblock;
-      std::atomic<block*>   blocks;   // list of elements
-      std::atomic<
-      std::atomic<block*>*> pchain;   // last in list
-      std::atomic_uint32_t  mcount;   // count of blocks
-      std::atomic_uint64_t  musage;   // memory allocated
+      std::atomic<block*>   blocks{ nullptr };  // list of elements
+      std::atomic_uint32_t  mcount{ 0 };        // count of blocks
+      std::atomic_uint64_t  musage{ 0 };        // memory allocated
 
-      std::atomic_long      rcount;   // arena lifetime
+      std::atomic_long      rcount;             // arena lifetime
 
     public:
       arena( size_t section );
@@ -92,7 +90,7 @@ namespace mtc {
   {
     friend class Arena;
 
-    std::atomic<block*> next;
+    block*              next;
     std::atomic<char*>  ptop;
     const char* const   pend;     // end marker
 
@@ -103,8 +101,8 @@ namespace mtc {
       pend( ubytes + (char*)this )  {}
    ~block()
       {
-        if ( next != nullptr )
-          next.load()->Delete();
+        if (next != nullptr )
+          next->Delete();
       }
     void  operator delete( void* ) = delete;
 
@@ -197,32 +195,44 @@ namespace mtc {
   {
     auto    minlen = std::max( at_least + sizeof(block), section );
     size_t  ualloc = (minlen + 0x0fff) & ~0x0fff;
-    auto    palloc = new char[ualloc];
+    auto    palloc = malloc( ualloc );
 
-    return new( palloc ) block( ualloc );
+    return palloc != nullptr ? new ( palloc ) block( ualloc ) : throw std::bad_alloc();
   }
 
   inline
   void  Arena::block::Delete()
   {
     this->~block();
-    delete [] (char*)this;
+    free( this );
   }
 
   inline
   void* Arena::block::allocate( size_t size, size_t align )
   {
+    auto  maxlen = size + (align = std::max( align, size_t(1) )) - 1;
+    auto  mtotal = (maxlen + align - 1) & ~(align - 1);
+    auto  pstart = ptop.fetch_add( mtotal );
+
+    if ( pstart + mtotal > pend )
+      return nullptr;
+
+    return (void*)(((uintptr_t)pstart + align - 1) & ~(align - 1));
+  /*
+    auto  pstart = ptop.load();
+    auto  palign = ptr::align( pstart, align );
+
     for ( ; ; )
     {
-      auto  pstart = ptop.load();
-      auto  palign = ptr::align( pstart, align );
       auto  pfinal = palign + size;
 
       if ( pfinal >= pend )
         return nullptr;
       if ( ptop.compare_exchange_strong( pstart, pfinal ) )
         return palign;
+      palign = ptr::align( pstart, align );
     }
+   */
   }
 
   // Arena::arena implementation
@@ -231,7 +241,6 @@ namespace mtc {
   Arena::arena::arena( size_t section ):
     lblock( section ),
     blocks( nullptr ),
-    pchain( &blocks ),
     mcount( 0 ),
     musage( 0 ),
     rcount( 1 ) {}
@@ -251,33 +260,25 @@ namespace mtc {
   inline
   void* Arena::arena::allocate( size_t size, size_t align )
   {
-    auto  pplast = ptr::clean( pchain.load() );   // &atomic<block*>, never nullptr
+    musage.fetch_add( size, std::memory_order_relaxed );
 
-    for ( ; ; )
+    for ( auto pblock = blocks.load( std::memory_order_acquire ); pblock != nullptr; pblock = pblock->next )
     {
-      auto  pblock = ptr::clean( (*pplast).load() );  // pointer to last block, may be nullptr
-      void* newptr;
-
-      // set pointer to be eigher !nullptr, or dirty nullptr
-      while ( pblock == nullptr && !(*pplast).compare_exchange_strong( pblock, ptr::dirty( pblock ) ) )
-        pblock = ptr::clean( pblock );
-
-      // if !nullptr, try allocate subblock
-      if ( pblock != nullptr )
-      {
-        // if allocated, finish work
-        if ( (newptr = pblock->allocate( size, align )) != nullptr )
-          return musage += size, ++mcount, newptr;
-
-        // else block can not provide subblock, perhaps is filled; switch chain to
-        // it's next subblock
-        while ( ptr::clean( (*pplast).load() ) != nullptr && !pchain.compare_exchange_strong( pplast, &(*pplast).load()->next ) )
-          (void)NULL;
-      }
-        else
-      // else pblock is broken nullptr; try initialize it
-      *pplast = block::Create( size + align, lblock );
+      if ( auto palloc = pblock->allocate( size, align ); palloc != nullptr )
+        return palloc;
     }
+  
+    mcount.fetch_add( 1, std::memory_order_relaxed );
+
+    auto  pblock = block::Create( size + align, lblock );
+    auto  palloc = pblock->allocate( size, align );
+    auto  pstart = blocks.load( std::memory_order_acquire );
+
+    do {
+      pblock->next = pstart;
+    } while ( !blocks.compare_exchange_weak( pstart, pblock,  std::memory_order_release, std::memory_order_acquire) );
+  
+    return palloc;
   }
 
   // Arena implemntation
