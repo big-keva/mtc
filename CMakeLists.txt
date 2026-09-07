@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(mtc)
 
 option(INSTALL_MTC "Enable mtc installation" OFF)
-option(BUILD_TESTS "Build library tests" OFF)
+option(BUILD_TESTS "Build library tests" ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -36,6 +36,7 @@ add_library(mtc STATIC
   src/zval-compare.cpp
   src/zmap.cpp
   src/json.cpp
+  src/tape.cpp
 
   src/test-it-easy.cpp
 )
@@ -85,5 +86,7 @@ if(INSTALL_MTC)
 endif()
 
 if(BUILD_TESTS)
+  add_subdirectory(tests)
+
   enable_testing()
 endif()
