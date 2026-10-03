@@ -402,7 +402,22 @@ namespace mtc
 # if __cplusplus >= 202002L
     return n != 0 ? std::countr_zero( n ) : -1;
 # elif defined( __GNUC__ ) || defined( __clang__ )
-    return n != 0 ? __builtin_ctz( n ) : -1;
+    if constexpr (sizeof(U) <= sizeof(unsigned int))
+      return n != 0 ? __builtin_ctz( n ) : -1;
+    else if constexpr (sizeof(U) <= sizeof(unsigned long))
+      return n != 0 ? __builtin_ctzl( n ) : -1;
+    else if constexpr (sizeof(U) <= sizeof(unsigned long long))
+      return n != 0 ? __builtin_ctzll( n ) : -1;
+    else
+    {
+      int count = 0;
+      while ( (n & 1) == 0 )
+      {
+          count++;
+          n >>= 1;
+      }
+      return count;
+    }
 # elif defined( _MSC_VER )
     unsigned long index;
 
@@ -415,7 +430,7 @@ namespace mtc
   {
     for ( auto p = std::begin( v ); p != std::end( v ); ++p )
       if ( *p != 0 )
-        return CHAR_BIT * (p - std::begin( v )) + bitset_first( *p );
+        return int(CHAR_BIT * sizeof(U) * (p - std::begin( v )) + bitset_first( *p ));
     return -1;
   }
 
@@ -444,9 +459,9 @@ namespace mtc
   template <class U, class A>
   int   bitset_last( const std::vector<U, A>& s )
   {
-    for ( auto p = s.end(); p > s.begin(); --p )
-      if ( p[-1] != 0 )
-        return CHAR_BIT * (p - s.begin()) + bitset_last( *p );
+    for ( auto p = s.end(); p > s.begin(); )
+      if ( *(--p) != 0 )
+        return int(CHAR_BIT * sizeof(U) * (p - s.begin()) + bitset_last( *p ));
     return -1;
   }
 
@@ -454,8 +469,8 @@ namespace mtc
   int   bitset_last( const U (&arr)[N] )
   {
     for ( auto p = std::end( arr ); p > std::begin( arr ); --p )
-      if ( p[-1] != 0 )
-        return int(CHAR_BIT * (p - std::begin( arr )) + bitset_last( *p ));
+      if ( *(--p) != 0 )
+        return int(CHAR_BIT * sizeof(U) * (p - std::begin( arr )) + bitset_last( *p ));
     return -1;
   }
 
