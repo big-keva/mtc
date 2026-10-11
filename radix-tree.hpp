@@ -139,7 +139,7 @@ namespace radix {
       static  auto  Access( const tree* t ) -> const T&  {  return *t->valueBuf;  }
       static  auto  Access(       tree* t ) ->       T&  {  return *t->valueBuf;  }
       static  auto  Create(       tree* t ) ->       T*  {  return  t->valueBuf = rebind<A, T>( t->get_allocator() ).allocate( 1 );  }
-      static  void  Delete(       tree* t )              {  rebind<A, T>( t->get_allocator ).deallocate( t->valueBuf, 0 );  }
+      static  void  Delete(       tree* t )              {  rebind<A, T>( t->get_allocator() ).deallocate( t->valueBuf, 0 );  }
     };
 
     using access_value = typename std::conditional<sizeof(T) <= sizeof(T*),
@@ -429,13 +429,13 @@ namespace radix {
   {
     const char* pchars;
     size_t      ccfrag;
-    uint8_t     kcount;
+    uint16_t    bcount;
+    uint16_t    offset;
     uint8_t     bflags;
-    uint8_t     offset;
 
     auto  get_value() const -> const char*
     {
-      return pchars + (2 + (bflags & 0x03)) * kcount;
+      return pchars + (2 + (bflags & 0x03)) * bcount;
     }
     bool  has_value() const
     {
@@ -443,13 +443,13 @@ namespace radix {
     }
     auto  get_level() const
     {
-      auto  target = pchars + kcount;
+      auto  target = pchars + bcount;
       auto  cbOffs = 1 + (bflags & 0x03);
       auto  cbJump = size_t();
 
       getint( target + offset * cbOffs, cbJump, cbOffs );
 
-      return target + kcount * cbOffs + cbJump;
+      return target + bcount * cbOffs + cbJump;
     }
 
     bool  operator != ( const level& it ) const  {  return !(*this == it);  }
@@ -1037,9 +1037,7 @@ namespace radix {
     if ( has_value() )
     {
       get_value().~T();
-
-      if ( sizeof(T) > sizeof(valueBuf) )
-        rebind<A, T>( vector_type::get_allocator() ).deallocate( (T*)valueBuf, 0 );
+        access_value::Delete( this );
       nodeSets &= ~0x0100;
     }
   }
@@ -1285,14 +1283,14 @@ namespace radix {
   tree<T, A>::tree( const key& k, const T& val, const A& mem ):
     vector_type( mem ), fragment( k.begin(), k.end(), mem ), nodeSets( 0x0100 )
   {
-    new(access_value::create(mem, valueBuf ) ) T(val );
+    new( access_value::create( mem, valueBuf ) ) T( val );
   }
 
   template <class T, class A>
   tree<T, A>::tree( const key& k, T&& val, const A& mem ):
     vector_type( mem ), fragment( k.begin(), k.end(), mem ), nodeSets( 0x0100 )
   {
-    new(access_value::create(mem, valueBuf ) ) T(std::move(val ) );
+    new( access_value::create( mem, valueBuf ) ) T( std::move( val ) );
   }
 
   template <class T, class A>
@@ -1436,7 +1434,7 @@ namespace radix {
         length += it_len;
     }
 
-    length += ::GetBufLen( fragment ) + 2 + (offlen + 2) * vector_type::size();
+    length += ::GetBufLen( fragment ) + 1 + ::GetBufLen( vector_type::size() ) + (offlen + 2) * vector_type::size();
 
     return length;
   }
@@ -1465,7 +1463,7 @@ namespace radix {
       offlen |= 0x40;
 
   // store root element
-    if ( (o = ::Serialize( ::Serialize( ::Serialize( o, fragment ), uint8_t(vector_type::size()) ), offlen )) == nullptr )
+    if ( (o = ::Serialize( ::Serialize( ::Serialize( o, fragment ), vector_type::size() ), offlen )) == nullptr )
       return o;
 
   // store key nodes
@@ -1966,7 +1964,7 @@ namespace radix {
     while ( s != nullptr )
     {
       size_t      cchkey;   // level key length
-      uint8_t     bcount;   // branch count
+      uint16_t    bcount;   // branch count
       uint8_t     bflags;   // level flags
       const char* pmatch;
       size_t      offset;
@@ -1990,8 +1988,8 @@ namespace radix {
         if ( *keyptr++ != uint8_t(*s++) ) return nullptr;
 
     // get branch count and level flags
-      bcount = uint8_t(*s++);
-      bflags = uint8_t(*s++);
+      s = ::FetchFrom( s, bcount );
+        bflags = uint8_t(*s++);
 
       b2offs = 1 + (bflags & 0x3);
 
@@ -2048,7 +2046,7 @@ namespace radix {
 
       b2offs = 1 + (bflags & 0x3);
 
-      vec.emplace_back( level{ s, cchkey, kcount, bflags, 0 } );
+      vec.emplace_back( level{ s, cchkey, kcount, 0, bflags } );
 
       // check if the key is completely scanned
       if ( key == end )
@@ -2110,7 +2108,7 @@ namespace radix {
           return false;
 
         vec.push_back(
-          level{ ptr + cchstr + 2, cchstr, kcount, bflags, uint8_t(it_beg - ptr - cchstr - 2 ) } );
+          level{ ptr + cchstr + 2, cchstr, kcount, uint8_t(it_beg - ptr - cchstr - 2), bflags } );
         str.append( ptr, cchstr );
 
         getint( ptr + cchstr + 2 + kcount + vec.back().offset * bitlen,
@@ -2143,29 +2141,29 @@ namespace radix {
   {
     while ( tree != nullptr )
     {
-      size_t  ccfrag;
-      uint8_t kcount;
-      uint8_t bflags;
-      size_t  cbJump;
+      size_t    ccfrag;
+      uint16_t  bcount;
+      uint8_t   bflags;
+      size_t    cbJump;
 
       if ( (tree = ::FetchFrom( tree, ccfrag )) == nullptr )
         return false;
 
       key.append( tree, ccfrag );
-      tree += ccfrag;
+        tree += ccfrag;
 
-      kcount = *tree++;
-      bflags = *tree++;
+      tree = ::FetchFrom( tree, bcount );
+        bflags = *tree++;
 
-      trace.emplace_back( level{ tree, ccfrag, kcount, bflags, 0 } );
+      trace.emplace_back( level{ tree, ccfrag, bcount, 0, bflags } );
 
       if ( trace.back().has_value() )
         return true;
 
-      if ( kcount != 0 )
+      if ( bcount != 0 )
       {
-        getint( tree += kcount, cbJump, 1 + (bflags & 0x03) );
-          tree += kcount * (1 + (bflags & 0x03)) + cbJump;
+        getint( tree += bcount, cbJump, 1 + (bflags & 0x03) );
+          tree += bcount * (1 + (bflags & 0x03)) + cbJump;
       } else break;
     }
     return false;
@@ -2282,23 +2280,23 @@ namespace radix {
 
   // if the iterator is on some node, check if the node has subbranches;
   // go down until the first key is meeted
-    if ( trace.back().kcount != 0 )
+    if ( trace.back().bcount != 0 )
       for ( ; ; )
       {
-        auto  subptr = trace.back().pchars + trace.back().kcount;
+        auto  subptr = trace.back().pchars + trace.back().bcount;
         auto  subOfs = size_t{};
         auto  ofSize = 1 + (trace.back().bflags & 0x3);
 
         getint( subptr, subOfs, ofSize );
 
-        godown( subptr + trace.back().kcount * ofSize + subOfs, itkey, trace );
+        godown( subptr + trace.back().bcount * ofSize + subOfs, itkey, trace );
 
         return new( &value )
           iterator_value{ itkey, trace.back().get_value() }, *this;
       }
 
   // if on ending leaf, go up until any more branches
-    while ( !trace.empty() && ++trace.back().offset >= trace.back().kcount )
+    while ( !trace.empty() && ++trace.back().offset >= trace.back().bcount )
     {
       itkey.resize( itkey.length() - trace.back().ccfrag );
         trace.pop_back();
