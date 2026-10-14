@@ -1789,7 +1789,7 @@ namespace radix {
     while ( s != nullptr )
     {
       size_t    cchkey;   // level key length
-      uint8_t   bcount;   // branch count
+      uint16_t  bcount;   // branch count
       uint8_t   bflags;   // level flags
       uint8_t*  pmatch;
       size_t    offset;
